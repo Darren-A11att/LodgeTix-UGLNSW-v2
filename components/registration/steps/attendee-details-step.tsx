@@ -10,6 +10,7 @@ import { AttendeeCard } from "../attendee-card"
 import { PrimaryMasonForm } from "../forms/primary-mason-form"
 import { AdditionalMasonForm } from "../forms/additional-mason-form"
 import { GuestForm } from "../forms/guest-form"
+import { SectionHeader } from "../SectionHeader"
 
 export function AttendeeDetailsStep() {
   const { state, dispatch } = useRegistration()
@@ -38,11 +39,11 @@ export function AttendeeDetailsStep() {
 
   return (
     <div className="space-y-6">
-      <div className="text-center">
+      <SectionHeader>
         <h1 className="text-2xl font-bold text-masonic-navy">Attendee Details</h1>
         <div className="masonic-divider"></div>
         <p className="text-gray-600">Please provide details for all attendees</p>
-      </div>
+      </SectionHeader>
 
       <div className="space-y-6">
         {/* Primary Attendee Section */}

@@ -19,6 +19,9 @@ export function registrationReducer(state: RegistrationState, action: Registrati
       }
 
     case "SET_PRIMARY_ATTENDEE": {
+      if (!action.payload) {
+        return state;
+      }
       const primaryAttendee: MasonAttendee = {
         ...action.payload,
         id: action.payload.id || uuidv4(),
@@ -26,6 +29,13 @@ export function registrationReducer(state: RegistrationState, action: Registrati
       return {
         ...state,
         primaryAttendee,
+      }
+    }
+
+    case "CLEAR_PRIMARY_ATTENDEE": {
+      return {
+        ...state,
+        primaryAttendee: null,
       }
     }
 

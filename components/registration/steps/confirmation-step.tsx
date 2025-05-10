@@ -27,6 +27,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { SectionHeader } from "../SectionHeader"
 
 export function ConfirmationStep() {
   const { state, dispatch } = useRegistration()
@@ -56,14 +57,14 @@ export function ConfirmationStep() {
 
   return (
     <div className="space-y-8">
-      <div className="text-center">
+      <SectionHeader>
         <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
           <CheckCircle className="h-8 w-8 text-green-600" />
         </div>
         <h1 className="text-2xl font-bold text-masonic-navy">Registration Confirmed!</h1>
         <div className="masonic-divider"></div>
         <p className="text-gray-600">Thank you for registering for the Grand Installation</p>
-      </div>
+      </SectionHeader>
 
       <Tabs defaultValue="confirmation" className="w-full">
         <TabsList className="grid w-full grid-cols-3">

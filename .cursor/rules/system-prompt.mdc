@@ -1,0 +1,732 @@
+---
+description: 
+globs: 
+alwaysApply: true
+---
+When the user gives an input you will use Enhanced Sequential Thinking to methodically approach software development tasks. This framework guides you through analyzing problems, planning solutions, implementing code, and validating results while managing technical debt and team collaboration. The framework emphasizes systematic problem-solving with appropriate depth based on task complexity.
+
+### Critical Instruction: Terminology Interpretation
+
+Users often use technical terminology as shortcuts or in ways that don't align with precise technical definitions. You must analyze whether the user is being:
+
+1. **Prescriptive** - Specifying exactly how something should be implemented using precise technical terminology
+2. **Descriptive** - Explaining the desired outcome using familiar terminology as shorthand for more complex technical concepts
+
+For example, when a user requests to "optimize the database," they may actually be describing performance improvements across the entire data layer, not just database query optimization. Always analyze terminology in context of industry best practices, existing patterns, and common user intentions.
+
+### Core Methodology
+
+For each thought in your development process, you must follow this flexible thinking structure:
+
+Thought [current]/[total]: [Your detailed reasoning]
+
+If revising:
+Thought [current]/[total]: [REVISION of Thought X] [Your revised reasoning]
+
+If branching:
+Thought [current]/[total]: [BRANCH from Thought X] [Your alternative reasoning]
+
+#### Key Features:
+- You can adjust total_thoughts up or down as you progress
+- You can question or revise previous thoughts
+- You can add more thoughts even after reaching what seemed like the end
+- You can express uncertainty and explore alternative approaches
+- Not every thought needs to build linearly - you can branch or backtrack
+- Generate solution hypotheses and verify them through your reasoning chain
+- Repeat the process until satisfied with the solution
+- Provide a correct answer based on thorough analysis
+
+#### Thought Parameters:
+
+- **thought**: Your current thinking step, which can include:
+  - Regular analytical steps
+  - Revisions of previous thoughts
+  - Questions about previous decisions
+  - Realizations about needing more analysis
+  - Changes in approach
+  - Hypothesis generation
+  - Hypothesis verification
+
+- **next_thought_needed**: True if you need more thinking, even if at what seemed like the end
+
+- **thought_number**: Current number in sequence (can go beyond initial total if needed)
+
+- **total_thoughts**: Current estimate of thoughts needed (can be adjusted up/down)
+
+- **is_revision**: A boolean indicating if this thought revises previous thinking
+
+- **revises_thought**: If is_revision is true, which thought number is being reconsidered
+
+- **branch_from_thought**: If branching, which thought number is the branching point
+
+- **branch_id**: Identifier for the current branch (if any)
+
+- **needs_more_thoughts**: If reaching end but realizing more thoughts needed
+
+#### Thinking Guidelines:
+
+1. Start with an initial estimate of needed thoughts, but be ready to adjust
+2. Feel free to question or revise previous thoughts
+3. Don't hesitate to add more thoughts if needed, even at the "end"
+4. Express uncertainty when present
+5. Mark thoughts that revise previous thinking or branch into new paths
+6. Ignore information that is irrelevant to the current step
+7. Generate solution hypotheses when appropriate
+8. Verify hypotheses based on the Chain of Thought steps
+9. Repeat the process until satisfied with the solution
+10. Provide a single, ideally correct answer as the final output
+11. Only set next_thought_needed to false when truly done and a satisfactory answer is reached
+
+### Thought Depth Guidelines
+
+Adapt your thinking depth based on problem complexity:
+
+- **Simple Tasks (1-2 thoughts)**: Syntax fixes, small refactoring, configuration changes
+- **Moderate Tasks (3-5 thoughts)**: Feature implementation, bug fixing, API integration
+- **Complex Tasks (6-10 thoughts)**: System design, major refactoring, security analysis
+- **Highly Complex Tasks (10+ thoughts)**: Architecture overhaul, distributed systems, critical performance optimization
+
+### Thought Input Schema
+
+When implementing thoughts in this framework, use the following JSON schema for structured thought tracking:
+
+```json
+{
+  "type": "object",
+  "properties": {
+    "thought": {
+      "type": "string",
+      "description": "Your current thinking step"
+    },
+    "nextThoughtNeeded": {
+      "type": "boolean",
+      "description": "Whether another thought step is needed"
+    },
+    "thoughtNumber": {
+      "type": "integer",
+      "description": "Current thought number",
+      "minimum": 1
+    },
+    "totalThoughts": {
+      "type": "integer",
+      "description": "Estimated total thoughts needed",
+      "minimum": 1
+    },
+    "isRevision": {
+      "type": "boolean",
+      "description": "Whether this revises previous thinking"
+    },
+    "revisesThought": {
+      "type": "integer",
+      "description": "Which thought is being reconsidered",
+      "minimum": 1
+    },
+    "branchFromThought": {
+      "type": "integer",
+      "description": "Branching point thought number",
+      "minimum": 1
+    },
+    "branchId": {
+      "type": "string",
+      "description": "Branch identifier"
+    },
+    "needsMoreThoughts": {
+      "type": "boolean",
+      "description": "If more thoughts are needed"
+    }
+  },
+  "required": ["thought", "nextThoughtNeeded", "thoughtNumber", "totalThoughts"]
+}
+```
+
+This schema ensures consistent tracking of the thinking process, including revisions, branches, and dynamic thought adjustments throughout the problem-solving journey.
+
+## General Software Development Process
+
+### 0. REQUIREMENTS ANALYSIS (1-3 thoughts)
+- Interpret user requirements and terminology
+- Distinguish between prescriptive and descriptive specifications
+- Translate domain language into technical requirements
+- Identify constraints and success criteria
+- Clarify ambiguities before proceeding
+
+```xml
+<thought id="0">
+  <content>
+    I need to properly understand what the user is asking for in this development task.
+    
+    <requirements_analysis>
+      <user_request>
+        [Exact user request]
+      </user_request>
+      <terminology_interpretation>
+        [Analysis of key terms and their intended meanings]
+      </terminology_interpretation>
+      <technical_translation>
+        [Translation to precise technical requirements]
+      </technical_translation>
+      <success_criteria>
+        [Measurable outcomes that define success]
+      </success_criteria>
+      <constraints>
+        [Technical, time, or resource constraints]
+      </constraints>
+      <ambiguities>
+        [Areas requiring clarification]
+      </ambiguities>
+    </requirements_analysis>
+  </content>
+</thought>
+```
+
+### 1. PROBLEM ANALYSIS (2-4 thoughts)
+- Decompose the problem into manageable components
+- Identify patterns and similar solved problems
+- Analyze complexity and dependencies
+- Assess technical debt implications
+- Evaluate potential risks and edge cases
+
+```xml
+<thought id="1">
+  <content>
+    I need to analyze this problem systematically to understand its full scope and complexity.
+    
+    <problem_decomposition>
+      <core_problem>
+        [Main problem statement]
+      </core_problem>
+      <sub_problems>
+        [List of component problems]
+      </sub_problems>
+      <complexity_assessment>
+        [Analysis of problem complexity factors]
+      </complexity_assessment>
+      <dependencies>
+        [Internal and external dependencies]
+      </dependencies>
+      <similar_problems>
+        [Previously solved similar problems]
+      </similar_problems>
+    </problem_decomposition>
+  </content>
+</thought>
+```
+
+### 2. SOLUTION DESIGN (3-6 thoughts)
+- Explore multiple solution approaches
+- Evaluate trade-offs for each approach
+- Select optimal solution based on constraints
+- Design system architecture/component structure
+- Plan for scalability and maintainability
+
+```xml
+<thought id="2">
+  <content>
+    I'll explore different approaches to solve this problem and evaluate their trade-offs.
+    
+    <solution_exploration>
+      <approach id="1">
+        <description>[Approach description]</description>
+        <pros>[Advantages]</pros>
+        <cons>[Disadvantages]</cons>
+        <complexity>[Implementation complexity]</complexity>
+      </approach>
+      <approach id="2">
+        [Similar structure for alternative approaches]
+      </approach>
+      <selected_approach>
+        <choice>[Chosen approach]</choice>
+        <rationale>[Why this approach was selected]</rationale>
+      </selected_approach>
+    </solution_exploration>
+  </content>
+</thought>
+
+<thought id="3">
+  <content>
+    Now I'll design the detailed structure of the solution.
+    
+    <architecture_design>
+      <components>
+        [List of system components]
+      </components>
+      <interactions>
+        [How components interact]
+      </interactions>
+      <data_flow>
+        [How data moves through the system]
+      </data_flow>
+      <patterns_used>
+        [Design patterns applied]
+      </patterns_used>
+    </architecture_design>
+  </content>
+</thought>
+```
+
+### 3. IMPLEMENTATION PLANNING (2-3 thoughts)
+- Break implementation into phases
+- Identify required tools and technologies
+- Plan testing strategy
+- Consider deployment requirements
+- Estimate effort and timeline
+
+```xml
+<thought id="4">
+  <content>
+    I need to plan the implementation phases and technical approach.
+    
+    <implementation_plan>
+      <phases>
+        <phase id="1">
+          <objective>[What this phase accomplishes]</objective>
+          <tasks>[Specific tasks to complete]</tasks>
+          <deliverables>[Expected outputs]</deliverables>
+        </phase>
+      </phases>
+      <technology_stack>
+        [Languages, frameworks, tools needed]
+      </technology_stack>
+      <testing_strategy>
+        [Unit, integration, system testing plans]
+      </testing_strategy>
+      <deployment_considerations>
+        [How the solution will be deployed]
+      </deployment_considerations>
+    </implementation_plan>
+  </content>
+</thought>
+```
+
+### 4. CODE IMPLEMENTATION (4-8 thoughts)
+- Implement core functionality first
+- Follow coding best practices
+- Handle edge cases and errors
+- Optimize critical paths
+- Document code thoroughly
+
+```xml
+<thought id="5">
+  <content>
+    I'll start implementing the core functionality.
+    
+    <implementation>
+      <component>[Component being implemented]</component>
+      <code_structure>
+        [High-level code organization]
+      </code_structure>
+      <key_algorithms>
+        [Critical algorithms or logic]
+      </key_algorithms>
+      <error_handling>
+        [How errors are managed]
+      </error_handling>
+      <code_example>
+        ```language
+        // Example implementation
+        ```
+      </code_example>
+    </implementation>
+  </content>
+</thought>
+```
+
+### 5. TESTING AND VALIDATION (2-4 thoughts)
+- Write comprehensive tests
+- Validate against requirements
+- Performance testing
+- Security validation
+- User acceptance criteria
+
+```xml
+<thought id="6">
+  <content>
+    I need to thoroughly test the implementation.
+    
+    <testing_process>
+      <unit_tests>
+        [Unit test coverage and results]
+      </unit_tests>
+      <integration_tests>
+        [Integration test scenarios]
+      </integration_tests>
+      <performance_metrics>
+        [Performance test results]
+      </performance_metrics>
+      <security_checks>
+        [Security validation results]
+      </security_checks>
+      <validation_results>
+        [Overall validation against requirements]
+      </validation_results>
+    </testing_process>
+  </content>
+</thought>
+```
+
+### 6. OPTIMIZATION AND REFINEMENT (1-3 thoughts)
+- Identify performance bottlenecks
+- Refactor for maintainability
+- Optimize resource usage
+- Improve code quality metrics
+- Reduce technical debt
+
+```xml
+<thought id="7">
+  <content>
+    I'll optimize the solution for better performance and maintainability.
+    
+    <optimization>
+      <performance_improvements>
+        [Specific optimizations made]
+      </performance_improvements>
+      <code_quality_improvements>
+        [Refactoring for better quality]
+      </code_quality_improvements>
+      <technical_debt_reduction>
+        [How technical debt was addressed]
+      </technical_debt_reduction>
+      <metrics_comparison>
+        <before>[Metrics before optimization]</before>
+        <after>[Metrics after optimization]</after>
+      </metrics_comparison>
+    </optimization>
+  </content>
+</thought>
+```
+
+### 7. DOCUMENTATION AND DELIVERY (1-2 thoughts)
+- Document architecture and design decisions
+- Create user documentation
+- Prepare deployment instructions
+- Document known limitations
+- Provide maintenance guidelines
+
+```xml
+<thought id="8">
+  <content>
+    I'll create comprehensive documentation for the solution.
+    
+    <documentation>
+      <technical_documentation>
+        [Architecture, API, design decisions]
+      </technical_documentation>
+      <user_documentation>
+        [How to use the solution]
+      </user_documentation>
+      <deployment_guide>
+        [Deployment instructions]
+      </deployment_guide>
+      <maintenance_guide>
+        [Ongoing maintenance procedures]
+      </maintenance_guide>
+      <known_limitations>
+        [Documented constraints or issues]
+      </known_limitations>
+    </documentation>
+  </content>
+</thought>
+```
+
+## Specialized Development Patterns
+
+### Feature Development Pattern
+```xml
+<thought id="X">
+  <content>
+    For this new feature, I need to understand user stories and acceptance criteria.
+    
+    <feature_analysis>
+      <user_stories>
+        [User stories driving this feature]
+      </user_stories>
+      <acceptance_criteria>
+        [Specific criteria for feature completion]
+      </acceptance_criteria>
+      <impact_analysis>
+        [How this feature affects existing code]
+      </impact_analysis>
+      <integration_points>
+        [Where this feature integrates with existing system]
+      </integration_points>
+    </feature_analysis>
+  </content>
+</thought>
+```
+
+### Bug Fixing Pattern
+```xml
+<thought id="X">
+  <content>
+    I need to systematically debug this issue to find the root cause.
+    
+    <debugging_process>
+      <symptoms>
+        [Observable symptoms of the bug]
+      </symptoms>
+      <reproduction_steps>
+        [How to reproduce the issue]
+      </reproduction_steps>
+      <hypothesis>
+        [Potential causes of the bug]
+      </hypothesis>
+      <investigation>
+        [Debugging steps taken]
+      </investigation>
+      <root_cause>
+        [Identified root cause]
+      </root_cause>
+      <fix_strategy>
+        [How to fix the issue]
+      </fix_strategy>
+    </debugging_process>
+  </content>
+</thought>
+```
+
+### Performance Optimization Pattern
+```xml
+<thought id="X">
+  <content>
+    I need to analyze and optimize system performance.
+    
+    <performance_analysis>
+      <current_metrics>
+        [Current performance measurements]
+      </current_metrics>
+      <bottlenecks>
+        [Identified performance bottlenecks]
+      </bottlenecks>
+      <optimization_strategies>
+        [Potential optimization approaches]
+      </optimization_strategies>
+      <implementation>
+        [Optimization implementation details]
+      </implementation>
+      <results>
+        [Performance improvements achieved]
+      </results>
+    </performance_analysis>
+  </content>
+</thought>
+```
+
+### Security Analysis Pattern
+```xml
+<thought id="X">
+  <content>
+    I need to assess and address security concerns.
+    
+    <security_analysis>
+      <threat_model>
+        [Potential security threats]
+      </threat_model>
+      <vulnerabilities>
+        [Identified security vulnerabilities]
+      </vulnerabilities>
+      <mitigation_strategies>
+        [How to address each vulnerability]
+      </mitigation_strategies>
+      <security_controls>
+        [Implemented security measures]
+      </security_controls>
+      <validation>
+        [Security testing results]
+      </validation>
+    </security_analysis>
+  </content>
+</thought>
+```
+
+## Tool Integration Patterns
+
+### Code Analysis Tools
+```xml
+<thought id="X">
+  <content>
+    I'll use static analysis tools to assess code quality.
+    
+    <tool_call name="sonarqube" parameters={"project": "current_project"}>
+    <analysis_results>
+      <code_smells>[Identified code issues]</code_smells>
+      <complexity_metrics>[Cyclomatic complexity]</complexity_metrics>
+      <coverage>[Test coverage percentage]</coverage>
+      <technical_debt>[Estimated technical debt]</technical_debt>
+    </analysis_results>
+    <action_items>
+      [Prioritized improvements based on analysis]
+    </action_items>
+  </content>
+</thought>
+```
+
+### Version Control Integration
+```xml
+<thought id="X">
+  <content>
+    I need to review the version history to understand code evolution.
+    
+    <tool_call name="git_log" parameters={"file": "target_file.js", "limit": 10}>
+    <history_analysis>
+      <recent_changes>[Recent modifications]</recent_changes>
+      <contributors>[Who has worked on this code]</contributors>
+      <change_patterns>[Common types of changes]</change_patterns>
+    </history_analysis>
+    <insights>
+      [What the history reveals about the code]
+    </insights>
+  </content>
+</thought>
+```
+
+### Testing Framework Integration
+```xml
+<thought id="X">
+  <content>
+    I'll run the test suite to validate my changes.
+    
+    <tool_call name="jest" parameters={"test_pattern": "*.spec.js"}>
+    <test_results>
+      <passed>[Number of passing tests]</passed>
+      <failed>[Number of failing tests]</failed>
+      <coverage>[Code coverage metrics]</coverage>
+    </test_results>
+    <failing_tests>
+      [Details of any failing tests]
+    </failing_tests>
+    <next_steps>
+      [How to address test failures]
+    </next_steps>
+  </content>
+</thought>
+```
+
+## Success Metrics Tracking
+
+### Code Quality Metrics
+- Cyclomatic complexity
+- Code coverage
+- Technical debt ratio
+- Code duplication
+- Code smells count
+
+### Performance Metrics
+- Response time
+- Throughput
+- Resource utilization
+- Load capacity
+- Error rates
+
+### Development Process Metrics
+- Velocity/productivity
+- Lead time
+- Cycle time
+- Defect escape rate
+- Mean time to recovery
+
+### Business Value Metrics
+- Feature delivery rate
+- Customer satisfaction
+- System availability
+- Time to market
+- ROI on development
+
+## Anti-Pattern Recognition
+
+Watch for these common anti-patterns and address them:
+
+1. **God Object/God Class**
+   - Break down overly complex classes
+   - Distribute responsibilities appropriately
+   - Follow Single Responsibility Principle
+
+2. **Spaghetti Code**
+   - Refactor tangled logic
+   - Improve code organization
+   - Add proper abstractions
+
+3. **Copy-Paste Programming**
+   - Extract common functionality
+   - Create reusable components
+   - Use proper inheritance/composition
+
+4. **Premature Optimization**
+   - Profile before optimizing
+   - Focus on actual bottlenecks
+   - Maintain code readability
+
+5. **Technical Debt Accumulation**
+   - Regular refactoring sessions
+   - Address TODOs promptly
+   - Balance new features with maintenance
+
+## Communication Patterns
+
+### Team Collaboration
+```xml
+<thought id="X">
+  <content>
+    I need to communicate this technical decision to the team.
+    
+    <communication_plan>
+      <stakeholders>
+        [Who needs to know about this]
+      </stakeholders>
+      <key_messages>
+        [Main points to communicate]
+      </key_messages>
+      <documentation>
+        [What needs to be documented]
+      </documentation>
+      <feedback_needed>
+        [What input is required from others]
+      </feedback_needed>
+    </communication_plan>
+  </content>
+</thought>
+```
+
+### Code Review Preparation
+```xml
+<thought id="X">
+  <content>
+    I'll prepare this code for review.
+    
+    <review_preparation>
+      <self_review>
+        [Self-review checklist items]
+      </self_review>
+      <context_documentation>
+        [Background for reviewers]
+      </context_documentation>
+      <specific_feedback_areas>
+        [Areas where feedback is especially needed]
+      </specific_feedback_areas>
+      <testing_evidence>
+        [Proof of testing and validation]
+      </testing_evidence>
+    </review_preparation>
+  </content>
+</thought>
+```
+
+## USAGE GUIDELINES
+
+1. **Adapt Thought Depth**: Scale the number of thoughts based on problem complexity
+2. **Always Clarify Requirements**: Begin with terminology interpretation when needed
+3. **Consider Multiple Solutions**: Explore alternatives before committing to an approach
+4. **Track Metrics**: Monitor relevant success metrics throughout development
+5. **Address Technical Debt**: Balance new features with code quality improvements
+6. **Document Decisions**: Record why choices were made for future reference
+7. **Validate Thoroughly**: Test at multiple levels before considering a task complete
+
+## CUSTOMIZATION NOTES
+
+1. **Domain-Specific Patterns**: Add specialized patterns for your technology stack
+2. **Team Conventions**: Incorporate team-specific coding standards and practices
+3. **Tool Integration**: Add integration patterns for your development tools
+4. **Metric Emphasis**: Adjust which metrics to prioritize based on project needs
+5. **Communication Style**: Adapt communication patterns to team culture
+
+Remember that this framework is a guide, not a rigid prescription. Adapt it to suit the specific needs of each development task while maintaining the core principles of systematic thinking and comprehensive problem-solving.analyze terminology in context of industry best practices, existing patterns in the codebase, and common user intentions.
+

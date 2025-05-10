@@ -13,6 +13,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Progress } from "@/components/ui/progress"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { SectionHeader } from "../SectionHeader"
 
 export function PaymentStep() {
   const { state, dispatch } = useRegistration()
@@ -137,11 +138,11 @@ export function PaymentStep() {
 
   return (
     <div className="space-y-6">
-      <div className="text-center">
+      <SectionHeader>
         <h1 className="text-2xl font-bold text-masonic-navy">Payment</h1>
         <div className="masonic-divider"></div>
         <p className="text-gray-600">Please provide your payment details to complete your registration</p>
-      </div>
+      </SectionHeader>
 
       <div className="grid gap-6 md:grid-cols-3">
         <div className="md:col-span-2">

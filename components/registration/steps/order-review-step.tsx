@@ -10,6 +10,7 @@ import { Check, ChevronRight, CreditCard, Info, Ticket, User, Users } from "luci
 import type { Attendee } from "@/lib/registration-types"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { SectionHeader } from "../SectionHeader"
 
 export function OrderReviewStep() {
   const { state, dispatch } = useRegistration()
@@ -60,11 +61,11 @@ export function OrderReviewStep() {
 
   return (
     <div className="space-y-6">
-      <div className="text-center">
+      <SectionHeader>
         <h1 className="text-2xl font-bold text-masonic-navy">Review Your Order</h1>
         <div className="masonic-divider"></div>
         <p className="text-gray-600">Please review your registration details before proceeding to payment</p>
-      </div>
+      </SectionHeader>
 
       <Card className="border-masonic-navy">
         <CardHeader className="bg-masonic-navy text-white">

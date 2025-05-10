@@ -101,9 +101,9 @@ export function PrimaryMasonForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      <div className="grid gap-6 md:grid-cols-12">
-        <div className="space-y-2 md:col-span-2">
+    <form onSubmit={handleSubmit} className="space-y-6 w-full max-w-full mx-auto">
+      <div className="grid gap-6 grid-cols-2 md:grid-cols-12 w-full max-w-full mx-auto">
+        <div className="space-y-2 col-span-2 md:col-span-2">
           <Label htmlFor="masonicTitle">Masonic Title</Label>
           <Select
             value={formData.masonicTitle}
@@ -122,7 +122,7 @@ export function PrimaryMasonForm() {
           </Select>
         </div>
 
-        <div className="space-y-2 md:col-span-4">
+        <div className="space-y-2 col-span-2 md:col-span-4">
           <Label htmlFor="firstName">First Name</Label>
           <Input
             id="firstName"
@@ -132,7 +132,7 @@ export function PrimaryMasonForm() {
           />
         </div>
 
-        <div className="space-y-2 md:col-span-4">
+        <div className="space-y-2 col-span-2 md:col-span-4">
           <Label htmlFor="lastName">Last Name</Label>
           <Input
             id="lastName"
@@ -142,26 +142,26 @@ export function PrimaryMasonForm() {
           />
         </div>
 
-        <div className="space-y-2 md:col-span-2">
+        <div className="space-y-2 col-span-1 md:col-span-2">
           <Label htmlFor="rank">Masonic Rank</Label>
           <Select value={formData.rank} onValueChange={(value) => handleChange("rank", value as MasonicRank)}>
             <SelectTrigger>
               <SelectValue placeholder="Select rank" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="EAF">Entered Apprentice Freemason (EAF)</SelectItem>
-              <SelectItem value="FCF">Fellow Craft Freemason (FCF)</SelectItem>
-              <SelectItem value="MM">Master Mason (MM)</SelectItem>
-              <SelectItem value="IM">Installed Master (IM)</SelectItem>
-              <SelectItem value="GL">Grand Lodge Rank (GL)</SelectItem>
+              <SelectItem value="EAF">EAF</SelectItem>
+              <SelectItem value="FCF">FCF</SelectItem>
+              <SelectItem value="MM">MM</SelectItem>
+              <SelectItem value="IM">IM</SelectItem>
+              <SelectItem value="GL">GL</SelectItem>
             </SelectContent>
           </Select>
         </div>
       </div>
 
       {formData.rank === "GL" && (
-        <div className="space-y-6 p-4 bg-masonic-lightblue rounded-lg">
-          <div className="space-y-2">
+        <div className="grid gap-6 grid-cols-2 md:grid-cols-12 p-4 bg-masonic-lightblue rounded-lg">
+          <div className="space-y-2 col-span-2 md:col-span-2">
             <Label htmlFor="grandRank">Grand Rank</Label>
             <Input
               id="grandRank"
@@ -173,7 +173,7 @@ export function PrimaryMasonForm() {
             <p className="text-xs text-gray-500">Maximum 6 characters</p>
           </div>
 
-          <div className="space-y-2">
+          <div className="space-y-2 col-span-2 md:col-span-2">
             <Label htmlFor="grandOfficerStatus">Grand Officer Status</Label>
             <Select
               value={formData.grandOfficerStatus}
@@ -190,7 +190,7 @@ export function PrimaryMasonForm() {
           </div>
 
           {formData.grandOfficerStatus === "Present" && (
-            <div className="space-y-2">
+            <div className="space-y-2 col-span-2 md:col-span-4">
               <Label htmlFor="presentGrandOfficerRole">Present Grand Officer Role</Label>
               <Select
                 value={formData.presentGrandOfficerRole}
@@ -212,7 +212,7 @@ export function PrimaryMasonForm() {
           )}
 
           {formData.presentGrandOfficerRole === "Other" && (
-            <div className="space-y-2">
+            <div className="space-y-2 col-span-2 md:col-span-4">
               <Label htmlFor="otherGrandOfficerRole">Specify Role</Label>
               <Input
                 id="otherGrandOfficerRole"
@@ -225,8 +225,8 @@ export function PrimaryMasonForm() {
         </div>
       )}
 
-      <div className="grid gap-6 md:grid-cols-12">
-        <div className="space-y-2 md:col-span-6">
+      <div className="grid gap-6 grid-cols-2 md:grid-cols-12 w-full max-w-full mx-auto">
+        <div className="space-y-2 col-span-2 md:col-span-6">
           <Label htmlFor="grandLodge">Grand Lodge</Label>
           <Input
             id="grandLodge"
@@ -237,7 +237,7 @@ export function PrimaryMasonForm() {
           />
         </div>
 
-        <div className="space-y-2 md:col-span-6">
+        <div className="space-y-2 col-span-2 md:col-span-6">
           <Label htmlFor="lodgeName">Lodge Name & No</Label>
           <Input
             id="lodgeName"
@@ -249,8 +249,8 @@ export function PrimaryMasonForm() {
         </div>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-12">
-        <div className="space-y-2 md:col-span-6">
+      <div className="grid gap-6 grid-cols-2 md:grid-cols-12 w-full max-w-full mx-auto">
+        <div className="space-y-2 col-span-2 md:col-span-6">
           <Label htmlFor="mobile">Mobile</Label>
           <Input
             id="mobile"
@@ -261,7 +261,7 @@ export function PrimaryMasonForm() {
           />
         </div>
 
-        <div className="space-y-2 md:col-span-6">
+        <div className="space-y-2 col-span-2 md:col-span-6">
           <Label htmlFor="email">Email</Label>
           <Input
             id="email"
@@ -273,8 +273,8 @@ export function PrimaryMasonForm() {
         </div>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-12">
-        <div className="space-y-2 md:col-span-6">
+      <div className="grid gap-6 grid-cols-2 md:grid-cols-12 w-full max-w-full mx-auto">
+        <div className="space-y-2 col-span-2 md:col-span-6">
           <Label htmlFor="dietaryRequirements">Dietary Requirements</Label>
           <Textarea
             id="dietaryRequirements"
@@ -284,7 +284,7 @@ export function PrimaryMasonForm() {
           />
         </div>
 
-        <div className="space-y-2 md:col-span-6">
+        <div className="space-y-2 col-span-2 md:col-span-6">
           <Label htmlFor="specialNeeds">Special Needs or Accessibility Requirements</Label>
           <Textarea
             id="specialNeeds"
@@ -323,6 +323,13 @@ export function PrimaryMasonForm() {
           </CardContent>
         </Card>
       )}
+
+      {/* Add submit button for saving primary attendee */}
+      <div className="flex justify-end">
+        <Button type="submit" className="bg-masonic-navy hover:bg-masonic-blue">
+          Save Primary Attendee
+        </Button>
+      </div>
     </form>
   )
 }

@@ -6,6 +6,7 @@ import type { RegistrationType } from "@/lib/registration-types"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Users, Building, Award, Check } from "lucide-react"
+import { SectionHeader } from "../SectionHeader"
 
 export function RegistrationTypeStep() {
   const { state, dispatch } = useRegistration()
@@ -19,15 +20,15 @@ export function RegistrationTypeStep() {
 
   return (
     <div className="space-y-6">
-      <div className="text-center">
+      <SectionHeader>
         <h1 className="text-2xl font-bold text-masonic-navy">Select Registration Type</h1>
         <div className="masonic-divider"></div>
         <p className="text-gray-600">Please select how you would like to register for this event</p>
-      </div>
+      </SectionHeader>
 
-      <div className="grid gap-6 md:grid-cols-3">
+      <div className="grid gap-6 md:grid-cols-3 items-stretch">
         <Card
-          className={`border-2 transition-all ${
+          className={`flex flex-col h-full border-2 transition-all ${
             selectedType === "myself-others"
               ? "border-masonic-gold bg-masonic-lightblue"
               : "border-gray-200 hover:border-masonic-lightgold"
@@ -58,7 +59,7 @@ export function RegistrationTypeStep() {
               </li>
             </ul>
           </CardContent>
-          <CardFooter className="pt-2">
+          <CardFooter className="pt-2 mt-auto">
             <Button
               onClick={() => handleSelectType("myself-others")}
               className="w-full bg-masonic-navy hover:bg-masonic-blue"
@@ -69,7 +70,7 @@ export function RegistrationTypeStep() {
         </Card>
 
         <Card
-          className={`border-2 transition-all ${
+          className={`flex flex-col h-full border-2 transition-all ${
             selectedType === "lodge"
               ? "border-masonic-gold bg-masonic-lightblue"
               : "border-gray-200 hover:border-masonic-lightgold"
@@ -100,7 +101,7 @@ export function RegistrationTypeStep() {
               </li>
             </ul>
           </CardContent>
-          <CardFooter className="pt-2">
+          <CardFooter className="pt-2 mt-auto">
             <Button onClick={() => handleSelectType("lodge")} className="w-full bg-masonic-navy hover:bg-masonic-blue">
               Select
             </Button>
@@ -108,7 +109,7 @@ export function RegistrationTypeStep() {
         </Card>
 
         <Card
-          className={`border-2 transition-all ${
+          className={`flex flex-col h-full border-2 transition-all ${
             selectedType === "delegation"
               ? "border-masonic-gold bg-masonic-lightblue"
               : "border-gray-200 hover:border-masonic-lightgold"
@@ -139,7 +140,7 @@ export function RegistrationTypeStep() {
               </li>
             </ul>
           </CardContent>
-          <CardFooter className="pt-2">
+          <CardFooter className="pt-2 mt-auto">
             <Button
               onClick={() => handleSelectType("delegation")}
               className="w-full bg-masonic-navy hover:bg-masonic-blue"

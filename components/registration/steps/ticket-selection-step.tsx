@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge"
 import { Package, Check, User, UserPlus } from "lucide-react"
 import type { Attendee, Ticket, MasonAttendee, GuestAttendee, PartnerAttendee } from "@/lib/registration-types"
 import { v4 as uuidv4 } from "uuid"
+import { SectionHeader } from "../SectionHeader"
 
 // Sample ticket types
 const ticketTypes = [
@@ -184,11 +185,11 @@ export function TicketSelectionStep() {
 
   return (
     <div className="space-y-6">
-      <div className="text-center">
+      <SectionHeader>
         <h1 className="text-2xl font-bold text-masonic-navy">Select Tickets</h1>
         <div className="masonic-divider"></div>
         <p className="text-gray-600">Please select tickets for each attendee</p>
-      </div>
+      </SectionHeader>
 
       <div className="space-y-4">
         {eligibleAttendees.map((attendee) => (
