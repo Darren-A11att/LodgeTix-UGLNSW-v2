@@ -1,10 +1,9 @@
 "use client"
 
 import type React from "react"
-
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { v4 as uuidv4 } from "uuid"
-import type { GuestAttendee, ContactPreference } from "@/lib/registration-types"
+import type { GuestAttendee, PartnerAttendee, ContactPreference } from "@/lib/registration-types"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -12,26 +11,70 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea"
 import { PartnerForm } from "./partner-form"
 import { Card, CardContent } from "@/components/ui/card"
-import { Plus } from "lucide-react"
+import { Plus, X } from "lucide-react"
+import { useRegistrationStore } from "@/lib/registration-store";
+import { AlertModal } from "@/components/ui/alert-modal"
 
 interface GuestFormProps {
   onSubmit: (guest: GuestAttendee) => void
+  initialData?: Partial<GuestAttendee>
+  onFormClose?: () => void
+  isDialog?: boolean
 }
 
-export function GuestForm({ onSubmit }: GuestFormProps) {
+export function GuestForm({ onSubmit, initialData, onFormClose, isDialog }: GuestFormProps) {
   const [showPartnerForm, setShowPartnerForm] = useState(false)
-  const [formData, setFormData] = useState<Partial<GuestAttendee>>({
-    type: "guest",
-    id: uuidv4(),
-    title: "Mr",
-    contactPreference: "Primary Attendee" as ContactPreference,
-    hasPartner: false,
+  const addAdditionalAttendee = useRegistrationStore((state) => state.addAdditionalAttendee);
+  const [formData, setFormData] = useState<Partial<GuestAttendee>>(() => {
+    const defaults: Partial<GuestAttendee> = {
+      type: "guest",
+      id: uuidv4(),
+      title: "Mr",
+      contactPreference: "Primary Attendee" as ContactPreference,
+      hasPartner: false,
+      firstName: "",
+      lastName: "",
+      dietaryRequirements: "",
+      specialNeeds: "",
+    }
+    return { ...defaults, ...initialData }
   })
+
+  // Alert modal state
+  const [alertModalOpen, setAlertModalOpen] = useState(false)
+  const [alertModalData, setAlertModalData] = useState({
+    title: "",
+    description: "",
+    variant: "default" as "default" | "destructive" | "success" | "warning"
+  })
+
+  useEffect(() => {
+    if (initialData) {
+      setFormData((prev) => ({
+        ...prev,
+        ...initialData,
+        id: initialData.id || prev.id || uuidv4(),
+      }))
+      setShowPartnerForm(!!initialData.hasPartner && !!initialData.partner)
+    } else {
+      setFormData({
+        type: "guest",
+        id: uuidv4(),
+        title: "Mr",
+        contactPreference: "Primary Attendee" as ContactPreference,
+        hasPartner: false,
+        firstName: "",
+        lastName: "",
+        dietaryRequirements: "",
+        specialNeeds: "",
+      })
+      setShowPartnerForm(false)
+    }
+  }, [initialData])
 
   const handleChange = (field: keyof GuestAttendee, value: any) => {
     setFormData((prev) => ({ ...prev, [field]: value }))
 
-    // Reset contact fields when preference changes
     if (field === "contactPreference" && value !== "Directly") {
       setFormData((prev) => ({
         ...prev,
@@ -41,182 +84,221 @@ export function GuestForm({ onSubmit }: GuestFormProps) {
     }
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
+  const showAlert = (title: string, description: string, variant: "default" | "destructive" | "success" | "warning" = "default") => {
+    setAlertModalData({ title, description, variant })
+    setAlertModalOpen(true)
+  }
 
-    // Validate form
+  const handleSaveGuest = () => {
     if (
       !formData.firstName ||
       !formData.lastName ||
       (formData.contactPreference === "Directly" && (!formData.mobile || !formData.email))
     ) {
-      alert("Please fill in all required fields")
+      showAlert(
+        "Required Fields Missing", 
+        "Please fill in all required Guest fields. " + 
+        (formData.contactPreference === "Directly" ? "Mobile and email are required when 'Contact Directly' is selected." : ""),
+        "warning"
+      )
       return
     }
 
     onSubmit(formData as GuestAttendee)
 
-    // Reset form
-    setFormData({
-      type: "guest",
-      id: uuidv4(),
-      title: "Mr",
-      contactPreference: "Primary Attendee" as ContactPreference,
-      hasPartner: false,
-    })
-    setShowPartnerForm(false)
+    if (!initialData) {
+      setFormData({
+        type: "guest",
+        id: uuidv4(),
+        title: "Mr",
+        contactPreference: "Primary Attendee" as ContactPreference,
+        hasPartner: false,
+        firstName: "",
+        lastName: "",
+        dietaryRequirements: "",
+        specialNeeds: "",
+      })
+      setShowPartnerForm(false)
+    }
   }
 
   const handleTogglePartnerForm = () => {
-    setShowPartnerForm(!showPartnerForm)
-    setFormData((prev) => ({ ...prev, hasPartner: !showPartnerForm }))
+    const newShowPartnerForm = !showPartnerForm;
+    setShowPartnerForm(newShowPartnerForm)
+    setFormData((prev) => ({ ...prev, hasPartner: newShowPartnerForm }))
+    if(!newShowPartnerForm){
+        setFormData((prev) => {
+            const {partner, ...rest} = prev;
+            return rest;
+        });
+    }
   }
 
+  const handlePartnerSubmit = (partnerData: PartnerAttendee) => {
+    setFormData((prev) => ({
+      ...prev,
+      hasPartner: true,
+      partner: {
+        ...partnerData,
+        id: prev.partner?.id || partnerData.id || uuidv4(),
+      }
+    }));
+    addAdditionalAttendee(partnerData);
+  }
+  
+  const submitButtonText = initialData ? "Update Guest" : "Add Guest"
+
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      <div className="grid gap-6 md:grid-cols-3">
+    <>
+      <div className="space-y-6">
+        <div className="grid gap-6 md:grid-cols-3">
+          <div className="space-y-2">
+            <Label htmlFor="guestTitle">Title</Label>
+            <Select 
+              value={formData.title || "Mr"} 
+              onValueChange={(value) => handleChange("title", value)}
+            >
+              <SelectTrigger id="guestTitle"><SelectValue placeholder="Select title" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Mr">Mr</SelectItem>
+                <SelectItem value="Mrs">Mrs</SelectItem>
+                <SelectItem value="Ms">Ms</SelectItem>
+                <SelectItem value="Miss">Miss</SelectItem>
+                <SelectItem value="Mx">Mx</SelectItem>
+                <SelectItem value="Dr">Dr</SelectItem>
+                <SelectItem value="Prof">Prof</SelectItem>
+                <SelectItem value="Other">Other</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="guestFirstName">First Name</Label>
+            <Input
+              id="guestFirstName"
+              value={formData.firstName || ""}
+              onChange={(e) => handleChange("firstName", e.target.value)}
+              required
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="guestLastName">Last Name</Label>
+            <Input
+              id="guestLastName"
+              value={formData.lastName || ""}
+              onChange={(e) => handleChange("lastName", e.target.value)}
+              required
+            />
+          </div>
+        </div>
+
         <div className="space-y-2">
-          <Label htmlFor="title">Title</Label>
-          <Select value={formData.title} onValueChange={(value) => handleChange("title", value)}>
-            <SelectTrigger>
-              <SelectValue placeholder="Select title" />
-            </SelectTrigger>
+          <Label htmlFor="guestContactPreference">Contact Preference</Label>
+          <Select
+            value={formData.contactPreference}
+            onValueChange={(value) => handleChange("contactPreference", value as ContactPreference)}
+          >
+            <SelectTrigger id="guestContactPreference"><SelectValue placeholder="Select contact preference" /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="Mr">Mr</SelectItem>
-              <SelectItem value="Mrs">Mrs</SelectItem>
-              <SelectItem value="Ms">Ms</SelectItem>
-              <SelectItem value="Miss">Miss</SelectItem>
-              <SelectItem value="Dr">Dr</SelectItem>
-              <SelectItem value="Prof">Prof</SelectItem>
+              <SelectItem value="Directly">Contact Directly</SelectItem>
+              <SelectItem value="Primary Attendee">Contact via Primary Attendee</SelectItem>
             </SelectContent>
           </Select>
         </div>
 
+        {formData.contactPreference === "Directly" && (
+          <div className="grid gap-6 md:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="guestMobile">Mobile</Label>
+              <Input
+                id="guestMobile"
+                type="tel"
+                value={formData.mobile || ""}
+                onChange={(e) => handleChange("mobile", e.target.value)}
+                required={formData.contactPreference === "Directly"}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="guestEmail">Email</Label>
+              <Input
+                id="guestEmail"
+                type="email"
+                value={formData.email || ""}
+                onChange={(e) => handleChange("email", e.target.value)}
+                required={formData.contactPreference === "Directly"}
+              />
+            </div>
+          </div>
+        )}
+
         <div className="space-y-2">
-          <Label htmlFor="firstName">First Name</Label>
-          <Input
-            id="firstName"
-            value={formData.firstName || ""}
-            onChange={(e) => handleChange("firstName", e.target.value)}
-            required
+          <Label htmlFor="guestDietaryRequirements">Dietary Requirements</Label>
+          <Textarea
+            id="guestDietaryRequirements"
+            value={formData.dietaryRequirements || ""}
+            onChange={(e) => handleChange("dietaryRequirements", e.target.value)}
+            placeholder="e.g. Vegetarian, Gluten-free"
           />
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="lastName">Last Name</Label>
-          <Input
-            id="lastName"
-            value={formData.lastName || ""}
-            onChange={(e) => handleChange("lastName", e.target.value)}
-            required
+          <Label htmlFor="guestSpecialNeeds">Special Needs or Accessibility</Label>
+          <Textarea
+            id="guestSpecialNeeds"
+            value={formData.specialNeeds || ""}
+            onChange={(e) => handleChange("specialNeeds", e.target.value)}
+            placeholder="e.g. Wheelchair access"
           />
         </div>
-      </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="contactPreference">Contact Preference</Label>
-        <Select
-          value={formData.contactPreference}
-          onValueChange={(value) => handleChange("contactPreference", value as ContactPreference)}
-        >
-          <SelectTrigger>
-            <SelectValue placeholder="Select contact preference" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="Directly">Contact Directly</SelectItem>
-            <SelectItem value="Primary Attendee">Contact via Primary Attendee</SelectItem>
-            <SelectItem value="Provide Later">Provide Contact Details Later</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+        <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                  <Label htmlFor="guestHasPartner" className="text-base font-medium">
+                  Bringing a Partner?
+                  </Label>
+                  <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={handleTogglePartnerForm}
+                  className="flex items-center"
+                  >
+                  {showPartnerForm ? <X className="mr-2 h-4 w-4" /> : <Plus className="mr-2 h-4 w-4" />}
+                  {showPartnerForm ? "Cancel Partner" : "Add Partner"}
+                  </Button>
+              </div>
 
-      {formData.contactPreference === "Directly" && (
-        <div className="grid gap-6 md:grid-cols-2">
-          <div className="space-y-2">
-            <Label htmlFor="mobile">Mobile</Label>
-            <Input
-              id="mobile"
-              type="tel"
-              value={formData.mobile || ""}
-              onChange={(e) => handleChange("mobile", e.target.value)}
-              required
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
-            <Input
-              id="email"
-              type="email"
-              value={formData.email || ""}
-              onChange={(e) => handleChange("email", e.target.value)}
-              required
-            />
-          </div>
+              {showPartnerForm && (
+                <Card className="bg-muted/30">
+                  <CardContent className="pt-6">
+                    <PartnerForm
+                      onSubmit={handlePartnerSubmit}
+                      initialData={formData.partner}
+                      relatedAttendeeId={formData.id!} 
+                      onFormClose={() => setShowPartnerForm(false)}
+                    />
+                  </CardContent>
+                </Card>
+              )}
         </div>
-      )}
 
-      <div className="space-y-2">
-        <Label htmlFor="dietaryRequirements">Dietary Requirements</Label>
-        <Textarea
-          id="dietaryRequirements"
-          value={formData.dietaryRequirements || ""}
-          onChange={(e) => handleChange("dietaryRequirements", e.target.value)}
-          placeholder="Please specify any dietary requirements"
-        />
+        <div className="flex justify-end pt-4">
+          <Button type="button" onClick={handleSaveGuest} className="bg-masonic-navy hover:bg-masonic-blue">
+            {submitButtonText}
+          </Button>
+        </div>
       </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="specialNeeds">Special Needs or Accessibility Requirements</Label>
-        <Textarea
-          id="specialNeeds"
-          value={formData.specialNeeds || ""}
-          onChange={(e) => handleChange("specialNeeds", e.target.value)}
-          placeholder="Please specify any special needs or accessibility requirements"
-        />
-      </div>
-
-      {!showPartnerForm ? (
-        <Button
-          type="button"
-          variant="outline"
-          onClick={handleTogglePartnerForm}
-          className="border-masonic-navy text-masonic-navy hover:bg-masonic-lightblue"
-        >
-          <Plus className="mr-2 h-4 w-4" />
-          Register Lady or Partner
-        </Button>
-      ) : (
-        <Card>
-          <CardContent className="pt-6 relative">
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="absolute right-4 top-4 text-gray-500 hover:text-red-600"
-              onClick={handleTogglePartnerForm}
-            >
-              Remove
-            </Button>
-            <PartnerForm
-              relatedAttendeeId={formData.id || ""}
-              onSubmit={(partnerData) => {
-                setFormData((prev) => ({
-                  ...prev,
-                  hasPartner: true,
-                  partner: partnerData,
-                }))
-              }}
-            />
-          </CardContent>
-        </Card>
-      )}
-
-      <div className="flex justify-end">
-        <Button type="submit" className="bg-masonic-navy hover:bg-masonic-blue">
-          Add Guest
-        </Button>
-      </div>
-    </form>
+      <AlertModal
+        isOpen={alertModalOpen}
+        onClose={() => setAlertModalOpen(false)}
+        title={alertModalData.title}
+        description={alertModalData.description}
+        variant={alertModalData.variant}
+        actionLabel="OK"
+      />
+    </>
   )
 }

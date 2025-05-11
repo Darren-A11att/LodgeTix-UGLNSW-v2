@@ -1,22 +1,72 @@
 "use client"
 
 import { useState } from "react"
-import { useRegistration } from "@/contexts/registration-context"
+// import { useRegistration } from "@/contexts/registration-context" // Remove this
+import { useRegistrationStore } from "@/lib/registration-store" // Add this
 import type { RegistrationType } from "@/lib/registration-types"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Users, Building, Award, Check } from "lucide-react"
 import { SectionHeader } from "../SectionHeader"
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog"
 
 export function RegistrationTypeStep() {
-  const { state, dispatch } = useRegistration()
-  const [selectedType, setSelectedType] = useState<RegistrationType | null>(state.registrationType)
+  // const { state, dispatch } = useRegistration() // Remove this
+  const initialRegistrationType = useRegistrationStore(state => state.registrationType); // Add this
+  const storeSetRegistrationType = useRegistrationStore(state => state.setRegistrationType); // Add this
+  // Get other actions and state needed for modal logic
+  const storeResetWizard = useRegistrationStore(state => state.resetWizard);
+  const storeSetCurrentStep = useRegistrationStore(state => state.setCurrentStep);
+  const draftTypeInStore = useRegistrationStore.getState().registrationType; // Get once for initial check logic
+  const draftStepInStore = useRegistrationStore.getState().currentStep;
+
+
+  const [selectedType, setSelectedType] = useState<RegistrationType | null>(initialRegistrationType) // Modify this
+  const [showDraftModal, setShowDraftModal] = useState(false);
+  const [pendingRegistrationType, setPendingRegistrationType] = useState<RegistrationType | null>(null);
 
   const handleSelectType = (type: RegistrationType) => {
-    setSelectedType(type)
-    dispatch({ type: "SET_REGISTRATION_TYPE", payload: type })
-    dispatch({ type: "NEXT_STEP" })
+    // Get up-to-date store state and actions inside the handler
+    const currentDraftType = useRegistrationStore.getState().registrationType;
+    
+    // Check for a significant draft: if a registration type is already set in the store.
+    if (currentDraftType !== null) {
+      setPendingRegistrationType(type); // Store the type user just clicked
+      setShowDraftModal(true);
+    } else {
+      // No significant draft, proceed as normal
+      setSelectedType(type) // Keep local UI update if needed, or remove if direct store update is enough
+      storeSetRegistrationType(type) 
+    }
   }
+
+  const handleContinueDraft = () => {
+    setShowDraftModal(false);
+    // Navigate to the step where the user left off
+    // The registration type in store remains the draft's type
+    storeSetCurrentStep(draftStepInStore > 1 ? draftStepInStore : 2); // Ensure they at least go to step 2
+    setPendingRegistrationType(null);
+  };
+
+  const handleStartNew = () => {
+    setShowDraftModal(false);
+    storeResetWizard();
+    if (pendingRegistrationType) {
+      setSelectedType(pendingRegistrationType); // Update local UI for selected card
+      storeSetRegistrationType(pendingRegistrationType);
+    }
+    setPendingRegistrationType(null);
+  };
+
 
   return (
     <div className="space-y-6">
@@ -150,6 +200,31 @@ export function RegistrationTypeStep() {
           </CardFooter>
         </Card>
       </div>
+
+      {showDraftModal && (
+        <AlertDialog open={showDraftModal} onOpenChange={setShowDraftModal}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Draft Registration Found</AlertDialogTitle>
+              <AlertDialogDescription>
+                You have a registration in progress. Would you like to continue with your current draft or start a new registration?
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => setPendingRegistrationType(null)}>Cancel</AlertDialogCancel>
+              <AlertDialogAction onClick={handleContinueDraft} className="bg-masonic-navy hover:bg-masonic-blue">
+                Continue Draft
+              </AlertDialogAction>
+              <AlertDialogAction
+                onClick={handleStartNew}
+                className="bg-red-600 hover:bg-red-700 text-white"
+              >
+                Start New
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+      )}
     </div>
   )
 }

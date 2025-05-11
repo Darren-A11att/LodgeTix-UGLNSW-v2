@@ -1,17 +1,21 @@
 "use client"
 
 import { useState } from "react"
-import { useRegistration } from "@/contexts/registration-context"
+import { useRegistrationStore } from "@/lib/registration-store"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
-import { Package, Check, User, UserPlus } from "lucide-react"
+import { Package, Check, User, UserPlus, ShoppingCart, XCircle } from "lucide-react"
 import type { Attendee, Ticket, MasonAttendee, GuestAttendee, PartnerAttendee } from "@/lib/registration-types"
 import { v4 as uuidv4 } from "uuid"
 import { SectionHeader } from "../SectionHeader"
+import { AlertModal } from "@/components/ui/alert-modal"
+
+// Define AttendeeType for eligibility checking, leveraging existing types
+export type AttendeeType = Attendee['type'];
 
 // Sample ticket types
 const ticketTypes = [
@@ -21,6 +25,7 @@ const ticketTypes = [
     price: 75,
     description: "Admission to the Grand Installation Ceremony",
     category: "ceremony",
+    eligibleAttendeeTypes: ["mason"] as AttendeeType[],
   },
   {
     id: "banquet",
@@ -28,6 +33,7 @@ const ticketTypes = [
     price: 150,
     description: "Formal dinner with wine at the venue",
     category: "dining",
+    eligibleAttendeeTypes: ["mason", "guest", "partner"] as AttendeeType[],
   },
   {
     id: "brunch",
@@ -35,6 +41,7 @@ const ticketTypes = [
     price: 45,
     description: "Sunday morning brunch",
     category: "dining",
+    eligibleAttendeeTypes: ["mason", "guest", "partner"] as AttendeeType[],
   },
   {
     id: "tour",
@@ -42,6 +49,7 @@ const ticketTypes = [
     price: 60,
     description: "Guided tour of local landmarks",
     category: "activity",
+    eligibleAttendeeTypes: ["mason", "guest", "partner"] as AttendeeType[],
   },
 ]
 
@@ -53,6 +61,7 @@ const ticketPackages = [
     price: 250,
     description: "Includes all events (save $80)",
     includes: ["installation", "banquet", "brunch", "tour"],
+    eligibleAttendeeTypes: ["mason"] as AttendeeType[],
   },
   {
     id: "ceremony-banquet",
@@ -60,6 +69,7 @@ const ticketPackages = [
     price: 200,
     description: "Installation ceremony and formal dinner (save $25)",
     includes: ["installation", "banquet"],
+    eligibleAttendeeTypes: ["mason"] as AttendeeType[],
   },
   {
     id: "social",
@@ -67,93 +77,202 @@ const ticketPackages = [
     price: 180,
     description: "All social events without the ceremony (save $75)",
     includes: ["banquet", "brunch", "tour"],
+    eligibleAttendeeTypes: ["mason", "guest", "partner"] as AttendeeType[],
   },
 ]
 
 export function TicketSelectionStep() {
-  const { state, dispatch } = useRegistration()
+  // Refactor to use individual selectors
+  const primaryAttendee = useRegistrationStore((s) => s.attendeeDetails.primaryAttendee);
+  const additionalAttendees = useRegistrationStore((s) => s.attendeeDetails.additionalAttendees);
+  const currentTickets = useRegistrationStore((s) => s.ticketSelection.tickets);
+  const addTicket = useRegistrationStore((s) => s.addTicket);
+  const removeTicket = useRegistrationStore((s) => s.removeTicket);
+  const goToNextStep = useRegistrationStore((s) => s.goToNextStep);
+  const goToPrevStep = useRegistrationStore((s) => s.goToPrevStep);
+
+  // Alert modal state
+  const [alertModalOpen, setAlertModalOpen] = useState(false)
+  const [alertModalData, setAlertModalData] = useState({
+    title: "",
+    description: "",
+    variant: "default" as "default" | "destructive" | "success" | "warning"
+  })
+
+  console.log(
+    "TicketSelectionStep RENDER - currentTickets from store hook:", 
+    currentTickets, 
+    "Length:", currentTickets.length
+  );
+  const localTotalAmount = currentTickets.reduce((sum, ticket) => sum + ticket.price, 0);
+  console.log(
+    "TicketSelectionStep RENDER - calculated localTotalAmount:", 
+    localTotalAmount
+  );
+
   const [expandedAttendee, setExpandedAttendee] = useState<string | null>(null)
 
   // Get all attendees in order
   const allAttendees: Attendee[] = [
-    ...(state.primaryAttendee ? [state.primaryAttendee] : []),
-    ...state.additionalAttendees,
+    ...(primaryAttendee ? [primaryAttendee] : []),
+    ...additionalAttendees,
   ]
 
   // Filter out partner attendees as they don't need separate tickets
-  const eligibleAttendees = allAttendees.filter((attendee) => attendee.type !== "partner")
+  const eligibleAttendees = allAttendees;
 
-  const handlePrevious = () => {
-    dispatch({ type: "PREV_STEP" })
+  const showAlert = (title: string, description: string, variant: "default" | "destructive" | "success" | "warning" = "default") => {
+    setAlertModalData({ title, description, variant })
+    setAlertModalOpen(true)
   }
 
+  const handlePrevious = () => {
+    goToPrevStep();
+  }
+
+  const ensureAllAttendeesHaveTickets = (): boolean => {
+    // If there are no attendees displayed on this step, the user shouldn't be able to proceed.
+    // This also covers the case where currentTickets might be > 0 but somehow no eligible attendees are listed.
+    if (eligibleAttendees.length === 0) {
+      return false; 
+    }
+    // All attendees displayed must have at least one ticket.
+    return eligibleAttendees.every(attendee => getAttendeeTickets(attendee.id).length > 0);
+  };
+
   const handleContinue = () => {
-    if (state.tickets.length > 0) {
-      dispatch({ type: "NEXT_STEP" })
+    if (ensureAllAttendeesHaveTickets()) {
+      goToNextStep();
     } else {
-      alert("Please add at least one ticket to continue")
+      showAlert(
+        "Tickets Required", 
+        "Please ensure each attendee has at least one ticket or a package selected before continuing.",
+        "warning"
+      );
     }
   }
 
   const getAttendeeTickets = (attendeeId: string) => {
-    return state.tickets.filter((ticket) => ticket.attendeeId === attendeeId)
+    return currentTickets.filter((ticket) => ticket.attendeeId === attendeeId)
   }
 
   const getAttendeeTicketTotal = (attendeeId: string) => {
     return getAttendeeTickets(attendeeId).reduce((sum, ticket) => sum + ticket.price, 0)
   }
 
-  const isTicketSelected = (attendeeId: string, ticketId: string) => {
-    return state.tickets.some(
-      (ticket) => ticket.attendeeId === attendeeId && ticket.name === ticketTypes.find((t) => t.id === ticketId)?.name,
-    )
-  }
-
-  const handleToggleTicket = (attendeeId: string, ticketTypeId: string) => {
-    const ticketType = ticketTypes.find((t) => t.id === ticketTypeId)
-    if (!ticketType) return
-
-    const existingTicket = state.tickets.find(
-      (ticket) => ticket.attendeeId === attendeeId && ticket.name === ticketType.name,
-    )
-
-    if (existingTicket) {
-      dispatch({ type: "REMOVE_TICKET", payload: existingTicket.id })
-    } else {
-      const newTicket: Ticket = {
-        id: uuidv4(),
-        name: ticketType.name,
-        price: ticketType.price,
-        description: ticketType.description,
-        attendeeId: attendeeId,
-      }
-      dispatch({ type: "ADD_TICKET", payload: newTicket })
+  const isIndividualTicketDirectlySelected = (attendeeId: string, ticketTypeId: string) => {
+    const ticketType = ticketTypes.find((t) => t.id === ticketTypeId);
+    if (!ticketType) return false;
+    return currentTickets.some(
+      (ticket) =>
+        ticket.attendeeId === attendeeId &&
+        !ticket.isPackage && // Must be an individual ticket
+        ticket.name === ticketType.name
+    );
+  };
+  
+  const isTicketCoveredBySelectedPackage = (attendeeId: string, ticketTypeId: string): boolean => {
+    const selectedPackage = currentTickets.find(
+      (ticket) => ticket.attendeeId === attendeeId && ticket.isPackage
+    );
+    if (selectedPackage) {
+      return selectedPackage.includedTicketTypes?.includes(ticketTypeId) || false;
     }
-  }
+    return false;
+  };
 
   const handleSelectPackage = (attendeeId: string, packageId: string) => {
-    // First, remove any existing tickets for this attendee
-    state.tickets
-      .filter((ticket) => ticket.attendeeId === attendeeId)
-      .forEach((ticket) => {
-        dispatch({ type: "REMOVE_TICKET", payload: ticket.id })
-      })
+    console.log(
+      "handleSelectPackage BEGIN - currentTickets from store getState():", 
+      useRegistrationStore.getState().ticketSelection.tickets,
+      "Length:", useRegistrationStore.getState().ticketSelection.tickets.length
+    );
+    const selectedPackageInfo = ticketPackages.find((p) => p.id === packageId);
+    if (!selectedPackageInfo) return;
 
-    // Then add the package tickets
-    const selectedPackage = ticketPackages.find((p) => p.id === packageId)
-    if (!selectedPackage) return
+    const previouslySelectedTicketsForAttendee = currentTickets.filter(
+      (ticket) => ticket.attendeeId === attendeeId
+    );
 
-    // Add a special package ticket
-    const packageTicket: Ticket = {
-      id: uuidv4(),
-      name: selectedPackage.name,
-      price: selectedPackage.price,
-      description: selectedPackage.description,
-      attendeeId: attendeeId,
+    let wasThisPackageAlreadySelected = false;
+    
+    // Remove all previous tickets for this attendee
+    previouslySelectedTicketsForAttendee.forEach((ticket) => {
+      if (ticket.isPackage && ticket.name === selectedPackageInfo.name) {
+        wasThisPackageAlreadySelected = true;
+      }
+      removeTicket(ticket.id); 
+    });
+
+    // If the package wasn't already selected (i.e., we're selecting it now), then add it.
+    // If it was already selected, the loop above removed it, so this effectively deselects it.
+    if (!wasThisPackageAlreadySelected) {
+      const newPackageTicket: Ticket = {
+        id: uuidv4(),
+        name: selectedPackageInfo.name,
+        price: selectedPackageInfo.price,
+        description: selectedPackageInfo.description,
+        attendeeId: attendeeId,
+        isPackage: true,
+        includedTicketTypes: selectedPackageInfo.includes,
+      };
+      addTicket(newPackageTicket);
     }
+  };
 
-    dispatch({ type: "ADD_TICKET", payload: packageTicket })
-  }
+  const handleToggleIndividualTicket = (attendeeId: string, ticketTypeId: string) => {
+    const ticketTypeInfo = ticketTypes.find((t) => t.id === ticketTypeId);
+    if (!ticketTypeInfo) return;
+
+    // If this action is to select a ticket, first remove any existing package for this attendee.
+    // If it's to deselect, the package (if any) should remain untouched as it doesn't conflict.
+    const existingPackageForAttendee = currentTickets.find(
+      (ticket) => ticket.attendeeId === attendeeId && ticket.isPackage
+    );
+
+    const isCurrentlyIndividuallySelected = isIndividualTicketDirectlySelected(attendeeId, ticketTypeId);
+
+    if (!isCurrentlyIndividuallySelected && existingPackageForAttendee) {
+      // User is trying to select an individual ticket while a package is active.
+      // Clear the package.
+      removeTicket(existingPackageForAttendee.id);
+    }
+    
+    // Now, toggle the individual ticket
+    if (isCurrentlyIndividuallySelected) {
+      // Find the specific individual ticket to remove
+      const individualTicketToRemove = currentTickets.find(
+        (ticket) =>
+          ticket.attendeeId === attendeeId &&
+          !ticket.isPackage &&
+          ticket.name === ticketTypeInfo.name
+      );
+      if (individualTicketToRemove) {
+        removeTicket(individualTicketToRemove.id);
+      }
+    } else {
+      // Add the new individual ticket
+      const newTicket: Ticket = {
+        id: uuidv4(),
+        name: ticketTypeInfo.name,
+        price: ticketTypeInfo.price,
+        description: ticketTypeInfo.description,
+        attendeeId: attendeeId,
+        isPackage: false, // Explicitly false
+      };
+      addTicket(newTicket);
+    }
+  };
+
+  // Helper to check if a specific package (by name) is selected for an attendee
+  // This is used for styling the selected package card
+  const isPackageSelectedForAttendee = (attendeeId: string, packageName: string) => {
+    return currentTickets.some(ticket => 
+        ticket.attendeeId === attendeeId && 
+        ticket.name === packageName && 
+        ticket.isPackage
+    );
+  };
 
   const renderAttendeeHeader = (attendee: Attendee) => {
     if (attendee.type === "mason") {
@@ -180,8 +299,6 @@ export function TicketSelectionStep() {
       )
     }
   }
-
-  const totalAmount = state.tickets.reduce((sum, ticket) => sum + ticket.price, 0)
 
   return (
     <div className="space-y-6">
@@ -219,11 +336,13 @@ export function TicketSelectionStep() {
                       <div>
                         <h3 className="font-semibold text-masonic-navy mb-3">Ticket Packages</h3>
                         <div className="grid gap-4 md:grid-cols-3">
-                          {ticketPackages.map((pkg) => (
+                          {ticketPackages
+                            .filter(pkg => pkg.eligibleAttendeeTypes.includes(attendee.type))
+                            .map((pkg) => (
                             <Card
                               key={pkg.id}
                               className={`cursor-pointer border-2 transition-all ${
-                                getAttendeeTickets(attendee.id).some((t) => t.name === pkg.name)
+                                isPackageSelectedForAttendee(attendee.id, pkg.name)
                                   ? "border-masonic-gold bg-masonic-lightgold/10"
                                   : "border-gray-200 hover:border-masonic-lightgold"
                               }`}
@@ -271,12 +390,15 @@ export function TicketSelectionStep() {
                             </TableRow>
                           </TableHeader>
                           <TableBody>
-                            {ticketTypes.map((ticket) => (
+                            {ticketTypes
+                              .filter(ticket => ticket.eligibleAttendeeTypes.includes(attendee.type))
+                              .map((ticket) => (
                               <TableRow key={ticket.id}>
                                 <TableCell>
                                   <Checkbox
-                                    checked={isTicketSelected(attendee.id, ticket.id)}
-                                    onCheckedChange={() => handleToggleTicket(attendee.id, ticket.id)}
+                                    id={`${attendee.id}-${ticket.id}`}
+                                    checked={isIndividualTicketDirectlySelected(attendee.id, ticket.id)}
+                                    onCheckedChange={() => handleToggleIndividualTicket(attendee.id, ticket.id)}
                                   />
                                 </TableCell>
                                 <TableCell className="font-medium">{ticket.name}</TableCell>
@@ -310,7 +432,7 @@ export function TicketSelectionStep() {
                                     variant="ghost"
                                     size="sm"
                                     className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
-                                    onClick={() => dispatch({ type: "REMOVE_TICKET", payload: ticket.id })}
+                                    onClick={() => removeTicket(ticket.id)}
                                   >
                                     ×
                                   </Button>
@@ -340,11 +462,11 @@ export function TicketSelectionStep() {
             <div>
               <h3 className="font-bold text-lg">Order Total</h3>
               <p className="text-sm text-gray-600">
-                {state.tickets.length} ticket{state.tickets.length !== 1 ? "s" : ""} for {eligibleAttendees.length}{" "}
+                {currentTickets.length} ticket{currentTickets.length !== 1 ? "s" : ""} for {eligibleAttendees.length}{" "}
                 attendee{eligibleAttendees.length !== 1 ? "s" : ""}
               </p>
             </div>
-            <div className="text-2xl font-bold text-masonic-navy">${totalAmount}</div>
+            <div className="text-2xl font-bold text-masonic-navy">${localTotalAmount}</div>
           </div>
         </CardContent>
       </Card>
@@ -359,12 +481,21 @@ export function TicketSelectionStep() {
         </Button>
         <Button
           onClick={handleContinue}
-          disabled={state.tickets.length === 0}
+          disabled={!ensureAllAttendeesHaveTickets() || currentTickets.length === 0}
           className="bg-masonic-navy hover:bg-masonic-blue"
         >
           Review Order
         </Button>
       </div>
+
+      <AlertModal
+        isOpen={alertModalOpen}
+        onClose={() => setAlertModalOpen(false)}
+        title={alertModalData.title}
+        description={alertModalData.description}
+        variant={alertModalData.variant}
+        actionLabel="OK"
+      />
     </div>
   )
 }

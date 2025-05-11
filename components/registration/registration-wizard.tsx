@@ -1,6 +1,7 @@
 "use client"
 
-import { useRegistration } from "@/contexts/registration-context"
+import { useEffect } from "react"
+import { useRegistrationStore } from "@/lib/registration-store"
 import { RegistrationStepIndicator } from "./registration-step-indicator"
 import { RegistrationTypeStep } from "./steps/registration-type-step"
 import { AttendeeDetailsStep } from "./steps/attendee-details-step"
@@ -12,8 +13,22 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { User } from "lucide-react"
 
 export function RegistrationWizard() {
-  const { state } = useRegistration()
-  const { currentStep } = state
+  const currentStep = useRegistrationStore((state) => state.currentStep)
+
+  // Log the entire store state whenever it changes
+  useEffect(() => {
+    const unsubscribe = useRegistrationStore.subscribe(
+      (newState, prevState) => {
+        console.log("Zustand Store Updated:", newState);
+        // You can also log prevState if you need to compare
+        // console.log("Previous State:", prevState);
+      }
+    );
+    // Cleanup subscription on component unmount
+    return () => {
+      unsubscribe();
+    };
+  }, []); // Empty dependency array ensures this runs once on mount and cleans up on unmount
 
   // Only show the attendee summary for steps 2-6, not for step 1 (Registration Type)
   const showAttendeeSummary = currentStep > 1

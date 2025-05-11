@@ -1,54 +1,91 @@
 "use client"
 
-import { useRegistration } from "@/contexts/registration-context"
+import { useState } from "react"
+import { useRegistrationStore } from "@/lib/registration-store"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import { Badge } from "@/components/ui/badge"
-import { Check, ChevronRight, CreditCard, Info, Ticket, User, Users } from "lucide-react"
-import type { Attendee } from "@/lib/registration-types"
+import { Check, ChevronRight, CreditCard, Info, Ticket, User, Users, Edit3, Trash2, AlertTriangle } from "lucide-react"
+import type { Attendee, MasonAttendee, GuestAttendee, PartnerAttendee } from "@/lib/registration-types"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { SectionHeader } from "../SectionHeader"
+import { 
+  Dialog, 
+  DialogContent, 
+  DialogHeader, 
+  DialogTitle, 
+  DialogDescription, 
+  DialogFooter,
+  DialogTrigger 
+} from "@/components/ui/dialog"
+import { 
+  AlertDialog, 
+  AlertDialogAction, 
+  AlertDialogCancel, 
+  AlertDialogContent, 
+  AlertDialogDescription, 
+  AlertDialogFooter, 
+  AlertDialogHeader, 
+  AlertDialogTitle 
+} from "@/components/ui/alert-dialog"
+import { MasonForm } from "../forms/mason-form"
+import { GuestForm } from "../forms/guest-form"
+import { PartnerForm } from "../forms/partner-form"
 
 export function OrderReviewStep() {
-  const { state, dispatch } = useRegistration()
+  const registrationType = useRegistrationStore((s) => s.registrationType);
+  const primaryAttendee = useRegistrationStore((s) => s.attendeeDetails.primaryAttendee);
+  const additionalAttendees = useRegistrationStore((s) => s.attendeeDetails.additionalAttendees);
+  const currentTickets = useRegistrationStore((s) => s.ticketSelection.tickets);
+  const setPrimaryAttendee = useRegistrationStore((s) => s.setPrimaryAttendee);
+  const updateAdditionalAttendee = useRegistrationStore((s) => s.updateAdditionalAttendee);
+  const removeAdditionalAttendee = useRegistrationStore((s) => s.removeAdditionalAttendee);
+  const removeTicket = useRegistrationStore((s) => s.removeTicket);
+  const goToNextStep = useRegistrationStore((s) => s.goToNextStep);
+  const goToPrevStep = useRegistrationStore((s) => s.goToPrevStep);
+
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [editingAttendee, setEditingAttendee] = useState<Attendee | null>(null);
+  const [isRemoveConfirmOpen, setIsRemoveConfirmOpen] = useState(false);
+  const [removingAttendeeId, setRemovingAttendeeId] = useState<string | null>(null);
 
   const allAttendees: Attendee[] = [
-    ...(state.primaryAttendee ? [state.primaryAttendee] : []),
-    ...state.additionalAttendees,
+    ...(primaryAttendee ? [primaryAttendee] : []),
+    ...additionalAttendees,
   ]
 
   const handlePrevious = () => {
-    dispatch({ type: "PREV_STEP" })
+    goToPrevStep();
   }
 
   const handleContinue = () => {
-    dispatch({ type: "NEXT_STEP" })
+    goToNextStep();
   }
 
   const getAttendeeTickets = (attendeeId: string) => {
-    return state.tickets.filter((ticket) => ticket.attendeeId === attendeeId)
+    return currentTickets.filter((ticket) => ticket.attendeeId === attendeeId)
   }
 
   const getAttendeeTotal = (attendeeId: string) => {
     return getAttendeeTickets(attendeeId).reduce((sum, ticket) => sum + ticket.price, 0)
   }
 
-  const totalAmount = state.tickets.reduce((sum, ticket) => sum + ticket.price, 0)
-  const totalTickets = state.tickets.length
+  const totalAmount = currentTickets.reduce((sum, ticket) => sum + ticket.price, 0)
+  const totalTickets = currentTickets.length
 
   const getMasonicTitle = (attendee: Attendee) => {
     if (attendee.type === "mason") {
-      return attendee.masonicTitle
+      return (attendee as MasonAttendee).masonicTitle
     }
-    return attendee.title || ""
+    return (attendee as GuestAttendee | PartnerAttendee).title || ""
   }
 
   const getAttendeeTypeLabel = (attendee: Attendee) => {
     if (attendee.type === "mason") {
-      return attendee.grandRank || attendee.rank
+      const mason = attendee as MasonAttendee;
+      return mason.grandRank || mason.rank
     }
     if (attendee.type === "guest") {
       return "Guest"
@@ -57,6 +94,37 @@ export function OrderReviewStep() {
       return "Partner"
     }
     return ""
+  }
+
+  const openEditModal = (attendee: Attendee) => {
+    setEditingAttendee(attendee);
+    setIsEditModalOpen(true);
+  }
+
+  const handleUpdateAttendee = (updatedData: Attendee) => {
+    if (primaryAttendee && updatedData.id === primaryAttendee.id) {
+      setPrimaryAttendee(updatedData as MasonAttendee);
+    } else {
+      updateAdditionalAttendee(updatedData.id, updatedData);
+    }
+    setIsEditModalOpen(false);
+    setEditingAttendee(null);
+  };
+
+  const openRemoveConfirm = (attendeeId: string) => {
+    setRemovingAttendeeId(attendeeId);
+    setIsRemoveConfirmOpen(true);
+  }
+
+  const handleConfirmRemoveAttendee = () => {
+    if (removingAttendeeId) {
+      currentTickets
+        .filter(ticket => ticket.attendeeId === removingAttendeeId)
+        .forEach(ticket => removeTicket(ticket.id));
+      removeAdditionalAttendee(removingAttendeeId);
+    }
+    setIsRemoveConfirmOpen(false);
+    setRemovingAttendeeId(null);
   }
 
   return (
@@ -73,142 +141,101 @@ export function OrderReviewStep() {
             <CardTitle className="flex items-center">
               <Users className="mr-2 h-5 w-5" /> Registration Details
             </CardTitle>
-            <Badge variant="outline" className="bg-white/10 text-white">
-              {state.registrationType?.replace("-", " ")}
-            </Badge>
+            {registrationType && (
+                <Badge variant="outline" className="bg-white/10 text-white">
+                {registrationType.replace("-", " ")}
+                </Badge>
+            )}
           </div>
           <CardDescription className="text-gray-200">
             {allAttendees.length} {allAttendees.length === 1 ? "Attendee" : "Attendees"} • {totalTickets}{" "}
             {totalTickets === 1 ? "Ticket" : "Tickets"}
           </CardDescription>
         </CardHeader>
-        <CardContent className="p-0">
-          <ScrollArea className="max-h-[400px]">
-            <Accordion type="multiple" className="w-full" defaultValue={["attendees"]}>
-              <AccordionItem value="attendees" className="border-0">
-                <AccordionTrigger className="px-6 py-4 hover:bg-gray-50">
-                  <span className="flex items-center font-medium">
-                    <User className="mr-2 h-4 w-4" /> Attendee Information
-                  </span>
-                </AccordionTrigger>
-                <AccordionContent className="pb-0">
-                  <div className="space-y-4 px-6">
-                    {allAttendees.map((attendee, index) => (
-                      <Card key={attendee.id} className="border-masonic-lightgold">
-                        <CardHeader className="bg-masonic-lightgold/20 pb-2">
-                          <div className="flex items-center justify-between">
-                            <CardTitle className="text-base">
-                              {index === 0 ? "Primary Attendee" : `Additional Attendee ${index}`}
-                            </CardTitle>
-                            <Badge variant="outline" className="bg-masonic-navy/10 text-masonic-navy">
-                              {getAttendeeTypeLabel(attendee)}
-                            </Badge>
-                          </div>
-                        </CardHeader>
-                        <CardContent className="p-4">
-                          <div className="space-y-2">
-                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
-                              <p className="font-medium">
-                                {getMasonicTitle(attendee)} {attendee.firstName} {attendee.lastName}
-                              </p>
-                              <Badge className="mt-1 w-fit bg-masonic-gold text-masonic-navy sm:mt-0">
-                                ${getAttendeeTotal(attendee.id).toFixed(2)}
-                              </Badge>
-                            </div>
+        <CardContent className="p-6 space-y-6">
+          {allAttendees.length === 0 && (
+            <Alert className="border-yellow-500 bg-yellow-50">
+                <AlertTriangle className="h-4 w-4 text-yellow-700" />
+                <AlertDescription className="text-yellow-700">
+                    No attendees have been added to this registration yet.
+                </AlertDescription>
+            </Alert>
+          )}
+          {allAttendees.map((attendee, index) => {
+            const ticketsForThisAttendee = getAttendeeTickets(attendee.id);
+            const attendeeSubTotal = getAttendeeTotal(attendee.id);
 
-                            {attendee.type === "mason" && (
-                              <p className="text-sm text-gray-500">
-                                {attendee.lodgeName}
-                                {attendee.lodgeNumber && ` No. ${attendee.lodgeNumber}`}
-                              </p>
-                            )}
-
-                            {attendee.dietaryRequirements && (
-                              <div className="mt-2 text-sm">
-                                <span className="font-medium">Dietary Requirements:</span>{" "}
-                                {attendee.dietaryRequirements}
-                              </div>
-                            )}
-
-                            {attendee.specialNeeds && (
-                              <div className="mt-2 text-sm">
-                                <span className="font-medium">Special Needs:</span> {attendee.specialNeeds}
-                              </div>
-                            )}
-
-                            {attendee.type !== "partner" && attendee.hasPartner && attendee.partner && (
-                              <div className="mt-3 rounded-md bg-gray-50 p-3">
-                                <p className="text-sm font-medium">
-                                  Partner: {attendee.partner.title} {attendee.partner.firstName}{" "}
-                                  {attendee.partner.lastName}
-                                </p>
-                                {attendee.partner.dietaryRequirements && (
-                                  <p className="text-xs text-gray-500">
-                                    Dietary Requirements: {attendee.partner.dietaryRequirements}
-                                  </p>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                        </CardContent>
-                      </Card>
-                    ))}
+            return (
+              <Card key={attendee.id} className="border-masonic-lightgold overflow-hidden">
+                <CardHeader className="bg-masonic-lightgold/10 p-4">
+                  <div className="flex items-center justify-between">
+                    <div>
+                        <CardTitle className="text-lg text-masonic-navy">
+                        {getMasonicTitle(attendee)} {attendee.firstName} {attendee.lastName}
+                        </CardTitle>
+                        <CardDescription>
+                        {index === 0 ? "Primary Attendee" : `Additional Attendee ${index + 1}`} - ({getAttendeeTypeLabel(attendee)})
+                        </CardDescription>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <Button variant="outline" size="sm" onClick={() => openEditModal(attendee)} className="h-8 px-2">
+                            <Edit3 className="mr-1 h-3 w-3" /> Edit
+                        </Button>
+                        {index > 0 && (
+                            <Button variant="destructive" size="sm" onClick={() => openRemoveConfirm(attendee.id)} className="h-8 px-2">
+                                <Trash2 className="mr-1 h-3 w-3" /> Remove
+                            </Button>
+                        )}
+                    </div>
                   </div>
-                </AccordionContent>
-              </AccordionItem>
+                </CardHeader>
+                <CardContent className="p-4 space-y-3">
+                  {attendee.dietaryRequirements && (
+                    <p className="text-sm"><span className="font-medium">Dietary:</span> {attendee.dietaryRequirements}</p>
+                  )}
+                  {attendee.specialNeeds && (
+                    <p className="text-sm"><span className="font-medium">Special Needs:</span> {attendee.specialNeeds}</p>
+                  )}
+                  {attendee.type === "mason" && (attendee as MasonAttendee).lodgeName && (
+                     <p className="text-sm"><span className="font-medium">Lodge:</span> {(attendee as MasonAttendee).lodgeName} {(attendee as MasonAttendee).lodgeNumber && `No. ${(attendee as MasonAttendee).lodgeNumber}`}</p>
+                  )}
+                  {(attendee.type === "mason" || attendee.type === "guest") && (attendee as MasonAttendee | GuestAttendee).hasPartner && (attendee as MasonAttendee | GuestAttendee).partner && (
+                      <div className="mt-2 p-2 border rounded-md bg-slate-50 text-sm">
+                          <p><span className="font-medium">Linked Partner:</span> {(attendee as MasonAttendee | GuestAttendee).partner?.title} {(attendee as MasonAttendee | GuestAttendee).partner?.firstName} {(attendee as MasonAttendee | GuestAttendee).partner?.lastName}</p>
+                      </div>
+                  )}
+                  
+                  <Separator className="my-3"/>
 
-              <AccordionItem value="tickets" className="border-0">
-                <AccordionTrigger className="px-6 py-4 hover:bg-gray-50">
-                  <span className="flex items-center font-medium">
-                    <Ticket className="mr-2 h-4 w-4" /> Ticket Information
-                  </span>
-                </AccordionTrigger>
-                <AccordionContent>
-                  <div className="space-y-4 px-6">
-                    {allAttendees.map((attendee) => {
-                      const tickets = getAttendeeTickets(attendee.id)
-                      if (tickets.length === 0) return null
-
-                      return (
-                        <Card key={`tickets-${attendee.id}`} className="border-masonic-lightblue">
-                          <CardHeader className="bg-masonic-lightblue/20 pb-2">
-                            <CardTitle className="text-base">
-                              {getMasonicTitle(attendee)} {attendee.firstName} {attendee.lastName}
-                            </CardTitle>
-                          </CardHeader>
-                          <CardContent className="p-4">
-                            <div className="space-y-3">
-                              {tickets.map((ticket) => (
-                                <div key={ticket.id} className="flex items-center justify-between">
-                                  <div className="flex items-center">
-                                    <Check className="mr-2 h-4 w-4 text-green-500" />
-                                    <div>
-                                      <p className="font-medium">{ticket.name}</p>
-                                      {ticket.description && (
-                                        <p className="text-sm text-gray-500">{ticket.description}</p>
-                                      )}
-                                    </div>
-                                  </div>
-                                  <span className="font-medium">${ticket.price.toFixed(2)}</span>
-                                </div>
-                              ))}
-
-                              <Separator />
-
-                              <div className="flex items-center justify-between font-bold">
-                                <span>Subtotal</span>
-                                <span>${getAttendeeTotal(attendee.id).toFixed(2)}</span>
-                              </div>
-                            </div>
-                          </CardContent>
-                        </Card>
-                      )
-                    })}
+                  <h4 className="font-medium text-masonic-navy">Tickets for this Attendee:</h4>
+                  {ticketsForThisAttendee.length === 0 ? (
+                    <p className="text-sm text-gray-500 italic">No tickets selected for this attendee.</p>
+                  ) : (
+                    <ul className="space-y-2">
+                      {ticketsForThisAttendee.map(ticket => (
+                        <li key={ticket.id} className="flex justify-between items-center text-sm p-2 rounded-md border bg-white">
+                          <div>
+                            <p className="font-medium">{ticket.name}</p>
+                            {ticket.description && <p className="text-xs text-gray-500">{ticket.description}</p>}
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span>${ticket.price.toFixed(2)}</span>
+                            <Button variant="ghost" size="icon" onClick={() => removeTicket(ticket.id)} className="h-7 w-7 text-red-500 hover:text-red-700">
+                                <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  <Separator className="my-3"/>
+                  <div className="flex justify-end items-center font-bold text-masonic-navy">
+                      <span>Attendee Subtotal: ${attendeeSubTotal.toFixed(2)}</span>
                   </div>
-                </AccordionContent>
-              </AccordionItem>
-            </Accordion>
-          </ScrollArea>
+                </CardContent>
+              </Card>
+            )
+          })}
         </CardContent>
         <CardFooter className="flex flex-col space-y-4 bg-gray-50 p-6">
           <div className="flex w-full items-center justify-between rounded-lg bg-masonic-navy p-4 text-white">
@@ -231,7 +258,11 @@ export function OrderReviewStep() {
             >
               Previous
             </Button>
-            <Button onClick={handleContinue} className="bg-masonic-gold text-masonic-navy hover:bg-masonic-lightgold">
+            <Button 
+                onClick={handleContinue} 
+                className="bg-masonic-gold text-masonic-navy hover:bg-masonic-lightgold"
+                disabled={allAttendees.length === 0 || totalTickets === 0}
+            >
               <CreditCard className="mr-2 h-4 w-4" />
               Proceed to Payment
               <ChevronRight className="ml-2 h-4 w-4" />
@@ -239,6 +270,64 @@ export function OrderReviewStep() {
           </div>
         </CardFooter>
       </Card>
+
+      {editingAttendee && (
+        <Dialog open={isEditModalOpen} onOpenChange={(isOpen) => { if (!isOpen) { setEditingAttendee(null); } setIsEditModalOpen(isOpen); }}>
+            <DialogContent className="sm:max-w-[600px]">
+                <DialogHeader>
+                    <DialogTitle>Edit Attendee Details</DialogTitle>
+                    <DialogDescription>
+                        Update the details for {getMasonicTitle(editingAttendee)} {editingAttendee.firstName} {editingAttendee.lastName}.
+                    </DialogDescription>
+                </DialogHeader>
+                
+                {editingAttendee.type === "mason" && (
+                    <MasonForm 
+                        attendeeType="primary"
+                        initialData={editingAttendee as MasonAttendee} 
+                        onSubmit={handleUpdateAttendee} 
+                        onFormClose={() => { setIsEditModalOpen(false); setEditingAttendee(null); }}
+                        isDialog={true}
+                    />
+                )}
+                {editingAttendee.type === "guest" && (
+                    <GuestForm 
+                        initialData={editingAttendee as GuestAttendee} 
+                        onSubmit={handleUpdateAttendee} 
+                        onFormClose={() => { setIsEditModalOpen(false); setEditingAttendee(null); }}
+                        isDialog={true}
+                    />
+                )}
+                {editingAttendee.type === "partner" && (
+                    <PartnerForm 
+                        initialData={editingAttendee as PartnerAttendee} 
+                        onSubmit={handleUpdateAttendee} 
+                        onFormClose={() => { setIsEditModalOpen(false); setEditingAttendee(null); }}
+                        relatedAttendeeId={(editingAttendee as PartnerAttendee).relatedAttendeeId}
+                        isDialog={true}
+                    />
+                )}
+            </DialogContent>
+        </Dialog>
+      )}
+
+      <AlertDialog open={isRemoveConfirmOpen} onOpenChange={setIsRemoveConfirmOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action will remove the attendee and all their selected tickets. This cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setRemovingAttendeeId(null)}>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmRemoveAttendee} className="bg-red-600 hover:bg-red-700">
+              Remove Attendee
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
     </div>
   )
 }

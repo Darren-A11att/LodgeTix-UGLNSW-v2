@@ -1,6 +1,5 @@
 "use client"
 
-import { RegistrationProvider } from "@/contexts/registration-context"
 import { RegistrationWizard } from "@/components/registration/registration-wizard"
 import Link from "next/link"
 import { TicketIcon } from "lucide-react"
@@ -21,9 +20,7 @@ export default function RegistrationPage() {
       </header>
 
       <main className="container mx-auto py-8 flex-grow">
-        <RegistrationProvider>
-          <RegistrationWizard />
-        </RegistrationProvider>
+        <RegistrationWizard />
       </main>
 
       <footer className="bg-masonic-navy py-6 text-white">

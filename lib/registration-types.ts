@@ -38,6 +38,7 @@ export interface MasonAttendee extends BaseAttendee {
   sameLodgeAsPrimary?: boolean
   hasPartner: boolean
   partner?: PartnerAttendee
+  isPrimaryAttendee?: boolean
 }
 
 export interface GuestAttendee extends BaseAttendee {
@@ -68,6 +69,8 @@ export interface Ticket {
   price: number
   description: string
   attendeeId: string
+  isPackage?: boolean
+  includedTicketTypes?: string[]
 }
 
 export interface RegistrationState {
@@ -98,4 +101,5 @@ export type RegistrationAction =
   | { type: "NEXT_STEP" }
   | { type: "PREV_STEP" }
   | { type: "GO_TO_STEP"; payload: number }
+  | { type: "CLEAR_PRIMARY_ATTENDEE" }
   | { type: "RESET" }

@@ -1,395 +1,338 @@
 "use client"
 
-import type React from "react"
-import { useState } from "react"
-import { useRegistration } from "@/contexts/registration-context"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Separator } from "@/components/ui/separator"
-import { ArrowLeft, Check, CreditCard, Info, Lock, ShieldCheck, Ticket } from "lucide-react"
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
-import { Checkbox } from "@/components/ui/checkbox"
-import { Progress } from "@/components/ui/progress"
-import { Alert, AlertDescription } from "@/components/ui/alert"
-import { SectionHeader } from "../SectionHeader"
+import { useState, useEffect } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useRegistrationStore } from "@/lib/registration-store";
+import { 
+  billingDetailsSchema, 
+  type BillingDetails,
+} from "@/lib/billing-details-schema";
+
+import { Button } from "@/components/ui/button";
+import { Form } from "@/components/ui/form";
+import { ArrowLeft } from "lucide-react";
+import { SectionHeader } from "../SectionHeader";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { StripeBillingDetailsForClient } from "../payment/types";
+
+// Import modular components
+import { BillingDetailsForm } from "../payment/BillingDetailsForm";
+import { PaymentMethod } from "../payment/PaymentMethod";
+import { OrderSummary } from "../payment/OrderSummary";
+
+// Import confirmation number generator and store action
+// import { generateConfirmationNumber } from "@/lib/confirmation-utils"; // REMOVED
 
 export function PaymentStep() {
-  const { state, dispatch } = useRegistration()
-  const [paymentMethod, setPaymentMethod] = useState<string>("card")
-  const [formData, setFormData] = useState({
-    cardName: "",
-    cardNumber: "",
-    expiryDate: "",
-    cvc: "",
-    saveCard: false,
-  })
-  const [isProcessing, setIsProcessing] = useState(false)
-  const [formErrors, setFormErrors] = useState<Record<string, string>>({})
-  const [processingProgress, setProcessingProgress] = useState(0)
+  // Store state from Zustand
+  const primaryAttendee = useRegistrationStore((s) => s.attendeeDetails.primaryAttendee);
+  const additionalAttendees = useRegistrationStore((s) => s.attendeeDetails.additionalAttendees);
+  const currentTickets = useRegistrationStore((s) => s.ticketSelection.tickets);
+  const registrationType = useRegistrationStore((s) => s.registrationType);
+  const paymentDetailsFromStore = useRegistrationStore((s) => s.paymentDetails);
+  const setPaymentDetailsInStore = useRegistrationStore((s) => s.setPaymentDetails);
+  // const setConfirmationNumberInStore = useRegistrationStore((s) => s.setConfirmationNumber); // REMOVED
+  const setConfirmedRegistrationDetailsInStore = useRegistrationStore((s) => s.setConfirmedRegistrationDetails); // ADDED
+  const goToNextStep = useRegistrationStore((s) => s.goToNextStep);
+  const goToPrevStep = useRegistrationStore((s) => s.goToPrevStep);
 
-  const handlePrevious = () => {
-    dispatch({ type: "PREV_STEP" })
-  }
+  // Local component state
+  const [localPaymentProcessingError, setLocalPaymentProcessingError] = useState<string | null>(null);
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+  const [isSubmittingOrder, setIsSubmittingOrder] = useState(false);
+  const [submissionError, setSubmissionError] = useState<string | null>(null);
+  
+  // State for managing client secret and its loading/error for Stripe
+  const [clientSecret, setClientSecret] = useState<string | null>(null);
+  const [isPaymentIntentLoading, setIsPaymentIntentLoading] = useState(false);
+  const [paymentIntentError, setPaymentIntentError] = useState<string | null>(null);
 
-  const handleChange = (field: string, value: any) => {
-    setFormData((prev) => ({ ...prev, [field]: value }))
+  // Calculate total amount
+  const totalAmount = currentTickets.reduce((sum, ticket) => sum + ticket.price, 0);
 
-    // Clear error when field is changed
-    if (formErrors[field]) {
-      setFormErrors((prev) => {
-        const newErrors = { ...prev }
-        delete newErrors[field]
-        return newErrors
-      })
-    }
-  }
+  // Setup form with Zod validation
+  const form = useForm<BillingDetails>({
+    resolver: zodResolver(billingDetailsSchema),
+    defaultValues: {
+      billToPrimary: false, // Default to false (unchecked)
+      firstName: '',
+      lastName: '',
+      businessName: '',
+      addressLine1: '',
+      mobileNumber: '',
+      suburb: '',
+      postcode: '',
+      emailAddress: '',
+      country: undefined,
+      stateTerritory: undefined,
+    },
+  });
 
-  const validateForm = () => {
-    const errors: Record<string, string> = {}
+  // Effect to fetch payment intent when totalAmount changes
+  useEffect(() => {
+    if (totalAmount > 0) {
+      setIsPaymentIntentLoading(true);
+      setPaymentIntentError(null);
+      setClientSecret(null); // Clear previous client secret
 
-    if (paymentMethod === "card") {
-      if (!formData.cardName.trim()) {
-        errors.cardName = "Name on card is required"
-      }
-
-      if (!formData.cardNumber.trim()) {
-        errors.cardNumber = "Card number is required"
-      } else if (!/^\d{13,19}$/.test(formData.cardNumber.replace(/\s/g, ""))) {
-        errors.cardNumber = "Please enter a valid card number"
-      }
-
-      if (!formData.expiryDate.trim()) {
-        errors.expiryDate = "Expiry date is required"
-      } else if (!/^(0[1-9]|1[0-2])\/\d{2}$/.test(formData.expiryDate)) {
-        errors.expiryDate = "Please use MM/YY format"
-      }
-
-      if (!formData.cvc.trim()) {
-        errors.cvc = "CVC is required"
-      } else if (!/^\d{3,4}$/.test(formData.cvc)) {
-        errors.cvc = "CVC must be 3 or 4 digits"
-      }
-    }
-
-    setFormErrors(errors)
-    return Object.keys(errors).length === 0
-  }
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault()
-
-    // Validate form
-    if (!validateForm()) {
-      return
-    }
-
-    setIsProcessing(true)
-
-    // Simulate payment processing with progress
-    let progress = 0
-    const interval = setInterval(() => {
-      progress += 5
-      setProcessingProgress(progress)
-
-      if (progress >= 100) {
-        clearInterval(interval)
-
-        // Complete the payment after progress reaches 100%
-        setTimeout(() => {
-          dispatch({
-            type: "SET_PAYMENT_DETAILS",
-            payload: {
-              cardName: formData.cardName,
-              cardNumber: formData.cardNumber,
-              expiryDate: formData.expiryDate,
-              cvc: formData.cvc,
+      const createIntent = async () => {
+        try {
+          const response = await fetch('/api/stripe/create-payment-intent', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
             },
-          })
+            body: JSON.stringify({ amount: totalAmount, currency: 'aud' }), // Assuming AUD, make this dynamic if needed
+          });
 
-          dispatch({ type: "NEXT_STEP" })
-          setIsProcessing(false)
-        }, 500)
-      }
-    }, 100)
-  }
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || `Failed to create payment intent: ${response.statusText}`);
+          }
 
-  const totalAmount = state.tickets.reduce((sum, ticket) => sum + ticket.price, 0)
-  const totalTickets = state.tickets.length
+          const data = await response.json();
+          setClientSecret(data.clientSecret);
+        } catch (error: any) {
+          setPaymentIntentError(error.message);
+          console.error("Error fetching payment intent:", error);
+        } finally {
+          setIsPaymentIntentLoading(false);
+        }
+      };
 
-  // Format card number with spaces
-  const formatCardNumber = (value: string) => {
-    const v = value.replace(/\s+/g, "").replace(/[^0-9]/gi, "")
-    const matches = v.match(/\d{4,16}/g)
-    const match = (matches && matches[0]) || ""
-    const parts = []
-
-    for (let i = 0, len = match.length; i < len; i += 4) {
-      parts.push(match.substring(i, i + 4))
-    }
-
-    if (parts.length) {
-      return parts.join(" ")
+      createIntent();
     } else {
-      return value
+      // If total amount is 0, no need for a payment intent
+      setClientSecret(null);
+      setIsPaymentIntentLoading(false);
+      setPaymentIntentError(null);
     }
-  }
+  }, [totalAmount]);
+
+  // Handle successful payment
+  const handleSuccessfulPayment = async (paymentIntentId: string, stripeBillingDetailsUsed: StripeBillingDetailsForClient) => {
+    setIsProcessingPayment(false);
+    setIsSubmittingOrder(true);
+    setSubmissionError(null);
+
+    // Generate confirmation number HERE
+    // const eventCode = registrationType?.split('-')[0].toUpperCase() || "GI"; // REMOVED
+    // const newConfirmationNumber = generateConfirmationNumber(eventCode); // REMOVED
+    // setConfirmationNumberInStore(newConfirmationNumber); // REMOVED
+
+    // Update payment details in store with only the necessary non-sensitive information
+    setPaymentDetailsInStore({
+      ...paymentDetailsFromStore,
+      paymentIntentId: paymentIntentId,
+      last4: stripeBillingDetailsUsed?.name ? `Billed to: ${stripeBillingDetailsUsed.name}` : 'N/A',
+      paymentMethodId: null,
+    });
+
+    // Prepare registration data for submission
+    const registrationData = {
+      registrationId: useRegistrationStore.getState().registrationId,
+      // confirmationNumber: newConfirmationNumber, // REMOVED - No longer generated here
+      registrationType,
+      primaryAttendee,
+      additionalAttendees,
+      tickets: currentTickets,
+      totalAmount,
+      paymentIntentId,
+      billingDetails: {
+        ...form.getValues(),
+        country: form.getValues('country.isoCode'),
+        stateTerritory: form.getValues('stateTerritory.name'),
+      },
+    };
+
+    try {
+      // Submit registration data
+      console.group("📝 Registration Submission");
+      console.log("Registration Data:", JSON.stringify(registrationData, null, 2));
+      console.log("Total Amount:", `$${totalAmount.toFixed(2)}`);
+      console.log("Payment Intent ID:", paymentIntentId);
+      console.log("Registration ID:", registrationData.registrationId);
+      // console.log("Confirmation Number:", registrationData.confirmationNumber); // REMOVED or comment out if it causes error due to missing field
+      console.groupEnd();
+
+      // Simulate API call
+      await new Promise(resolve => setTimeout(resolve, 1500));
+
+      // SIMULATE receiving confirmation number from Supabase
+      const backendConfirmationNumber = `SUPA-${Math.floor(10000 + Math.random() * 90000)}`; // Example
+      setConfirmedRegistrationDetailsInStore({ confirmationNumber: backendConfirmationNumber }); // ADDED
+
+      console.group("✅ Registration Success");
+      console.log("Successfully saved registration with ID:", registrationData.registrationId);
+      console.log("Confirmation Number from Supabase:", backendConfirmationNumber); // MODIFIED to log received number
+      console.groupEnd();
+
+      goToNextStep();
+    } catch (error: any) {
+      console.group("❌ Registration Error");
+      console.error("Error submitting registration:", error);
+      console.groupEnd();
+
+      setSubmissionError(error.message || "Failed to save your registration after payment. Please contact support.");
+    } finally {
+      setIsSubmittingOrder(false);
+    }
+  };
+
+  // Handle payment errors
+  const handlePaymentError = (errorMessage: string) => {
+    setLocalPaymentProcessingError(errorMessage);
+    setIsProcessingPayment(false);
+  };
+
+  // Form submission handler for billing details
+  const onBillingSubmit = async (data: BillingDetails) => {
+    setLocalPaymentProcessingError(null);
+    
+    // Validate payment requirements
+    if (totalAmount > 0 && !clientSecret) {
+      setLocalPaymentProcessingError("Payment gateway is not ready. Please wait or try refreshing.");
+      return;
+    }
+    
+    // For free orders, just proceed to the next step
+    if (totalAmount === 0 && currentTickets.length > 0) {
+      try {
+        setIsSubmittingOrder(true);
+        setSubmissionError(null);
+
+        // Generate confirmation number HERE
+        // const eventCode = registrationType?.split('-')[0].toUpperCase() || "GI"; // REMOVED
+        // const newConfirmationNumberForFreeOrder = generateConfirmationNumber(eventCode); // REMOVED
+        // setConfirmationNumberInStore(newConfirmationNumberForFreeOrder); // REMOVED
+
+        // Update payment details in store with only the necessary non-sensitive information
+        setPaymentDetailsInStore({
+          ...paymentDetailsFromStore,
+          paymentIntentId: null,
+          last4: null,
+          paymentMethodId: null,
+        });
+
+        // Prepare data (similar to paid orders, but without paymentIntentId)
+        const registrationDataForFreeOrder = {
+          registrationId: useRegistrationStore.getState().registrationId,
+          // confirmationNumber: newConfirmationNumberForFreeOrder, // REMOVED
+          registrationType,
+          primaryAttendee,
+          additionalAttendees: useRegistrationStore.getState().attendeeDetails.additionalAttendees,
+          tickets: currentTickets,
+          totalAmount,
+          billingDetails: {
+            ...form.getValues(),
+            country: form.getValues('country.isoCode'),
+            stateTerritory: form.getValues('stateTerritory.name'),
+          },
+        };
+
+        console.group("📝 Free Registration Submission");
+        console.log("Registration Data:", JSON.stringify(registrationDataForFreeOrder, null, 2));
+        // console.log("Confirmation Number:", registrationDataForFreeOrder.confirmationNumber); // REMOVED or comment out
+        console.groupEnd();
+
+        await new Promise(resolve => setTimeout(resolve, 1500)); // Simulate API call
+
+        // SIMULATE receiving confirmation number from Supabase for free order
+        const backendConfirmationNumberForFreeOrder = `SUPA-FREE-${Math.floor(10000 + Math.random() * 90000)}`; // Example
+        setConfirmedRegistrationDetailsInStore({ confirmationNumber: backendConfirmationNumberForFreeOrder }); // ADDED
+
+        console.group("✅ Free Registration Success");
+        console.log("Successfully saved free registration with ID:", registrationDataForFreeOrder.registrationId);
+        console.log("Confirmation Number from Supabase:", backendConfirmationNumberForFreeOrder); // ADDED
+        console.groupEnd();
+
+        goToNextStep();
+      } catch (error: any) {
+        console.error("Error submitting free registration to Supabase:", error);
+        setSubmissionError(error.message || "Failed to save your registration. Please contact support.");
+      } finally {
+        setIsSubmittingOrder(false);
+      }
+    }
+  };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <SectionHeader>
-        <h1 className="text-2xl font-bold text-masonic-navy">Payment</h1>
+        <h1 className="text-2xl font-bold text-masonic-navy">Payment Details</h1>
         <div className="masonic-divider"></div>
-        <p className="text-gray-600">Please provide your payment details to complete your registration</p>
+        <p className="text-gray-600">Please provide your billing and payment information.</p>
       </SectionHeader>
 
-      <div className="grid gap-6 md:grid-cols-3">
-        <div className="md:col-span-2">
-          <form onSubmit={handleSubmit}>
-            <Card className="border-masonic-navy">
-              <CardHeader className="bg-masonic-navy text-white">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <CardTitle className="flex items-center">
-                      <Lock className="mr-2 h-5 w-5" /> Secure Payment
-                    </CardTitle>
-                    <CardDescription className="text-gray-200">
-                      Your payment information is encrypted and secure
-                    </CardDescription>
-                  </div>
-                  <ShieldCheck className="h-8 w-8 text-masonic-gold" />
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-6 pt-6">
-                {isProcessing ? (
-                  <div className="space-y-4 py-8">
-                    <div className="text-center">
-                      <h3 className="text-lg font-medium">Processing Payment</h3>
-                      <p className="text-sm text-gray-500">Please do not close this window</p>
-                    </div>
-                    <Progress value={processingProgress} className="h-2 w-full" />
-                    <div className="flex justify-center">
-                      <div className="flex items-center space-x-2 rounded-full bg-blue-50 px-3 py-1 text-xs text-blue-700">
-                        <CreditCard className="h-3 w-3" />
-                        <span>Securely processing your payment</span>
-                      </div>
-                    </div>
-                  </div>
-                ) : (
-                  <>
-                    <RadioGroup
-                      defaultValue="card"
-                      value={paymentMethod}
-                      onValueChange={setPaymentMethod}
-                      className="space-y-3"
-                    >
-                      <div className="flex items-center space-x-2 rounded-lg border p-3 hover:bg-gray-50">
-                        <RadioGroupItem value="card" id="card" />
-                        <Label htmlFor="card" className="flex-1 cursor-pointer">
-                          Credit/Debit Card
-                        </Label>
-                        <div className="flex space-x-1">
-                          <div className="h-6 w-10 rounded bg-gray-200"></div>
-                          <div className="h-6 w-10 rounded bg-gray-200"></div>
-                          <div className="h-6 w-10 rounded bg-gray-200"></div>
-                        </div>
-                      </div>
-                      <div className="flex items-center space-x-2 rounded-lg border p-3 hover:bg-gray-50">
-                        <RadioGroupItem value="paypal" id="paypal" />
-                        <Label htmlFor="paypal" className="flex-1 cursor-pointer">
-                          PayPal
-                        </Label>
-                        <div className="h-6 w-16 rounded bg-gray-200"></div>
-                      </div>
-                    </RadioGroup>
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(onBillingSubmit)} className="space-y-6">
+          
+          {/* Main two-column layout */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-x-8"> 
+            
+            {/* Left column (Billing Details & Payment Method) */}
+            <div className="md:col-span-2 space-y-6">
+              {/* Billing Details Form */}
+              <BillingDetailsForm 
+                form={form}
+                primaryAttendee={primaryAttendee}
+              />
 
-                    {paymentMethod === "card" && (
-                      <div className="space-y-4">
-                        <Alert className="border-blue-200 bg-blue-50 text-blue-800">
-                          <Info className="h-4 w-4" />
-                          <AlertDescription>
-                            Your card will be charged ${totalAmount.toFixed(2)} for this registration.
-                          </AlertDescription>
-                        </Alert>
+              {/* Payment Method Section */}
+              <PaymentMethod
+                clientSecret={clientSecret}
+                totalAmount={totalAmount}
+                paymentIntentError={paymentIntentError}
+                isPaymentIntentLoading={isPaymentIntentLoading}
+                onPaymentSuccess={handleSuccessfulPayment}
+                onPaymentError={handlePaymentError}
+                setIsProcessingPayment={setIsProcessingPayment}
+                billingDetails={form.getValues()}
+              />
+            </div>
 
-                        <div className="space-y-2">
-                          <Label htmlFor="cardName" className={formErrors.cardName ? "text-red-500" : ""}>
-                            Name on Card
-                          </Label>
-                          <Input
-                            id="cardName"
-                            value={formData.cardName}
-                            onChange={(e) => handleChange("cardName", e.target.value)}
-                            placeholder="John Doe"
-                            className={formErrors.cardName ? "border-red-500" : ""}
-                          />
-                          {formErrors.cardName && <p className="text-xs text-red-500">{formErrors.cardName}</p>}
-                        </div>
+            {/* Right column (Order Summary & Alerts) */}
+            <div className="md:col-span-1">
+              <OrderSummary
+                primaryAttendee={primaryAttendee}
+                additionalAttendees={additionalAttendees}
+                currentTickets={currentTickets}
+                totalAmount={totalAmount}
+                isProcessingPayment={isProcessingPayment}
+                isSubmittingOrder={isSubmittingOrder}
+                isPaymentIntentLoading={isPaymentIntentLoading}
+                localPaymentProcessingError={localPaymentProcessingError}
+                submissionError={submissionError}
+              />
+            </div>
+          </div>
 
-                        <div className="space-y-2">
-                          <Label htmlFor="cardNumber" className={formErrors.cardNumber ? "text-red-500" : ""}>
-                            Card Number
-                          </Label>
-                          <div className="relative">
-                            <CreditCard
-                              className={`absolute left-3 top-3 h-4 w-4 ${formErrors.cardNumber ? "text-red-500" : "text-gray-500"}`}
-                            />
-                            <Input
-                              id="cardNumber"
-                              value={formData.cardNumber}
-                              onChange={(e) => handleChange("cardNumber", formatCardNumber(e.target.value))}
-                              placeholder="1234 5678 9012 3456"
-                              className={`pl-10 ${formErrors.cardNumber ? "border-red-500" : ""}`}
-                              maxLength={19}
-                            />
-                          </div>
-                          {formErrors.cardNumber && <p className="text-xs text-red-500">{formErrors.cardNumber}</p>}
-                        </div>
-
-                        <div className="grid grid-cols-2 gap-4">
-                          <div className="space-y-2">
-                            <Label htmlFor="expiryDate" className={formErrors.expiryDate ? "text-red-500" : ""}>
-                              Expiry Date
-                            </Label>
-                            <Input
-                              id="expiryDate"
-                              value={formData.expiryDate}
-                              onChange={(e) => handleChange("expiryDate", e.target.value)}
-                              placeholder="MM/YY"
-                              className={formErrors.expiryDate ? "border-red-500" : ""}
-                              maxLength={5}
-                            />
-                            {formErrors.expiryDate && <p className="text-xs text-red-500">{formErrors.expiryDate}</p>}
-                          </div>
-                          <div className="space-y-2">
-                            <Label htmlFor="cvc" className={formErrors.cvc ? "text-red-500" : ""}>
-                              CVC
-                            </Label>
-                            <Input
-                              id="cvc"
-                              value={formData.cvc}
-                              onChange={(e) => handleChange("cvc", e.target.value)}
-                              placeholder="123"
-                              className={formErrors.cvc ? "border-red-500" : ""}
-                              maxLength={4}
-                            />
-                            {formErrors.cvc && <p className="text-xs text-red-500">{formErrors.cvc}</p>}
-                          </div>
-                        </div>
-
-                        <div className="flex items-center space-x-2">
-                          <Checkbox
-                            id="saveCard"
-                            checked={formData.saveCard}
-                            onCheckedChange={(checked) => handleChange("saveCard", checked)}
-                          />
-                          <Label htmlFor="saveCard" className="text-sm cursor-pointer">
-                            Save this card for future registrations
-                          </Label>
-                        </div>
-                      </div>
-                    )}
-
-                    {paymentMethod === "paypal" && (
-                      <div className="space-y-4">
-                        <Alert className="border-blue-200 bg-blue-50 text-blue-800">
-                          <Info className="h-4 w-4" />
-                          <AlertDescription>
-                            You will be redirected to PayPal to complete your payment of ${totalAmount.toFixed(2)}.
-                          </AlertDescription>
-                        </Alert>
-
-                        <div className="rounded-lg border border-gray-200 bg-gray-50 p-4 text-center">
-                          <p className="text-sm text-gray-600">
-                            Click "Continue to PayPal" below to proceed with your payment
-                          </p>
-                        </div>
-                      </div>
-                    )}
-                  </>
-                )}
-              </CardContent>
-              <CardFooter className="flex justify-between bg-gray-50 p-6">
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={handlePrevious}
-                  disabled={isProcessing}
-                  className="border-masonic-navy text-masonic-navy hover:bg-masonic-lightblue"
-                >
-                  <ArrowLeft className="mr-2 h-4 w-4" /> Previous
-                </Button>
-                <Button
-                  type="submit"
-                  disabled={isProcessing}
-                  className="bg-masonic-gold text-masonic-navy hover:bg-masonic-lightgold"
-                >
-                  {isProcessing ? (
-                    <>Processing...</>
-                  ) : paymentMethod === "paypal" ? (
-                    <>Continue to PayPal</>
-                  ) : (
-                    <>Pay ${totalAmount.toFixed(2)}</>
-                  )}
-                </Button>
-              </CardFooter>
-            </Card>
-          </form>
-        </div>
-
-        <div>
-          <Card className="sticky top-6">
-            <CardHeader className="bg-masonic-lightblue/20 pb-3">
-              <CardTitle className="flex items-center text-lg">
-                <Ticket className="mr-2 h-5 w-5" /> Order Summary
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4 p-4">
-              <div className="rounded-lg bg-gray-50 p-3">
-                <div className="flex items-center justify-between text-sm">
-                  <span>Total Tickets:</span>
-                  <span className="font-medium">{totalTickets}</span>
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span>Total Attendees:</span>
-                  <span className="font-medium">
-                    {state.additionalAttendees.length + (state.primaryAttendee ? 1 : 0)}
-                  </span>
-                </div>
-              </div>
-
-              <div className="max-h-[200px] overflow-y-auto">
-                {state.tickets.map((ticket) => (
-                  <div key={ticket.id} className="flex items-center justify-between border-b py-2 text-sm">
-                    <div className="flex items-start">
-                      <Check className="mr-1 mt-0.5 h-3 w-3 text-green-500" />
-                      <span>{ticket.name}</span>
-                    </div>
-                    <span>${ticket.price.toFixed(2)}</span>
-                  </div>
-                ))}
-              </div>
-
-              <Separator />
-
-              <div className="flex items-center justify-between font-bold">
-                <span>Total</span>
-                <span className="text-lg">${totalAmount.toFixed(2)}</span>
-              </div>
-
-              <div className="rounded-lg bg-masonic-lightgold/20 p-3 text-xs text-masonic-navy">
-                <div className="flex">
-                  <ShieldCheck className="mr-2 h-4 w-4 flex-shrink-0" />
-                  <p>
-                    Your payment is secured with industry-standard encryption. We do not store your full card details.
-                  </p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
+          {/* Navigation buttons */}
+          <div className="mt-8 flex justify-between">
+            <Button 
+              type="button" 
+              variant="outline" 
+              onClick={goToPrevStep} 
+              disabled={isProcessingPayment || isSubmittingOrder}
+              className="border-masonic-navy text-masonic-navy hover:bg-masonic-lightblue"
+            >
+              <ArrowLeft className="mr-2 h-4 w-4" /> Back to Review Order
+            </Button>
+            
+            {/* Only show Complete Registration for free orders */}
+            {totalAmount === 0 && currentTickets.length > 0 && !isSubmittingOrder && (
+               <Button 
+                 type="submit" 
+                 disabled={isSubmittingOrder} 
+                 className="bg-masonic-navy hover:bg-masonic-blue"
+               >
+                  Complete Registration
+              </Button>
+            )}
+          </div>
+        </form>
+      </Form>
     </div>
-  )
+  );
 }

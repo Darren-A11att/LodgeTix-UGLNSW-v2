@@ -1,40 +1,56 @@
 "use client"
 
 import { useState } from "react"
-import { useRegistration } from "@/contexts/registration-context"
+import { useRegistrationStore } from "@/lib/registration-store"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import type { Attendee } from "@/lib/registration-types"
+import type { Attendee, MasonAttendee } from "@/lib/registration-types"
 import { User, UserPlus } from "lucide-react"
 import { AttendeeCard } from "../attendee-card"
-import { PrimaryMasonForm } from "../forms/primary-mason-form"
-import { AdditionalMasonForm } from "../forms/additional-mason-form"
+import { MasonForm } from "../forms/mason-form"
 import { GuestForm } from "../forms/guest-form"
 import { SectionHeader } from "../SectionHeader"
 
 export function AttendeeDetailsStep() {
-  const { state, dispatch } = useRegistration()
+  const primaryAttendee = useRegistrationStore((state) => state.attendeeDetails.primaryAttendee);
+  const additionalAttendees = useRegistrationStore((state) => state.attendeeDetails.additionalAttendees);
+  const storeSetPrimaryAttendee = useRegistrationStore((state) => state.setPrimaryAttendee);
+  const storeAddAdditionalAttendee = useRegistrationStore((state) => state.addAdditionalAttendee);
+  const storeRemoveAdditionalAttendee = useRegistrationStore((state) => state.removeAdditionalAttendee);
+  const goToNextStep = useRegistrationStore((state) => state.goToNextStep);
+  const goToPrevStep = useRegistrationStore((state) => state.goToPrevStep);
+
+  // Log relevant store state for debugging
+  console.log("AttendeeDetailsStep - primaryAttendee:", primaryAttendee);
+  console.log("AttendeeDetailsStep - additionalAttendees:", additionalAttendees);
+
   const [showAdditionalMasonForm, setShowAdditionalMasonForm] = useState(false)
   const [showGuestForm, setShowGuestForm] = useState(false)
+  const [isEditingPrimary, setIsEditingPrimary] = useState(false);
 
   const handlePrevious = () => {
-    dispatch({ type: "PREV_STEP" })
+    goToPrevStep();
   }
 
   const handleContinue = () => {
-    if (state.primaryAttendee) {
-      dispatch({ type: "NEXT_STEP" })
+    if (primaryAttendee) {
+      goToNextStep();
     }
   }
 
+  const handleSetPrimaryAttendee = (masonData: MasonAttendee) => {
+    storeSetPrimaryAttendee(masonData);
+    setIsEditingPrimary(false);
+  }
+
   const handleAddAttendee = (attendee: Attendee) => {
-    dispatch({ type: "ADD_ATTENDEE", payload: attendee })
+    storeAddAdditionalAttendee(attendee);
     setShowAdditionalMasonForm(false)
     setShowGuestForm(false)
   }
 
   const handleRemoveAttendee = (id: string) => {
-    dispatch({ type: "REMOVE_ATTENDEE", payload: id })
+    storeRemoveAdditionalAttendee(id);
   }
 
   return (
@@ -52,32 +68,42 @@ export function AttendeeDetailsStep() {
             <CardTitle>Primary Attendee</CardTitle>
           </CardHeader>
           <CardContent className="pt-6">
-            {!state.primaryAttendee ? (
-              <PrimaryMasonForm />
+            {!primaryAttendee ? (
+              <MasonForm
+                attendeeType="primary"
+                onSubmit={handleSetPrimaryAttendee}
+              />
+            ) : isEditingPrimary ? (
+              <MasonForm
+                attendeeType="primary"
+                onSubmit={handleSetPrimaryAttendee}
+                initialData={primaryAttendee}
+                onFormClose={() => setIsEditingPrimary(false)}
+              />
             ) : (
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <div className="flex flex-wrap gap-2 items-center">
-                    <span className="font-medium">{state.primaryAttendee.masonicTitle}</span>
+                    <span className="font-medium">{primaryAttendee.masonicTitle}</span>
                     <span>
-                      {state.primaryAttendee.firstName} {state.primaryAttendee.lastName},
+                      {primaryAttendee.firstName} {primaryAttendee.lastName},
                     </span>
-                    <span className="text-gray-600">Rank: {state.primaryAttendee.rank}</span>
+                    <span className="text-gray-600">Rank: {primaryAttendee.rank}</span>
                   </div>
                   <Button
                     variant="outline"
                     size="sm"
                     className="text-masonic-navy border-masonic-navy hover:bg-masonic-lightblue"
-                    onClick={() => dispatch({ type: "SET_PRIMARY_ATTENDEE", payload: null })}
+                    onClick={() => setIsEditingPrimary(true)}
                   >
                     Edit
                   </Button>
                 </div>
                 <div className="text-sm text-gray-600">
-                  <span>{state.primaryAttendee.grandLodge} • </span>
+                  <span>{primaryAttendee.grandLodge} • </span>
                   <span>
-                    {state.primaryAttendee.lodgeName}
-                    {state.primaryAttendee.lodgeNumber && ` No. ${state.primaryAttendee.lodgeNumber}`}
+                    {primaryAttendee.lodgeName}
+                    {primaryAttendee.lodgeNumber && ` No. ${primaryAttendee.lodgeNumber}`}
                   </span>
                 </div>
               </div>
@@ -86,11 +112,11 @@ export function AttendeeDetailsStep() {
         </Card>
 
         {/* Display existing additional attendees */}
-        {state.additionalAttendees.length > 0 && (
+        {additionalAttendees.length > 0 && (
           <div className="space-y-4">
             <h3 className="text-lg font-medium text-masonic-navy">Additional Attendees</h3>
             <div className="space-y-4">
-              {state.additionalAttendees.map((attendee) => (
+              {additionalAttendees.map((attendee) => (
                 <AttendeeCard key={attendee.id} attendee={attendee} onRemove={handleRemoveAttendee} />
               ))}
             </div>
@@ -98,29 +124,17 @@ export function AttendeeDetailsStep() {
         )}
 
         {/* Add Additional Mason Form */}
-        {showAdditionalMasonForm && state.primaryAttendee && (
-          <Card className="border-masonic-lightgold">
-            <CardHeader>
-              <div className="flex justify-between items-center">
-                <CardTitle>Add Mason</CardTitle>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="text-gray-500 hover:text-red-600"
-                  onClick={() => setShowAdditionalMasonForm(false)}
-                >
-                  Cancel
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <AdditionalMasonForm primaryMason={state.primaryAttendee} onSubmit={handleAddAttendee} />
-            </CardContent>
-          </Card>
+        {showAdditionalMasonForm && primaryAttendee && (
+          <MasonForm
+            attendeeType="additional"
+            onSubmit={handleAddAttendee}
+            primaryMasonData={primaryAttendee}
+            onFormClose={() => setShowAdditionalMasonForm(false)}
+          />
         )}
 
         {/* Add Guest Form */}
-        {showGuestForm && state.primaryAttendee && (
+        {showGuestForm && primaryAttendee && (
           <Card className="border-masonic-lightgold">
             <CardHeader>
               <div className="flex justify-between items-center">
@@ -142,7 +156,7 @@ export function AttendeeDetailsStep() {
         )}
 
         {/* Add Attendee Buttons */}
-        {state.primaryAttendee && !showAdditionalMasonForm && !showGuestForm && (
+        {primaryAttendee && !showAdditionalMasonForm && !showGuestForm && (
           <div className="flex gap-4 justify-center">
             <Button onClick={() => setShowAdditionalMasonForm(true)} className="bg-masonic-navy hover:bg-masonic-blue">
               <UserPlus className="mr-2 h-4 w-4" />
@@ -166,7 +180,7 @@ export function AttendeeDetailsStep() {
         </Button>
         <Button
           onClick={handleContinue}
-          disabled={!state.primaryAttendee}
+          disabled={!primaryAttendee}
           className="bg-masonic-navy hover:bg-masonic-blue"
         >
           Continue to Tickets

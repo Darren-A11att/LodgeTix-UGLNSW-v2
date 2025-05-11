@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import './globals.css'
+import './disableFastRefreshLogs'
 
 export const metadata: Metadata = {
   title: 'v0 App',

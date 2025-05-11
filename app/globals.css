@@ -110,3 +110,17 @@
   background-color: #c8a870;
   transform: rotate(45deg);
 }
+
+/* Custom styles for State/Territory select in PaymentStep to hide checkmark */
+.state-select-content [role="option"] > span:first-child {
+  /* This targets the span that usually holds the SelectPrimitive.ItemIndicator in ShadCN's SelectItem */
+  /* The ItemIndicator itself might be harder to target directly without !important or more complex selectors */
+  /* Hiding the container span is generally effective */
+  display: none;
+}
+
+/* Adjust padding for SelectItems if the checkmark is removed to re-center text */
+/* This assumes the default padding was accommodating the checkmark on the left */
+.state-select-content [role="option"] {
+  padding-left: 0rem !important; /* Increased from 0.5rem. Default is often pl-8 (2rem) or pl-6. */
+}

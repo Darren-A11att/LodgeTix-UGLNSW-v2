@@ -1,6 +1,6 @@
 "use client"
 
-import { useRegistration } from "@/contexts/registration-context"
+import { useRegistrationStore } from "@/lib/registration-store"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import {
@@ -17,7 +17,7 @@ import {
   Printer,
   QrCode,
   Share,
-  Ticket,
+  Ticket as TicketIcon,
   User,
   CreditCard,
 } from "lucide-react"
@@ -28,19 +28,35 @@ import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { SectionHeader } from "../SectionHeader"
+import type { Ticket, Attendee, MasonAttendee } from "@/lib/registration-types"
 
 export function ConfirmationStep() {
-  const { state, dispatch } = useRegistration()
+  const store = useRegistrationStore()
+
+  const {
+    registrationType,
+    resetWizard,
+    confirmationNumber: storeConfirmationNumber,
+  } = store
+
+  const { primaryAttendee, additionalAttendees } = store.attendeeDetails
+  const { tickets } = store.ticketSelection
+  const paymentInfo = store.paymentDetails
 
   const handleReset = () => {
-    dispatch({ type: "RESET" })
+    resetWizard()
   }
 
-  const totalAmount = state.tickets.reduce((sum, ticket) => sum + ticket.price, 0)
-  const totalTickets = state.tickets.length
+  const allAttendees: Attendee[] = [
+    ...(primaryAttendee ? [primaryAttendee as Attendee] : []),
+    ...additionalAttendees,
+  ]
 
-  // Generate a random confirmation number
-  const confirmationNumber = `GI-${Math.floor(100000 + Math.random() * 900000)}`
+  const totalAmount = tickets.reduce((sum: number, ticket: Ticket) => sum + ticket.price, 0)
+  const totalTickets = tickets.length
+
+  // Use confirmation number from the store
+  const confirmationNumber = storeConfirmationNumber;
 
   // Format date for display
   const formatDate = (date: Date) => {
@@ -65,6 +81,10 @@ export function ConfirmationStep() {
         <div className="masonic-divider"></div>
         <p className="text-gray-600">Thank you for registering for the Grand Installation</p>
       </SectionHeader>
+
+      <Button onClick={handleReset} className="w-full bg-masonic-gold hover:bg-masonic-gold/90 text-masonic-navy">
+        Start New Registration
+      </Button>
 
       <Tabs defaultValue="confirmation" className="w-full">
         <TabsList className="grid w-full grid-cols-3">
@@ -97,7 +117,7 @@ export function ConfirmationStep() {
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2 rounded-lg border p-3">
                   <h3 className="font-medium text-gray-700">Registration Type</h3>
-                  <p className="capitalize text-masonic-navy">{state.registrationType?.replace("-", " ")}</p>
+                  <p className="capitalize text-masonic-navy">{registrationType?.replace("-", " ")}</p>
                 </div>
 
                 <div className="space-y-2 rounded-lg border p-3">
@@ -109,19 +129,19 @@ export function ConfirmationStep() {
               <div className="space-y-2 rounded-lg border p-3">
                 <h3 className="font-medium text-gray-700">Primary Attendee</h3>
                 <p className="text-masonic-navy">
-                  {state.primaryAttendee?.masonicTitle} {state.primaryAttendee?.firstName}{" "}
-                  {state.primaryAttendee?.lastName}
+                  {(primaryAttendee as MasonAttendee)?.masonicTitle} {primaryAttendee?.firstName}{" "}
+                  {primaryAttendee?.lastName}
                 </p>
-                {state.primaryAttendee?.email && (
+                {primaryAttendee?.email && (
                   <div className="flex items-center text-sm text-gray-500">
                     <Mail className="mr-1 h-3 w-3" />
-                    {state.primaryAttendee.email}
+                    {primaryAttendee.email}
                   </div>
                 )}
-                {state.primaryAttendee?.mobile && (
+                {primaryAttendee?.mobile && (
                   <div className="flex items-center text-sm text-gray-500">
                     <Phone className="mr-1 h-3 w-3" />
-                    {state.primaryAttendee.mobile}
+                    {primaryAttendee.mobile}
                   </div>
                 )}
               </div>
@@ -133,9 +153,13 @@ export function ConfirmationStep() {
                     <div className="flex items-center">
                       <CreditCard className="mr-2 h-4 w-4 text-gray-500" />
                       <span>
-                        {state.paymentDetails?.cardNumber
-                          ? `Credit Card ending in ${state.paymentDetails.cardNumber.slice(-4)}`
-                          : "PayPal"}
+                        {paymentInfo?.last4
+                          ? `Card ending in ${paymentInfo.last4}`
+                          : paymentInfo?.paymentMethodId
+                          ? "Paid via Stripe"
+                          : totalAmount > 0
+                          ? "Payment Method Not Specified"
+                          : "No payment required"}
                       </span>
                     </div>
                     <span className="font-bold">${totalAmount.toFixed(2)}</span>
@@ -146,7 +170,7 @@ export function ConfirmationStep() {
               <Alert className="border-amber-200 bg-amber-50">
                 <AlertCircle className="h-4 w-4 text-amber-600" />
                 <AlertDescription className="text-amber-800">
-                  A confirmation email has been sent to {state.primaryAttendee?.email}. Please check your inbox.
+                  A confirmation email has been sent to {primaryAttendee?.email}. Please check your inbox.
                 </AlertDescription>
               </Alert>
             </CardContent>
@@ -167,7 +191,7 @@ export function ConfirmationStep() {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center">
-                <Ticket className="mr-2 h-5 w-5" /> Your Tickets
+                <TicketIcon className="mr-2 h-5 w-5" /> Your Tickets
               </CardTitle>
               <CardDescription>
                 Total tickets: {totalTickets} • Total amount: ${totalAmount.toFixed(2)}
@@ -176,13 +200,17 @@ export function ConfirmationStep() {
             <CardContent className="p-0">
               <ScrollArea className="max-h-[400px]">
                 <div className="space-y-4 p-4">
-                  {state.tickets.map((ticket, index) => {
-                    const attendee = [
-                      ...(state.primaryAttendee ? [state.primaryAttendee] : []),
-                      ...state.additionalAttendees,
-                    ].find((a) => a.id === ticket.attendeeId)
+                  {tickets.map((ticket: Ticket) => {
+                    const attendee = allAttendees.find((a) => a.id === ticket.attendeeId)
 
                     if (!attendee) return null
+
+                    // Helper to get title based on attendee type
+                    const getAttendeeTitle = (att: Attendee) => {
+                      if (att.type === "mason") return (att as MasonAttendee).masonicTitle;
+                      // For GuestAttendee or PartnerAttendee, they have a 'title' field (e.g., Mr, Mrs)
+                      return (att as any).title; // Use 'any' if GuestAttendee/PartnerAttendee type is not specific enough or imported
+                    };
 
                     return (
                       <Card key={ticket.id} className="overflow-hidden border-masonic-lightgold">
@@ -202,7 +230,7 @@ export function ConfirmationStep() {
                               <div className="flex items-center text-sm">
                                 <User className="mr-1 h-4 w-4 text-gray-500" />
                                 <span>
-                                  {attendee.type === "mason" ? attendee.masonicTitle : attendee.title}{" "}
+                                  {getAttendeeTitle(attendee)}{" "}
                                   {attendee.firstName} {attendee.lastName}
                                 </span>
                               </div>
@@ -328,7 +356,7 @@ export function ConfirmationStep() {
         <h2 className="mb-4 text-xl font-bold text-masonic-navy">What's Next?</h2>
         <div className="masonic-divider"></div>
         <p className="mb-6 text-gray-600">
-          A confirmation email has been sent to {state.primaryAttendee?.email} with all the details of your
+          A confirmation email has been sent to {primaryAttendee?.email} with all the details of your
           registration.
         </p>
 
