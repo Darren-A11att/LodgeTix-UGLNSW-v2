@@ -2,7 +2,7 @@
 
 import { Textarea } from "@/components/ui/textarea"
 
-import type React from "react"
+import React from "react"
 
 import { useState } from "react"
 import Link from "next/link"

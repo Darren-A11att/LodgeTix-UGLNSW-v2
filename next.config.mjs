@@ -12,7 +12,7 @@ const nextConfig = {
   // Disable Fast Refresh console messages
   reactStrictMode: true,
   devIndicators: {
-    buildActivityPosition: 'bottom-right',
+    position: 'bottom-right',
   },
   // Disable client console messages for Fast Refresh
   onDemandEntries: {

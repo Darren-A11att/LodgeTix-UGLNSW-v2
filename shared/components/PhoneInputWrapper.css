@@ -1,0 +1,109 @@
+/* Phone Input Component Styles
+ * For use with react-phone-input-2 or similar libraries
+ */
+
+ :root {
+  /* Color variables */
+  --border-color: rgb(203 213 225);
+  --border-color-light: rgb(226 232 240);
+  --focus-outline: rgba(59, 130, 246, 0.5);
+  --bg-light: #f8fafc;
+  --bg-white: #ffffff;
+  
+  /* Size variables */
+  --input-height: 3rem; /* 48px */
+  --input-height-mobile: 3.5rem; /* 56px */
+  --input-padding: 1rem;
+  --input-padding-mobile: 0.75rem;
+  --border-radius: 0.375rem;
+  --min-country-width: 65px;
+  --min-country-width-mobile: 70px;
+}
+
+/* Container for the phone input component */
+.phone-input-container {
+  width: 100%;
+}
+
+/* Main input container */
+.phone-input-container .PhoneInput {
+  display: flex;
+  align-items: center;
+  height: var(--input-height);
+  border: 1px solid var(--border-color);
+  border-radius: var(--border-radius);
+  overflow: hidden;
+  background-color: var(--bg-white);
+}
+
+/* Country selector area */
+.phone-input-container .PhoneInputCountry {
+  display: flex;
+  align-items: center;
+  padding-left: var(--input-padding);
+  padding-right: var(--input-padding);
+  background-color: var(--bg-light);
+  border-right: 1px solid var(--border-color-light);
+  min-width: var(--min-country-width);
+  min-height: var(--input-height);
+}
+
+/* Flag icon styling */
+.PhoneInputCountryIcon {
+  width: 1.5em;
+  height: 1em;
+}
+
+/* Dropdown arrow styling */
+.PhoneInputCountrySelectArrow {
+  width: 0.5em;
+  margin-right: 0.5em;
+}
+
+/* Actual input field */
+.phone-input-container .PhoneInputInput {
+  flex: 1;
+  border: none;
+  padding: var(--input-padding);
+  padding-left: 1.5rem; /* Specific fix: Increased left padding for better spacing from flag */
+  outline: none;
+  height: 100%;
+  font-size: 16px !important; /* Prevent iOS zoom */
+}
+
+/* Focus states */
+.phone-input-container .PhoneInput:focus-within {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--focus-outline);
+}
+
+.phone-input-container .PhoneInputInput:focus {
+  outline: none;
+}
+
+/* Mobile-specific enhancements */
+@media (max-width: 640px) {
+  /* Larger touch targets for mobile */
+  .phone-input-container .PhoneInput {
+    height: var(--input-height-mobile);
+  }
+  
+  /* Larger country selector for mobile */
+  .phone-input-container .PhoneInputCountry {
+    min-width: var(--min-country-width-mobile);
+    min-height: var(--input-height-mobile);
+    padding-left: var(--input-padding-mobile);
+    padding-right: var(--input-padding-mobile);
+  }
+  
+  /* Make the dropdown items larger for touch */
+  .PhoneInputCountrySelect {
+    font-size: 16px;
+  }
+  
+  /* Larger flags for better visibility on mobile */
+  .PhoneInputCountryIcon {
+    width: 1.75em;
+    height: 1.2em;
+  }
+}

@@ -23,7 +23,7 @@ The LodgeTix-UGLNSW-v2 project is built using Next.js 15 with the App Router pat
 
 #### Component Organization
 - **UI Components**: Generic UI components in `/components/ui` (shadcn-based)
-- **Feature Components**: Domain-specific components in `/components/registration`
+- **Feature Components**: Domain-specific components in `/components/register`
 - **Composition Pattern**: Complex interfaces are built from smaller, specialized components
 
 ### 1.3 Main Functionality Patterns
