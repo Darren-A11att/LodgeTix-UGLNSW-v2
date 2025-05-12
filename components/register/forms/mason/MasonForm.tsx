@@ -89,6 +89,28 @@ const MasonForm: React.FC<MasonFormProps> = ({
   ];
   const isGrandTitle = (title: string) => ["VW Bro", "RW Bro", "MW Bro"].includes(title);
 
+  // Determine if contact fields should be hidden for non-primary masons
+  const hideContactFieldsForMason = !isPrimary && mason.contactPreference !== 'Directly';
+
+  // Determine if confirmation message should be shown for non-primary masons
+  const showConfirmationForMason = !isPrimary && 
+                                   (mason.contactPreference === 'Primary Attendee' || 
+                                    mason.contactPreference === 'Provide Later');
+
+  // Function to get confirmation message for non-primary masons
+  const getConfirmationMessageForMason = useCallback(() => {
+    if (!isPrimary && primaryMasonData) {
+      const primaryName = `${primaryMasonData.firstName} ${primaryMasonData.lastName}`.trim();
+      if (mason.contactPreference === 'Primary Attendee') {
+        return `I confirm that ${primaryName} will be responsible for all communication with this attendee.`
+      }
+      if (mason.contactPreference === 'Provide Later') {
+        return `I confirm that ${primaryName} will be responsible for all communication with this attendee until their contact details have been updated in their profile.`
+      }
+    }
+    return "";
+  }, [isPrimary, mason?.contactPreference, primaryMasonData]);
+
   // --- Generic Field Update Handler ---
   const handleFieldChange = useCallback((id: string, field: keyof UnifiedAttendeeData, value: any) => {
       if (id === attendeeId) {
@@ -474,11 +496,6 @@ const MasonForm: React.FC<MasonFormProps> = ({
     }
   }, [ladyPartnerData, removeAttendee, updateAttendee, attendeeId]);
 
-  // Determine if contact fields should be hidden for THIS mason (if additional)
-  // Show fields if 'Directly' is selected or if preference is not yet set (undefined, meaning "Please Select")
-  const hideMyContactFields = mason && !isPrimary && 
-                            !(mason.contactPreference === 'Directly' || typeof mason.contactPreference === 'undefined');
-
   return (
     <div className={`bg-slate-50 p-6 rounded-lg mb-8 relative`} id={`mason-form-${attendeeId}`}>
       <div className="flex justify-between items-center mb-4">
@@ -552,9 +569,10 @@ const MasonForm: React.FC<MasonFormProps> = ({
         onChange={handleFieldChange}
         handlePhoneChange={handlePhoneChange} 
         isPrimary={isPrimary}
-        hideContactFields={hideMyContactFields}
-        showConfirmation={!isPrimary && (mason.contactPreference === 'PrimaryAttendee' || mason.contactPreference === 'ProvideLater' || mason.contactPreference === 'Mason/Guest')}
-        getConfirmationMessage={() => getConfirmationMessageForAdditionalMason(primaryMasonData, mason)}
+        hideContactFields={hideContactFieldsForMason}
+        showConfirmation={showConfirmationForMason}
+        getConfirmationMessage={getConfirmationMessageForMason}
+        primaryMasonData={primaryMasonData}
       />
 
       <MasonAdditionalInfo 

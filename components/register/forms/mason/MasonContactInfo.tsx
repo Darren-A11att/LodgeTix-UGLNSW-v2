@@ -16,6 +16,7 @@ interface MasonContactInfoProps {
   hideContactFields: boolean;
   showConfirmation: boolean;
   getConfirmationMessage: () => string;
+  primaryMasonData?: UnifiedAttendeeData;
 }
 
 const MasonContactInfo: React.FC<MasonContactInfoProps> = ({
@@ -27,16 +28,34 @@ const MasonContactInfo: React.FC<MasonContactInfoProps> = ({
   hideContactFields,
   showConfirmation,
   getConfirmationMessage,
+  primaryMasonData,
 }) => {
-  const contactOptions: Array<{ value: ContactPreference | ""; label: string; disabled?: boolean }> = [
-    { value: "", label: "Please Select", disabled: true },
-    { value: "Directly", label: "Directly" },
-    { value: "Primary Attendee", label: "Primary Attendee" },
-    { value: "Provide Later", label: "Provide Later" },
-    { value: "Mason/Guest", label: "Mason/Guest" }
-  ];
   const [emailInteracted, setEmailInteracted] = useState(false);
   const [phoneInteracted, setPhoneInteracted] = useState(false);
+
+  // Function to dynamically generate contact preference options for Additional Masons
+  const getDynamicMasonContactOptions = () => {
+    const options: Array<{ value: ContactPreference | ""; label: string; disabled?: boolean }> = [
+      { value: "", label: "Please Select", disabled: true },
+    ];
+
+    if (primaryMasonData && primaryMasonData.firstName && primaryMasonData.lastName) {
+      const primaryName = `${primaryMasonData.firstName} ${primaryMasonData.lastName}`.trim();
+      options.push({ value: "Primary Attendee", label: primaryName });
+    }
+
+    options.push({ value: "Provide Later", label: "Provide Later" });
+    
+    // For Additional Masons, also include "Directly" if they need to provide their own details
+    // If not primary, and contact preference IS 'Directly', then show 'Directly'
+    // This logic should be reviewed based on how `hideContactFields` is now determined in MasonForm.
+    // For now, keeping the requested options.
+    // If `isPrimary` is false, and we need a 'Directly' option it should be added here.
+    // The request was: "Please Select", Primary Attendee Name, "Provide Later".
+    // "Directly" is implicitly handled by `hideContactFields` prop. If it's false, fields show.
+
+    return options;
+  };
 
   return (
     <>
@@ -105,8 +124,8 @@ const MasonContactInfo: React.FC<MasonContactInfoProps> = ({
                 required
                 className="w-full px-4 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
               >
-                {contactOptions.map(option => (
-                  <option key={option.label} value={option.value} disabled={option.disabled}>{option.label}</option>
+                {getDynamicMasonContactOptions().map(option => (
+                  <option key={option.value || 'select'} value={option.value} disabled={option.disabled}>{option.label}</option>
                 ))}
               </select>
             </div>
@@ -153,6 +172,15 @@ const MasonContactInfo: React.FC<MasonContactInfoProps> = ({
                   />
                 </div>
               </>
+            )}
+
+            {/* Show confirmation message if needed for additional masons */}
+            {showConfirmation && (
+                 <div className="col-span-8 flex items-center pl-2 pt-2">
+                    <p className="text-sm text-slate-600 bg-slate-50 p-3 rounded-md border border-slate-200 w-full">
+                        {getConfirmationMessage()}
+                    </p>
+                </div>
             )}
           </div>
         </div>
