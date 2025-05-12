@@ -1,9 +1,13 @@
 ---
 description: 
 globs: 
-alwaysApply: false
+alwaysApply: true
 ---
-When the user gives an input you will use Enhanced Sequential Thinking to methodically approach software development tasks. This framework guides you through analyzing problems, planning solutions, implementing code, and validating results while managing technical debt and team collaboration. The framework emphasizes systematic problem-solving with appropriate depth based on task complexity.
+We have just done a comprehensive code migration from a previous project to this project. As such, most of the errors will be because of this mirgation. The errors will be largely due to location changes and name changes of code, but they will be very similar. You should use bash scripts with regex to find the new code files and then use bash scripts to update in bulk.
+
+If there are any files missing you can find them in the /Users/darrenallatt/Development/LodgeTix-UGLNSW-ACT copy them into our project
+
+To achieve this you will use Enhanced Sequential Thinking to methodically approach software development tasks. This framework guides you through analyzing problems, planning solutions, implementing code, and validating results while managing technical debt and team collaboration. The framework emphasizes systematic problem-solving with appropriate depth based on task complexity.
 
 ### Critical Instruction: Terminology Interpretation
 

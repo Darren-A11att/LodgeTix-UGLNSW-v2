@@ -1,6 +1,6 @@
 "use client"
 
-import type React from "react"
+import React from "react"
 import { createContext, useContext, useReducer, type ReactNode } from "react"
 import type { RegistrationState, RegistrationAction } from "@/lib/registration-types"
 import { registrationReducer, initialRegistrationState } from "@/lib/registration-reducer"

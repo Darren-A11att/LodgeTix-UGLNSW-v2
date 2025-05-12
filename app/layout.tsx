@@ -1,6 +1,8 @@
 import type { Metadata } from 'next'
 import './globals.css'
 import './disableFastRefreshLogs'
+import { LocationInitializer } from '@/components/location-initializer'
+import { AuthProvider } from '@/contexts/auth-provider'
 
 export const metadata: Metadata = {
   title: 'v0 App',
@@ -15,7 +17,12 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body>{children}</body>
+      <body>
+        <AuthProvider>
+          <LocationInitializer />
+          {children}
+        </AuthProvider>
+      </body>
     </html>
   )
 }

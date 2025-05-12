@@ -1,6 +1,6 @@
 "use client"
 
-import { RegistrationWizard } from "@/components/registration/registration-wizard"
+import { RegistrationWizard } from "../../../../components/register/registration/registration-wizard"
 import Link from "next/link"
 import { TicketIcon } from "lucide-react"
 

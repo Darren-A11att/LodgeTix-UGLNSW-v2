@@ -24,7 +24,7 @@ export interface BaseAttendee {
 
 export interface MasonAttendee extends BaseAttendee {
   type: "mason"
-  masonicTitle: MasonicTitle
+  title: MasonicTitle
   rank: MasonicRank
   grandRank?: string
   grandOfficerStatus?: GrandOfficerStatus
@@ -35,6 +35,7 @@ export interface MasonAttendee extends BaseAttendee {
   lodgeNumber?: string
   mobile: string
   email: string
+  contactPreference?: ContactPreference
   sameLodgeAsPrimary?: boolean
   hasPartner: boolean
   partner?: PartnerAttendee
@@ -62,6 +63,54 @@ export interface PartnerAttendee extends BaseAttendee {
 }
 
 export type Attendee = MasonAttendee | GuestAttendee | PartnerAttendee
+
+// Legacy type to support components during migration
+export type UnifiedAttendeeData = {
+  id: string
+  firstName: string
+  lastName: string
+  type: "mason" | "guest" | "partner"
+  title?: string
+  masonicTitle?: MasonicTitle
+  mobile?: string
+  email?: string
+  primaryPhone?: string
+  primaryEmail?: string
+  contactPreference?: ContactPreference
+  contactConfirmed?: boolean
+  dietaryRequirements?: string
+  specialNeeds?: string
+  hasPartner?: boolean
+  partner?: any
+}
+
+// Legacy type for MasonForm to reference during migration
+export type MasonData = {
+  title: string
+  firstName: string
+  lastName: string
+  phone: string
+  lodge: string
+  dietary?: string
+  attendeeType: string
+  [key: string]: any
+}
+
+// Legacy type for LadyPartnerForm to reference during migration
+export type OldLadyPartnerData = {
+  id: string
+  title: string
+  firstName: string
+  lastName: string
+  relationship: string
+  contactPreference: ContactPreference
+  mobile?: string
+  email?: string
+  dietaryRequirements?: string
+  specialNeeds?: string
+  relatedAttendeeId: string
+  [key: string]: any
+}
 
 export interface Ticket {
   id: string

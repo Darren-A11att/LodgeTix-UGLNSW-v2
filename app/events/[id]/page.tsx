@@ -6,10 +6,21 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 
-// This would normally come from a database
-const getEventDetails = (id: string) => {
-  return {
-    id,
+// Events data - usually from an API or database
+const events = {
+  "grand-installation": {
+    id: "grand-installation",
+    title: "Grand Installation 2025",
+    description:
+      "Join us for the Installation of MW Bro Bernie Khristian Albano as Grand Master of the United Grand Lodge of NSW & ACT. This historic ceremony will bring together Brethren from across Australia and beyond.",
+    longDescription:
+      "## Event Details\n\n- **Date**: May, 2025\n- **Dress Code**: Full Regalia\n- **Banquet**: Formal dinner celebrating the installation with distinguished guests\n\n## About the Installation\n\nThis historic ceremony will bring together Brethren from across Australia and beyond to witness this momentous occasion in Freemasonry.\n\n## Schedule\n\n**Installation Ceremony**: May 15, 2025 - 2:00 PM - 5:00 PM\n**Grand Banquet**: May 16, 2025 - 7:00 PM - 11:00 PM\n**Farewell Brunch**: May 17, 2025 - 10:00 AM - 1:00 PM",
+    date: "May 15-17, 2025",
+    time: "Various times",
+    location: "Sydney Masonic Centre, Sydney",
+  },
+  "1": {
+    id: "1",
     title: "Installation Ceremony",
     description:
       "Join us for the Installation of W.Bro. James Wilson as Worshipful Master of Harmony Lodge No. 123. The ceremony will be followed by a festive board with a four-course meal and wine.\n\nThis is an important event in our Lodge calendar and we welcome visitors from other Lodges to attend and support our new Master.",
@@ -18,6 +29,28 @@ const getEventDetails = (id: string) => {
     date: "November 15, 2023",
     time: "5:00 PM - 10:30 PM",
     location: "Masonic Hall, 123 Temple Street, Manchester",
+  }
+};
+
+// This would fetch from a database
+const getEventDetails = (id: string) => {
+  return events[id as keyof typeof events] || {
+    id,
+    title: "Event Not Found",
+    description: "This event could not be found.",
+    longDescription: "This event could not be found.",
+    date: "-",
+    time: "-",
+    location: "-",
+  };
+}
+
+// Static generation for known events
+export function generateStaticParams() {
+  return Object.keys(events).map(id => ({
+    id
+  }));
+}
     imageUrl: "/placeholder.svg?height=400&width=800",
     organizer: "Harmony Lodge No. 123",
     tickets: [
