@@ -50,6 +50,7 @@ export interface GuestAttendee extends BaseAttendee {
   email?: string
   hasPartner: boolean
   partner?: PartnerAttendee
+  relatedAttendeeId?: string
 }
 
 export interface PartnerAttendee extends BaseAttendee {
@@ -152,3 +153,7 @@ export type RegistrationAction =
   | { type: "GO_TO_STEP"; payload: number }
   | { type: "CLEAR_PRIMARY_ATTENDEE" }
   | { type: "RESET" }
+
+// Define specific relationship options for partners
+export const PARTNER_RELATIONSHIP_OPTIONS = ["Wife", "Partner", "Fiancée", "Husband", "Fiancé"] as const;
+export type PartnerRelationship = typeof PARTNER_RELATIONSHIP_OPTIONS[number]; // Creates a union type: "Wife" | "Partner" | ...

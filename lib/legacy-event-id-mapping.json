@@ -1,0 +1,22 @@
+{
+  "1": {
+    "uuid": "d290f1ee-6c54-4b01-90e6-d701748f0851",
+    "slug": "third-degree-ceremony"
+  },
+  "2": {
+    "uuid": "d290f1ee-6c54-4b01-90e6-d701748f0852",
+    "slug": "masonic-lecture-series"
+  },
+  "3": {
+    "uuid": "d290f1ee-6c54-4b01-90e6-d701748f0853",
+    "slug": "annual-ladies-night"
+  },
+  "4": {
+    "uuid": "d290f1ee-6c54-4b01-90e6-d701748f0854",
+    "slug": "installation-ceremony"
+  },
+  "grand-installation": {
+    "uuid": "d290f1ee-6c54-4b01-90e6-d701748f0855",
+    "slug": "grand-installation"
+  }
+}

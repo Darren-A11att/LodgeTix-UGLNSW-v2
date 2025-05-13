@@ -33,7 +33,7 @@ const ticketTypes = [
     price: 150,
     description: "Formal dinner with wine at the venue",
     category: "dining",
-    eligibleAttendeeTypes: ["mason", "guest", "partner"] as AttendeeType[],
+    eligibleAttendeeTypes: ["mason", "guest"] as AttendeeType[],
   },
   {
     id: "brunch",
@@ -41,7 +41,7 @@ const ticketTypes = [
     price: 45,
     description: "Sunday morning brunch",
     category: "dining",
-    eligibleAttendeeTypes: ["mason", "guest", "partner"] as AttendeeType[],
+    eligibleAttendeeTypes: ["mason", "guest"] as AttendeeType[],
   },
   {
     id: "tour",
@@ -49,7 +49,7 @@ const ticketTypes = [
     price: 60,
     description: "Guided tour of local landmarks",
     category: "activity",
-    eligibleAttendeeTypes: ["mason", "guest", "partner"] as AttendeeType[],
+    eligibleAttendeeTypes: ["mason", "guest"] as AttendeeType[],
   },
 ]
 
@@ -77,7 +77,7 @@ const ticketPackages = [
     price: 180,
     description: "All social events without the ceremony (save $75)",
     includes: ["banquet", "brunch", "tour"],
-    eligibleAttendeeTypes: ["mason", "guest", "partner"] as AttendeeType[],
+    eligibleAttendeeTypes: ["mason", "guest"] as AttendeeType[],
   },
 ]
 
@@ -85,7 +85,7 @@ export function TicketSelectionStep() {
   const allStoreAttendees = useRegistrationStore((s) => s.attendees);
   const updateAttendeeStore = useRegistrationStore((s) => s.updateAttendee);
 
-  console.log("[TicketSelectionStep] Raw allStoreAttendees on render:", JSON.parse(JSON.stringify(allStoreAttendees)));
+  console.log("[TicketSelectionStep] Raw allStoreAttendees on render:", JSON.stringify(allStoreAttendees));
 
   const primaryAttendee = allStoreAttendees.find(a => a.isPrimary) as unknown as MasonAttendee | GuestAttendee | undefined;
   const additionalAttendees = allStoreAttendees.filter(a => !a.isPrimary) as unknown as (MasonAttendee | GuestAttendee | PartnerAttendee)[];
@@ -96,7 +96,7 @@ export function TicketSelectionStep() {
     if (!attendeeIdentifier) return [];
 
     const selection = attendee.ticket; 
-    console.log(`[derivedCurrentTickets] Attendee: ${attendeeIdentifier}, Selection from store:`, JSON.parse(JSON.stringify(selection)));
+    console.log(`[derivedCurrentTickets] Attendee: ${attendeeIdentifier}, Selection from store:`, selection ? JSON.stringify(selection) : "undefined");
 
     if (selection?.ticketDefinitionId) { 
       const packageInfo = ticketPackages.find(p => p.id === selection.ticketDefinitionId);
@@ -110,7 +110,7 @@ export function TicketSelectionStep() {
           isPackage: true,
           includedTicketTypes: packageInfo.includes,
         };
-        console.log(`[derivedCurrentTickets] Attendee: ${attendeeIdentifier}, Derived Package Ticket:`, JSON.parse(JSON.stringify(derivedPackageTicket)));
+        console.log(`[derivedCurrentTickets] Attendee: ${attendeeIdentifier}, Derived Package Ticket:`, JSON.stringify(derivedPackageTicket));
         return [derivedPackageTicket];
       }
     } else if (selection?.selectedEvents && selection.selectedEvents.length > 0) { 
@@ -125,13 +125,13 @@ export function TicketSelectionStep() {
             attendeeId: attendeeIdentifier,
             isPackage: false,
           };
-          console.log(`[derivedCurrentTickets] Attendee: ${attendeeIdentifier}, Derived Individual Ticket for event ${eventId}:`, JSON.parse(JSON.stringify(derivedIndividualTicket)));
+          console.log(`[derivedCurrentTickets] Attendee: ${attendeeIdentifier}, Derived Individual Ticket for event ${eventId}:`, JSON.stringify(derivedIndividualTicket));
           return derivedIndividualTicket;
         }
         return null;
       }).filter(Boolean) as Ticket[];
       if (individualTickets.length > 0) {
-        console.log(`[derivedCurrentTickets] Attendee: ${attendeeIdentifier}, All Derived Individual Tickets:`, JSON.parse(JSON.stringify(individualTickets)));
+        console.log(`[derivedCurrentTickets] Attendee: ${attendeeIdentifier}, All Derived Individual Tickets:`, JSON.stringify(individualTickets));
       }
       return individualTickets;
     }
@@ -139,7 +139,7 @@ export function TicketSelectionStep() {
     return [];
   });
 
-  console.log("[TicketSelectionStep] Final derivedCurrentTickets for UI:", JSON.parse(JSON.stringify(derivedCurrentTickets)));
+  console.log("[TicketSelectionStep] Final derivedCurrentTickets for UI:", JSON.stringify(derivedCurrentTickets));
 
   const currentTickets = derivedCurrentTickets;
 
@@ -263,7 +263,12 @@ export function TicketSelectionStep() {
     if (!attendee) return;
 
     const currentSelection = attendee.ticket || { ticketDefinitionId: null, selectedEvents: [] };
-    let newSelectedEvents = [...currentSelection.selectedEvents];
+    
+    // If the attendee currently has a package selected, we need to start with an empty selection
+    // Otherwise, copy the current individual selections
+    let newSelectedEvents = currentSelection.ticketDefinitionId 
+      ? [] // Start fresh with no selected events if switching from package to individual
+      : [...currentSelection.selectedEvents];
 
     const isCurrentlySelected = !currentSelection.ticketDefinitionId && newSelectedEvents.includes(ticketTypeId);
 
@@ -271,11 +276,15 @@ export function TicketSelectionStep() {
       // Deselect individual ticket
       newSelectedEvents = newSelectedEvents.filter(id => id !== ticketTypeId);
     } else {
-      // Select individual ticket
-      if (!newSelectedEvents.includes(ticketTypeId)) {
-        newSelectedEvents.push(ticketTypeId);
+      // If switching from package to individual, select only this ticket
+      // Otherwise, add this ticket to existing selections
+      if (currentSelection.ticketDefinitionId) {
+        newSelectedEvents = [ticketTypeId]; // Only this ticket when switching from package
+      } else if (!newSelectedEvents.includes(ticketTypeId)) {
+        newSelectedEvents.push(ticketTypeId); // Add to existing individual selections
       }
     }
+    
     // Selecting an individual ticket always clears any package
     updateAttendeeStore(attendeeIdentifier, { 
       ticket: { 
@@ -295,7 +304,9 @@ export function TicketSelectionStep() {
   };
 
   const renderAttendeeHeader = (attendee: any) => {
-    if (attendee.attendeeType === "mason") {
+    const attendeeType = attendee.attendeeType?.toLowerCase() || '';
+    
+    if (attendeeType === "mason") {
       const mason = attendee as MasonAttendee
       return (
         <div className="flex items-center gap-2">
@@ -313,7 +324,7 @@ export function TicketSelectionStep() {
           <User className="h-5 w-5 text-masonic-navy" />
           <span>
             {person.title} {person.firstName} {person.lastName}
-            {attendee.attendeeType === "partner" && <span className="ml-2 text-sm text-gray-500">(Partner)</span>}
+            {attendee.isPartner && <span className="ml-2 text-sm text-gray-500">({attendee.partnerType === 'lady' ? 'Lady Partner' : 'Guest Partner'})</span>}
           </span>
         </div>
       )
@@ -357,7 +368,20 @@ export function TicketSelectionStep() {
                         <h3 className="font-semibold text-masonic-navy mb-3">Ticket Packages</h3>
                         <div className="grid gap-4 md:grid-cols-3">
                           {ticketPackages
-                            .filter(pkg => pkg.eligibleAttendeeTypes.includes(attendee.attendeeType as AttendeeType))
+                            .filter(pkg => {
+                              // Normalize attendee type to lowercase for consistent comparison
+                              const mappedType = attendee.attendeeType?.toLowerCase();
+                              
+                              // Use the correct mapping based on attendee type
+                              if (mappedType === 'mason' || mappedType === 'Mason'.toLowerCase()) {
+                                return pkg.eligibleAttendeeTypes.includes('mason');
+                              } else if (mappedType === 'guest' || mappedType === 'Guest'.toLowerCase() || 
+                                        mappedType === 'ladypartner' || mappedType === 'LadyPartner'.toLowerCase() || 
+                                        mappedType === 'guestpartner' || mappedType === 'GuestPartner'.toLowerCase()) {
+                                return pkg.eligibleAttendeeTypes.includes('guest');
+                              }
+                              return false;
+                            })
                             .map((pkg) => (
                             <Card
                               key={pkg.id}
@@ -411,7 +435,20 @@ export function TicketSelectionStep() {
                           </TableHeader>
                           <TableBody>
                             {ticketTypes
-                              .filter(ticket => ticket.eligibleAttendeeTypes.includes(attendee.attendeeType as AttendeeType))
+                              .filter(ticket => {
+                                // Normalize attendee type to lowercase for consistent comparison
+                                const mappedType = attendee.attendeeType?.toLowerCase();
+                                
+                                // Use the correct mapping based on attendee type
+                                if (mappedType === 'mason' || mappedType === 'Mason'.toLowerCase()) {
+                                  return ticket.eligibleAttendeeTypes.includes('mason');
+                                } else if (mappedType === 'guest' || mappedType === 'Guest'.toLowerCase() || 
+                                          mappedType === 'ladypartner' || mappedType === 'LadyPartner'.toLowerCase() || 
+                                          mappedType === 'guestpartner' || mappedType === 'GuestPartner'.toLowerCase()) {
+                                  return ticket.eligibleAttendeeTypes.includes('guest');
+                                }
+                                return false;
+                              })
                               .map((ticket) => (
                               <TableRow key={ticket.id}>
                                 <TableCell>

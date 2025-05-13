@@ -1755,3 +1755,44 @@ export const Constants = {
     },
   },
 } as const
+
+export type UnifiedAttendeeData = {
+  attendeeId: string; // PK - UUID
+  orderId?: string; // FK to Orders
+  eventId?: string; // FK to Events
+  attendeeType: Database["public"]["Enums"]["attendee_type"]; // 'Mason' | 'Guest' | 'LadyPartner' | 'GuestPartner'
+  title?: string | null;
+  firstName?: string | null;
+  lastName?: string | null;
+  lodgeNameNumber?: string | null; // For Masons or Guests if needed
+  primaryEmail?: string | null;
+  primaryPhone?: string | null;
+  dietaryRequirements?: string | null;
+  specialNeeds?: string | null;
+  contactPreference?: Database["public"]["Enums"]["attendee_contact_preference"] | ''; 
+  contactConfirmed?: boolean;
+  isPrimary?: boolean;
+  isCheckedIn?: boolean;
+  firstTime?: boolean; // Mason specific
+  rank?: string | null; // Mason specific
+  postNominals?: string | null; // Mason specific
+  grandLodgeId?: number | null; // FK to GrandLodges
+  lodgeId?: number | null; // FK to Lodges
+  tableAssignment?: number | null;
+  notes?: string | null;
+  paymentStatus?: string | null; // 'pending', 'paid', 'failed', 'refunded'
+  parentId?: string | null; // Review if still needed
+  relationship?: string | null; // e.g., relationship to Mason for Guest, or partner relationship
+
+  // --- New/Updated Relationship Fields ---
+  partner?: string | null; // FK: Mason/Guest -> LadyPartner/GuestPartner attendeeId (UUID)
+  partnerOf?: string | null; // FK: LadyPartner/GuestPartner -> Mason/Guest attendeeId (UUID)
+  guestOfId?: string | null; // FK: Guest -> Mason attendeeId (UUID)
+  // --- End New/Updated Fields ---
+
+  // Fields potentially from join or calculation, ensure they are handled if needed
+  grandLodgeName?: string | null;
+  lodgeName?: string | null;
+  createdAt?: string;
+  updatedAt?: string;
+};

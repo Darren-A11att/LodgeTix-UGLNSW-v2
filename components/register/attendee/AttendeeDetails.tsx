@@ -9,7 +9,6 @@ import {
 } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
 import { useRegistrationStore, RegistrationState } from '../../../lib/registrationStore';
-import type { UnifiedAttendeeData } from '../../../lib/registrationStore';
 import type { Attendee as StoreAttendeeType, MasonAttendee as StoreMasonAttendeeType, GuestAttendee as StoreGuestAttendeeType } from '../../../lib/registration-types';
 import { default as MasonForm } from '../forms/mason/MasonForm';
 import { default as GuestForm } from '../forms/guest/GuestForm';
@@ -35,7 +34,8 @@ const AttendeeDetails: React.FC<AttendeeDetailsProps> = ({
 }) => {
   const allAttendees = useRegistrationStore((state: RegistrationState) => state.attendees);
   const addPrimaryAttendeeStore = useRegistrationStore((state: RegistrationState) => state.addPrimaryAttendee);
-  const addAttendeeStore = useRegistrationStore((state: RegistrationState) => state.addAttendee);
+  const addMasonAttendeeStore = useRegistrationStore((state: RegistrationState) => state.addMasonAttendee);
+  const addGuestAttendeeStore = useRegistrationStore((state: RegistrationState) => state.addGuestAttendee);
   const removeAttendeeStore = useRegistrationStore((state: RegistrationState) => state.removeAttendee);
   const registrationType = useRegistrationStore((state: RegistrationState) => state.registrationType);
   const [showErrors, setShowErrors] = useState(false);
@@ -50,56 +50,45 @@ const AttendeeDetails: React.FC<AttendeeDetailsProps> = ({
 
   const primaryAttendee = useMemo((): UnifiedAttendeeData | undefined => allAttendees.find(att => att.isPrimary), [allAttendees]);
   
-  const masons = useMemo(() => 
-    allAttendees.filter((att): att is UnifiedAttendeeData & { attendeeType: 'mason' } => att.attendeeType === 'mason'), 
-    [allAttendees]
-  );
-
-  const guests = useMemo(() => 
-    allAttendees.filter((att): att is UnifiedAttendeeData & { attendeeType: 'guest' } => att.attendeeType === 'guest'), 
-    [allAttendees]
-  );
+  const masonCount = useMemo(() => allAttendees.filter(att => att.attendeeType.toLowerCase() === 'mason').length, [allAttendees]);
+  const guestCount = useMemo(() => allAttendees.filter(att => att.attendeeType.toLowerCase() === 'guest' && att.isPartner !== true).length, [allAttendees]);
 
   const canAddMason = useMemo(() => {
-    const masonCount = masons.length;
     if (registrationType === 'individual') return masonCount < 1;
     return masonCount < 10;
-  }, [masons, registrationType]);
+  }, [masonCount, registrationType]);
 
   const canAddGuest = useMemo(() => {
-    return guests.length < 10; 
-  }, [guests]);
+    return guestCount < 10;
+  }, [guestCount]);
 
   const addMasonButtonLabel = useMemo(() => {
-    return masons.length === 0 ? 'Add Primary Mason' : 'Add Additional Mason';
-  }, [masons]);
+    return masonCount === 0 ? 'Add Primary Mason' : 'Add Additional Mason';
+  }, [masonCount]);
 
   const handleAddMason = () => {
-    if (registrationType === 'individual' && masons.length === 0) {
-      addPrimaryAttendeeStore(); 
+    if (registrationType === 'individual' && masonCount === 0) {
+      const newMasonId = addPrimaryAttendeeStore();
+      console.log("[AttendeeDetails] Added primary mason:", newMasonId);
     } else {
-      const newMasonData: Omit<UnifiedAttendeeData, 'attendeeId'> = {
-        attendeeType: 'mason',
-        title: 'Bro',
-        firstName: '',
-        lastName: '',
-        rank: 'MM',
-        ticket: { ticketDefinitionId: null, selectedEvents: [] }
-      };
-      addAttendeeStore(newMasonData);
+      const newMasonId = addMasonAttendeeStore();
+      console.log("[AttendeeDetails] Added additional mason:", newMasonId);
     }
+    console.log("[AttendeeDetails] Current attendees:", allAttendees.map(a => ({
+      id: a.attendeeId,
+      type: a.attendeeType,
+      isPrimary: a.isPrimary
+    })));
   };
 
   const handleAddGuest = () => {
-    const newGuestData: Omit<UnifiedAttendeeData, 'attendeeId'> = {
-      attendeeType: 'guest',
-      title: 'Mr',
-      firstName: '',
-      lastName: '',
-      contactPreference: 'Directly',
-      ticket: { ticketDefinitionId: null, selectedEvents: [] }
-    };
-    addAttendeeStore(newGuestData);
+    const newGuestId = addGuestAttendeeStore();
+    console.log("[AttendeeDetails] Added new guest:", newGuestId);
+    console.log("[AttendeeDetails] Current attendees:", allAttendees.map(a => ({
+      id: a.attendeeId,
+      type: a.attendeeType,
+      isPartner: a.isPartner
+    })));
   };
 
   const handleContinue = () => {
@@ -119,60 +108,66 @@ const AttendeeDetails: React.FC<AttendeeDetailsProps> = ({
         <p className="text-gray-600">Please enter the details for each attendee below.</p>
       </SectionHeader>
 
-      {/* Primary Mason (Render if primaryAttendee exists and is a mason) */}
-      {primaryAttendee && primaryAttendee.attendeeType === 'mason' && (
-        <MasonForm
-          key={primaryAttendee.attendeeId}
-          attendeeId={primaryAttendee.attendeeId}
-          attendeeNumber={1}
-          isPrimary={true}
-        />
-      )}
-
-      {/* Additional Masons (filter out the primary if already rendered) */}
-      {masons.filter(mason => !(primaryAttendee && mason.attendeeId === primaryAttendee.attendeeId)).map((mason, idx) => (
-        <MasonForm
-          key={mason.attendeeId}
-          attendeeId={mason.attendeeId}
-          attendeeNumber={primaryAttendee && primaryAttendee.attendeeType === 'mason' ? idx + 2 : idx + 1}
-          isPrimary={false}
-        />
-      ))}
-
-      {/* Guests */}
-      {guests.map((guest, idx) => (
-        <GuestForm
-          key={guest.attendeeId}
-          attendeeId={guest.attendeeId}
-          attendeeNumber={idx + 1}
-        />
-      ))}
+      {/* Unified Attendee Rendering Loop */}
+      {allAttendees.map((attendee, idx) => {
+        if (attendee.attendeeType.toLowerCase() === 'mason') {
+          return (
+            <MasonForm
+              key={attendee.attendeeId}
+              attendeeId={attendee.attendeeId}
+              attendeeNumber={idx + 1}
+              isPrimary={attendee.isPrimary ?? false}
+            />
+          );
+        } else if (attendee.attendeeType.toLowerCase() === 'guest' && attendee.isPartner !== true) {
+           return (
+             <GuestForm
+               key={attendee.attendeeId}
+               attendeeId={attendee.attendeeId}
+               attendeeNumber={idx + 1}
+             />
+           );
+        }
+        return null;
+      })}
 
       <div className="mt-8 pt-6 border-t border-slate-200 space-y-6">
-        {/* Add/Remove Controls */}
         <div className="flex items-center gap-4">
           <AddRemoveControl
             label="Mason"
-            count={masons.length}
+            count={masonCount}
             onAdd={handleAddMason}
             onRemove={() => {
-              const nonPrimaryMasons = masons.filter(m => !m.isPrimary);
-              if (nonPrimaryMasons.length > 0) {
-                removeAttendeeStore(nonPrimaryMasons[nonPrimaryMasons.length - 1].attendeeId);
-              } else if (masons.length > 0 && masons[0].isPrimary && registrationType !== 'individual' ) {
-                removeAttendeeStore(masons[0].attendeeId);
+              const nonPrimaryMasonIndices = allAttendees
+                .map((att, index) => (att.attendeeType === 'mason' && !att.isPrimary) ? index : -1)
+                .filter(index => index !== -1);
+              
+              if (nonPrimaryMasonIndices.length > 0) {
+                const lastNonPrimaryMasonIndex = nonPrimaryMasonIndices[nonPrimaryMasonIndices.length - 1];
+                removeAttendeeStore(allAttendees[lastNonPrimaryMasonIndex].attendeeId);
+              } else {
+                 const primaryMasonIndex = allAttendees.findIndex(att => att.attendeeType === 'mason' && att.isPrimary);
+                 if (primaryMasonIndex !== -1 && registrationType !== 'individual' && masonCount === 1) { 
+                    removeAttendeeStore(allAttendees[primaryMasonIndex].attendeeId);
+                 }
               }
             }}
-            min={1}
+            min={registrationType === 'individual' ? 1 : 0}
             max={10}
+            removeDisabled={registrationType === 'individual' && masonCount <= 1}
           />
           <AddRemoveControl
             label="Guest"
-            count={guests.length}
+            count={guestCount}
             onAdd={handleAddGuest}
             onRemove={() => {
-              if (guests.length > 0) {
-                removeAttendeeStore(guests[guests.length - 1].attendeeId);
+              const guestIndices = allAttendees
+                .map((att, index) => (att.attendeeType.toLowerCase() === 'guest' && att.isPartner !== true) ? index : -1)
+                .filter(index => index !== -1);
+
+              if (guestIndices.length > 0) {
+                const lastGuestIndex = guestIndices[guestIndices.length - 1];
+                removeAttendeeStore(allAttendees[lastGuestIndex].attendeeId);
               }
             }}
             min={0}

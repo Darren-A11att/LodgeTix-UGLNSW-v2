@@ -132,18 +132,15 @@ export function OrderReviewStep() {
     return attendee.title || "";
   }
 
-  const getAttendeeTypeLabel = (attendee: UnifiedAttendeeData) => {
-    if (attendee.attendeeType === "mason") {
-      return attendee.grandRank || attendee.rank || "Mason";
+  const getAttendeeTypeLabel = (attendee: UnifiedAttendeeData): string => {
+    if (attendee.isPrimary) return "Primary";
+    if (attendee.attendeeType === 'mason') return "Mason";
+    if (attendee.isPartner) {
+      return attendee.partnerType === 'lady' ? "Lady Partner" : "Guest Partner";
     }
-    if (attendee.attendeeType === "guest") {
-      return "Guest"
-    }
-    if (attendee.attendeeType === "lady_partner" || attendee.attendeeType === "guest_partner") {
-      return "Partner"
-    }
-    return attendee.attendeeType;
-  }
+    if (attendee.attendeeType === 'guest') return "Guest";
+    return "Attendee";
+  };
 
   const openEditModal = (attendeeData: UnifiedAttendeeData, index: number) => {
     setEditingAttendee({ attendeeData, index });
@@ -361,10 +358,10 @@ export function OrderReviewStep() {
                               key={editingAttendee.attendeeData.attendeeId}
                           />
                       )}
-                      {(editingAttendee.attendeeData.attendeeType === "lady_partner" || editingAttendee.attendeeData.attendeeType === "guest_partner") && (
-                        <div className="p-4 text-center">
-                            <p>Partner editing is handled within their respective Mason/Guest forms.</p>
-                            <Button onClick={() => { setIsEditModalOpen(false); setEditingAttendee(null); }}>Close</Button>
+                      {(editingAttendee.attendeeData.isPartner) && (
+                        <div className="mt-4">
+                            <p className="text-sm font-medium text-slate-600">Relationship</p>
+                            {/* ... rest of logic for partner relationship display/edit ... */}
                         </div>
                       )}
                   </div>

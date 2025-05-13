@@ -3,60 +3,7 @@ import { persist } from 'zustand/middleware';
 import { v4 as uuidv4 } from 'uuid';
 import { TicketType } from '../shared/types/register';
 import { TicketDefinitionType } from '../shared/types/ticket';
-
-// --- Define Unified Attendee Data Structure ---
-// Combining all possible fields needed for any attendee type
-export interface UnifiedAttendeeData {
-  // Core IDs
-  attendeeId: string; 
-  registrationId?: string; // Overall registration ID (optional? Might be set later)
-  personId?: string; // If linking to a separate persons table
-  relatedAttendeeId?: string; // Link to primary Mason/Guest for partners
-
-  // Type & Role
-  attendeeType: 'mason' | 'lady_partner' | 'guest' | 'guest_partner' | 'delegation_member' | 'individual' | 'lodge_contact' | 'delegation_contact'; // Expanded types
-  isPrimary?: boolean; // Added isPrimary flag
-
-  // Personal Info
-  title?: string;
-  firstName: string; 
-  lastName: string; 
-  primaryEmail?: string;
-  primaryPhone?: string;
-  dietaryRequirements?: string;
-  specialNeeds?: string;
-  relationship?: string; // Partner/Guest relationship to primary
-
-  // Contact Prefs
-  contactPreference?: 'Directly' | 'PrimaryAttendee' | 'ProvideLater';
-  contactConfirmed?: boolean;
-
-  // Mason Specific
-  memberNumber?: string;
-  rank?: string; 
-  grandRank?: string;
-  grandLodgeId?: string | null;
-  lodgeId?: string | null;
-  lodgeNameNumber?: string | null; // Display name for the lodge (formatted)
-  grandOfficer?: string; // Current or Past grand officer status
-  grandOffice?: string; // The specific grand office title
-  grandOfficeOther?: string; // For "Other" grand office specification
-  pastGrandOffice?: string;
-  isPastGrandMaster?: boolean;
-  honours?: string;
-  
-  // Ticket/Event Info (Example structure)
-  ticketDefinitionId?: string | null;
-  selectedEvents?: string[];
-  eventTitle?: string; // Title for specific events like Ladies Lunch
-
-  // Flags/Other
-  hasLadyPartner?: boolean; // Might be derivable from attendees array
-  hasGuestPartner?: boolean; // Might be derivable
-
-  // Add ticket field using PackageSelectionType
-  ticket?: PackageSelectionType;
-}
+import { UnifiedAttendeeData } from '../shared/types/supabase';
 
 // --- Placeholder Types (Defined locally) ---
 // Using RegistrationType defined here until shared types are stable
@@ -102,11 +49,14 @@ export interface RegistrationState {
 
   // --- Actions ---
   startNewRegistration: (type: RegistrationType) => string; // Returns new draftId
-  addPrimaryAttendee: () => void; // New action
+  addPrimaryAttendee: () => string; // Returns new attendeeId
   loadDraft: (id: string) => void; // Sets draftId, relies on middleware for loading
   clearRegistration: () => void;
   setRegistrationType: (type: RegistrationType) => void;
-  addAttendee: (attendee: Omit<UnifiedAttendeeData, 'attendeeId'>) => string; // Returns new attendeeId
+  addMasonAttendee: () => string; // Returns new attendeeId
+  addGuestAttendee: (guestOfId?: string | null) => string; // Optional Mason ID, returns new attendeeId
+  addLadyPartnerAttendee: (masonAttendeeId: string) => string | null; // Mason ID, returns new partner ID or null if mason not found
+  addGuestPartnerAttendee: (guestAttendeeId: string) => string | null; // Guest ID, returns new partner ID or null if guest not found
   updateAttendee: (attendeeId: string, updatedData: Partial<UnifiedAttendeeData>) => void;
   removeAttendee: (attendeeId: string) => void;
   updatePackageSelection: (attendeeId: string, selection: PackageSelectionType) => void;
@@ -122,7 +72,7 @@ export interface RegistrationState {
 }
 
 // --- Initial State ---
-const initialRegistrationState: Omit<RegistrationState, 'startNewRegistration' | 'addPrimaryAttendee' | 'loadDraft' | 'clearRegistration' | 'setRegistrationType' | 'addAttendee' | 'updateAttendee' | 'removeAttendee' | 'updatePackageSelection' | 'updateBillingDetails' | 'setAgreeToTerms' | '_updateStatus' | 'setCurrentStep' | 'goToNextStep' | 'goToPrevStep' | 'setConfirmationNumber'> = {
+const initialRegistrationState: Omit<RegistrationState, 'startNewRegistration' | 'addPrimaryAttendee' | 'loadDraft' | 'clearRegistration' | 'setRegistrationType' | 'addMasonAttendee' | 'addGuestAttendee' | 'addLadyPartnerAttendee' | 'addGuestPartnerAttendee' | 'updateAttendee' | 'removeAttendee' | 'updatePackageSelection' | 'updateBillingDetails' | 'setAgreeToTerms' | '_updateStatus' | 'setCurrentStep' | 'goToNextStep' | 'goToPrevStep' | 'setConfirmationNumber'> = {
     draftId: null,
     registrationType: null,
     attendees: [],
@@ -138,6 +88,59 @@ const initialRegistrationState: Omit<RegistrationState, 'startNewRegistration' |
 };
 
 type RegistrationStateCreator = StateCreator<RegistrationState>;
+
+type ConceptualAttendeeType = UnifiedAttendeeData['attendeeType'] | 'lady_partner' | 'guest_partner';
+
+// --- Helper Function for Default Attendee Data ---
+const createDefaultAttendee = (
+  attendeeType: UnifiedAttendeeData['attendeeType'],
+  options: {
+    isPrimary?: boolean;
+    partnerOf?: string | null; // Mason/Guest attendeeId for partners
+    guestOfId?: string | null; // Mason attendeeId for guests
+  } = {}
+): UnifiedAttendeeData => {
+  const newAttendeeId = uuidv4();
+  return {
+    attendeeId: newAttendeeId,
+    attendeeType: attendeeType,
+    isPrimary: options.isPrimary ?? false,
+    isPartner: options.partnerOf ? true : false, // Explicitly set isPartner based on partnerOf
+    // --- Initialize all fields based on our defaults list ---
+    orderId: undefined,
+    eventId: undefined, // Assuming this is set later if needed
+    title: '',
+    firstName: '',
+    lastName: '',
+    lodgeNameNumber: '',
+    primaryEmail: '',
+    primaryPhone: '',
+    dietaryRequirements: '',
+    specialNeeds: '',
+    contactPreference: '', // Default empty string
+    contactConfirmed: false,
+    isCheckedIn: false,
+    firstTime: attendeeType === 'Mason' ? false : undefined, // Only relevant for Mason
+    rank: attendeeType === 'Mason' ? '' : undefined, // Only relevant for Mason
+    postNominals: attendeeType === 'Mason' ? '' : undefined, // Only relevant for Mason
+    grandLodgeId: null,
+    lodgeId: null,
+    tableAssignment: null,
+    notes: '',
+    paymentStatus: 'pending',
+    parentId: undefined, // Consider removing if partner/guestOfId cover all relations
+    relationship: '', // Default empty string
+    // --- Relationship FKs ---
+    partner: null, // Will be set when a partner is added
+    partnerOf: options.partnerOf ?? null,
+    guestOfId: options.guestOfId ?? null,
+    // --- Derived/Backend Fields (Initialize as undefined/null) ---
+    grandLodgeName: undefined,
+    lodgeName: undefined,
+    createdAt: undefined,
+    updatedAt: undefined,
+  };
+};
 
 // --- Store Implementation ---
 export const useRegistrationStore = create<RegistrationState>(
@@ -167,8 +170,9 @@ export const useRegistrationStore = create<RegistrationState>(
       },
 
       addPrimaryAttendee: () => {
+        let newAttendeeId: string | null = null;
+        
         set(state => {
-          // Only add if attendees array is currently empty
           if (state.attendees.length > 0) {
             console.warn("[Store] addPrimaryAttendee called but attendees array is not empty.");
             return state; 
@@ -178,37 +182,18 @@ export const useRegistrationStore = create<RegistrationState>(
             return state;
           }
 
-          // Determine primary attendee type based on registration type
-          let primaryAttendeeType: UnifiedAttendeeData['attendeeType'];
-          switch (state.registrationType) {
-            case 'lodge':
-              primaryAttendeeType = 'lodge_contact';
-              break;
-            case 'delegation':
-              primaryAttendeeType = 'delegation_contact';
-              break;
-            case 'individual':
-            default: 
-              primaryAttendeeType = 'mason';
-              break;
-          }
-
-          // Create the primary attendee object
-          const newAttendeeId = uuidv4();
-          const primaryAttendee: UnifiedAttendeeData = {
-            attendeeId: newAttendeeId,
-            attendeeType: primaryAttendeeType,
-            isPrimary: true,
-            firstName: '', 
-            lastName: '', 
-            // Default contactPreference to 'Directly' if the primary attendee is a Mason
-            contactPreference: primaryAttendeeType === 'mason' ? 'Directly' : undefined,
-            ticket: { ticketDefinitionId: null, selectedEvents: [] }, 
-          };
+          // For now, assume primary is always mason. Refine if needed.
+          const primaryAttendee = createDefaultAttendee('mason', { isPrimary: true });
+          // Set primary mason contact preference default
+          // Primary mason gets 'Directly' contact preference by default
+          primaryAttendee.contactPreference = 'Directly';
           
-          console.log(`[Store] Adding primary attendee (Type: ${primaryAttendeeType})`); // DEBUG
+          newAttendeeId = primaryAttendee.attendeeId;
+          console.log(`[Store] Adding primary attendee (Type: mason, ID: ${primaryAttendee.attendeeId})`); // DEBUG
           return { attendees: [primaryAttendee] };
         });
+        
+        return newAttendeeId || '';
       },
 
       loadDraft: (id) => {
@@ -236,122 +221,155 @@ export const useRegistrationStore = create<RegistrationState>(
         set({ registrationType: type });
       },
 
-      addAttendee: (attendeeData) => {
-        const newAttendeeId = uuidv4();
-        const newAttendee: UnifiedAttendeeData = {
-          ...attendeeData,
-          attendeeId: newAttendeeId, 
-          // Initialize ticket field
-          ticket: { ticketDefinitionId: null, selectedEvents: [] }, 
-        };
+      addMasonAttendee: () => {
+        const newMason = createDefaultAttendee('Mason');
+        set(state => ({ attendees: [...state.attendees, newMason] }));
+        console.log(`[Store] Added Mason Attendee (ID: ${newMason.attendeeId}, Type: ${newMason.attendeeType})`);
+        return newMason.attendeeId;
+      },
 
-        // Explicitly set defaults for partners
-        if (newAttendee.attendeeType === 'lady_partner' || newAttendee.attendeeType === 'guest_partner') {
-          newAttendee.title = attendeeData.title ?? ''; // Ensure title is empty string if not provided
-          newAttendee.relationship = attendeeData.relationship ?? ''; // Ensure relationship is empty string if not provided
-          newAttendee.contactPreference = attendeeData.contactPreference ?? undefined; // Use undefined to match type
+      addGuestAttendee: (guestOfId = null) => {
+        const newGuest = createDefaultAttendee('Guest', { guestOfId });
+        // Initial state is empty string which will show as "Please Select"
+        set(state => ({ attendees: [...state.attendees, newGuest] }));
+        console.log(`[Store] Added Guest Attendee (ID: ${newGuest.attendeeId}, GuestOf: ${guestOfId || 'None'}, ContactPref: ${newGuest.contactPreference})`);
+        return newGuest.attendeeId;
+      },
+
+      addLadyPartnerAttendee: (masonAttendeeId) => {
+        const state = get();
+        const masonIndex = state.attendees.findIndex(att => att.attendeeId === masonAttendeeId && att.attendeeType.toLowerCase() === 'mason');
+
+        if (masonIndex === -1) {
+          console.error(`[Store] addLadyPartnerAttendee: Mason with ID ${masonAttendeeId} not found.`);
+          return null;
         }
+        if (state.attendees[masonIndex].partner) {
+          console.warn(`[Store] addLadyPartnerAttendee: Mason with ID ${masonAttendeeId} already has a partner.`);
+          // Optionally remove old partner first, or just return null/existing partner ID
+          return state.attendees[masonIndex].partner; // Return existing partner ID
+        }
+
+        const newPartner = createDefaultAttendee('LadyPartner', { partnerOf: masonAttendeeId });
+        // Initial state is empty string which will show as "Please Select"
         
-        // Ensure required fields have defaults if somehow missing (defensive)
-        if (!newAttendee.firstName) newAttendee.firstName = '';
-        if (!newAttendee.lastName) newAttendee.lastName = '';
+        const updatedAttendees = [...state.attendees];
+        // Update the Mason's partner field
+        updatedAttendees[masonIndex] = {
+          ...updatedAttendees[masonIndex],
+          partner: newPartner.attendeeId,
+        };
+        // Add the new partner
+        updatedAttendees.push(newPartner);
+
+        set({ attendees: updatedAttendees });
+        console.log(`[Store] Added Lady Partner (ID: ${newPartner.attendeeId}) for Mason (ID: ${masonAttendeeId})`);
+        return newPartner.attendeeId;
+      },
+      
+      addGuestPartnerAttendee: (guestAttendeeId) => {
+         const state = get();
+        const guestIndex = state.attendees.findIndex(att => att.attendeeId === guestAttendeeId && att.attendeeType.toLowerCase() === 'guest');
+
+        if (guestIndex === -1) {
+          console.error(`[Store] addGuestPartnerAttendee: Guest with ID ${guestAttendeeId} not found.`);
+          return null;
+        }
+         if (state.attendees[guestIndex].partner) {
+          console.warn(`[Store] addGuestPartnerAttendee: Guest with ID ${guestAttendeeId} already has a partner.`);
+          return state.attendees[guestIndex].partner; // Return existing partner ID
+        }
+
+        const newPartner = createDefaultAttendee('GuestPartner', { partnerOf: guestAttendeeId });
+        // Initial state is empty string which will show as "Please Select"
         
-        set(state => ({
-          attendees: [...state.attendees, newAttendee],
-          // Don't need separate package init if ticket is on attendee
-          // packages: { 
-          //     ...state.packages, 
-          //     [newAttendeeId]: { ticketDefinitionId: null, selectedEvents: [] } 
-          // }
-        }));
-        return newAttendeeId;
+        const updatedAttendees = [...state.attendees];
+        // Update the Guest's partner field
+        updatedAttendees[guestIndex] = {
+          ...updatedAttendees[guestIndex],
+          partner: newPartner.attendeeId,
+        };
+        // Add the new partner
+        updatedAttendees.push(newPartner);
+
+        set({ attendees: updatedAttendees });
+        console.log(`[Store] Added Guest Partner (ID: ${newPartner.attendeeId}) for Guest (ID: ${guestAttendeeId})`);
+        return newPartner.attendeeId;
       },
 
       updateAttendee: (attendeeId, updatedData) => {
-        set(state => {
-          const attendeeIndex = state.attendees.findIndex(att => att.attendeeId === attendeeId);
-          if (attendeeIndex === -1) {
-            console.warn(`[Store] updateAttendee: Attendee with ID ${attendeeId} not found.`);
-            return state; // Return current state if attendee not found
-          }
-
-          // Deep copy the attendees array for modification
-          const newAttendees = [...state.attendees];
-          const attendeeToUpdate = { ...newAttendees[attendeeIndex] };
-
-          // Initialize ticket object if it doesn't exist
-          if (!attendeeToUpdate.ticket) {
-            attendeeToUpdate.ticket = { ticketDefinitionId: null, selectedEvents: [] };
-          }
-
-          // Handle ticket update specifically
-          if (updatedData.ticket) {
-            const ticketUpdate = updatedData.ticket as PackageSelectionType;
-            const currentTicketState = attendeeToUpdate.ticket || { ticketDefinitionId: null, selectedEvents: [] };
-
-            let newTicketDefinitionId = currentTicketState.ticketDefinitionId;
-            let newSelectedEvents = currentTicketState.selectedEvents;
-
-            if (ticketUpdate.ticketDefinitionId !== undefined) {
-              // Case 1: A package ID is being explicitly set (could be a string or null)
-              newTicketDefinitionId = ticketUpdate.ticketDefinitionId;
-              if (newTicketDefinitionId) { // A package is being selected
-                // Find the package definition (assuming ticketPackages is accessible or passed in)
-                // For now, this part relies on external data or needs adjustment if ticketPackages isn't in scope
-                // Let's assume selectedEvents are directly provided with package or handled by caller for now
-                // This was: const pkg = ticketPackages.find(p => p.id === newTicketDefinitionId);
-                // This was: newSelectedEvents = pkg ? pkg.includes : []; 
-                // If selecting a package, its events should ideally come with it or be cleared to be re-derived by UI
-                // Forcing selectedEvents from the update if package is set, or empty if clearing to individual
-                 newSelectedEvents = ticketUpdate.selectedEvents || []; // Expect selectedEvents to be correct from caller or empty for new package
-              } else { // Package is being cleared (ticketDefinitionId is null)
-                newSelectedEvents = ticketUpdate.selectedEvents || []; // Use provided individual events or clear
-              }
-            } else if (ticketUpdate.selectedEvents !== undefined) {
-              // Case 2: Only individual events are being updated (package implicitly cleared)
-              newTicketDefinitionId = null;
-              newSelectedEvents = ticketUpdate.selectedEvents;
-            }
-
-            attendeeToUpdate.ticket = {
-              ticketDefinitionId: newTicketDefinitionId,
-              selectedEvents: newSelectedEvents,
-            };
-            
-            // Remove ticket from updatedData to prevent shallow merge override by the main spread below
-            delete updatedData.ticket; 
-          }
-
-          // Merge the rest of the updatedData (excluding ticket)
-          newAttendees[attendeeIndex] = { ...attendeeToUpdate, ...updatedData };
-
-          return { attendees: newAttendees };
-        });
+        set(state => ({
+          attendees: state.attendees.map(att => 
+            att.attendeeId === attendeeId ? { ...att, ...updatedData, updatedAt: new Date().toISOString() } : att // Add updatedAt timestamp
+          )
+        }));
+        // Debounce/Throttle logic will be handled in the UI component calling this
+        // console.log(`[Store] Updated attendee ${attendeeId}`, updatedData); // DEBUG: Can be noisy
       },
 
-      removeAttendee: (attendeeId) => {
+      removeAttendee: (attendeeIdToRemove) => {
         set(state => {
-          console.log(`[Store] Attempting to remove attendeeId: ${attendeeId}`); // Log input ID
-          // Also remove any partners related to this attendee
-          const attendeeToRemove = state.attendees.find(att => att.attendeeId === attendeeId);
-          const relatedPartners = state.attendees.filter(att => att.relatedAttendeeId === attendeeId);
-          const idsToRemove = new Set([attendeeId, ...relatedPartners.map(p => p.attendeeId)]);
+          const attendeeToRemove = state.attendees.find(att => att.attendeeId === attendeeIdToRemove);
+          if (!attendeeToRemove) return state; // Not found
 
-          const updatedAttendees = state.attendees.filter(att => !idsToRemove.has(att.attendeeId));
-          console.log('[Store] Attendees list AFTER filtering:', updatedAttendees); // Log filtered list
+          let partnerIdToRemove: string | null = null;
+          let masonIdToUpdate: string | null = null;
+          let guestIdToUpdate: string | null = null;
+          let idsToKeep = [...state.attendees.map(a => a.attendeeId)];
+          let updatedAttendees = [...state.attendees]; // Create a mutable copy
 
-          // Also remove associated package data if it exists separately
-          const updatedPackages = { ...state.packages };
-          idsToRemove.forEach(id => {
-            delete updatedPackages[id];
-          });
+          // --- Determine linked IDs and necessary updates ---
+          if (attendeeToRemove.attendeeType.toLowerCase() === 'mason' && attendeeToRemove.partner) {
+            partnerIdToRemove = attendeeToRemove.partner;
+          } else if (attendeeToRemove.attendeeType.toLowerCase() === 'guest' && attendeeToRemove.partner) {
+            partnerIdToRemove = attendeeToRemove.partner;
+          } else if (attendeeToRemove.attendeeType.toLowerCase() === 'ladypartner' && attendeeToRemove.partnerOf) {
+            masonIdToUpdate = attendeeToRemove.partnerOf;
+          } else if (attendeeToRemove.attendeeType.toLowerCase() === 'guestpartner' && attendeeToRemove.partnerOf) {
+            guestIdToUpdate = attendeeToRemove.partnerOf;
+          }
 
-          console.log(`[Store] Removing attendee(s): ${Array.from(idsToRemove).join(', ')}`); // DEBUG
+          // Filter out the primary attendee being removed
+          idsToKeep = idsToKeep.filter(id => id !== attendeeIdToRemove);
+          console.log(`[Store] Removing attendee ${attendeeIdToRemove} (${attendeeToRemove.attendeeType})`);
 
-          return {
-            attendees: updatedAttendees,
-            packages: updatedPackages
-          };
+          // Filter out the linked partner if necessary
+          if (partnerIdToRemove) {
+            idsToKeep = idsToKeep.filter(id => id !== partnerIdToRemove);
+            console.log(`[Store] Also removing linked partner ${partnerIdToRemove}`);
+          }
+
+          // Filter the attendees list
+          updatedAttendees = updatedAttendees.filter(att => idsToKeep.includes(att.attendeeId));
+
+          // Update the partner FK on the remaining Mason/Guest if a partner was removed
+          if (masonIdToUpdate) {
+            const masonIndex = updatedAttendees.findIndex(att => att.attendeeId === masonIdToUpdate);
+            if (masonIndex !== -1) {
+              updatedAttendees[masonIndex] = { ...updatedAttendees[masonIndex], partner: null };
+              console.log(`[Store] Cleared partner link on Mason ${masonIdToUpdate}`);
+            }
+          }
+          if (guestIdToUpdate) {
+            const guestIndex = updatedAttendees.findIndex(att => att.attendeeId === guestIdToUpdate);
+            if (guestIndex !== -1) {
+              updatedAttendees[guestIndex] = { ...updatedAttendees[guestIndex], partner: null };
+               console.log(`[Store] Cleared partner link on Guest ${guestIdToUpdate}`);
+            }
+          }
+          
+          // Update guestOfId for remaining Guests if their Mason host was removed
+          if (attendeeToRemove.attendeeType.toLowerCase() === 'mason') {
+              updatedAttendees = updatedAttendees.map(att => {
+                  if (att.attendeeType.toLowerCase() === 'guest' && att.guestOfId === attendeeIdToRemove) {
+                      console.log(`[Store] Clearing guestOfId link for Guest ${att.attendeeId}`);
+                      return { ...att, guestOfId: null };
+                  }
+                  return att;
+              });
+          }
+
+          return { attendees: updatedAttendees };
         });
       },
 

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 // import { MasonData } from '../../../../shared/types/register'; // Removed
 import { MasonAttendee, GrandOfficerStatus, PresentGrandOfficerRole } from '@/lib/registration-types'; // Added
 
@@ -31,8 +31,26 @@ const MasonGrandLodgeFields: React.FC<MasonGrandLodgeFieldsProps> = ({
     "Other"
   ];
   
+  // Create refs for form inputs
+  const grandRankRef = useRef<HTMLInputElement>(null);
+  const grandOfficerStatusRef = useRef<HTMLSelectElement>(null);
+  const presentGrandOfficerRoleRef = useRef<HTMLSelectElement>(null);
+  const otherGrandOfficerRoleRef = useRef<HTMLInputElement>(null);
+  
+  // Create a ref to store the latest props
+  const masonRef = useRef(mason);
+  
+  // Update the ref when props change
+  useEffect(() => {
+    masonRef.current = mason;
+  }, [mason]);
+  
+  // Track state for showing "Other" input field
+  const [grandOfficerStatus, setGrandOfficerStatus] = useState<GrandOfficerStatus>(mason.grandOfficerStatus || 'Past');
+  const [presentGrandOfficerRole, setPresentGrandOfficerRole] = useState<PresentGrandOfficerRole | ''>(mason.presentGrandOfficerRole || '');
+  
   // Show "Other" input field for Grand Office when "Other" is selected
-  const showOtherGrandOfficeInput = mason.grandOfficerStatus === 'Present' && mason.presentGrandOfficerRole === 'Other'; // Changed fields
+  const showOtherGrandOfficeInput = grandOfficerStatus === 'Present' && presentGrandOfficerRole === 'Other';
 
   // Interaction states
   const [grandRankInteracted, setGrandRankInteracted] = useState(false);
@@ -50,10 +68,19 @@ const MasonGrandLodgeFields: React.FC<MasonGrandLodgeFieldsProps> = ({
         <input
           type="text"
           id={`grandRank-${id}`}
-          name={`grandRank`} // Field name for onChange
-          value={mason.grandRank || ''}
-          onChange={(e) => onChange(id, 'grandRank', e.target.value as MasonAttendee[keyof Pick<MasonAttendee, 'grandRank' | 'grandOfficerStatus' | 'presentGrandOfficerRole' | 'otherGrandOfficerRole'>])}
-          onBlur={() => setGrandRankInteracted(true)}
+          name={`grandRank`}
+          ref={grandRankRef}
+          defaultValue={mason.grandRank || ''}
+          onBlur={() => {
+            setGrandRankInteracted(true);
+            const newValue = grandRankRef.current?.value || '';
+            const currentValue = masonRef.current.grandRank || '';
+            
+            // Only update if value has changed
+            if (newValue !== currentValue) {
+              onChange(id, 'grandRank', newValue);
+            }
+          }}
           required={isPrimary && mason.rank === "GL"}
           maxLength={6}
           placeholder="PGRNK"
@@ -71,10 +98,23 @@ const MasonGrandLodgeFields: React.FC<MasonGrandLodgeFieldsProps> = ({
         </label>
         <select
           id={`grandOfficerStatus-${id}`}
-          name={`grandOfficerStatus`} // Field name for onChange
-          value={mason.grandOfficerStatus || 'Past'} // Changed field
-          onChange={(e) => onChange(id, 'grandOfficerStatus', e.target.value as GrandOfficerStatus)}
-          onBlur={() => setGrandOfficerInteracted(true)}
+          name={`grandOfficerStatus`}
+          ref={grandOfficerStatusRef}
+          defaultValue={mason.grandOfficerStatus || 'Past'}
+          onChange={(e) => {
+            const newValue = e.target.value as GrandOfficerStatus;
+            setGrandOfficerStatus(newValue); // Update local state for conditional rendering
+          }}
+          onBlur={() => {
+            setGrandOfficerInteracted(true);
+            const newValue = grandOfficerStatusRef.current?.value as GrandOfficerStatus || 'Past';
+            const currentValue = masonRef.current.grandOfficerStatus || 'Past';
+            
+            // Only update if value has changed
+            if (newValue !== currentValue) {
+              onChange(id, 'grandOfficerStatus', newValue);
+            }
+          }}
           required={isPrimary && mason.rank === "GL"}
           className={`w-full px-4 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 
                      ${grandOfficerInteracted ? 'interacted' : ''} 
@@ -87,7 +127,7 @@ const MasonGrandLodgeFields: React.FC<MasonGrandLodgeFieldsProps> = ({
       </div>
       
       {/* Show Grand Office field if Present is selected */}
-      {mason.grandOfficerStatus === 'Present' && ( // Changed field
+      {grandOfficerStatus === 'Present' && (
         <>
           <div className={`${showOtherGrandOfficeInput ? 'col-span-4' : 'col-span-4'}`}>
             <label className="block text-sm font-medium text-slate-700 mb-1" htmlFor={`presentGrandOfficerRole-${id}`}>
@@ -95,16 +135,31 @@ const MasonGrandLodgeFields: React.FC<MasonGrandLodgeFieldsProps> = ({
             </label>
             <select
               id={`presentGrandOfficerRole-${id}`}
-              name={`presentGrandOfficerRole`} // Field name for onChange
-              value={mason.presentGrandOfficerRole || ''} // Changed field, provide empty string for placeholder option
-              onChange={(e) => onChange(id, 'presentGrandOfficerRole', e.target.value as PresentGrandOfficerRole)}
-              onBlur={() => setGrandOfficeInteracted(true)}
-              required={isPrimary && mason.rank === "GL" && mason.grandOfficerStatus === 'Present'} // Changed field
+              name={`presentGrandOfficerRole`}
+              ref={presentGrandOfficerRoleRef}
+              defaultValue={mason.presentGrandOfficerRole || ''}
+              onChange={(e) => {
+                const value = e.target.value as PresentGrandOfficerRole;
+                setPresentGrandOfficerRole(value); // Update local state for conditional rendering
+              }}
+              onBlur={() => {
+                setGrandOfficeInteracted(true);
+                if (grandOfficerStatus === 'Present') {
+                  const newValue = presentGrandOfficerRoleRef.current?.value as PresentGrandOfficerRole || '';
+                  const currentValue = masonRef.current.presentGrandOfficerRole || '';
+                  
+                  // Only update if value has changed
+                  if (newValue !== currentValue) {
+                    onChange(id, 'presentGrandOfficerRole', newValue);
+                  }
+                }
+              }}
+              required={isPrimary && mason.rank === "GL" && mason.grandOfficerStatus === 'Present'}
               className={`w-full px-4 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 
                          ${grandOfficeInteracted ? 'interacted' : ''} 
                          [&.interacted:invalid]:border-red-500 focus:[&.interacted:invalid]:border-red-500 focus:[&.interacted:invalid]:ring-red-500`}
             >
-              <option value="" disabled>Please Select</option> {/* Added placeholder option */}
+              <option value="" disabled>Please Select</option>
               {grandOfficeOptions.map(option => (
                 <option key={option} value={option}>{option}</option>
               ))}
@@ -120,12 +175,23 @@ const MasonGrandLodgeFields: React.FC<MasonGrandLodgeFieldsProps> = ({
               <input
                 type="text"
                 id={`otherGrandOfficerRole-${id}`}
-                name={`otherGrandOfficerRole`} // Field name for onChange
-                value={mason.otherGrandOfficerRole || ''} // Changed field
-                onChange={(e) => onChange(id, 'otherGrandOfficerRole', e.target.value as MasonAttendee[keyof Pick<MasonAttendee, 'grandRank' | 'grandOfficerStatus' | 'presentGrandOfficerRole' | 'otherGrandOfficerRole'>])}
-                onBlur={() => setGrandOfficeOtherInteracted(true)}
+                name={`otherGrandOfficerRole`}
+                ref={otherGrandOfficerRoleRef}
+                defaultValue={mason.otherGrandOfficerRole || ''}
+                onBlur={() => {
+                  setGrandOfficeOtherInteracted(true);
+                  if (showOtherGrandOfficeInput) {
+                    const newValue = otherGrandOfficerRoleRef.current?.value || '';
+                    const currentValue = masonRef.current.otherGrandOfficerRole || '';
+                    
+                    // Only update if value has changed
+                    if (newValue !== currentValue) {
+                      onChange(id, 'otherGrandOfficerRole', newValue);
+                    }
+                  }
+                }}
                 placeholder=""
-                required={isPrimary && mason.rank === "GL" && mason.grandOfficerStatus === 'Present' && mason.presentGrandOfficerRole === 'Other'} // Changed fields
+                required={isPrimary && mason.rank === "GL" && mason.grandOfficerStatus === 'Present' && mason.presentGrandOfficerRole === 'Other'}
                 className={`w-full px-4 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 
                            ${grandOfficeOtherInteracted ? 'interacted' : ''} 
                            [&.interacted:invalid]:border-red-500 [&.interacted:invalid]:text-red-600 

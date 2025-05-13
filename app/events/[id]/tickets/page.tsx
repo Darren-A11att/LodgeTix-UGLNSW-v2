@@ -12,37 +12,24 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
-
-// This would normally come from a database
-const getEventDetails = (id: string) => {
-  return {
-    id,
-    title: "Installation Ceremony",
-    date: "November 15, 2023",
-    location: "Masonic Hall, Manchester",
-    tickets: [
-      {
-        id: "1",
-        name: "Lodge Member",
-        price: 25,
-        available: true,
-        description: "For members of Harmony Lodge No. 123",
-      },
-      { id: "2", name: "Visiting Brother", price: 30, available: true, description: "For Brethren from other Lodges" },
-      {
-        id: "3",
-        name: "Provincial Officer",
-        price: 30,
-        available: true,
-        description: "For current and past Provincial Officers",
-      },
-    ],
-  }
-}
+import { getEventByIdOrSlug } from "@/lib/event-utils"
 
 export default function TicketsPage({ params }: { params: { id: string } }) {
   const router = useRouter()
-  const event = getEventDetails(params.id)
+  // Get event by slug (the id param is actually the slug)
+  const event = getEventByIdOrSlug(params.id)
+  
+  // Fallback ticket data if event is not found
+  const tickets = event?.tickets || [
+    {
+      id: "1",
+      name: "Standard Ticket",
+      price: 25,
+      available: true,
+      description: "General admission",
+    }
+  ]
+  
   const [selectedTickets, setSelectedTickets] = useState<Record<string, number>>({})
   const [isLoading, setIsLoading] = useState(false)
 
@@ -55,9 +42,10 @@ export default function TicketsPage({ params }: { params: { id: string } }) {
 
   const totalTickets = Object.values(selectedTickets).reduce((sum, qty) => sum + qty, 0)
 
-  const totalPrice = event.tickets.reduce((sum, ticket) => {
+  const totalPrice = tickets.reduce((sum, ticket) => {
     const quantity = selectedTickets[ticket.id] || 0
-    return sum + ticket.price * quantity
+    const price = typeof ticket.price === 'number' ? ticket.price : parseFloat(String(ticket.price).replace(/[^0-9.]/g, ''))
+    return sum + price * quantity
   }, 0)
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -67,8 +55,27 @@ export default function TicketsPage({ params }: { params: { id: string } }) {
     // Simulate payment processing
     setTimeout(() => {
       setIsLoading(false)
+      // Use slug in the URL
       router.push(`/events/${params.id}/confirmation`)
     }, 1500)
+  }
+
+  if (!event) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Card className="w-full max-w-md">
+          <CardHeader>
+            <CardTitle>Event Not Found</CardTitle>
+            <CardDescription>The event you're looking for could not be found.</CardDescription>
+          </CardHeader>
+          <CardFooter>
+            <Button asChild className="w-full">
+              <Link href="/">Return to Home</Link>
+            </Button>
+          </CardFooter>
+        </Card>
+      </div>
+    )
   }
 
   return (
@@ -100,14 +107,14 @@ export default function TicketsPage({ params }: { params: { id: string } }) {
                 <CardDescription>Choose the number of tickets you need</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                {event.tickets.map((ticket) => (
+                {tickets.map((ticket) => (
                   <div key={ticket.id} className="rounded-lg border p-4">
                     <div className="mb-2 flex items-center justify-between">
                       <div>
                         <h3 className="font-medium">{ticket.name}</h3>
                         <p className="text-sm text-gray-500">{ticket.description}</p>
                       </div>
-                      <span className="font-bold">${ticket.price}</span>
+                      <span className="font-bold">{typeof ticket.price === 'string' ? ticket.price : `$${ticket.price}`}</span>
                     </div>
                     <div className="flex items-center justify-between">
                       {ticket.available ? (
@@ -195,8 +202,12 @@ export default function TicketsPage({ params }: { params: { id: string } }) {
               <CardContent className="space-y-4">
                 {Object.entries(selectedTickets).map(([ticketId, quantity]) => {
                   if (quantity === 0) return null
-                  const ticket = event.tickets.find((t) => t.id === ticketId)
+                  const ticket = tickets.find((t) => t.id === ticketId)
                   if (!ticket) return null
+
+                  const price = typeof ticket.price === 'number' 
+                    ? ticket.price 
+                    : parseFloat(String(ticket.price).replace(/[^0-9.]/g, ''))
 
                   return (
                     <div key={ticketId} className="flex items-center justify-between">
@@ -204,7 +215,7 @@ export default function TicketsPage({ params }: { params: { id: string } }) {
                         <p className="font-medium">{ticket.name}</p>
                         <p className="text-sm text-gray-500">x{quantity}</p>
                       </div>
-                      <p className="font-medium">${(ticket.price * quantity).toFixed(2)}</p>
+                      <p className="font-medium">${(price * quantity).toFixed(2)}</p>
                     </div>
                   )
                 })}

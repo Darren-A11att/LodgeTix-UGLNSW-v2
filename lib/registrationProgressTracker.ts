@@ -53,7 +53,7 @@ const updateProgressIndex = (registrationType: string): void => {
   try {
     // Get current index
     const indexJson = localStorage.getItem(PROGRESS_INDEX_KEY);
-    const index = indexJson ? JSON.parse(indexJson) : {};
+    const index = indexJson && indexJson !== 'undefined' ? JSON.parse(indexJson) : {};
     
     // Ensure the registration type exists in the index
     if (!index[registrationType]) {
@@ -121,7 +121,7 @@ export function getRegistrationProgress(registrationType: string): RegistrationP
 export function getAllRegistrationProgress(): Record<string, RegistrationProgress> {
   try {
     const storedProgress = localStorage.getItem('registrationProgress');
-    return storedProgress ? JSON.parse(storedProgress) : {};
+    return storedProgress && storedProgress !== 'undefined' ? JSON.parse(storedProgress) : {};
   } catch (error) {
     console.error("Failed to get all registration progress:", error);
     return {};
@@ -134,7 +134,7 @@ export function getAllRegistrationProgress(): Record<string, RegistrationProgres
 export const hasRegistrationProgress = (registrationType: string): boolean => {
   try {
     const indexJson = localStorage.getItem(PROGRESS_INDEX_KEY);
-    if (!indexJson) return false;
+    if (!indexJson || indexJson === 'undefined') return false;
     
     const index = JSON.parse(indexJson);
     return !!index[registrationType];

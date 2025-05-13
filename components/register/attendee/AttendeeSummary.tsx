@@ -1,34 +1,48 @@
 import React from 'react';
-import { AttendeeData } from '../../../lib/api/registrations';
-import { User, Users, UserCheck, Trash2 } from 'lucide-react'; // Add Trash2 icon
-import { useRegistrationStore } from '../../../lib/registration-store';
-import { UnifiedAttendeeData } from '../../../lib/registration-types';
+import { User, Users, UserCheck, Trash2, ShieldCheck, Crown, CircleUserRound } from 'lucide-react'; // Add Trash2 icon
+import { useRegistrationStore, UnifiedAttendeeData } from '@/lib/registrationStore';
+import { Badge } from '@/components/ui/badge';
 // Import the context hook
 // import { useRegisterForm } from '../../hooks/useRegisterForm';
 
-const AttendeeSummary: React.FC = () => {
+interface AttendeeSummaryProps {
+  attendees: UnifiedAttendeeData[];
+}
+
+const AttendeeSummary: React.FC<AttendeeSummaryProps> = ({ attendees }) => {
   // Access state from the registration store
-  const { attendees, removeAttendee } = useRegistrationStore();
+  const { removeAttendee } = useRegistrationStore();
 
-  // Create a sorted list that keeps related attendees together
   const sortedAttendees = [...attendees].sort((a, b) => {
-    // Primary mason first
-    if (a.attendeeType === 'mason' && a.isPrimary) return -1;
-    if (b.attendeeType === 'mason' && b.isPrimary) return 1;
+    // Primary attendee first
+    if (a.isPrimary) return -1;
+    if (b.isPrimary) return 1;
 
-    // For partners, always keep them right after their related attendee
-    if ((b.attendeeType === 'lady_partner' || b.attendeeType === 'guest_partner') && 
-        b.relatedAttendeeId === a.attendeeId) {
-      return -1; // a should come before b
-    }
+    // Masons before Guests/Partners
+    if (a.attendeeType === 'mason' && b.attendeeType !== 'mason') return -1;
+    if (b.attendeeType === 'mason' && a.attendeeType !== 'mason') return 1;
+
+    // Partners immediately after their related attendee (if possible)
+    // This requires finding the related attendee for comparison
+    const findRelated = (id: string | undefined) => attendees.find(att => att.attendeeId === id);
     
-    if ((a.attendeeType === 'lady_partner' || a.attendeeType === 'guest_partner') && 
-        a.relatedAttendeeId === b.attendeeId) {
-      return 1; // b should come before a
+    if (a.isPartner && a.relatedAttendeeId) {
+      const relatedToA = findRelated(a.relatedAttendeeId);
+      if (relatedToA && relatedToA === b) return 1; // a should come after b
+      if (relatedToA && b.relatedAttendeeId !== a.relatedAttendeeId) { // Compare based on related attendee sort order
+         // Sort a based on its related attendee compared to b
+         // Recursive sort could be complex, let's stick to simpler grouping for now
+      }
     }
-    
-    return (attendees.findIndex(att => att.attendeeId === a.attendeeId)) - 
-           (attendees.findIndex(att => att.attendeeId === b.attendeeId));
+    if (b.isPartner && b.relatedAttendeeId) {
+      const relatedToB = findRelated(b.relatedAttendeeId);
+      if (relatedToB && relatedToB === a) return -1; // b should come after a
+      if (relatedToB && a.relatedAttendeeId !== b.relatedAttendeeId) {
+         // Sort b based on its related attendee compared to a
+      }
+    }
+    // Fallback: Sort by first name
+    return (a.firstName || '').localeCompare(b.firstName || '');
   });
 
   // Only log in development environment and with less frequency
@@ -48,50 +62,31 @@ const AttendeeSummary: React.FC = () => {
     return null;
   }
 
-  const getAttendeeDisplay = (attendee: UnifiedAttendeeData): string => {
-    const hasName = attendee.firstName && attendee.lastName;
-    
-    switch (attendee.attendeeType) {
-      case 'mason': {
-        let rankDisplay = '';
-        if (attendee.rank === 'GL' && attendee.grandRank) {
-          rankDisplay = attendee.grandRank;
-        } else if (attendee.rank && attendee.rank !== 'GL') {
-          rankDisplay = attendee.rank;
-        }
-        return hasName 
-          ? `${attendee.title} ${attendee.firstName} ${attendee.lastName}${rankDisplay ? ` ${rankDisplay}` : ''}` 
-          : `Mason Attendee`;
-      }
-      case 'lady_partner': {
-        return hasName 
-          ? `${attendee.title} ${attendee.firstName} ${attendee.lastName}` 
-          : `Partner Attendee`;
-      }
-      case 'guest': {
-        return hasName 
-          ? `${attendee.title} ${attendee.firstName} ${attendee.lastName}` 
-          : `Guest Attendee`;
-      }
-      case 'guest_partner': {
-        return hasName 
-          ? `${attendee.title} ${attendee.firstName} ${attendee.lastName}` 
-          : `Partner Attendee`;
-      }
-      default: {
-        return 'Unknown Attendee';
-      }
-    }
+  const getRelatedAttendeeName = (relatedId: string): string | null => {
+    const related = attendees.find(att => att.attendeeId === relatedId);
+    return related ? `${related.firstName} ${related.lastName}`.trim() : null;
   };
 
-  const getAttendeeIcon = (type: UnifiedAttendeeData['attendeeType']) => {
-    switch (type) {
-      case 'mason': return <User className="w-5 h-5 mr-3 text-primary flex-shrink-0" />;
-      case 'lady_partner': return <UserCheck className="w-5 h-5 mr-3 text-pink-500 flex-shrink-0" />;
-      case 'guest': return <Users className="w-5 h-5 mr-3 text-indigo-500 flex-shrink-0" />;
-      case 'guest_partner': return <Users className="w-5 h-5 mr-3 text-pink-500 flex-shrink-0" />;
-      default: return null;
+  const getAttendeeTitle = (attendee: UnifiedAttendeeData): string => {
+    if (attendee.isPrimary) return "Primary Registrant";
+    if (attendee.attendeeType === 'mason') return "Mason Attendee";
+    if (attendee.isPartner) {
+      return attendee.partnerType === 'lady' ? "Lady Partner" : "Guest Partner";
     }
+    if (attendee.attendeeType === 'guest') return "Guest Attendee"; 
+    return "Attendee"; // Fallback
+  };
+
+  const getAttendeeIcon = (attendee: UnifiedAttendeeData): React.ReactNode => {
+    if (attendee.isPrimary) return <Crown className="w-5 h-5 mr-3 text-masonic-gold flex-shrink-0" />;
+    if (attendee.attendeeType === 'mason') return <ShieldCheck className="w-5 h-5 mr-3 text-masonic-navy flex-shrink-0" />;
+    if (attendee.isPartner) {
+      return attendee.partnerType === 'lady' ? 
+               <UserCheck className="w-5 h-5 mr-3 text-pink-500 flex-shrink-0" /> : 
+               <Users className="w-5 h-5 mr-3 text-teal-500 flex-shrink-0" />; // Changed guest partner icon color
+    }
+    if (attendee.attendeeType === 'guest') return <User className="w-5 h-5 mr-3 text-gray-600 flex-shrink-0" />;
+    return <CircleUserRound className="w-5 h-5 mr-3 text-gray-400 flex-shrink-0" />; // Fallback icon
   };
 
   const handleRemove = (attendee: UnifiedAttendeeData) => {
@@ -101,55 +96,43 @@ const AttendeeSummary: React.FC = () => {
     removeAttendee(attendee.attendeeId);
   };
 
-  // Find out if this is a partner attendee
-  const isPartnerOf = (attendee: UnifiedAttendeeData): string | null => {
-    if ((attendee.attendeeType === 'lady_partner' || attendee.attendeeType === 'guest_partner') && attendee.relatedAttendeeId) {
-      const relatedAttendee = attendees.find(a => a.attendeeId === attendee.relatedAttendeeId);
-      if (relatedAttendee && relatedAttendee.firstName && relatedAttendee.lastName) {
-        return `Partner of ${relatedAttendee.firstName} ${relatedAttendee.lastName}`;
-      }
-    }
-    return null;
-  };
-
   return (
-    <div className="bg-slate-50 p-4 rounded-lg shadow-sm border border-slate-200">
-      <h3 className="text-lg font-semibold mb-3 text-slate-800 border-b pb-2">Attendee Summary</h3>
-      <ul className="space-y-2">
-        {sortedAttendees.map((attendee) => {
-          const isPrimaryMason = attendee.attendeeType === 'mason' && attendee.isPrimary;
-          const partnerInfo = isPartnerOf(attendee);
-          
-          return (
-            <li key={attendee.attendeeId} className="flex items-center justify-between text-sm border-b border-slate-100 pb-2 last:border-b-0 last:pb-0">
-              <div className="flex flex-col min-w-0 mr-2">
-                <div className="flex items-center">
-                  {getAttendeeIcon(attendee.attendeeType)}
-                  <span className="text-slate-700 truncate" title={getAttendeeDisplay(attendee)}>
-                    {getAttendeeDisplay(attendee)}
-                  </span>
-                </div>
-                {partnerInfo && (
-                  <span className="text-xs text-slate-500 ml-8">{partnerInfo}</span>
-                )}
-              </div>
-              {!isPrimaryMason && (
-                <button 
-                  type="button" 
-                  onClick={() => handleRemove(attendee)}
-                  className="text-red-500 hover:text-red-700 flex-shrink-0 p-1 -mr-1 rounded-full hover:bg-red-100 transition-colors"
-                  aria-label={`Remove ${getAttendeeDisplay(attendee)}`}
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
+    <div className="space-y-3">
+      {sortedAttendees.map((attendee) => (
+        <div key={attendee.attendeeId} className="flex items-center p-3 bg-white rounded-md border border-slate-200 shadow-sm">
+          {getAttendeeIcon(attendee)}
+          <div className="flex-grow">
+            <p className="font-semibold text-slate-800">
+              {attendee.firstName} {attendee.lastName}
+            </p>
+            <p className="text-sm text-slate-500">
+              {getAttendeeTitle(attendee)}
+              {attendee.isPartner && attendee.relatedAttendeeId && (
+                <span className="italic ml-1">
+                  (Partner of {getRelatedAttendeeName(attendee.relatedAttendeeId) || 'Unknown'})
+                </span>
               )}
-            </li>
-          );
-        })}
-      </ul>
-      <div className="border-t border-slate-200 pt-3 mt-3 text-right">
-          <span className="font-semibold text-sm text-slate-800">Total Attendees: {totalAttendees}</span>
-      </div>
+            </p>
+          </div>
+          {/* Add badges or other info if needed */}
+          {attendee.attendeeType === 'mason' && attendee.rank && (
+            <Badge variant="outline" className="ml-auto">{attendee.rank}</Badge>
+          )}
+           {attendee.attendeeType === 'mason' && attendee.grandRank && (
+            <Badge variant="outline" className="ml-1">{attendee.grandRank}</Badge>
+          )}
+          {!attendee.isPrimary && (
+            <button 
+              type="button" 
+              onClick={() => handleRemove(attendee)}
+              className="text-red-500 hover:text-red-700 flex-shrink-0 p-1 -mr-1 rounded-full hover:bg-red-100 transition-colors"
+              aria-label={`Remove ${attendee.firstName} ${attendee.lastName}`}
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+          )}
+        </div>
+      ))}
     </div>
   );
 };

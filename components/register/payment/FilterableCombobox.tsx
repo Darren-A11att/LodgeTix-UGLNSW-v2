@@ -1,11 +1,12 @@
 "use client"
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, memo } from "react";
 import { FilterableComboboxProps } from "./types";
 import { Combobox, ComboboxButton, ComboboxInput, ComboboxOption, ComboboxOptions } from '@headlessui/react'
 import { CheckIcon, ChevronUpDownIcon } from '@heroicons/react/20/solid'
 
-export function FilterableCombobox<T extends { name: string; isoCode: string; id?: number }>({
+// Memoized version of the component to prevent unnecessary rerenders
+export const FilterableCombobox = memo(function FilterableCombobox<T extends { name: string; isoCode: string; id?: number }>({
   label,
   items,
   placeholder = "Select an option...",
@@ -21,18 +22,42 @@ export function FilterableCombobox<T extends { name: string; isoCode: string; id
   loading = false,
   disabled = false,
 }: FilterableComboboxProps<T>) {
-  const [query, setQuery] = useState('');
+  // Use refs for values that don't need to trigger re-renders
+  const queryRef = useRef('');
   const [open, setOpen] = useState(false);
   
-  const filteredItems =
-    query === ''
-      ? items
-      : items.filter((item) => filterFunction(item, query));
+  // Only create state for filtered items when dropdown is open
+  const [filteredItems, setFilteredItems] = useState<T[]>(items);
+  
+  // Update filtered items only when necessary
+  const updateFilteredItems = (query: string) => {
+    queryRef.current = query;
+    if (open) {
+      const newFilteredItems = query === ''
+        ? items
+        : items.filter((item) => filterFunction(item, query));
+      setFilteredItems(newFilteredItems);
+    }
+  };
 
   // Reset query when value changes externally
   useEffect(() => {
-    setQuery('');
-  }, [value]);
+    queryRef.current = '';
+    // Only update filtered items when dropdown is open
+    if (open) {
+      setFilteredItems(items);
+    }
+  }, [value, items, open]);
+  
+  // Update filtered items when dropdown is opened
+  useEffect(() => {
+    if (open) {
+      const newFilteredItems = queryRef.current === ''
+        ? items
+        : items.filter((item) => filterFunction(item, queryRef.current));
+      setFilteredItems(newFilteredItems);
+    }
+  }, [open, items, filterFunction]);
 
   return (
     <Combobox
@@ -41,7 +66,7 @@ export function FilterableCombobox<T extends { name: string; isoCode: string; id
       onChange={(item: T | null) => {
         onChange(item);
         setOpen(false);
-        setQuery('');
+        queryRef.current = '';
       }}
       disabled={disabled || loading}
     >
@@ -52,7 +77,8 @@ export function FilterableCombobox<T extends { name: string; isoCode: string; id
           className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
           placeholder={loading ? "Loading..." : placeholder}
           onChange={(event) => {
-            setQuery(event.target.value);
+            // Update filtered items when input changes
+            updateFilteredItems(event.target.value);
             if (!open) setOpen(true);
           }}
           onFocus={() => setOpen(true)}
@@ -102,7 +128,7 @@ export function FilterableCombobox<T extends { name: string; isoCode: string; id
               ))
             ) : (
               <div className="relative cursor-default select-none py-2 px-4 text-gray-700">
-                {query !== '' ? 'No results found' : 'No options available'}
+                {queryRef.current !== '' ? 'No results found' : 'No options available'}
               </div>
             )}
           </ComboboxOptions>
@@ -110,4 +136,13 @@ export function FilterableCombobox<T extends { name: string; isoCode: string; id
       </div>
     </Combobox>
   );
-}
+}, (prevProps, nextProps) => {
+  // Custom comparison to prevent unnecessary re-renders
+  // Only re-render if these specific props change
+  return (
+    prevProps.value === nextProps.value &&
+    prevProps.items === nextProps.items &&
+    prevProps.loading === nextProps.loading &&
+    prevProps.disabled === nextProps.disabled
+  );
+});

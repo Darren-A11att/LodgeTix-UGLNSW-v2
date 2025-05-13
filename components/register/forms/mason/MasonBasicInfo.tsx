@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { MasonAttendee } from '@/lib/registration-types';
 
 interface MasonBasicInfoProps {
@@ -20,15 +20,53 @@ const MasonBasicInfo: React.FC<MasonBasicInfoProps> = ({
   titles,
   ranks,
 }) => {
-  // Interaction states
+  // Interaction states for validation styling
   const [titleInteracted, setTitleInteracted] = useState(false);
   const [firstNameInteracted, setFirstNameInteracted] = useState(false);
   const [lastNameInteracted, setLastNameInteracted] = useState(false);
   const [rankInteracted, setRankInteracted] = useState(false);
+  
+  // Use refs for uncontrolled inputs
+  const firstNameRef = useRef<HTMLInputElement>(null);
+  const lastNameRef = useRef<HTMLInputElement>(null);
+  const rankRef = useRef<HTMLSelectElement>(null);
+  
+  // Store the latest props values to avoid stale refs
+  const masonRef = useRef(mason);
+  useEffect(() => {
+    masonRef.current = mason;
+    
+    // Update rank select element when props change
+    if (rankRef.current && mason.rank && rankRef.current.value !== mason.rank) {
+      rankRef.current.value = mason.rank;
+    }
+  }, [mason]);
 
-  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    const { name, value } = e.target;
-    onChange(id, name as keyof Pick<MasonAttendee, 'firstName' | 'lastName' | 'rank'>, value);
+  // Handlers for blur events
+  const handleFirstNameBlur = () => {
+    setFirstNameInteracted(true);
+    if (firstNameRef.current && firstNameRef.current.value !== masonRef.current.firstName) {
+      onChange(id, 'firstName', firstNameRef.current.value);
+    }
+  };
+
+  const handleLastNameBlur = () => {
+    setLastNameInteracted(true);
+    if (lastNameRef.current && lastNameRef.current.value !== masonRef.current.lastName) {
+      onChange(id, 'lastName', lastNameRef.current.value);
+    }
+  };
+
+  const handleRankBlur = () => {
+    setRankInteracted(true);
+    if (rankRef.current && rankRef.current.value !== masonRef.current.rank) {
+      onChange(id, 'rank', rankRef.current.value);
+    }
+  };
+
+  // Handle title change (keeping as controlled for now as it's passed down)
+  const handleTitleBlur = (e: React.FocusEvent<HTMLSelectElement>) => {
+    setTitleInteracted(true);
   };
 
   return (
@@ -41,9 +79,9 @@ const MasonBasicInfo: React.FC<MasonBasicInfoProps> = ({
         <select
           id={`masonicTitle-${id}`}
           name="title"
-          value={mason.title ?? ''}
+          defaultValue={mason.title ?? ''}
           onChange={handleTitleChange}
-          onBlur={() => setTitleInteracted(true)}
+          onBlur={handleTitleBlur}
           required={isPrimary}
           className={`w-full px-4 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 
                      ${titleInteracted ? 'interacted' : ''} 
@@ -65,9 +103,9 @@ const MasonBasicInfo: React.FC<MasonBasicInfoProps> = ({
           type="text"
           id={`firstName-${id}`}
           name="firstName"
-          value={mason.firstName ?? ''}
-          onChange={handleInputChange}
-          onBlur={() => setFirstNameInteracted(true)}
+          ref={firstNameRef}
+          defaultValue={mason.firstName || ''}
+          onBlur={handleFirstNameBlur}
           required={isPrimary}
           className={`w-full px-4 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 
                      ${firstNameInteracted ? 'interacted' : ''} 
@@ -85,9 +123,9 @@ const MasonBasicInfo: React.FC<MasonBasicInfoProps> = ({
           type="text"
           id={`lastName-${id}`}
           name="lastName"
-          value={mason.lastName ?? ''}
-          onChange={handleInputChange}
-          onBlur={() => setLastNameInteracted(true)}
+          ref={lastNameRef}
+          defaultValue={mason.lastName || ''}
+          onBlur={handleLastNameBlur}
           required={isPrimary}
           className={`w-full px-4 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 
                      ${lastNameInteracted ? 'interacted' : ''} 
@@ -104,9 +142,15 @@ const MasonBasicInfo: React.FC<MasonBasicInfoProps> = ({
         <select
           id={`rank-${id}`}
           name="rank"
-          value={mason.rank ?? ''}
-          onChange={handleInputChange}
-          onBlur={() => setRankInteracted(true)}
+          ref={rankRef}
+          value={mason.rank || ''}
+          onChange={(e) => {
+            // Immediately update value when selected - using direct value to ensure immediate update
+            const newRank = e.target.value;
+            console.log('Rank changed to:', newRank);
+            onChange(id, 'rank', newRank);
+          }}
+          onBlur={handleRankBlur}
           required={isPrimary}
           className={`w-full px-4 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 
                      ${rankInteracted ? 'interacted' : ''} 

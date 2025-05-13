@@ -1,6 +1,5 @@
 import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react';
 import { useDebouncedCallback } from 'use-debounce';
-import 'react-phone-input-2/lib/style.css';
 import LadyPartnerForm from './LadyPartnerForm';
 import { GrandLodgeRow } from '../../../../lib/api/grandLodges';
 import { createLodge, LodgeRow } from '../../../../lib/api/lodges';
@@ -12,17 +11,19 @@ import MasonAdditionalInfo from './MasonAdditionalInfo';
 import LadyPartnerToggle from './LadyPartnerToggle';
 import { FaTrash } from 'react-icons/fa';
 import { X } from 'lucide-react';
-import PhoneInputWrapper from '../../../../shared/components/PhoneInputWrapper';
-import { useLocationStore, IpApiData } from '../../../../lib/locationStore';
-import { useRegistrationStore, RegistrationState, UnifiedAttendeeData } from '../../../../lib/registrationStore';
-import { v4 as uuidv4 } from 'uuid';
-import { LadyPartnerData as OldLadyPartnerData } from '../../../../shared/types/register';
+import { PhoneInput } from '@/components/ui/phone-input';
+import { useLocationStore } from '../../../../lib/locationStore';
+import { useRegistrationStore, RegistrationState } from '../../../../lib/registrationStore';
+import { UnifiedAttendeeData } from '../../../../shared/types/supabase';
 
 interface MasonFormProps {
   attendeeId: string;
   attendeeNumber: number;
   isPrimary?: boolean;
 }
+
+// Define ContactPreference type based on enum + empty string
+type ContactPreference = UnifiedAttendeeData['contactPreference'];
 
 const MasonForm: React.FC<MasonFormProps> = ({
   attendeeId, 
@@ -41,32 +42,31 @@ const MasonForm: React.FC<MasonFormProps> = ({
   const searchAllLodgesAction = useLocationStore((state: any) => state.searchAllLodgesAction);
   const createLodgeAction = useLocationStore((state: any) => state.createLodge);
 
-  const attendees = useRegistrationStore((state: RegistrationState) => state.attendees);
+  const mason = useRegistrationStore(state => 
+    state.attendees.find(att => att.attendeeId === attendeeId && att.attendeeType.toLowerCase() === 'mason')
+  );
   
-  const mason = useMemo(() => 
-    attendees.find(att => att.attendeeId === attendeeId),
-    [attendees, attendeeId]
-  ) as UnifiedAttendeeData | undefined;
+  const ladyPartnerData = useRegistrationStore(state => 
+    // Find partner using the mason's partner field
+    state.attendees.find(att => att.attendeeId === mason?.partner)
+  );
+
+  const primaryMasonData = useRegistrationStore(state => 
+    state.attendees.find(att => att.isPrimary && att.attendeeType.toLowerCase() === 'mason')
+  );
   
-  const ladyPartnerData = useMemo(() => 
-    attendees.find(att => att.relatedAttendeeId === attendeeId && att.attendeeType === 'lady_partner'),
-    [attendees, attendeeId]
-  ) as UnifiedAttendeeData | undefined;
-  
-  const updateAttendee = useRegistrationStore((state: RegistrationState) => state.updateAttendee);
-  const removeAttendee = useRegistrationStore((state: RegistrationState) => state.removeAttendee);
-  const addAttendee = useRegistrationStore((state: RegistrationState) => state.addAttendee);
+  const updateAttendee = useRegistrationStore((state) => state.updateAttendee);
+  const removeAttendee = useRegistrationStore((state) => state.removeAttendee);
+  const addLadyPartnerAttendee = useRegistrationStore((state) => state.addLadyPartnerAttendee);
+
+  // Debounced version of updateAttendee with shorter delay for better responsiveness
+  const debouncedUpdateAttendee = useDebouncedCallback(updateAttendee, 200);
 
   if (!mason) {
-      console.warn(`MasonForm rendered for non-existent attendeeId: ${attendeeId}`);
-      return null; 
+      console.warn(`MasonForm rendered for non-existent/loading attendeeId: ${attendeeId}`);
+      return <div className="bg-slate-50 p-6 rounded-lg mb-8 relative animate-pulse">Loading Mason...</div>; 
   }
 
-  const primaryMasonData = useMemo(() => 
-    attendees.find(att => att.isPrimary),
-    [attendees]
-  ) as UnifiedAttendeeData | undefined;
-  
   // --- Local UI State (like selects, inputs, creation UI) ---
   const [selectedGrandLodge, setSelectedGrandLodge] = useState<GrandLodgeRow | null>(null);
   const [selectedLodge, setSelectedLodge] = useState<LodgeRow | null>(null);
@@ -94,59 +94,67 @@ const MasonForm: React.FC<MasonFormProps> = ({
 
   // Determine if confirmation message should be shown for non-primary masons
   const showConfirmationForMason = !isPrimary && 
-                                   (mason.contactPreference === 'Primary Attendee' || 
-                                    mason.contactPreference === 'Provide Later');
+                                   (mason.contactPreference === 'PrimaryAttendee' || 
+                                    mason.contactPreference === 'ProvideLater');
 
   // Function to get confirmation message for non-primary masons
   const getConfirmationMessageForMason = useCallback(() => {
     if (!isPrimary && primaryMasonData) {
-      const primaryName = `${primaryMasonData.firstName} ${primaryMasonData.lastName}`.trim();
-      if (mason.contactPreference === 'Primary Attendee') {
-        return `I confirm that ${primaryName} will be responsible for all communication with this attendee.`
+      const primaryName = `${primaryMasonData.firstName || ''} ${primaryMasonData.lastName || ''}`.trim();
+      if (mason.contactPreference === 'PrimaryAttendee') {
+        return `I confirm that ${primaryName || 'the Primary Attendee'} will be responsible for all communication with this attendee.`
       }
-      if (mason.contactPreference === 'Provide Later') {
-        return `I confirm that ${primaryName} will be responsible for all communication with this attendee until their contact details have been updated in their profile.`
+      if (mason.contactPreference === 'ProvideLater') {
+        return `I confirm that ${primaryName || 'the Primary Attendee'} will be responsible for all communication with this attendee until their contact details have been updated.`
       }
     }
     return "";
   }, [isPrimary, mason?.contactPreference, primaryMasonData]);
 
-  // --- Generic Field Update Handler ---
+  // --- UPDATED Field Handlers with Debounce ---
   const handleFieldChange = useCallback((id: string, field: keyof UnifiedAttendeeData, value: any) => {
-      if (id === attendeeId) {
+    // Ensure mason object is available before trying to update
+    if (id === attendeeId && mason) {
+      // Use immediate update for rank changes to ensure proper rendering of grand lodge fields
+      if (field === 'rank') {
+        console.log('Updating rank to:', value);
         updateAttendee(attendeeId, { [field]: value });
       } else {
-        console.warn('handleFieldChange called with mismatched ID', { currentId: attendeeId, receivedId: id });
+        debouncedUpdateAttendee(attendeeId, { [field]: value });
       }
-  }, [updateAttendee, attendeeId]);
+    } else {
+      console.warn('handleFieldChange called with mismatched ID or missing mason data', { currentId: attendeeId, receivedId: id, masonExists: !!mason });
+    }
+  }, [debouncedUpdateAttendee, updateAttendee, attendeeId, mason]); // Add mason dependency
 
-  // Specific handler needed for phone due to component library
   const handlePhoneChange = useCallback((value: string) => {
-      handleFieldChange(attendeeId, 'primaryPhone', value);
-  }, [handleFieldChange, attendeeId]);
-
-  // Specific handler for title change to also handle rank logic
-  const handleTitleChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
-      const newTitle = e.target.value;
-      const currentRank = mason?.rank; // Access the current rank
-
-      let updates: Partial<UnifiedAttendeeData> = { title: newTitle };
-
-      if (newTitle === 'W Bro') {
-          if (currentRank !== 'GL') { // Only set to IM if current rank is not GL
-              updates.rank = 'IM';
-          }
-          // If currentRank is 'GL', rank remains 'GL' due to no assignment here
-      } else if (isGrandTitle(newTitle)) {
-          updates.rank = 'GL';
+      // Ensure mason object is available
+      if (mason) {
+        debouncedUpdateAttendee(attendeeId, { 'primaryPhone': value });
       }
-      // If the title is 'Bro' or any other title not matching the above conditions,
-      // the rank is not automatically changed by this title selection.
-      // The user can set the rank independently via the Rank dropdown,
-      // which will use the generic handleFieldChange.
+  }, [debouncedUpdateAttendee, attendeeId, mason]); // Add mason dependency
 
-      updateAttendee(attendeeId, updates);
-  }, [updateAttendee, attendeeId, mason?.rank]); // Ensure mason.rank is in the dependency array
+  const handleTitleChange = useCallback((e: React.ChangeEvent<HTMLSelectElement>) => {
+    // Ensure mason object is available
+    if (!mason) return;
+
+    const newTitle = e.target.value;
+    const currentRank = mason.rank; 
+
+    let updates: Partial<UnifiedAttendeeData> = { title: newTitle };
+
+    if (newTitle === 'W Bro') {
+        if (currentRank !== 'GL') { 
+            updates.rank = 'IM';
+        }
+    } else if (isGrandTitle(newTitle)) {
+        updates.rank = 'GL';
+    }
+    
+    // Using immediate update instead of debounced for title/rank changes
+    // This ensures the rank dropdown updates immediately
+    updateAttendee(attendeeId, updates);
+  }, [updateAttendee, attendeeId, mason]); // Add mason dependency
 
   // --- Effects for GL/Lodge Selection and Initialization ---
   useEffect(() => {
@@ -217,7 +225,7 @@ const MasonForm: React.FC<MasonFormProps> = ({
                                await searchAllLodgesAction(mason.lodgeId);
                                initialLoadDoneRef.current = true;
                            } catch (err) {
-                               console.error('Error searching for lodge:', err);
+                               // Error handled by returning fallback value
                                setLodgeInputValue(`Lodge: ${mason.lodgeId}`); 
                                initialLoadDoneRef.current = true;
                            }
@@ -236,171 +244,137 @@ const MasonForm: React.FC<MasonFormProps> = ({
        }
   }, [mason.lodgeId, mason.lodgeNameNumber, allLodgeSearchResults, selectedLodge, grandLodges, selectedGrandLodge, isLoadingAllLodges, searchAllLodgesAction]);
 
-  // --- Handlers for GL/Lodge Selection and Creation --- 
+  // --- Handlers for GL/Lodge Selection and Creation (Ensure these use debouncedUpdateAttendee where appropriate) ---
   const resetLodgeCreationUI = useCallback(() => {
     setIsCreatingLodgeUI(false);
     setNewLodgeName('');
     setNewLodgeNumber('');
   }, []);
+
+  const handleGrandLodgeSelect = useCallback((selectedOption: GrandLodgeRow | null) => {
+    setSelectedGrandLodge(selectedOption);
+    setGrandLodgeInputValue(selectedOption ? selectedOption.name : '');
+    const updates: Partial<UnifiedAttendeeData> = { grandLodgeId: selectedOption?.id || null };
+    if (selectedOption) {
+      // Clear selected lodge when GL changes
+      setSelectedLodge(null);
+      setLodgeInputValue('');
+      updates.lodgeId = null;
+      updates.lodgeNameNumber = null;
+    }
+    // Use debounced update
+    debouncedUpdateAttendee(attendeeId, updates);
+    resetLodgeCreationUI();
+  }, [attendeeId, debouncedUpdateAttendee, resetLodgeCreationUI]);
+
+  // Input change handlers primarily trigger searches,
+  // the actual update happens on selection via handleGrandLodgeSelect/handleLodgeSelect.
+  // So no debounced update needed directly in the input change handlers.
   
-  const handleGrandLodgeSelect = useCallback((grandLodge: GrandLodgeRow | null) => {
-       if (selectedGrandLodge?.id !== grandLodge?.id) {
-           setSelectedGrandLodge(grandLodge);
-           setGrandLodgeInputValue(grandLodge ? grandLodge.name : '');
-           updateAttendee(attendeeId, { 
-               grandLodgeId: grandLodge ? grandLodge.id : null, 
-               lodgeId: null 
-           });
-           setSelectedLodge(null);
-           setLodgeInputValue('');
-           handleFieldChange(attendeeId, 'grandLodgeId', grandLodge ? grandLodge.id : null);
-           handleFieldChange(attendeeId, 'lodgeId', null);
-           resetLodgeCreationUI();
-       }
-   }, [selectedGrandLodge, updateAttendee, attendeeId, resetLodgeCreationUI, handleFieldChange]);
-
-  const debouncedGrandLodgeSearch = useDebouncedCallback(searchGrandLodges, 300);
-
+  // Fixed handleGrandLodgeInputChange function to match AutocompleteInput expectations
   const handleGrandLodgeInputChange = useCallback((value: string) => {
-      setGrandLodgeInputValue(value);
-      if (selectedGrandLodge && value !== selectedGrandLodge.name) {
-          setSelectedGrandLodge(null);
-      }
-      debouncedGrandLodgeSearch(value);
-  }, [debouncedGrandLodgeSearch, selectedGrandLodge]);
-
-  const debouncedLodgeSearch = useDebouncedCallback(searchAllLodgesAction, 300);
+    setGrandLodgeInputValue(value);
+    userIsTypingRef.current = true;
+    if (value.length > 2) {
+      searchGrandLodges(value);
+    }
+    setTimeout(() => {
+      userIsTypingRef.current = false;
+    }, 500);
+  }, [searchGrandLodges]);
   
-  const handleLodgeSelect = useCallback((lodge: LodgeRow | null) => {
-       // Set state based on whether we have a lodge or not
-       setSelectedLodge(lodge);
-       
-       if (lodge) {
-           // Lodge was selected - update to the proper display value
-           const displayValue = lodge.display_name || `${lodge.name} No. ${lodge.number || 'N/A'}`;
-           setLodgeInputValue(displayValue);
-           
-           // Save the display value to the ref for persistence
-           lodgeNameRef.current = displayValue;
-           
-           // When a lodge is selected from the dropdown
-           let updates: Partial<UnifiedAttendeeData> = { 
-               lodgeId: lodge.id,
-               lodgeNameNumber: displayValue // Store the display name in the attendee data
-           };
-           
-           // Handle Grand Lodge association
-           if (lodge.grand_lodge_id) {
-               const associatedGrandLodge = grandLodges.find(gl => gl.id === lodge.grand_lodge_id);
-               if (associatedGrandLodge) {
-                   if (selectedGrandLodge?.id !== associatedGrandLodge.id) {
-                       setSelectedGrandLodge(associatedGrandLodge);
-                       setGrandLodgeInputValue(associatedGrandLodge.name);
-                       updates.grandLodgeId = associatedGrandLodge.id;
-                   }
-               } else {
-                   console.warn(`Grand Lodge ${lodge.grand_lodge_id} for selected lodge ${lodge.id} not found.`);
-               }
-           }
-           
-           updateAttendee(attendeeId, updates);
-       } else {
-           // Clear button was clicked or selection was removed
-           setLodgeInputValue('');
-           lodgeNameRef.current = null;
-           
-           // Clear the field values in the attendee data
-           updateAttendee(attendeeId, { 
-               lodgeId: null,
-               lodgeNameNumber: null
-           });
-       }
-       
-       // Always make sure the creation UI is reset
-       resetLodgeCreationUI();
-   }, [updateAttendee, attendeeId, grandLodges, selectedGrandLodge, resetLodgeCreationUI]);
-
+  // Fixed handleLodgeInputChange function to match AutocompleteInput expectations
   const handleLodgeInputChange = useCallback((value: string) => {
-      // Set the flag to indicate user is typing
-      userIsTypingRef.current = true;
-      
-      // Update the input field value immediately
-      setLodgeInputValue(value);
-      
-      // If the user is typing, clear the selected lodge
-      if (selectedLodge) {
-          const currentDisplay = selectedLodge.display_name || `${selectedLodge.name} No. ${selectedLodge.number || 'N/A'}`; 
-          if (value !== currentDisplay && currentDisplay !== '') { 
-              // User is typing something different - clear the selection but preserve the value
-              handleLodgeSelect(null);
-              
-              // Clear cached display value when user is actively changing it
-              lodgeNameRef.current = null;
-              
-              // Clear the form-level value
-              updateAttendee(attendeeId, { 
-                  lodgeId: null,
-                  lodgeNameNumber: null
-              });
-          }
-      }
-      
-      // Search for lodges matching the input
-      if (value && value.trim().length > 0) {
-        debouncedLodgeSearch(value.trim());
-      }
-      
-      // Clear the typing flag after a short delay to allow input to stabilize
-      setTimeout(() => {
-        userIsTypingRef.current = false;
-      }, 500);
-  }, [debouncedLodgeSearch, selectedLodge, handleLodgeSelect, updateAttendee, attendeeId]);
+    setLodgeInputValue(value);
+    userIsTypingRef.current = true;
+    if (value.length > 2 && selectedGrandLodge) {
+      searchAllLodgesAction(value, selectedGrandLodge.id);
+    }
+    setTimeout(() => {
+      userIsTypingRef.current = false;
+    }, 500);
+  }, [searchAllLodgesAction, selectedGrandLodge]);
 
-  const handleInitiateLodgeCreation = useCallback((initialLodgeName: string) => {
-      if (!selectedGrandLodge) {
-          alert("Please select a Grand Lodge before creating a new lodge.");
-          return; 
-      }
-      setIsCreatingLodgeUI(true);
-      setNewLodgeName(initialLodgeName);
-      setNewLodgeNumber('');
-  }, [selectedGrandLodge]);
+  const handleLodgeSelect = useCallback((selectedOption: LodgeRow | null) => {
+    setSelectedLodge(selectedOption);
+    let updates: Partial<UnifiedAttendeeData> = {};
+    if (selectedOption) {
+        const displayValue = selectedOption.display_name || `${selectedOption.name} No. ${selectedOption.number || 'N/A'}`;
+        setLodgeInputValue(displayValue);
+        lodgeNameRef.current = displayValue;
+        updates.lodgeId = selectedOption.id;
+        updates.lodgeNameNumber = displayValue;
+        
+        if (!selectedGrandLodge && selectedOption.grand_lodge_id) {
+             const associatedGrandLodge = grandLodges.find(gl => gl.id === selectedOption.grand_lodge_id);
+             if (associatedGrandLodge) {
+                 setSelectedGrandLodge(associatedGrandLodge);
+                 setGrandLodgeInputValue(associatedGrandLodge.name);
+                 updates.grandLodgeId = associatedGrandLodge.id;
+             }
+        }
+    } else {
+        setLodgeInputValue('');
+        lodgeNameRef.current = null;
+        updates.lodgeId = null;
+        updates.lodgeNameNumber = null;
+    }
+    // Use debounced update
+    debouncedUpdateAttendee(attendeeId, updates);
+    resetLodgeCreationUI();
+    userIsTypingRef.current = false;
+  }, [attendeeId, debouncedUpdateAttendee, resetLodgeCreationUI, selectedGrandLodge, grandLodges]);
 
-  const handleLodgeNumberChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    setNewLodgeNumber(e.target.value);
+  // Add missing handleInitiateLodgeCreation function
+  const handleInitiateLodgeCreation = useCallback(() => {
+    setIsCreatingLodgeUI(true);
   }, []);
+
+  // Add missing handleCancelLodgeCreation function
   const handleCancelLodgeCreation = useCallback(() => {
     resetLodgeCreationUI();
   }, [resetLodgeCreationUI]);
 
-  const handleConfirmNewLodge = useCallback(async (details: { name: string; number: string }) => {
-      if (!selectedGrandLodge?.id) return;
-      try {
-          const newLodgeData = { name: details.name, number: details.number || null, grand_lodge_id: selectedGrandLodge.id };
-          const createdLodge = await createLodgeAction(newLodgeData as any); 
-          if (createdLodge) {
-              handleLodgeSelect(createdLodge);
-          }
-      } catch (error) {
-          console.error("Error during lodge creation process:", error);
+  const handleConfirmNewLodge = useCallback(async () => {
+    if (!newLodgeName || !selectedGrandLodge) {
+      // Lodge creation requires both name and Grand Lodge
+      return;
+    }
+    try {
+      const newLodge = await createLodgeAction({
+        name: newLodgeName,
+        number: newLodgeNumber ? parseInt(newLodgeNumber, 10) : null,
+        grand_lodge_id: selectedGrandLodge.id,
+        display_name: `${newLodgeName} No. ${newLodgeNumber || 'N/A'}`
+      });
+      if (newLodge) {
+        // Selecting the new lodge will trigger handleLodgeSelect, which uses debounce
+        handleLodgeSelect(newLodge);
       }
       resetLodgeCreationUI();
-  }, [selectedGrandLodge?.id, createLodgeAction, handleLodgeSelect, resetLodgeCreationUI]);
+    } catch (error) {
+      // Creation failed, handled by returning undefined
+    }
+  }, [newLodgeName, newLodgeNumber, selectedGrandLodge, createLodgeAction, handleLodgeSelect, resetLodgeCreationUI]);
 
   // --- Lady Partner Handlers ---
   const handleLadyPartnerToggle = useCallback(() => {
-      if (ladyPartnerData) {
-          removeAttendee(ladyPartnerData.attendeeId);
+      if (!mason) return; // Should not happen if mason is checked at the top
+
+      if (mason.partner && ladyPartnerData) {
+          // If partner link exists AND partner data is loaded, this toggle means REMOVE the partner
+          // Removing lady partner
+          removeAttendee(ladyPartnerData.attendeeId); 
+      } else if (!mason.partner) {
+          // If no partner link exists, this toggle means ADD a partner
+          // Adding lady partner
+          addLadyPartnerAttendee(mason.attendeeId);
       } else {
-          addAttendee({
-              attendeeType: 'lady_partner',
-              relatedAttendeeId: attendeeId,
-              registrationId: mason.registrationId,
-              firstName: '',
-              lastName: '',
-          } as Omit<UnifiedAttendeeData, 'attendeeId'>);
+          // Edge case: mason.partner exists but ladyPartnerData is somehow not loaded yet
+          // This case should be handled by the loading state in the render section
+          // Edge case: partner exists but not loaded
       }
-  }, [ladyPartnerData, addAttendee, removeAttendee, attendeeId, mason.registrationId]);
+  }, [mason, ladyPartnerData, addLadyPartnerAttendee, removeAttendee]);
 
   // --- Other Handlers ---
   const getConfirmationMessage = useCallback(() => {
@@ -418,83 +392,56 @@ const MasonForm: React.FC<MasonFormProps> = ({
       removeAttendee(attendeeId);
   }, [removeAttendee, attendeeId]);
 
-  // --- Transform Partner Data for LadyPartnerForm ---
-  const transformedPartnerData = useMemo(() => {
-      if (!ladyPartnerData) return undefined;
-      return {
-          id: ladyPartnerData.attendeeId,
-          title: ladyPartnerData.title || '',
-          firstName: ladyPartnerData.firstName || '',
-          lastName: ladyPartnerData.lastName || '',
-          email: ladyPartnerData.primaryEmail || '',
-          phone: ladyPartnerData.primaryPhone || '',
-          dietary: ladyPartnerData.dietaryRequirements || '',
-          specialNeeds: ladyPartnerData.specialNeeds || '',
-          relationship: ladyPartnerData.relationship || '',
-          masonId: ladyPartnerData.relatedAttendeeId || '',
-          contactPreference: ladyPartnerData.contactPreference || 'Directly',
-          contactConfirmed: !!ladyPartnerData.contactConfirmed,
-      } as OldLadyPartnerData;
-  }, [ladyPartnerData]);
-
-  // --- Handler for the 'Use same lodge as primary' checkbox ---
+  // --- Handler for the 'Use same lodge as primary' checkbox (Already updated to use debouncedUpdateAttendee) ---
   const handleUseSameLodgeChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const isChecked = e.target.checked;
     setUseSameLodge(isChecked);
 
     if (!isPrimary && mason && primaryMasonData) {
+      let updates: Partial<UnifiedAttendeeData> = {};
       if (isChecked) {
-        // Copy from primary to current mason
-        const updates: Partial<UnifiedAttendeeData> = {
+        updates = {
           grandLodgeId: primaryMasonData.grandLodgeId,
           lodgeId: primaryMasonData.lodgeId,
           lodgeNameNumber: primaryMasonData.lodgeNameNumber,
         };
-        updateAttendee(attendeeId, updates);
-        // Also update local UI state for GL/Lodge selection inputs to reflect copied values
         if (primaryMasonData.grandLodgeId) {
           const primaryGL = grandLodges.find(gl => gl.id === primaryMasonData.grandLodgeId);
           if (primaryGL) {
             setSelectedGrandLodge(primaryGL);
             setGrandLodgeInputValue(primaryGL.name);
           }
-        }
-        if (primaryMasonData.lodgeNameNumber) {
-            setLodgeInputValue(primaryMasonData.lodgeNameNumber);
-            // If we have primaryMasonData.lodgeId, try to find the full LodgeRow for selectedLodge
-            if (primaryMasonData.lodgeId) {
-                const primaryLodge = allLodgeSearchResults.find(l => l.id === primaryMasonData.lodgeId);
-                if (primaryLodge) setSelectedLodge(primaryLodge);
-                else setSelectedLodge(null); // Or a minimal LodgeRow if only ID is known
-            }
         } else {
-            setLodgeInputValue('');
-            setSelectedLodge(null);
+            setSelectedGrandLodge(null);
+            setGrandLodgeInputValue('');
         }
-
+        if (primaryMasonData.lodgeId) {
+            const primaryLodge = allLodgeSearchResults.find(l => l.id === primaryMasonData.lodgeId);
+            setSelectedLodge(primaryLodge || null);
+            setLodgeInputValue(primaryMasonData.lodgeNameNumber || '');
+            lodgeNameRef.current = primaryMasonData.lodgeNameNumber || null;
+        } else {
+            setSelectedLodge(null);
+            setLodgeInputValue('');
+            lodgeNameRef.current = null;
+        }
       } else {
-        // Clear fields for current mason if unchecked
-        const updates: Partial<UnifiedAttendeeData> = {
+        updates = {
           grandLodgeId: null,
           lodgeId: null,
           lodgeNameNumber: null,
         };
-        updateAttendee(attendeeId, updates);
-        // Reset local UI state for GL/Lodge selection inputs
         setSelectedGrandLodge(null);
         setGrandLodgeInputValue('');
         setSelectedLodge(null);
         setLodgeInputValue('');
+        lodgeNameRef.current = null;
       }
+      debouncedUpdateAttendee(attendeeId, updates); // Use attendeeId from props
     }
-  }, [isPrimary, mason, primaryMasonData, updateAttendee, attendeeId, grandLodges, allLodgeSearchResults]);
+  }, [isPrimary, mason, primaryMasonData, debouncedUpdateAttendee, attendeeId, grandLodges, allLodgeSearchResults]);
 
-  const removeLadyPartner = useCallback(() => {
-    if (ladyPartnerData) {
-      removeAttendee(ladyPartnerData.attendeeId);
-      updateAttendee(attendeeId, { hasLadyPartner: false }); 
-    }
-  }, [ladyPartnerData, removeAttendee, updateAttendee, attendeeId]);
+  // Debug logs removed for performance
 
   return (
     <div className={`bg-slate-50 p-6 rounded-lg mb-8 relative`} id={`mason-form-${attendeeId}`}>
@@ -523,6 +470,21 @@ const MasonForm: React.FC<MasonFormProps> = ({
         ranks={ranks}
       />
       
+      {/* Debug ranking - we'll hide this in production */}
+      <div className="text-xs text-gray-500 mb-2 flex items-center">
+        Current rank: {mason.rank || 'None'}
+        {mason.rank !== 'GL' && mason.title && isGrandTitle(mason.title) && (
+          <button 
+            onClick={() => {
+              console.log('Forcing rank to GL due to Grand title');
+              updateAttendee(attendeeId, { rank: 'GL' });
+            }} 
+            className="ml-2 px-2 py-0.5 bg-blue-100 text-blue-800 rounded text-xs"
+          >
+            Force GL Rank
+          </button>
+        )}
+      </div>
       {mason.rank === 'GL' && (
         <MasonGrandLodgeFields 
           mason={mason} 
@@ -533,7 +495,7 @@ const MasonForm: React.FC<MasonFormProps> = ({
       )}
 
       <MasonLodgeInfo 
-        mason={mason}
+        mason={mason!} 
         id={attendeeId}
         isPrimary={isPrimary}
         grandLodgeOptions={grandLodges} 
@@ -556,7 +518,7 @@ const MasonForm: React.FC<MasonFormProps> = ({
         newLodgeName={newLodgeName}
         setNewLodgeName={setNewLodgeName}
         newLodgeNumber={newLodgeNumber}
-        handleLodgeNumberChange={handleLodgeNumberChange}
+        handleLodgeNumberChange={(e) => setNewLodgeNumber(e.target.value)}
         handleCancelLodgeCreation={handleCancelLodgeCreation}
         onConfirmNewLodge={handleConfirmNewLodge}
         useSameLodge={useSameLodge}
@@ -581,41 +543,29 @@ const MasonForm: React.FC<MasonFormProps> = ({
         onChange={handleFieldChange}
       />
 
-      {!ladyPartnerData && (
-        <div className="mt-6 text-center">
-          <LadyPartnerToggle
-            hasPartner={false}
-            onToggle={handleLadyPartnerToggle}
-          />
-        </div>
+      {/* --- Lady Partner Section --- */}
+      {/* Only show the toggle if a partner does NOT exist */}
+      {!mason.partner && (
+          <div className="mt-6 text-center">
+            <LadyPartnerToggle
+              hasPartner={false}
+              onToggle={handleLadyPartnerToggle}
+            />
+          </div>
       )}
 
-      {ladyPartnerData && transformedPartnerData && (
+      {/* Conditionally render the Lady Partner Form */}
+      {mason.partner && ladyPartnerData && (
         <LadyPartnerForm
-          partner={transformedPartnerData}
+          partner={ladyPartnerData}
           id={ladyPartnerData.attendeeId}
-          updateField={ (id: string, field: string, value: any) => {
-            let unifiedField: keyof UnifiedAttendeeData | null = null;
-            switch (field as keyof OldLadyPartnerData) {
-              case 'title': unifiedField = 'title'; break;
-              case 'firstName': unifiedField = 'firstName'; break;
-              case 'lastName': unifiedField = 'lastName'; break;
-              case 'email': unifiedField = 'primaryEmail'; break;
-              case 'phone': unifiedField = 'primaryPhone'; break;
-              case 'dietary': unifiedField = 'dietaryRequirements'; break;
-              case 'specialNeeds': unifiedField = 'specialNeeds'; break;
-              case 'relationship': unifiedField = 'relationship'; break;
-              case 'contactPreference': unifiedField = 'contactPreference'; break;
-              case 'contactConfirmed': unifiedField = 'contactConfirmed'; break;
-              default: console.warn(`Unhandled LadyPartnerForm field update: ${field}`); return;
-            }
-            if (unifiedField) {
-              updateAttendee(id, { [unifiedField]: value });
-            }
+          updateField={(partnerAttendeeId: string, fieldName: keyof UnifiedAttendeeData, fieldValue: any) => {
+            debouncedUpdateAttendee(partnerAttendeeId, { [fieldName]: fieldValue });
           }}
-          onRemove={handleLadyPartnerToggle}
+          onRemove={() => removeAttendee(ladyPartnerData.attendeeId)}
           relatedMasonName={`${mason.firstName || ''} ${mason.lastName || ''}`.trim()}
           primaryAttendeeData={primaryMasonData}
+          relatedMasonContactPreference={mason.contactPreference}
         />
       )}
     </div>
