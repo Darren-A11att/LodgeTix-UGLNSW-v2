@@ -105,7 +105,7 @@ const validateAttendeeData = (attendees: ReturnType<typeof selectAttendees>): st
       if (!isNonEmpty(attendee.rank)) errors.push(`${descriptiveLabel}: Rank is required.`);
       if (!isNonEmpty(attendee.grandLodgeId)) errors.push(`${descriptiveLabel}: Grand Lodge is required.`);
       if (!isNonEmpty(attendee.lodgeId) && !isNonEmpty(attendee.lodgeNameNumber)) errors.push(`${descriptiveLabel}: Lodge is required.`);
-      // Removed membershipNumber validation as it's not a requirement
+      // There is no membershipNumber field in this application
     } else if (attendee.isPartner) { // Check if partner
       // Partner specific validation (treat as Guest generally, plus relationship)
       if (!attendee.relationship) errors.push("Partner relationship is required.");
