@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react";
+import { useState, memo } from "react";
 import { Button } from "@/components/ui/button";
 import { CardElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import { StripeCardElement } from "@stripe/stripe-js";
@@ -8,14 +8,14 @@ import { CreditCard, ShieldCheck } from "lucide-react";
 import { CARD_ELEMENT_OPTIONS } from "./CardElementOptions";
 import { CheckoutFormProps, StripeBillingDetailsForClient } from "./types";
 
-export const CheckoutForm: React.FC<CheckoutFormProps> = ({
+export const CheckoutForm = memo(function CheckoutForm({
   clientSecret,
   totalAmount,
   onPaymentSuccess,
   onPaymentError,
   setIsProcessingPayment,
   billingDetails
-}) => {
+}: CheckoutFormProps) {
   const stripe = useStripe();
   const elements = useElements();
   const [cardError, setCardError] = useState<string | null>(null);
@@ -56,10 +56,7 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({
       stripeBillingDetails.address.line2 = billingDetails.businessName;
     }
 
-    console.group("💳 Stripe Payment Confirmation");
-    console.log("Stripe Billing Details being sent:", JSON.stringify(stripeBillingDetails, null, 2));
-    console.log("Client Secret:", clientSecret ? `${clientSecret.substring(0, 10)}...` : "null");
-    console.groupEnd();
+    // Remove console logs for production
 
     // Start time for measuring processing duration
     const startTime = performance.now();
@@ -71,23 +68,8 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({
       },
     });
 
-    // Log the payment intent result
+    // Calculate the duration for metrics/telemetry if needed later
     const duration = Math.round(performance.now() - startTime);
-    console.group(`💳 Stripe Payment Result (${duration}ms)`);
-    if (error) {
-      console.error("Payment Error:", error);
-    } else if (paymentIntent) {
-      console.log("Payment Intent:", JSON.stringify({
-        id: paymentIntent.id,
-        status: paymentIntent.status,
-        amount: paymentIntent.amount,
-        currency: paymentIntent.currency,
-        created: new Date(paymentIntent.created * 1000).toISOString(),
-      }, null, 2));
-    } else {
-      console.log("No payment intent or error returned");
-    }
-    console.groupEnd();
 
     if (error) {
       onPaymentError(error.message || "An unexpected error occurred during payment.");
@@ -126,4 +108,11 @@ export const CheckoutForm: React.FC<CheckoutFormProps> = ({
       </Button>
     </div>
   );
-};
+}, (prevProps, nextProps) => {
+  // Only re-render when relevant props change
+  return (
+    prevProps.clientSecret === nextProps.clientSecret &&
+    prevProps.totalAmount === nextProps.totalAmount &&
+    prevProps.billingDetails === nextProps.billingDetails
+  );
+});

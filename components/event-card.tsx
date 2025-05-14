@@ -6,7 +6,8 @@ import { Card, CardContent, CardFooter } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 
 interface EventCardProps {
-  id: string
+  id: string      // UUID
+  slug: string    // URL-friendly identifier
   title: string
   description: string
   date: string
@@ -15,7 +16,7 @@ interface EventCardProps {
   price: string
 }
 
-export function EventCard({ id, title, description, date, location, imageUrl, price }: EventCardProps) {
+export function EventCard({ id, slug, title, description, date, location, imageUrl, price }: EventCardProps) {
   return (
     <Card className="overflow-hidden transition-all hover:shadow-md">
       <div className="relative h-48 w-full">
@@ -38,7 +39,7 @@ export function EventCard({ id, title, description, date, location, imageUrl, pr
       <CardFooter className="flex items-center justify-between border-t p-4">
         <span className="font-bold">{price}</span>
         <Button asChild size="sm" className="bg-masonic-navy hover:bg-masonic-blue">
-          <Link href={`/events/${id}?interested=true`}>View Details</Link>
+          <Link href={`/events/${slug}?interested=true`}>View Details</Link>
         </Button>
       </CardFooter>
     </Card>

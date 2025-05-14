@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 // import { GuestData } from '../../../../shared/types/register'; // Old
 import { GuestAttendee } from '@/lib/registration-types'; // New
 
@@ -17,6 +17,23 @@ const GuestAdditionalInfo: React.FC<GuestAdditionalInfoProps> = ({
   id,
   onChange
 }) => {
+  // Create refs for form inputs
+  const dietaryRequirementsRef = useRef<HTMLInputElement>(null);
+  const specialNeedsRef = useRef<HTMLTextAreaElement>(null);
+  
+  // Create a ref to store the latest props
+  const guestRef = useRef(guest);
+  
+  // Update the ref when props change
+  useEffect(() => {
+    if (guest) {
+      guestRef.current = guest;
+    }
+  }, [guest]);
+  
+  // Interaction states for styling
+  const [dietaryRequirementsInteracted, setDietaryRequirementsInteracted] = useState(false);
+  const [specialNeedsInteracted, setSpecialNeedsInteracted] = useState(false);
 
   if (!guest) {
     return null; // Or some loading/placeholder state
@@ -32,10 +49,23 @@ const GuestAdditionalInfo: React.FC<GuestAdditionalInfoProps> = ({
           type="text"
           id={`guestDietary-${id}`}
           name="dietaryRequirements"
-          value={guest.dietaryRequirements || ''}
-          onChange={(e) => onChange(id, 'dietaryRequirements', e.target.value || undefined)}
+          ref={dietaryRequirementsRef}
+          defaultValue={guest?.dietaryRequirements || ''}
+          onBlur={() => {
+            setDietaryRequirementsInteracted(true);
+            if (guest) {
+              const newValue = dietaryRequirementsRef.current?.value || '';
+              const currentValue = guestRef.current?.dietaryRequirements || '';
+              
+              // Only update if value has changed
+              if (newValue !== currentValue) {
+                onChange(id, 'dietaryRequirements', newValue || undefined);
+              }
+            }
+          }}
           placeholder="E.g., vegetarian, gluten-free, allergies"
-          className="w-full px-4 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
+          className={`w-full px-4 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 
+                    ${dietaryRequirementsInteracted ? 'interacted' : ''}`}
         />
       </div>
       <div className="mb-4">
@@ -45,10 +75,23 @@ const GuestAdditionalInfo: React.FC<GuestAdditionalInfoProps> = ({
         <textarea
           id={`guestSpecialNeeds-${id}`}
           name="specialNeeds"
-          value={guest.specialNeeds || ''}
-          onChange={(e) => onChange(id, 'specialNeeds', e.target.value || undefined)}
+          ref={specialNeedsRef}
+          defaultValue={guest?.specialNeeds || ''}
+          onBlur={() => {
+            setSpecialNeedsInteracted(true);
+            if (guest) {
+              const newValue = specialNeedsRef.current?.value || '';
+              const currentValue = guestRef.current?.specialNeeds || '';
+              
+              // Only update if value has changed
+              if (newValue !== currentValue) {
+                onChange(id, 'specialNeeds', newValue || undefined);
+              }
+            }
+          }}
           rows={2}
-          className="w-full px-4 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
+          className={`w-full px-4 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 
+                    ${specialNeedsInteracted ? 'interacted' : ''}`}
         ></textarea>
       </div>
     </>

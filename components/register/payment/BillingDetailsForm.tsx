@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Controller, UseFormReturn } from "react-hook-form";
 import { GetCountries, GetState } from 'react-country-state-city';
 import { User } from "lucide-react";
@@ -9,6 +9,7 @@ import { Separator } from "@/components/ui/separator";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
+import { PhoneInput } from "@/components/ui/phone-input";
 import { BillingDetails, CountryType as ZodCountryType, StateTerritoryType } from "@/lib/billing-details-schema";
 import { FilterableCombobox } from "./FilterableCombobox";
 import { Country, State } from "./types";
@@ -37,7 +38,7 @@ export const BillingDetailsForm: React.FC<BillingDetailsFormProps> = ({
   setBillingFormDetailsInStore
 }) => {
   if (!form) {
-    console.error("BillingDetailsForm: 'form' prop is undefined. This should not happen when rendered from PaymentStep.");
+    // Log error in development, but use a clean error message in production
     return (
       <Card className="border-destructive shadow-md">
         <CardHeader className="bg-destructive text-destructive-foreground">
@@ -123,7 +124,7 @@ export const BillingDetailsForm: React.FC<BillingDetailsFormProps> = ({
         setCountries(result.sort((a, b) => a.name.localeCompare(b.name)));
         setFetchError(prev => ({...prev, countries: undefined}));
       } catch (err) {
-        console.error("Error fetching countries:", err);
+        // Handle error silently without console logs
         setFetchError(prev => ({...prev, countries: 'Failed to load countries.'}));
       } finally {
         setIsLoadingCountries(false);
@@ -147,7 +148,7 @@ export const BillingDetailsForm: React.FC<BillingDetailsFormProps> = ({
         setStates(result.sort((a, b) => a.name.localeCompare(b.name)));
         setFetchError(prev => ({...prev, states: undefined}));
       } catch (err) {
-        console.error("Error fetching states:", err);
+        // Handle error silently without console logs
         setFetchError(prev => ({...prev, states: 'Failed to load states for the selected country.'}));
         setStates([]);
       } finally {
@@ -187,24 +188,60 @@ export const BillingDetailsForm: React.FC<BillingDetailsFormProps> = ({
             <FormField 
               control={form.control} 
               name="firstName" 
-              render={({ field }) => ( 
-                <FormItem>
-                  <FormLabel>First Name *</FormLabel>
-                  <FormControl><Input {...field} /></FormControl>
-                  <FormMessage />
-                </FormItem> 
-              )} 
+              render={({ field }) => { 
+                const inputRef = useRef<HTMLInputElement>(null);
+                
+                const handleBlur = () => {
+                  if (inputRef.current && inputRef.current.value !== field.value) {
+                    field.onChange(inputRef.current.value);
+                  }
+                  field.onBlur();
+                };
+                
+                return (
+                  <FormItem>
+                    <FormLabel>First Name *</FormLabel>
+                    <FormControl>
+                      <Input 
+                        ref={inputRef} 
+                        name={field.name}
+                        defaultValue={field.value} 
+                        onBlur={handleBlur} 
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem> 
+                );
+              }} 
             />
             <FormField 
               control={form.control} 
               name="lastName" 
-              render={({ field }) => ( 
-                <FormItem>
-                  <FormLabel>Last Name *</FormLabel>
-                  <FormControl><Input {...field} /></FormControl>
-                  <FormMessage />
-                </FormItem> 
-              )} 
+              render={({ field }) => {
+                const inputRef = useRef<HTMLInputElement>(null);
+                
+                const handleBlur = () => {
+                  if (inputRef.current && inputRef.current.value !== field.value) {
+                    field.onChange(inputRef.current.value);
+                  }
+                  field.onBlur();
+                };
+                
+                return (
+                  <FormItem>
+                    <FormLabel>Last Name *</FormLabel>
+                    <FormControl>
+                      <Input 
+                        ref={inputRef} 
+                        name={field.name}
+                        defaultValue={field.value} 
+                        onBlur={handleBlur} 
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem> 
+                );
+              }} 
             />
           </div>
         </div>
@@ -219,35 +256,92 @@ export const BillingDetailsForm: React.FC<BillingDetailsFormProps> = ({
             <FormField 
               control={form.control} 
               name="businessName" 
-              render={({ field }) => ( 
-                <FormItem>
-                  <FormLabel>Business Name</FormLabel>
-                  <FormControl><Input {...field} /></FormControl>
-                  <FormMessage />
-                </FormItem> 
-              )} 
+              render={({ field }) => {
+                const inputRef = useRef<HTMLInputElement>(null);
+                
+                const handleBlur = () => {
+                  if (inputRef.current && inputRef.current.value !== field.value) {
+                    field.onChange(inputRef.current.value);
+                  }
+                  field.onBlur();
+                };
+                
+                return (
+                  <FormItem>
+                    <FormLabel>Business Name</FormLabel>
+                    <FormControl>
+                      <Input 
+                        ref={inputRef} 
+                        name={field.name}
+                        defaultValue={field.value} 
+                        onBlur={handleBlur} 
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem> 
+                );
+              }} 
             />
-            <FormField 
-              control={form.control} 
-              name="mobileNumber" 
-              render={({ field }) => ( 
-                <FormItem>
-                  <FormLabel>Mobile Number *</FormLabel>
-                  <FormControl><Input type="tel" {...field} /></FormControl>
-                  <FormMessage />
-                </FormItem> 
-              )} 
+            <FormField
+              control={form.control}
+              name="mobileNumber"
+              render={({ field }) => {
+                const phoneRef = useRef<string>(field.value || '');
+                
+                // We need custom handling for PhoneInput because of its internal formatting
+                const handlePhoneChange = (value: string) => {
+                  // Only update form field value if the phone number actually changed
+                  if (value !== phoneRef.current) {
+                    phoneRef.current = value;
+                    field.onChange(value);
+                  }
+                };
+                
+                return (
+                  <FormItem>
+                    <FormLabel>Mobile Number *</FormLabel>
+                    <FormControl>
+                      <PhoneInput 
+                        name="mobileNumber" 
+                        value={field.value} 
+                        onChange={handlePhoneChange}
+                        onBlur={field.onBlur}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                );
+              }}
             />
             <FormField 
               control={form.control} 
               name="emailAddress" 
-              render={({ field }) => ( 
-                <FormItem>
-                  <FormLabel>Email Address *</FormLabel>
-                  <FormControl><Input type="email" {...field} /></FormControl>
-                  <FormMessage />
-                </FormItem> 
-              )} 
+              render={({ field }) => {
+                const inputRef = useRef<HTMLInputElement>(null);
+                
+                const handleBlur = () => {
+                  if (inputRef.current && inputRef.current.value !== field.value) {
+                    field.onChange(inputRef.current.value);
+                  }
+                  field.onBlur();
+                };
+                
+                return (
+                  <FormItem>
+                    <FormLabel>Email Address *</FormLabel>
+                    <FormControl>
+                      <Input 
+                        ref={inputRef} 
+                        name={field.name}
+                        type="email"
+                        defaultValue={field.value} 
+                        onBlur={handleBlur} 
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem> 
+                );
+              }} 
             />
           </div>
 
@@ -256,35 +350,89 @@ export const BillingDetailsForm: React.FC<BillingDetailsFormProps> = ({
             <FormField 
               control={form.control} 
               name="addressLine1" 
-              render={({ field }) => ( 
-                <FormItem>
-                  <FormLabel>Address Line 1 *</FormLabel>
-                  <FormControl><Input {...field} /></FormControl>
-                  <FormMessage />
-                </FormItem> 
-              )} 
+              render={({ field }) => {
+                const inputRef = useRef<HTMLInputElement>(null);
+                
+                const handleBlur = () => {
+                  if (inputRef.current && inputRef.current.value !== field.value) {
+                    field.onChange(inputRef.current.value);
+                  }
+                  field.onBlur();
+                };
+                
+                return (
+                  <FormItem>
+                    <FormLabel>Address Line 1 *</FormLabel>
+                    <FormControl>
+                      <Input 
+                        ref={inputRef} 
+                        name={field.name}
+                        defaultValue={field.value} 
+                        onBlur={handleBlur} 
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem> 
+                );
+              }} 
             />
             <FormField 
               control={form.control} 
               name="suburb" 
-              render={({ field }) => ( 
-                <FormItem>
-                  <FormLabel>Suburb *</FormLabel>
-                  <FormControl><Input {...field} /></FormControl>
-                  <FormMessage />
-                </FormItem> 
-              )} 
+              render={({ field }) => {
+                const inputRef = useRef<HTMLInputElement>(null);
+                
+                const handleBlur = () => {
+                  if (inputRef.current && inputRef.current.value !== field.value) {
+                    field.onChange(inputRef.current.value);
+                  }
+                  field.onBlur();
+                };
+                
+                return (
+                  <FormItem>
+                    <FormLabel>Suburb *</FormLabel>
+                    <FormControl>
+                      <Input 
+                        ref={inputRef} 
+                        name={field.name}
+                        defaultValue={field.value} 
+                        onBlur={handleBlur} 
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem> 
+                );
+              }} 
             />
             <FormField 
               control={form.control} 
               name="postcode" 
-              render={({ field }) => ( 
-                <FormItem>
-                  <FormLabel>Postcode *</FormLabel>
-                  <FormControl><Input {...field} /></FormControl>
-                  <FormMessage />
-                </FormItem> 
-              )} 
+              render={({ field }) => {
+                const inputRef = useRef<HTMLInputElement>(null);
+                
+                const handleBlur = () => {
+                  if (inputRef.current && inputRef.current.value !== field.value) {
+                    field.onChange(inputRef.current.value);
+                  }
+                  field.onBlur();
+                };
+                
+                return (
+                  <FormItem>
+                    <FormLabel>Postcode *</FormLabel>
+                    <FormControl>
+                      <Input 
+                        ref={inputRef} 
+                        name={field.name}
+                        defaultValue={field.value} 
+                        onBlur={handleBlur} 
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem> 
+                );
+              }} 
             />
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {/* Country Selection - FilterableCombobox for type-to-search */}

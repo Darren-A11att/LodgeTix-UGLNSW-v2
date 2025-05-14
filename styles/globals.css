@@ -92,3 +92,114 @@ body {
     @apply bg-background text-foreground;
   }
 }
+
+@layer base {
+  :root {
+    --color-primary: 25 59 103; /* Navy Blue */
+    --color-secondary: 180 159 95; /* Gold */
+    --color-accent: 130 20 30; /* Deep Red */
+  }
+  
+  body {
+    @apply bg-slate-50 text-slate-900 font-serif;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-serif;
+  }
+}
+
+@layer components {
+  .btn-primary {
+    @apply bg-primary text-white px-6 py-3 rounded-md font-medium hover:bg-primary/90 transition-colors;
+  }
+  
+  .btn-secondary {
+    @apply bg-secondary text-white px-6 py-3 rounded-md font-medium hover:bg-secondary/90 transition-colors;
+  }
+  
+  .btn-outline {
+    @apply border border-primary text-primary px-6 py-3 rounded-md font-medium hover:bg-primary/10 transition-colors;
+  }
+
+  .container-custom {
+    @apply container mx-auto px-4 sm:px-6 lg:px-8 max-w-7xl;
+  }
+
+  /* Styles for phone input component to exactly match other form elements */
+  .react-tel-input {
+    width: 100% !important;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* Match the exact styling of regular inputs */
+  .react-tel-input .form-control {
+    width: 100% !important;
+    padding-left: 40px !important; /* More space between flag and text - increased to 80px */
+    padding-right: 1rem !important;
+    padding-top: 0.5rem !important;
+    padding-bottom: 0.5rem !important;
+    border-radius: 0.375rem !important;
+    height: 2.75rem !important; /* 44px height (h-11) */
+    line-height: 1.5 !important;
+    cursor: text !important;
+    pointer-events: auto !important;
+    font-size: 16px !important;
+    border: 1px solid rgb(203 213 225) !important; /* border-slate-300 */
+    color: rgb(15 23 42) !important; /* text-slate-900 */
+    font-family: inherit !important;
+    appearance: none !important;
+  }
+
+  /* Focus state to match other form inputs */
+  .react-tel-input .form-control:focus {
+    outline: none !important;
+    box-shadow: 0 0 0 2px rgba(var(--color-primary), 0.25) !important;
+    border-color: rgba(var(--color-primary), 0.5) !important;
+    ring-color: rgba(var(--color-primary), 0.5) !important;
+    ring-width: 2px !important;
+  }
+
+  /* Invalid state styling */
+  .react-tel-input .form-control.interacted:invalid {
+    border-color: rgb(239 68 68) !important; /* border-red-500 */
+    color: rgb(220 38 38) !important; /* text-red-600 */
+  }
+
+  .react-tel-input .form-control.interacted:focus:invalid {
+    border-color: rgb(239 68 68) !important; /* border-red-500 */
+    box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.25) !important; /* ring-red-500 */
+  }
+
+  /* Flag dropdown styling */
+  .react-tel-input .flag-dropdown {
+    border-radius: 0.375rem 0 0 0.375rem !important;
+    border-color: rgb(203 213 225) !important; /* border-slate-300 */
+    background-color: white !important;
+    width: 54px !important; /* Wider flag area */
+    border-right: none !important;
+  }
+
+  .react-tel-input .selected-flag {
+    border-radius: 0.375rem 0 0 0.375rem !important;
+    background-color: white !important;
+    padding: 0 0 0 14px !important; /* More left padding for flag */
+    height: 2.75rem !important; /* Match input height */
+    display: flex !important;
+    align-items: center !important;
+    width: 54px !important; /* Wider flag container */
+    justify-content: flex-start !important;
+  }
+
+  /* Hover state */
+  .react-tel-input .selected-flag:hover {
+    background-color: rgb(248 250 252) !important; /* bg-slate-50 */
+  }
+  
+  /* Make all form selects the same height for consistency */
+  select {
+    @apply h-11;
+  }
+}
+

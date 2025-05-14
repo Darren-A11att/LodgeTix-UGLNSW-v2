@@ -1,23 +1,21 @@
-import React, { useState } from 'react';
-import "react-phone-input-2/lib/style.css";
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { HelpCircle, X } from "lucide-react";
-import PhoneInputWrapper from "../../../../shared/components/PhoneInputWrapper";
-import { MasonAttendee, ContactPreference } from "@/lib/registration-types";
+import { PhoneInput } from '@/components/ui/phone-input';
+import type { UnifiedAttendeeData } from '@/lib/registrationStore';
+import { PARTNER_RELATIONSHIP_OPTIONS } from '@/lib/registration-types';
 
 // Define the shape of the partner data this form expects
-// This should align with what MasonForm.tsx's transformedPartnerData provides
 interface PartnerDataForForm {
   id: string;
   title: string;
   firstName: string;
   lastName: string;
   relationship: string;
-  contactPreference: ContactPreference | undefined;
+  contactPreference: UnifiedAttendeeData['contactPreference']; 
   mobile?: string;
   email?: string;
   dietaryRequirements?: string;
   specialNeeds?: string;
-  relatedAttendeeId: string; // For context, not directly edited here usually
 }
 
 interface LadyPartnerFormProps {
@@ -26,7 +24,8 @@ interface LadyPartnerFormProps {
   updateField: (id: string, field: keyof PartnerDataForForm, value: string | boolean) => void;
   relatedMasonName: string;
   onRemove?: () => void;
-  primaryAttendeeData?: MasonAttendee;
+  primaryAttendeeData?: UnifiedAttendeeData;
+  relatedMasonContactPreference?: UnifiedAttendeeData['contactPreference'] | undefined | null;
 }
 
 const LadyPartnerForm: React.FC<LadyPartnerFormProps> = ({
@@ -36,6 +35,7 @@ const LadyPartnerForm: React.FC<LadyPartnerFormProps> = ({
   relatedMasonName,
   onRemove,
   primaryAttendeeData,
+  relatedMasonContactPreference
 }) => {
   const titles = [
     "Mrs",
@@ -49,14 +49,6 @@ const LadyPartnerForm: React.FC<LadyPartnerFormProps> = ({
     "Madam",
     "Dame",
   ];
-  const relationships = ["Wife", "Partner", "Fiancée", "Husband", "Fiancé"];
-  const contactOptions: Array<{ value: ContactPreference | ""; label: string; disabled?: boolean }> = [
-    { value: "", label: "Please Select", disabled: true },
-    { value: "Directly", label: "Directly" },
-    { value: "Primary Attendee", label: "Primary Attendee" },
-    { value: "Provide Later", label: "Provide Later" },
-    { value: "Mason/Guest", label: "Mason/Guest" }
-  ];
 
   // Interaction states
   const [relationshipInteracted, setRelationshipInteracted] = useState(false);
@@ -69,25 +61,126 @@ const LadyPartnerForm: React.FC<LadyPartnerFormProps> = ({
   const [dietaryInteracted, setDietaryInteracted] = useState(false);
   const [specialNeedsInteracted, setSpecialNeedsInteracted] = useState(false);
 
+  // State to track the selected delegate label
+  const [selectedDelegateLabel, setSelectedDelegateLabel] = useState<string | null>(null);
+  
+  // Create refs for form inputs
+  const relationshipRef = useRef<HTMLSelectElement>(null);
+  const titleRef = useRef<HTMLSelectElement>(null);
+  const firstNameRef = useRef<HTMLInputElement>(null);
+  const lastNameRef = useRef<HTMLInputElement>(null);
+  const contactPreferenceRef = useRef<HTMLSelectElement>(null);
+  const emailRef = useRef<HTMLInputElement>(null);
+  const dietaryRequirementsRef = useRef<HTMLInputElement>(null);
+  const specialNeedsRef = useRef<HTMLTextAreaElement>(null);
+  
+  // Create a ref to store the latest props
+  const partnerRef = useRef(partner);
+  
+  // Update the ref when props change
+  useEffect(() => {
+    partnerRef.current = partner;
+  }, [partner]);
+  
+  // Local state for conditional rendering and UI display
+  const [contactPreference, setContactPreference] = useState(partner.contactPreference || '');
+  const [mobile, setMobile] = useState(partner.mobile || '');
+
+  // Initialize selectedDelegateLabel based on initial partner data
+  useEffect(() => {    
+    const initialPref = partner.contactPreference;
+    
+    if (initialPref === 'PrimaryAttendee') {
+      const primaryName = primaryAttendeeData ? 
+        `${primaryAttendeeData.firstName} ${primaryAttendeeData.lastName}`.trim() : null;
+      
+      if (primaryName) {
+        setSelectedDelegateLabel(primaryName);
+      } else {
+        setSelectedDelegateLabel(relatedMasonName || null);
+      }
+    } else {
+      setSelectedDelegateLabel(null);
+    }
+  }, [partner.contactPreference, relatedMasonName, primaryAttendeeData]);
+
+  // Handle phone input change (special case for PhoneInput component)
   const handlePhoneChange = (value: string) => {
-    updateField(id, "mobile", value);
+    setMobile(value);
+    // We'll update the store on blur
   };
 
-  const showContactFields = partner.contactPreference === "Directly" || typeof partner.contactPreference === 'undefined';
+  const showContactFields = contactPreference === "Directly" || typeof contactPreference === 'undefined';
 
   const getConfirmationMessage = () => {
-    if (partner.contactPreference === "Primary Attendee" || partner.contactPreference === "Mason/Guest" ) {
-      return `I confirm that ${relatedMasonName} will be responsible for all communication with this attendee.`;
+    const delegateName = selectedDelegateLabel;
+    const currentPref = contactPreference;
+
+    if (delegateName && currentPref === "PrimaryAttendee") {
+      return `I confirm that ${delegateName} will be responsible for all communication with this attendee.`;
     }
-    if (partner.contactPreference === "Provide Later") {
-      // If primaryAttendeeData is available and has a name, use it. Otherwise, use relatedMasonName as a fallback.
+    
+    if (currentPref === "ProvideLater") {
       const contactPerson = primaryAttendeeData?.firstName && primaryAttendeeData?.lastName 
-                            ? `${primaryAttendeeData.firstName} ${primaryAttendeeData.lastName}`.trim() 
-                            : relatedMasonName;
+                          ? `${primaryAttendeeData.firstName} ${primaryAttendeeData.lastName}`.trim() 
+                          : relatedMasonName;
       return `I confirm that ${contactPerson} will be responsible for all communication with this attendee until their contact details have been updated in their profile.`;
     }
     return "";
   };
+
+  // Updated Function to generate contact options
+  const getDynamicContactOptions = () => {
+    const options: Array<{ value: string; label: string; disabled?: boolean }> = [
+      { value: "", label: "Please Select", disabled: true },
+      { value: "Directly", label: "Directly" },
+      { value: "ProvideLater", label: "Provide Later" }, // Changed value to match store
+    ];
+
+    const primaryName = primaryAttendeeData?.firstName && primaryAttendeeData?.lastName
+      ? `${primaryAttendeeData.firstName} ${primaryAttendeeData.lastName}`.trim()
+      : "Primary Attendee"; // Fallback label
+
+    // Check the related Mason's preference
+    if (relatedMasonContactPreference === 'Directly') {
+      // If related Mason is direct, show their name as the delegate option
+      if (relatedMasonName) {
+        options.push({ value: "delegate-related", label: relatedMasonName });
+      } else {
+         // Fallback if related name is missing but pref is Directly (unlikely)
+         options.push({ value: "delegate-primary", label: primaryName });
+      }
+    } else {
+      // If related Mason is NOT direct, show the Primary Attendee's name as the delegate option
+       options.push({ value: "delegate-primary", label: primaryName });
+    }
+
+    return options;
+  };
+  
+  // Updated Determine the value prop for the select based on state and delegate labels
+  const getSelectValue = () => {
+    const currentPref = partner.contactPreference;
+    if (!currentPref) return "";
+
+    if (currentPref === 'PrimaryAttendee') {
+        // Determine which delegate option *should* be displayed based on related Mason's pref
+        if (relatedMasonContactPreference === 'Directly') {
+            return "delegate-related"; // Select the related Mason option
+        } else {
+            return "delegate-primary"; // Select the primary attendee option
+        }
+    }
+    // Handle 'Directly' and 'ProvideLater' (ensure value matches option exactly)
+    if (currentPref === 'Directly') return "Directly";
+    if (currentPref === 'ProvideLater') return "ProvideLater"; // Match option value
+
+    console.warn(`Unknown or unhandled contact preference value in getSelectValue: ${currentPref}`);
+    return ""; // Fallback to "Please Select"
+  };
+
+  // Compare against actual store values
+  const requiresConfirmation = contactPreference === "PrimaryAttendee" || contactPreference === "ProvideLater";
 
   return (
     <div className="border-t border-slate-200 pt-6 mt-6 relative">
@@ -130,16 +223,25 @@ const LadyPartnerForm: React.FC<LadyPartnerFormProps> = ({
           <select
             id={`relationship-${id}`}
             name={`relationship-${id}`}
-            value={partner.relationship}
-            onChange={(e) => updateField(id, "relationship", e.target.value)}
-            onBlur={() => setRelationshipInteracted(true)}
+            ref={relationshipRef}
+            defaultValue={partner.relationship || ''}
+            onBlur={() => {
+              setRelationshipInteracted(true);
+              const newValue = relationshipRef.current?.value || '';
+              const currentValue = partnerRef.current.relationship || '';
+              
+              // Only update if value has changed
+              if (newValue !== currentValue) {
+                updateField(id, "relationship", newValue);
+              }
+            }}
             required
             className={`w-full px-4 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 
                        ${relationshipInteracted ? 'interacted' : ''} 
                        [&.interacted:invalid]:border-red-500 focus:[&.interacted:invalid]:border-red-500 focus:[&.interacted:invalid]:ring-red-500`}
           >
-            <option value="" disabled>Please Select</option>
-            {relationships.map((rel) => (
+            <option value="" disabled>Select...</option>
+            {PARTNER_RELATIONSHIP_OPTIONS.map((rel) => (
               <option key={rel} value={rel}>
                 {rel}
               </option>
@@ -157,9 +259,18 @@ const LadyPartnerForm: React.FC<LadyPartnerFormProps> = ({
           <select
             id={`ladyTitle-${id}`}
             name={`ladyTitle-${id}`}
-            value={partner.title}
-            onChange={(e) => updateField(id, "title", e.target.value)}
-            onBlur={() => setTitleInteracted(true)}
+            ref={titleRef}
+            defaultValue={partner.title || ''}
+            onBlur={() => {
+              setTitleInteracted(true);
+              const newValue = titleRef.current?.value || '';
+              const currentValue = partnerRef.current.title || '';
+              
+              // Only update if value has changed
+              if (newValue !== currentValue) {
+                updateField(id, "title", newValue);
+              }
+            }}
             required
             className={`w-full px-4 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 
                        ${titleInteracted ? 'interacted' : ''} 
@@ -185,9 +296,18 @@ const LadyPartnerForm: React.FC<LadyPartnerFormProps> = ({
             type="text"
             id={`ladyFirstName-${id}`}
             name={`ladyFirstName-${id}`}
-            value={partner.firstName}
-            onChange={(e) => updateField(id, "firstName", e.target.value)}
-            onBlur={() => setFirstNameInteracted(true)}
+            ref={firstNameRef}
+            defaultValue={partner.firstName || ''}
+            onBlur={() => {
+              setFirstNameInteracted(true);
+              const newValue = firstNameRef.current?.value || '';
+              const currentValue = partnerRef.current.firstName || '';
+              
+              // Only update if value has changed
+              if (newValue !== currentValue) {
+                updateField(id, "firstName", newValue);
+              }
+            }}
             required
             className={`w-full px-4 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 
                        ${firstNameInteracted ? 'interacted' : ''} 
@@ -207,9 +327,18 @@ const LadyPartnerForm: React.FC<LadyPartnerFormProps> = ({
             type="text"
             id={`ladyLastName-${id}`}
             name={`ladyLastName-${id}`}
-            value={partner.lastName}
-            onChange={(e) => updateField(id, "lastName", e.target.value)}
-            onBlur={() => setLastNameInteracted(true)}
+            ref={lastNameRef}
+            defaultValue={partner.lastName || ''}
+            onBlur={() => {
+              setLastNameInteracted(true);
+              const newValue = lastNameRef.current?.value || '';
+              const currentValue = partnerRef.current.lastName || '';
+              
+              // Only update if value has changed
+              if (newValue !== currentValue) {
+                updateField(id, "lastName", newValue);
+              }
+            }}
             required
             className={`w-full px-4 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 
                        ${lastNameInteracted ? 'interacted' : ''} 
@@ -224,36 +353,68 @@ const LadyPartnerForm: React.FC<LadyPartnerFormProps> = ({
           <div className="col-span-4">
             <label
               className="block text-sm font-medium text-slate-700 mb-1"
-              htmlFor={`contactPreference-${id}`}
+              htmlFor={`ladyContactPreference-${id}`}
             >
-              Contact *{" "}
-              <span className="inline-block ml-1">
-                <div className="relative inline-block group">
-                  <HelpCircle className="h-4 w-4 text-primary cursor-help" />
-                  <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 -translate-y-1 invisible group-hover:visible bg-white text-slate-700 text-xs p-2 rounded shadow-lg w-60 z-10">
-                    Please specify how we should contact your Lady or Partner for event-related information. Choosing 'Directly' will allow you to provide their contact details.
-                  </div>
+              Contact *
+              <div className="relative inline-block ml-1 group align-middle">
+                <HelpCircle className="h-4 w-4 text-primary cursor-help" />
+                <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 -translate-y-1 invisible group-hover:visible bg-white text-slate-700 text-xs p-2 rounded shadow-lg w-48 z-10">
+                  Select how we should contact this person regarding event information
                 </div>
-              </span>
+              </div>
             </label>
             <select
-              id={`contactPreference-${id}`}
-              name={`contactPreference-${id}`}
-              value={partner.contactPreference || ""}
-              onChange={(e) =>
-                updateField(id, "contactPreference", e.target.value as ContactPreference | "")
-              }
-              onBlur={() => setContactPreferenceInteracted(true)}
+              id={`ladyContactPreference-${id}`}
+              name={`ladyContactPreference-${id}`}
+              ref={contactPreferenceRef}
+              defaultValue={getSelectValue()}
+              onChange={(e) => {
+                setContactPreferenceInteracted(true);
+                const selectedValue = e.target.value;
+                const selectedIndex = e.target.selectedIndex;
+                const selectedLabel = selectedIndex >= 0 ? e.target.options[selectedIndex].text : null;
+
+                let storeValue: UnifiedAttendeeData['contactPreference'] = undefined;
+                let delegateLabelUpdate: string | null = null;
+
+                // Map dropdown selection for UI updates
+                if (selectedValue === "delegate-primary" || selectedValue === "delegate-related") {
+                    storeValue = "PrimaryAttendee";
+                    delegateLabelUpdate = selectedLabel;
+                }
+                else if (selectedValue === "Directly") {
+                    storeValue = "Directly";
+                }
+                else if (selectedValue === "ProvideLater") {
+                    storeValue = "ProvideLater";
+                }
+                
+                // Update local state for UI rendering
+                setContactPreference(storeValue ?? 'Directly');
+                setSelectedDelegateLabel(delegateLabelUpdate);
+                
+                // Immediately update the store
+                if (storeValue !== partnerRef.current.contactPreference) {
+                  updateField(id, "contactPreference", storeValue ?? 'Directly');
+                }
+              }}
+              onBlur={() => {
+                // Just mark as interacted for validation styling
+                setContactPreferenceInteracted(true);
+              }}
               required
               className={`w-full px-4 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 
                          ${contactPreferenceInteracted ? 'interacted' : ''} 
                          [&.interacted:invalid]:border-red-500 focus:[&.interacted:invalid]:border-red-500 focus:[&.interacted:invalid]:ring-red-500`}
             >
-              {contactOptions.map((option) => (
-                <option key={option.label} value={option.value} disabled={option.disabled}>
-                  {option.label}
-                </option>
-              ))}
+              {getDynamicContactOptions().map((option) => {
+                const key = `${option.value}-${option.label}`;
+                return (
+                  <option key={key} value={option.value} disabled={option.disabled}>
+                    {option.label}
+                  </option>
+                );
+              })}
             </select>
           </div>
 
@@ -266,13 +427,15 @@ const LadyPartnerForm: React.FC<LadyPartnerFormProps> = ({
                 >
                   Mobile
                 </label>
-                <PhoneInputWrapper
-                  value={partner.mobile || ""}
+                <PhoneInput
+                  name={`ladyMobile-${id}`}
+                  value={mobile}
                   onChange={handlePhoneChange}
-                  inputProps={{
-                    name: `ladyMobile-${id}`,
-                    id: `ladyMobile-${id}`,
-                    required: showContactFields,
+                  onBlur={() => {
+                    setPhoneInteracted(true);
+                    if (mobile !== partnerRef.current.mobile) {
+                      updateField(id, "mobile", mobile);
+                    }
                   }}
                   required={showContactFields}
                 />
@@ -289,11 +452,18 @@ const LadyPartnerForm: React.FC<LadyPartnerFormProps> = ({
                   type="email"
                   id={`ladyEmail-${id}`}
                   name={`email-${id}`}
-                  value={partner.email ?? ''}
-                  onChange={(e) =>
-                    updateField(id, "email", e.target.value)
-                  }
-                  onBlur={() => setEmailInteracted(true)}
+                  ref={emailRef}
+                  defaultValue={partner.email || ''}
+                  onBlur={() => {
+                    setEmailInteracted(true);
+                    const newValue = emailRef.current?.value || '';
+                    const currentValue = partnerRef.current.email || '';
+                    
+                    // Only update if value has changed
+                    if (newValue !== currentValue) {
+                      updateField(id, "email", newValue);
+                    }
+                  }}
                   required={showContactFields}
                   className={`w-full px-4 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 
                              ${emailInteracted ? 'interacted' : ''} 
@@ -326,9 +496,18 @@ const LadyPartnerForm: React.FC<LadyPartnerFormProps> = ({
           type="text"
           id={`ladyDietary-${id}`}
           name={`dietaryRequirements-${id}`}
-          value={partner.dietaryRequirements ?? ''}
-          onChange={(e) => updateField(id, "dietaryRequirements", e.target.value)}
-          onBlur={() => setDietaryInteracted(true)}
+          ref={dietaryRequirementsRef}
+          defaultValue={partner.dietaryRequirements || ''}
+          onBlur={() => {
+            setDietaryInteracted(true);
+            const newValue = dietaryRequirementsRef.current?.value || '';
+            const currentValue = partnerRef.current.dietaryRequirements || '';
+            
+            // Only update if value has changed
+            if (newValue !== currentValue) {
+              updateField(id, "dietaryRequirements", newValue);
+            }
+          }}
           placeholder="E.g., vegetarian, gluten-free, allergies"
           className={`w-full px-4 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 ${dietaryInteracted ? 'interacted' : ''}`}
         />
@@ -344,9 +523,18 @@ const LadyPartnerForm: React.FC<LadyPartnerFormProps> = ({
         <textarea
           id={`ladySpecialNeeds-${id}`}
           name={`specialNeeds-${id}`}
-          value={partner.specialNeeds ?? ''}
-          onChange={(e) => updateField(id, "specialNeeds", e.target.value)}
-          onBlur={() => setSpecialNeedsInteracted(true)}
+          ref={specialNeedsRef}
+          defaultValue={partner.specialNeeds || ''}
+          onBlur={() => {
+            setSpecialNeedsInteracted(true);
+            const newValue = specialNeedsRef.current?.value || '';
+            const currentValue = partnerRef.current.specialNeeds || '';
+            
+            // Only update if value has changed
+            if (newValue !== currentValue) {
+              updateField(id, "specialNeeds", newValue);
+            }
+          }}
           rows={2}
           className={`w-full px-4 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 ${specialNeedsInteracted ? 'interacted' : ''}`}
         ></textarea>

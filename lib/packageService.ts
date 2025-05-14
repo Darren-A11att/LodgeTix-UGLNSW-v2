@@ -337,6 +337,9 @@ export class PackageService {
       }
       
       // Reservation is still valid
+      if (storedData === 'undefined') {
+        return null;
+      }
       return JSON.parse(storedData) as PackageReservation;
     } catch (error) {
       console.error('Error retrieving stored package reservation:', error);

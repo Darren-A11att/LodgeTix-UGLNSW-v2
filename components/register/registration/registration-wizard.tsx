@@ -79,19 +79,20 @@ const validateAttendeeData = (attendees: ReturnType<typeof selectAttendees>): st
 
     if (attendee.attendeeType === 'mason') {
       descriptiveLabel = getMasonOrderLabel(attendee, masons);
-    } else if (attendee.attendeeType === 'lady_partner') {
+    } else if (attendee.isPartner && attendee.partnerType === 'lady') {
       const masonOwner = attendees.find(m => m.attendeeId === attendee.relatedAttendeeId);
       const masonOwnerLabel = masonOwner ? getMasonOrderLabel(masonOwner, masons) + "'s" : "Associated Mason's";
       descriptiveLabel = `${masonOwnerLabel} Lady/Partner`;
-    } else if (attendee.attendeeType === 'guest') {
-      descriptiveLabel = getGuestOrderLabel(attendee, guests);
-    } else if (attendee.attendeeType === 'guest_partner') {
+    } else if (attendee.isPartner && attendee.partnerType === 'guest') {
       const guestOwner = attendees.find(g => g.attendeeId === attendee.relatedAttendeeId);
       const guestOwnerLabel = guestOwner ? getGuestOrderLabel(guestOwner, guests) + "'s" : "Associated Guest's";
       descriptiveLabel = `${guestOwnerLabel} Partner`;
+    } else if (attendee.attendeeType === 'guest' && !attendee.isPartner) {
+      descriptiveLabel = getGuestOrderLabel(attendee, guests);
     } else {
-      // Fallback for other types, though not focus of current validation
-      descriptiveLabel = `${attendee.attendeeType.replace(/_/g, ' ')} (${attendee.firstName || 'N/A'})`;
+      // Fallback for unexpected cases or if a guest is somehow a partner without a partnerType
+      descriptiveLabel = `${(attendee.firstName || 'N/A')} ${(attendee.lastName || 'N/A')}`;
+      console.warn("Unhandled attendee type for descriptiveLabel:", attendee);
     }
 
     // Common fields
@@ -104,18 +105,22 @@ const validateAttendeeData = (attendees: ReturnType<typeof selectAttendees>): st
       if (!isNonEmpty(attendee.rank)) errors.push(`${descriptiveLabel}: Rank is required.`);
       if (!isNonEmpty(attendee.grandLodgeId)) errors.push(`${descriptiveLabel}: Grand Lodge is required.`);
       if (!isNonEmpty(attendee.lodgeId) && !isNonEmpty(attendee.lodgeNameNumber)) errors.push(`${descriptiveLabel}: Lodge is required.`);
-      // Member Number: Assuming it's mandatory if the field is there.
-      // This might need adjustment based on specific GL rules (e.g., for EAs).
-      // if (!isNonEmpty(attendee.memberNumber)) errors.push(`${descriptiveLabel}: Member Number is required.`); // Temporarily commented out for testing
-    }
-
-    // Partner specific (Lady Partner or Guest Partner)
-    if (attendee.attendeeType === 'lady_partner' || attendee.attendeeType === 'guest_partner') {
-      if (!isNonEmpty(attendee.relationship)) errors.push(`${descriptiveLabel}: Relationship is required.`);
+      // There is no membershipNumber field in this application
+    } else if (attendee.isPartner) { // Check if partner
+      // Partner specific validation (treat as Guest generally, plus relationship)
+      if (!attendee.relationship) errors.push("Partner relationship is required.");
+      if (attendee.contactPreference === 'Directly' && !attendee.primaryEmail && !attendee.primaryPhone) {
+          errors.push("Partner Email or Phone is required if contacting directly.");
+      }
+    } else if (attendee.attendeeType === 'guest') {
+      // Guest specific validation
+      if (attendee.contactPreference === 'Directly' && !attendee.primaryEmail && !attendee.primaryPhone) {
+          errors.push("Guest Email or Phone is required if contacting directly.");
+      }
     }
 
     // Contact Info for relevant types
-    if (['mason', 'lady_partner', 'guest', 'guest_partner'].includes(attendee.attendeeType)) {
+    if (attendee.attendeeType === 'mason' || attendee.attendeeType === 'guest') {
       // If contactPreference is 'Directly', email and phone are mandatory.
       if (attendee.contactPreference === 'Directly') {
         if (!isValidEmail(attendee.primaryEmail)) {

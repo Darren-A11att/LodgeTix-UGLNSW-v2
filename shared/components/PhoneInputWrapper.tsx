@@ -1,221 +1,144 @@
 import React, { useState, useEffect } from 'react';
 import PhoneInput from 'react-phone-input-2';
 import 'react-phone-input-2/lib/style.css';
-import { parsePhoneNumber, isValidPhoneNumber } from 'libphonenumber-js';
-import { useLocationStore } from '../../lib/locationStore'; // Fixed path
-import type { LocationState } from '../../lib/locationStore'; // Fixed path
+import './PhoneInputWrapper.css';
+import { useLocationStore } from '../../lib/locationStore';
+import type { LocationState } from '../../lib/locationStore';
 
 interface PhoneInputWrapperProps {
   value: string;
   onChange: (value: string) => void;
-  inputProps?: any;
+  name: string;
+  isInternational?: boolean;
   className?: string;
   required?: boolean;
+  inputProps?: {
+    id?: string;
+    name?: string;
+  };
 }
 
 const PhoneInputWrapper: React.FC<PhoneInputWrapperProps> = ({
   value,
   onChange,
+  name,
+  isInternational = false,
+  className = "",
+  required = false,
   inputProps = {},
-  className = '',
-  required = false
 }) => {
-  const [isValid, setIsValid] = useState(true);
-  const [helperText, setHelperText] = useState('');
-  const [displayValue, setDisplayValue] = useState('');
-
   // Get country code from global store
   const detectedCountryCode = useLocationStore(
-    (state: LocationState) => state.ipData?.country_code // Added type for state
+    (state) => state.ipData?.country_code
   );
 
-  // Determine the country to use: detected or default 'au' (lowercase for react-phone-input-2)
-  const country = detectedCountryCode?.toLowerCase() || 'au';
+  // Track display value separately from the stored value
+  const [displayValue, setDisplayValue] = useState<string>('');
+
+  // Determine the country to use: detected or default 'au'
+  const country = (detectedCountryCode?.toLowerCase() as any) || "au";
   
-  // Initialize display value and validation on mount/external value change
+  // Initialize the display value based on the stored value
   useEffect(() => {
-    const storageValue = formatForStorage(value); // Use the prop value
-    const valid = validateAustralianMobile(storageValue);
-    setIsValid(valid);
-    setHelperText(formatInternational(storageValue));
-
-    // Set initial display value
-    if (storageValue.startsWith('61') && storageValue.length > 2 && storageValue.charAt(2) === '4') {
-      setDisplayValue(formatAustralianMobileForDisplay(storageValue));
-    } else {
-      // For non-Australian or incomplete numbers, display the raw input for better UX
-      // Or use the storageValue if value prop might be formatted differently
-      setDisplayValue(value); // Or potentially formatForStorage(value) depending on expected `value` prop format
-    }
-
-  }, [value, required]); // Rerun when external value changes
-
-  // Format Australian mobile for display (04XX XXX XXX)
-  const formatAustralianMobileForDisplay = (numberValue: string): string => {
-    // Expects international format (61...) input
-    if (numberValue.startsWith('61') && numberValue.length > 2 && numberValue.charAt(2) === '4') {
-      const nationalPart = numberValue.substring(2);
-      const digitsOnly = nationalPart.replace(/\D/g, '');
-
-      // Format as 04XX XXX XXX
-      if (digitsOnly.length >= 2) { // Start with 04
-        let formatted = '0' + digitsOnly.substring(0, 2);
-        if (digitsOnly.length >= 5) {
-          formatted += ' ' + digitsOnly.substring(2, 5);
-          if (digitsOnly.length >= 8) {
-            formatted += ' ' + digitsOnly.substring(5, 8);
-          } else {
-            formatted += ' ' + digitsOnly.substring(5);
-          }
+    if (value) {
+      // If we have a stored value, format it for display
+      if (value.startsWith('+61') && value.length >= 12) {
+        // Australian mobile number format: +614XXXXXXXX -> 04XX XXX XXX
+        const rawMobile = value.replace('+614', '04');
+        if (rawMobile.length === 10) {
+          // Format: 04XX XXX XXX
+          const formattedMobile = rawMobile.replace(/(\d{4})(\d{3})(\d{3})/, '$1 $2 $3');
+          setDisplayValue(formattedMobile);
         } else {
-          formatted += ' ' + digitsOnly.substring(2);
+          setDisplayValue(rawMobile);
         }
-        return formatted;
+      } else {
+        // Not an Australian mobile, just use as is
+        setDisplayValue(value);
       }
-      return '0' + digitsOnly; // Fallback if less than 2 digits after 61
+    } else {
+      // No value, empty display
+      setDisplayValue('');
     }
-    return numberValue; // Return as is if not Australian mobile
-  };
+  }, [value]);
 
-  // Format to international format for storage
-  const formatForStorage = (value: string): string => {
-    // If empty, return empty
-    if (!value) return '';
-    
-    // Remove all non-digit characters
-    const digitsOnly = value.replace(/\D/g, '');
-    
-    // If starting with 0 and followed by 4 (Australian mobile)
-    if (digitsOnly.startsWith('04')) {
-      // Convert to international format (61...)
-      return `61${digitsOnly.substring(1)}`;
+  // Handle changes from the phone input component
+  const handlePhoneChange = (newValue: string | undefined) => {
+    if (!newValue) {
+      onChange("");
+      setDisplayValue("");
+      return;
     }
-    
-    // If already in international format
-    if (digitsOnly.startsWith('61') && digitsOnly.length > 2 && digitsOnly.charAt(2) === '4') {
-      return digitsOnly;
-    }
-    
-    // For other numbers, return as is
-    return digitsOnly;
-  };
 
-  // Validate Australian mobile number
-  const validateAustralianMobile = (value: string): boolean => {
-    if (!value) return !required; // Empty is valid (unless required, but that's handled by form validation)
-    
-    const normalized = formatForStorage(value);
-    
-    // Check if it's an Australian mobile number
-    if (normalized.startsWith('61') && normalized.length > 2 && normalized.charAt(2) === '4') {
-      // Australian mobiles should be exactly 11 digits in international format
-      return normalized.length === 11;
-    }
-    
-    // For non-Australian mobile numbers, use libphonenumber-js validation
-    try {
-      return isValidPhoneNumber(`+${normalized}`);
-    } catch (e) {
-      return false;
-    }
-  };
-
-  // Format for helper text display (international format with +)
-  const formatInternational = (value: string): string => {
-    if (!value) return '';
-    
-    const normalized = formatForStorage(value);
-    
-    // For Australian mobiles, format nicely
-    if (normalized.startsWith('61') && normalized.length > 2 && normalized.charAt(2) === '4') {
-      return `+61 4${normalized.substring(3, 6)} ${normalized.substring(6)}`;
-    }
-    
-    // For other numbers, use libphonenumber-js if possible
-    try {
-      const phoneNumber = parsePhoneNumber(`+${normalized}`);
-      if (phoneNumber) {
-        return phoneNumber.formatInternational();
+    // If the country is Australia, handle special formatting
+    if (country === 'au') {
+      // Remove all non-digit characters to get clean number
+      const digitsOnly = newValue.replace(/\D/g, '');
+      
+      // If Australian mobile format (starting with 04)
+      if (digitsOnly.startsWith('04') && digitsOnly.length <= 10) {
+        // Format for display: 04XX XXX XXX
+        let formattedDisplay = digitsOnly;
+        if (digitsOnly.length >= 4) {
+          formattedDisplay = digitsOnly.slice(0, 4);
+          if (digitsOnly.length >= 7) {
+            formattedDisplay += ' ' + digitsOnly.slice(4, 7);
+            if (digitsOnly.length > 7) {
+              formattedDisplay += ' ' + digitsOnly.slice(7, 10);
+            }
+          } else if (digitsOnly.length > 4) {
+            formattedDisplay += ' ' + digitsOnly.slice(4);
+          }
+        }
+        
+        setDisplayValue(formattedDisplay);
+        
+        // For storing in Zustand: convert to +614XXXXXXXX format
+        if (digitsOnly.length === 10) {
+          // Only convert to international format if we have a complete number
+          const internationalFormat = '+61' + digitsOnly.substring(1); // Replace '0' with '+61'
+          onChange(internationalFormat);
+        } else {
+          // For incomplete numbers, store as is so we can continue editing
+          onChange(digitsOnly);
+        }
+      } else {
+        // Not an Australian mobile or longer than 10 digits, handle normally
+        setDisplayValue(newValue);
+        onChange(newValue);
       }
-    } catch (e) {
-      // Fallback if parsing fails
+    } else {
+      // Not Australia, handle normally
+      setDisplayValue(newValue);
+      onChange(newValue);
     }
-    
-    // Simple fallback
-    return `+${normalized}`;
-  };
-
-  // Handle input change
-  const handleChange = (rawInputValue: string, countryData: any, event: React.ChangeEvent<HTMLInputElement>) => {
-    const currentInputVal = event.target.value; // Use the direct input value for display state
-    setDisplayValue(currentInputVal);
-
-    // Determine the value to store (international format)
-    // react-phone-input-2 usually provides the full number including dial code in rawInputValue
-    const storageValue = formatForStorage(rawInputValue); 
-
-    // Validate the number
-    const valid = validateAustralianMobile(storageValue);
-    setIsValid(valid);
-    setHelperText(formatInternational(storageValue));
-
-    // Call the parent onChange with the standardized international format
-    onChange(storageValue);
   };
 
   return (
-    <div className="relative">
+    <div className={`custom-phone-input ${className}`}>
       <PhoneInput
         country={country}
         value={displayValue}
-        onChange={handleChange}
-        inputClass="form-control"
-        containerClass={`w-full ${className}`}
+        onChange={handlePhoneChange}
         inputProps={{
-          required,
-          ...inputProps,
-          className: "w-full px-4 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
+          name: name,
+          required: required
         }}
+        placeholder=""
         enableSearch={true}
-        autoFormat={false}
-        disableSearchIcon={true}
-        countryCodeEditable={false}
-        buttonStyle={{ 
-          border: '1px solid rgb(203 213 225)', 
-          borderRight: 'none',
-          borderTopLeftRadius: '0.375rem', 
-          borderBottomLeftRadius: '0.375rem',
-          backgroundColor: 'white'
+        preferredCountries={['au', 'nz', 'gb', 'us']}
+        labels={{
+          search: "Search",
+          searchPlaceholder: "Search country..."
         }}
-        dropdownStyle={{
-          border: '1px solid rgb(203 213 225)',
-          borderRadius: '0.375rem',
-          boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06)'
-        }}
-        searchStyle={{
-          padding: '10px',
-          borderBottom: '1px solid rgb(203 213 225)'
-        }}
-        specialLabel={''}
-        placeholder="04XX XXX XXX"
-        masks={{au: '.... ... ...'}}
       />
-    
-     
-      {/* Error message for invalid Australian mobile */}
-      {!isValid && value && value.startsWith('61') && value.length > 2 && value.charAt(2) === '4' && (
-        <div className="mt-1 text-xs text-red-500 pl-12">
-          Australian mobile numbers must be exactly 10 digits (04XX XXX XXX)
-        </div>
-      )}
-      
-      {/* Success indicator for valid numbers */}
-      {isValid && value && (
-        <div className="absolute right-3 top-1/2 -translate-y-1/2 text-green-500">
-          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M20 6L9 17l-5-5" />
-          </svg>
-        </div>
+      {required && (
+        <input
+          type="hidden"
+          required={required}
+          value={value}
+          onChange={() => {}}
+        />
       )}
     </div>
   );

@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { HelpCircle } from 'lucide-react';
-import PhoneInputWrapper from '../../../../shared/components/PhoneInputWrapper';
+import { PhoneInput } from '@/components/ui/phone-input';
 import { ContactPreference, MasonAttendee, UnifiedAttendeeData } from '@/lib/registration-types';
 
 interface MasonContactInfoProps {
@@ -30,8 +30,42 @@ const MasonContactInfo: React.FC<MasonContactInfoProps> = ({
   getConfirmationMessage,
   primaryMasonData,
 }) => {
+  // Interaction states
   const [emailInteracted, setEmailInteracted] = useState(false);
   const [phoneInteracted, setPhoneInteracted] = useState(false);
+  const [contactPreferenceInteracted, setContactPreferenceInteracted] = useState(false);
+  
+  // Refs for uncontrolled inputs
+  const emailRef = useRef<HTMLInputElement>(null);
+  const contactPreferenceRef = useRef<HTMLSelectElement>(null);
+  
+  // Store the latest props values to avoid stale refs
+  const masonRef = useRef(mason);
+  useEffect(() => {
+    masonRef.current = mason;
+  }, [mason]);
+
+  // Handle blur events
+  const handleEmailBlur = () => {
+    setEmailInteracted(true);
+    if (emailRef.current && emailRef.current.value !== masonRef.current.primaryEmail) {
+      onChange(id, 'primaryEmail', emailRef.current.value);
+    }
+  };
+  
+  const handlePhoneBlur = (value: string) => {
+    setPhoneInteracted(true);
+    if (value !== masonRef.current.primaryPhone) {
+      handlePhoneChange(value);
+    }
+  };
+  
+  const handleContactPreferenceBlur = () => {
+    setContactPreferenceInteracted(true);
+    if (contactPreferenceRef.current && contactPreferenceRef.current.value !== masonRef.current.contactPreference) {
+      onChange(id, 'contactPreference', contactPreferenceRef.current.value as ContactPreference);
+    }
+  };
 
   // Function to dynamically generate contact preference options for Additional Masons
   const getDynamicMasonContactOptions = () => {
@@ -46,13 +80,8 @@ const MasonContactInfo: React.FC<MasonContactInfoProps> = ({
 
     options.push({ value: "Provide Later", label: "Provide Later" });
     
-    // For Additional Masons, also include "Directly" if they need to provide their own details
-    // If not primary, and contact preference IS 'Directly', then show 'Directly'
-    // This logic should be reviewed based on how `hideContactFields` is now determined in MasonForm.
-    // For now, keeping the requested options.
-    // If `isPrimary` is false, and we need a 'Directly' option it should be added here.
-    // The request was: "Please Select", Primary Attendee Name, "Provide Later".
-    // "Directly" is implicitly handled by `hideContactFields` prop. If it's false, fields show.
+    // Add "Directly" as an option for non-primary masons
+    options.push({ value: "Directly", label: "Directly" });
 
     return options;
   };
@@ -66,13 +95,10 @@ const MasonContactInfo: React.FC<MasonContactInfoProps> = ({
             <label className="block text-sm font-medium text-slate-700 mb-1" htmlFor={`phone-${id}`}>
               Mobile Number *
             </label>
-            <PhoneInputWrapper
-              value={mason.primaryPhone ?? ''}
-              onChange={handlePhoneChange}
-              inputProps={{
-                name: `phone-${id}`,
-                id: `phone-${id}`,
-              }}
+            <PhoneInput
+              name={`phone-${id}`}
+              defaultValue={mason.primaryPhone || ''}
+              onBlur={(value) => handlePhoneBlur(value)}
               required={true}
               className={`${phoneInteracted ? 'interacted' : ''}`}
             />
@@ -86,15 +112,14 @@ const MasonContactInfo: React.FC<MasonContactInfoProps> = ({
               type="email"
               id={`email-${id}`}
               name={`email-${id}`}
-              value={mason.primaryEmail ?? ''}
-              onChange={(e) => onChange(id, 'primaryEmail', e.target.value)}
-              onBlur={() => setEmailInteracted(true)}
+              ref={emailRef}
+              defaultValue={mason.primaryEmail || ''}
+              onBlur={handleEmailBlur}
               required={true}
               className={`w-full px-4 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50
                          ${emailInteracted ? 'interacted' : ''}
                          [&.interacted:invalid]:border-red-500 [&.interacted:invalid]:text-red-600
                          focus:[&.interacted:invalid]:border-red-500 focus:[&.interacted:invalid]:ring-red-500`}
-
               title="Please enter a valid email address (e.g., user@example.com)"
             />
           </div>
@@ -119,8 +144,16 @@ const MasonContactInfo: React.FC<MasonContactInfoProps> = ({
               <select
                 id={`contactPreference-${id}`}
                 name={`contactPreference-${id}`}
-                value={mason.contactPreference || ""}
-                onChange={(e) => onChange(id, 'contactPreference', e.target.value as ContactPreference | "")}
+                ref={contactPreferenceRef}
+                defaultValue={mason.contactPreference || ""}
+                onChange={(e) => {
+                  // Update immediately on change for the UI
+                  const newValue = e.target.value as ContactPreference;
+                  if (newValue !== masonRef.current.contactPreference) {
+                    onChange(id, 'contactPreference', newValue);
+                  }
+                }}
+                onBlur={handleContactPreferenceBlur}
                 required
                 className="w-full px-4 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
               >
@@ -138,13 +171,10 @@ const MasonContactInfo: React.FC<MasonContactInfoProps> = ({
                   <label className="block text-sm font-medium text-slate-700 mb-1" htmlFor={`phone-${id}`}>
                     Mobile Number *
                   </label>
-                  <PhoneInputWrapper
-                    value={mason.primaryPhone ?? ''}
-                    onChange={handlePhoneChange}
-                    inputProps={{
-                      name: `phone-${id}`,
-                      id: `phone-${id}`,
-                    }}
+                  <PhoneInput
+                    name={`phone-${id}`}
+                    defaultValue={mason.primaryPhone || ''}
+                    onBlur={(value) => handlePhoneBlur(value)}
                     required={true}
                     className={`${phoneInteracted ? 'interacted' : ''}`}
                   />
@@ -159,15 +189,14 @@ const MasonContactInfo: React.FC<MasonContactInfoProps> = ({
                     type="email"
                     id={`email-${id}`}
                     name={`email-${id}`}
-                    value={mason.primaryEmail ?? ''}
-                    onChange={(e) => onChange(id, 'primaryEmail', e.target.value)}
-                    onBlur={() => setEmailInteracted(true)}
+                    ref={emailRef}
+                    defaultValue={mason.primaryEmail || ''}
+                    onBlur={handleEmailBlur}
                     required={true}
                     className={`w-full px-4 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50
                                ${emailInteracted ? 'interacted' : ''}
                                [&.interacted:invalid]:border-red-500 [&.interacted:invalid]:text-red-600
                                focus:[&.interacted:invalid]:border-red-500 focus:[&.interacted:invalid]:ring-red-500`}
-
                     title="Please enter a valid email address (e.g., user@example.com)"
                   />
                 </div>

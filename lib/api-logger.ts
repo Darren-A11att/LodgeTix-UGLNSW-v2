@@ -113,7 +113,16 @@ export async function loggedFetch(
   if (options.body) {
     try {
       if (typeof options.body === 'string') {
-        requestBody = JSON.parse(options.body);
+        try {
+          if (options.body !== 'undefined') {
+            requestBody = JSON.parse(options.body);
+          } else {
+            requestBody = undefined;
+          }
+        } catch (parseError) {
+          // If parsing fails, just use the original body string
+          requestBody = options.body;
+        }
       } else if (options.body instanceof FormData) {
         requestBody = '[FormData]';
       } else {

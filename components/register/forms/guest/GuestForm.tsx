@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useMemo } from 'react';
-import 'react-phone-input-2/lib/style.css';
+import { useDebouncedCallback } from 'use-debounce';
 // import { GuestPartnerData } from '../../../../shared/types/register'; // Old, to be removed or replaced
 import GuestPartnerForm from './GuestPartnerForm';
 import { X } from 'lucide-react';
@@ -9,12 +9,15 @@ import GuestAdditionalInfo from './GuestAdditionalInfo';
 import GuestPartnerToggle from './GuestPartnerToggle';
 import type { GuestAttendee, PartnerAttendee, Attendee, ContactPreference as OldContactPreference, BaseAttendee, MasonAttendee } from '../../../../lib/registration-types'; // Updated types
 import { useRegistrationStore, RegistrationState } from '../../../../lib/registrationStore'; // Updated store imports
-import PhoneInputWrapper from '../../../../shared/components/PhoneInputWrapper';
+import { PhoneInput } from '@/components/ui/phone-input';
 import { v4 as uuidv4 } from 'uuid';
 import type { UnifiedAttendeeData } from '../../../../lib/registrationStore';
 
-// Define the contact preference type from the store explicitly for options array
+// Define the contact preference type used by the store
 type StoreContactPreference = NonNullable<UnifiedAttendeeData['contactPreference']>;
+
+// Define ConceptualAttendeeType locally for use in addAttendee parameter
+type ConceptualAttendeeType = UnifiedAttendeeData['attendeeType'] | 'lady_partner' | 'guest_partner';
 
 // Define a minimal OldGuestPartnerData for GuestPartnerForm props
 interface OldGuestPartnerDataForForm {
@@ -23,7 +26,7 @@ interface OldGuestPartnerDataForForm {
   firstName: string;
   lastName: string;
   relationship: string;
-  contactPreference: OldContactPreference; // Corrected: Use OldContactPreference
+  contactPreference: StoreContactPreference; // Use the extracted store type
   mobile?: string;
   email?: string;
   dietaryRequirements?: string;
@@ -43,23 +46,32 @@ const GuestForm: React.FC<GuestFormProps> = ({
 }) => {
   // --- NEW Store Actions and Selectors ---
   const updateAttendeeInStore = useRegistrationStore((state: RegistrationState) => state.updateAttendee);
-  const addAttendeeInStore = useRegistrationStore((state: RegistrationState) => state.addAttendee);
+  // Replacing non-existent addAttendee with proper function
+  const addGuestAttendeeStore = useRegistrationStore((state: RegistrationState) => state.addGuestAttendee);
+  const addGuestPartnerAttendeeStore = useRegistrationStore((state: RegistrationState) => state.addGuestPartnerAttendee);
   const removeAttendeeInStore = useRegistrationStore((state: RegistrationState) => state.removeAttendee);
 
   // Select the specific guest attendee from the unified list in the store
   const currentAttendee = useRegistrationStore((state: RegistrationState) => 
-    state.attendees.find(att => att.attendeeId === attendeeId && att.attendeeType === 'guest')
+    state.attendees.find(att => att.attendeeId === attendeeId && att.attendeeType.toLowerCase() === 'guest')
   ) as UnifiedAttendeeData | undefined;
 
   // Select the partner associated with this guest
   const partner = useRegistrationStore((state: RegistrationState) => 
-    state.attendees.find(att => att.relatedAttendeeId === attendeeId && att.attendeeType === 'guest_partner')
+    state.attendees.find(att => att.partnerOf === attendeeId && att.isPartner === true)
   ) as UnifiedAttendeeData | undefined;
   
   // Find primary mason data for contact confirmation message
   const primaryMasonAttendee = useRegistrationStore((state: RegistrationState) => 
-    state.attendees.find(att => att.isPrimary === true && att.attendeeType === 'mason')
+    state.attendees.find(att => att.isPrimary === true && att.attendeeType.toLowerCase() === 'mason')
   ) as UnifiedAttendeeData | undefined; // Assuming primary is always a mason for this context
+
+  // Select ALL Mason attendees for the "Guest Of" dropdown
+  const allAttendeesFromStore = useRegistrationStore((state: RegistrationState) => state.attendees);
+  const allMasonAttendees = useMemo(() => 
+    allAttendeesFromStore.filter(att => att.attendeeType.toLowerCase() === 'mason'),
+    [allAttendeesFromStore]
+  ) as UnifiedAttendeeData[];
 
   // --- Data Mapping for Child Components ---
   const mappedGuestForChildren: GuestAttendee | null = useMemo(() => {
@@ -87,6 +99,7 @@ const GuestForm: React.FC<GuestFormProps> = ({
       dietaryRequirements: currentAttendee.dietaryRequirements,
       specialNeeds: currentAttendee.specialNeeds,
       hasPartner: currentAttendee.hasGuestPartner || false,
+      relatedAttendeeId: currentAttendee.relatedAttendeeId,
       partner: undefined, // GuestAttendee can have an optional PartnerAttendee; explicitly undefined here
                                // as GuestPartnerForm handles the actual partner data separately.
     };
@@ -95,14 +108,8 @@ const GuestForm: React.FC<GuestFormProps> = ({
   const mappedPartnerForGuestPartnerForm: OldGuestPartnerDataForForm | null = useMemo(() => {
     if (!partner) return null;
     
-    let mappedPartnerContactPref: OldContactPreference = 'Primary Attendee'; // Default for partner
-    if (partner.contactPreference === 'PrimaryAttendee') {
-      mappedPartnerContactPref = 'Primary Attendee';
-    } else if (partner.contactPreference === 'ProvideLater') {
-      mappedPartnerContactPref = 'Provide Later';
-    } else if (partner.contactPreference === 'Directly') {
-      mappedPartnerContactPref = 'Directly';
-    }
+    // Use the store contact preference directly, provide a default if undefined
+    const partnerContactPrefForForm = partner.contactPreference || 'PrimaryAttendee'; 
 
     return {
       id: partner.attendeeId,
@@ -110,7 +117,7 @@ const GuestForm: React.FC<GuestFormProps> = ({
       firstName: partner.firstName || '',
       lastName: partner.lastName || '',
       relationship: partner.relationship || '',
-      contactPreference: mappedPartnerContactPref,
+      contactPreference: partnerContactPrefForForm, // Pass store value
       mobile: partner.primaryPhone,
       email: partner.primaryEmail,
       dietaryRequirements: partner.dietaryRequirements,
@@ -126,39 +133,75 @@ const GuestForm: React.FC<GuestFormProps> = ({
 
   // --- Handlers ---
   // handleGuestFieldChange needs to map field names if they differ, e.g. 'email' from child to 'primaryEmail' for store
-  const handleGuestFieldChange = useCallback(<K extends keyof GuestAttendee>(
-    id: string, 
-    field: K,
-    value: GuestAttendee[K]
-  ) => {
-      if (id === mappedGuestForChildren.id) { 
-          let fieldForStore: keyof UnifiedAttendeeData = field as any; // Start with direct cast
-          let valueForStore: any = value;
+  const handleGuestFieldChange = useDebouncedCallback(
+    <K extends keyof GuestAttendee>(
+      id: string, 
+      field: K,
+      value: GuestAttendee[K]
+    ) => {
+        if (id === mappedGuestForChildren.id) { 
+            let fieldForStore: keyof UnifiedAttendeeData = field as any; // Start with direct cast
+            let valueForStore: any = value;
 
-          // Field name mapping
-          if (field === 'email') fieldForStore = 'primaryEmail';
-          if (field === 'mobile') fieldForStore = 'primaryPhone';
-          if (field === 'hasPartner') fieldForStore = 'hasGuestPartner';
-          // Add other mappings if GuestAttendee fields differ from UnifiedAttendeeData
+            // Field name mapping
+            if (field === 'email') fieldForStore = 'primaryEmail';
+            if (field === 'mobile') fieldForStore = 'primaryPhone';
+            if (field === 'hasPartner') fieldForStore = 'hasGuestPartner';
+            // Add other mappings if GuestAttendee fields differ from UnifiedAttendeeData
 
-          // Value mapping for contactPreference if necessary (Store uses no space)
-          if (field === 'contactPreference') {
-            if (value === 'Primary Attendee') valueForStore = 'PrimaryAttendee';
-            else if (value === 'Provide Later') valueForStore = 'ProvideLater';
-            // "Directly" is the same. "Mason/Guest" isn't in store type.
-          }
+            // Value mapping for contactPreference if necessary (Store uses no space)
+            if (field === 'contactPreference') {
+              if (value === 'Primary Attendee') valueForStore = 'PrimaryAttendee';
+              else if (value === 'Provide Later') valueForStore = 'ProvideLater';
+              // "Directly" is the same. "Mason/Guest" isn't in store type.
+            }
 
-          updateAttendeeInStore(currentAttendee.attendeeId, { [fieldForStore]: valueForStore } as Partial<UnifiedAttendeeData>);
-      } else {
-          console.warn('handleGuestFieldChange called with mismatched ID', { currentId: mappedGuestForChildren.id, receivedId: id });
+            updateAttendeeInStore(currentAttendee.attendeeId, { [fieldForStore]: valueForStore } as Partial<UnifiedAttendeeData>);
+        } else {
+            // Removed console warning for performance
+        }
+    },
+    200 // 200ms debounce delay
+  );
+
+  // Handler for GuestPartnerForm updates
+  const handlePartnerFieldChange = useDebouncedCallback(
+    (partnerId: string, field: string, value: any) => { // Accept field as string
+      let unifiedField: keyof UnifiedAttendeeData | null = null;
+      switch (field) {
+        case 'title': unifiedField = 'title'; break;
+        case 'firstName': unifiedField = 'firstName'; break;
+        case 'lastName': unifiedField = 'lastName'; break;
+        case 'relationship': unifiedField = 'relationship'; break;
+        case 'contactPreference': unifiedField = 'contactPreference'; break;
+        case 'mobile': unifiedField = 'primaryPhone'; break;
+        case 'email': unifiedField = 'primaryEmail'; break;
+        case 'dietaryRequirements': unifiedField = 'dietaryRequirements'; break;
+        case 'specialNeeds': unifiedField = 'specialNeeds'; break;
+        default: /* Removed console warning for performance */ return;
       }
-  }, [updateAttendeeInStore, currentAttendee?.attendeeId, mappedGuestForChildren?.id]);
+      if (unifiedField) {
+        // Handle potential value mapping if needed (e.g., for contactPreference from display to store format)
+        let valueForStore = value;
+        if (field === 'contactPreference') {
+          // Assuming GuestPartnerForm sends back the store format directly now
+          // If it sends display format, mapping would be needed here.
+        }
+        updateAttendeeInStore(partnerId, { [unifiedField]: valueForStore });
+      }
+    },
+    200 // 200ms debounce delay
+  );
 
-  const handlePhoneChange = useCallback((value: string) => {
+  const handlePhoneChange = useDebouncedCallback(
+    (value: string) => {
       if (mappedGuestForChildren?.id) { 
+        // Use the already debounced handleGuestFieldChange
         handleGuestFieldChange(mappedGuestForChildren.id, 'mobile', value);
       }
-  }, [handleGuestFieldChange, mappedGuestForChildren?.id]);
+    },
+    200 // 200ms debounce delay
+  );
 
   const handleRemoveSelf = useCallback(() => {
       if (currentAttendee?.attendeeId) {
@@ -170,40 +213,16 @@ const GuestForm: React.FC<GuestFormProps> = ({
     updateAttendeeInStore(attendeeId, { [field]: value });
   };
   
-  const handlePartnerChange = (partnerId: string, field: keyof UnifiedAttendeeData, value: any) => {
-    updateAttendeeInStore(partnerId, { [field]: value });
-  };
-
-  const handleAddPartner = () => {
-    if (currentAttendee && !partner) {
-      const newPartnerData: Omit<UnifiedAttendeeData, 'attendeeId'> = {
-        attendeeType: 'guest_partner',
-        title: '',
-        firstName: '',
-        lastName: currentAttendee.lastName || '', 
-        relationship: 'Partner',
-        relatedAttendeeId: attendeeId,
-        contactPreference: 'PrimaryAttendee',
-        dietaryRequirements: '',
-        specialNeeds: '',
-        ticket: { 
-          ticketDefinitionId: currentAttendee.ticket?.ticketDefinitionId || null, 
-          selectedEvents: currentAttendee.ticket?.selectedEvents || [] 
-        }
-      };
-      addAttendeeInStore(newPartnerData);
-      updateAttendeeInStore(attendeeId, { hasGuestPartner: true }); 
-    }
-  };
-
-  const handleRemovePartner = () => {
-    if (partner) {
+  // Unified handler for adding/removing a guest's partner
+  const handleGuestPartnerToggle = useCallback(() => {
+    if (partner) { // If a partner exists, remove them
       removeAttendeeInStore(partner.attendeeId);
-      if (currentAttendee) {
-        updateAttendeeInStore(attendeeId, { hasGuestPartner: false });
-      }
+      // No need to update hasGuestPartner on currentAttendee
+    } else if (currentAttendee) { // If no partner, and currentGuest exists, add one
+      // Use the store function to add partner
+      addGuestPartnerAttendeeStore(currentAttendee.attendeeId);
     }
-  };
+  }, [partner, currentAttendee, addGuestPartnerAttendeeStore, removeAttendeeInStore, attendeeId]);
 
   const getConfirmationMessage = useCallback((): string => {
     if (!primaryMasonAttendee) return "";
@@ -223,9 +242,10 @@ const GuestForm: React.FC<GuestFormProps> = ({
   const contactOptionsOld: OldContactPreference[] = ["Directly", "Primary Attendee", "Provide Later", "Mason/Guest"]; // For child components expecting old type
 
   // Determine if contact fields should be hidden for THIS guest
-  // Show fields if 'Directly' is selected or if preference is not yet set (undefined, meaning "Please Select")
+  // Only show fields if 'Directly' is specifically selected
+  // Using toLowerCase() to handle possible case differences
   const hideThisGuestsContactFields = 
-    !(currentAttendee?.contactPreference === 'Directly' || typeof currentAttendee?.contactPreference === 'undefined');
+    !(currentAttendee?.contactPreference?.toLowerCase() === 'directly');
 
   return (
     <div className="bg-slate-50 p-6 rounded-lg mb-8 relative">
@@ -243,9 +263,11 @@ const GuestForm: React.FC<GuestFormProps> = ({
       </div>
       
       <GuestBasicInfo
-        guest={mappedGuestForChildren} // Pass mapped data
-        id={mappedGuestForChildren.id} 
+        guest={mappedGuestForChildren}
+        id={attendeeId} 
         onChange={handleGuestFieldChange}
+        allMasons={allMasonAttendees}
+        primaryMasonId={primaryMasonAttendee?.attendeeId}
         titles={titles}
       />
       
@@ -257,6 +279,7 @@ const GuestForm: React.FC<GuestFormProps> = ({
         hideContactFields={hideThisGuestsContactFields} // Pass calculated value
         showConfirmation={mappedGuestForChildren.contactPreference === 'Primary Attendee' || mappedGuestForChildren.contactPreference === 'Provide Later'}
         getConfirmationMessage={getConfirmationMessage}
+        primaryAttendeeData={primaryMasonAttendee} // Pass primary attendee data
       />
       
       <GuestAdditionalInfo
@@ -265,35 +288,26 @@ const GuestForm: React.FC<GuestFormProps> = ({
         onChange={handleGuestFieldChange}
       />
 
+      {/* --- Guest Partner Toggle --- */}
+      {/* Only show the toggle if a partner does NOT exist */}
       {!partner && (
         <div className="mt-6 text-center">
           <GuestPartnerToggle 
-            hasPartner={!!partner} 
-            onToggle={partner ? handleRemovePartner : handleAddPartner}
+            hasPartner={false} // When shown, it's always to add a partner
+            onToggle={handleGuestPartnerToggle} 
           />
         </div>
       )}
 
+      {/* Conditionally render the Guest Partner Form (includes title and divider) */}
       {partner && mappedPartnerForGuestPartnerForm && ( 
         <GuestPartnerForm
-          partnerData={mappedPartnerForGuestPartnerForm} 
-          partnerId={partner.attendeeId} 
-          relatedGuestName={`${currentAttendee.firstName} ${currentAttendee.lastName}`.trim()}
-          updateField={(pId: string, field: keyof OldGuestPartnerDataForForm, value: any) => {
-            let fieldForStore: keyof UnifiedAttendeeData = field as any;
-            let valueForStore: any = value;
-            if (field === 'email') fieldForStore = 'primaryEmail';
-            if (field === 'mobile') fieldForStore = 'primaryPhone';
-            
-            // Map contactPreference from OldContactPreference to StoreContactPreference if necessary
-            if (field === 'contactPreference') {
-              if (value === 'Primary Attendee') valueForStore = 'PrimaryAttendee';
-              else if (value === 'Provide Later') valueForStore = 'ProvideLater';
-              // "Directly" and "Mason/Guest" (if it were passed) would need mapping if store differs
-            }
-            updateAttendeeInStore(pId, { [fieldForStore]: valueForStore });
-          }}
-          removePartner={handleRemovePartner} 
+          partnerData={mappedPartnerForGuestPartnerForm}
+          updateField={handlePartnerFieldChange}
+          onRemove={handleGuestPartnerToggle}
+          relatedGuestName={`${currentAttendee.firstName || ''} ${currentAttendee.lastName || ''}`.trim()}
+          primaryAttendeeData={primaryMasonAttendee}
+          relatedGuestContactPreference={currentAttendee.contactPreference}
         />
       )}
     </div>

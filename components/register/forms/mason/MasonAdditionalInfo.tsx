@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 // import { MasonData } from '../../../../shared/types/register'; // Removed
 import { MasonAttendee } from '@/lib/registration-types'; // Added
 
@@ -17,6 +17,21 @@ const MasonAdditionalInfo: React.FC<MasonAdditionalInfoProps> = ({
   id,
   onChange,
 }) => {
+  // Create refs for inputs
+  const dietaryRequirementsRef = useRef<HTMLInputElement>(null);
+  const specialNeedsRef = useRef<HTMLTextAreaElement>(null);
+  
+  // Create a ref to store the latest props
+  const masonRef = useRef(mason);
+  
+  // Update the ref when props change
+  useEffect(() => {
+    masonRef.current = mason;
+  }, [mason]);
+  
+  // Track interaction states for styling
+  const [dietaryRequirementsInteracted, setDietaryRequirementsInteracted] = useState(false);
+  const [specialNeedsInteracted, setSpecialNeedsInteracted] = useState(false);
   return (
     <>
       <div className="mb-4">
@@ -26,11 +41,22 @@ const MasonAdditionalInfo: React.FC<MasonAdditionalInfoProps> = ({
         <input
           type="text"
           id={`dietaryRequirements-${id}`}
-          name={`dietaryRequirements`} // Changed name
-          value={mason.dietaryRequirements || ''} // Changed field
-          onChange={(e) => onChange(id, 'dietaryRequirements', e.target.value)} // Changed field
+          name={`dietaryRequirements`}
+          ref={dietaryRequirementsRef}
+          defaultValue={mason.dietaryRequirements || ''}
+          onBlur={() => {
+            setDietaryRequirementsInteracted(true);
+            const newValue = dietaryRequirementsRef.current?.value || '';
+            const currentValue = masonRef.current.dietaryRequirements || '';
+            
+            // Only update if value has changed
+            if (newValue !== currentValue) {
+              onChange(id, 'dietaryRequirements', newValue);
+            }
+          }}
           placeholder="E.g., vegetarian, gluten-free, allergies"
-          className="w-full px-4 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
+          className={`w-full px-4 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 
+                    ${dietaryRequirementsInteracted ? 'interacted' : ''}`}
         />
       </div>
       
@@ -40,11 +66,22 @@ const MasonAdditionalInfo: React.FC<MasonAdditionalInfoProps> = ({
         </label>
         <textarea
           id={`specialNeeds-${id}`}
-          name={`specialNeeds`} // Changed name
-          value={mason.specialNeeds || ''} // Changed field
-          onChange={(e) => onChange(id, 'specialNeeds', e.target.value)} // Changed field
+          name={`specialNeeds`}
+          ref={specialNeedsRef}
+          defaultValue={mason.specialNeeds || ''}
+          onBlur={() => {
+            setSpecialNeedsInteracted(true);
+            const newValue = specialNeedsRef.current?.value || '';
+            const currentValue = masonRef.current.specialNeeds || '';
+            
+            // Only update if value has changed
+            if (newValue !== currentValue) {
+              onChange(id, 'specialNeeds', newValue);
+            }
+          }}
           rows={2}
-          className="w-full px-4 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50"
+          className={`w-full px-4 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 
+                    ${specialNeedsInteracted ? 'interacted' : ''}`}
         ></textarea>
       </div>
     </>

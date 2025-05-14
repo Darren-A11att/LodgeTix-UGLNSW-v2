@@ -779,6 +779,9 @@ export class ReservationService {
       }
       
       // Reservation is still valid
+      if (storedData === 'undefined') {
+        return null;
+      }
       return JSON.parse(storedData) as Reservation;
     } catch (error) {
       console.error('Error retrieving stored reservation:', error);

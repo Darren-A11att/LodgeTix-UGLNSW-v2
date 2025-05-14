@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware';
 import { getAllGrandLodges, GrandLodgeRow } from './api/grandLodges';
 import { getLodgesByGrandLodgeId, LodgeRow, createLodge as createLodgeApi, searchAllLodges as searchAllLodgesApi, getLodgesByStateRegionCode } from './api/lodges';
 import { supabase } from './supabase';
+import { searchGrandLodges as searchGrandLodgesService } from './services/masonic-services';
 
 // --- Define Interfaces First ---
 export interface IpApiData {
@@ -301,20 +302,42 @@ export const useLocationStore = create<LocationState>(
       searchGrandLodges: async (searchTerm: string) => {
         console.log(`%%%%%% [LocationStore] searchGrandLodges TRIGGERED with searchTerm: "${searchTerm}" %%%%%%`);
 
+        const userCountry = get().ipData.country_name || 'Australia'; // Get user country, default if not available
+
         if (!searchTerm.trim()) {
-          const initialGLs = get().grandLodgeCache.byCountry[get().ipData.country_code || ''] || get().grandLodgeCache.data;
-          console.log(`%%%%%% [LocationStore] Empty search term, serving initial GLs:`, JSON.stringify(initialGLs?.slice(0, 5), null, 2), `(showing first 5) Total: ${initialGLs?.length} %%%%%%`);
-          set({ grandLodges: initialGLs || [], isLoadingGrandLodges: false, grandLodgeError: null });
+          // If search term is empty, try to show initial GLs based on country or global cache
+          // This logic can be refined, but for now, let's use the existing approach or fetch initial for the country
+          const countryKey = get().ipData.country_name;
+          let initialGLsToShow: GrandLodgeRow[] = [];
+          if (countryKey && get().grandLodgeCache.byCountry[countryKey]) {
+            initialGLsToShow = get().grandLodgeCache.byCountry[countryKey];
+          } else if (get().grandLodgeCache.data.length > 0) {
+            initialGLsToShow = get().grandLodgeCache.data;
+          } else {
+            // If no cache, maybe trigger fetchInitialGrandLodges or a specific country fetch
+            // For simplicity, let's fall back to an empty array if no relevant cache.
+            // Or better, call fetchInitialGrandLodges if appropriate.
+            // For now, this just clears, which is probably not ideal for empty search.
+            // Let's assume fetchInitialGrandLodges would have populated based on country.
+             if (get().grandLodges.length > 0) { // Use current display list if populated
+                initialGLsToShow = get().grandLodges;
+             }
+          }
+          
+          console.log(`%%%%%% [LocationStore] Empty search term, serving initial GLs (count: ${initialGLsToShow.length}) %%%%%%`);
+          set({ grandLodges: initialGLsToShow, isLoadingGrandLodges: false, grandLodgeError: null });
           return;
         }
+
         set({ isLoadingGrandLodges: true, grandLodgeError: null });
         try {
-          const results = await getAllGrandLodges({ searchTerm });
-          console.log(`%%%%%% [LocationStore] Results from getAllGrandLodges API for searchTerm "${searchTerm}":`, JSON.stringify(results, null, 2), `Count: ${results.length} %%%%%%`);
+          // Use the new prioritized search service
+          const results = await searchGrandLodgesService(searchTerm, userCountry);
+          console.log(`%%%%%% [LocationStore] Results from searchGrandLodgesService for searchTerm "${searchTerm}" and country "${userCountry}":`, JSON.stringify(results.slice(0,5), null, 2), `Count: ${results.length} %%%%%%`);
 
           set({ grandLodges: results, isLoadingGrandLodges: false, grandLodgeError: null });
         } catch (error: any) {
-          console.error(`%%%%%% [LocationStore] Error in searchGrandLodges API call for searchTerm "${searchTerm}":`, error, `%%%%%%`);
+          console.error(`%%%%%% [LocationStore] Error in searchGrandLodgesService call for searchTerm "${searchTerm}", country "${userCountry}":`, error, `%%%%%%`);
           set({ grandLodges: [], isLoadingGrandLodges: false, grandLodgeError: error.message || 'Failed to search Grand Lodges' });
         }
       },
@@ -381,7 +404,7 @@ export const useLocationStore = create<LocationState>(
           if (newLodge && newLodge.grand_lodge_id) {
             const glId = newLodge.grand_lodge_id;
             set(state => {
-              const currentCache = JSON.parse(JSON.stringify(state.lodgeCache)); 
+              const currentCache = { ...state.lodgeCache }; 
               const byGrandLodgeCache = currentCache.byGrandLodge || {};
               const glCacheEntry = byGrandLodgeCache[glId];
               if (glCacheEntry && glCacheEntry.data) {
