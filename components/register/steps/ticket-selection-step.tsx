@@ -85,7 +85,8 @@ export function TicketSelectionStep() {
   const allStoreAttendees = useRegistrationStore((s) => s.attendees);
   const updateAttendeeStore = useRegistrationStore((s) => s.updateAttendee);
 
-  console.log("[TicketSelectionStep] Raw allStoreAttendees on render:", JSON.stringify(allStoreAttendees));
+  // Main log for component input state, matching the desired format
+  console.log("!!!!!!!!!!!! TICKET SELECTION STEP: ALL ATTENDEES INPUT !!!!!!!!!!!!", JSON.stringify(allStoreAttendees, null, 2));
 
   const primaryAttendee = allStoreAttendees.find(a => a.isPrimary) as unknown as MasonAttendee | GuestAttendee | undefined;
   const additionalAttendees = allStoreAttendees.filter(a => !a.isPrimary) as unknown as (MasonAttendee | GuestAttendee | PartnerAttendee)[];
@@ -95,8 +96,7 @@ export function TicketSelectionStep() {
     const attendeeIdentifier = (attendee as any).attendeeId;
     if (!attendeeIdentifier) return [];
 
-    const selection = attendee.ticket; 
-    console.log(`[derivedCurrentTickets] Attendee: ${attendeeIdentifier}, Selection from store:`, selection ? JSON.stringify(selection) : "undefined");
+    const selection = (attendee as any).ticket;
 
     if (selection?.ticketDefinitionId) { 
       const packageInfo = ticketPackages.find(p => p.id === selection.ticketDefinitionId);
@@ -110,11 +110,10 @@ export function TicketSelectionStep() {
           isPackage: true,
           includedTicketTypes: packageInfo.includes,
         };
-        console.log(`[derivedCurrentTickets] Attendee: ${attendeeIdentifier}, Derived Package Ticket:`, JSON.stringify(derivedPackageTicket));
         return [derivedPackageTicket];
       }
     } else if (selection?.selectedEvents && selection.selectedEvents.length > 0) { 
-      const individualTickets = selection.selectedEvents.map(eventId => {
+      const individualTickets = selection.selectedEvents.map((eventId: string) => {
         const ticketTypeInfo = ticketTypes.find(t => t.id === eventId);
         if (ticketTypeInfo) {
           const derivedIndividualTicket = {
@@ -125,21 +124,17 @@ export function TicketSelectionStep() {
             attendeeId: attendeeIdentifier,
             isPackage: false,
           };
-          console.log(`[derivedCurrentTickets] Attendee: ${attendeeIdentifier}, Derived Individual Ticket for event ${eventId}:`, JSON.stringify(derivedIndividualTicket));
           return derivedIndividualTicket;
         }
         return null;
       }).filter(Boolean) as Ticket[];
-      if (individualTickets.length > 0) {
-        console.log(`[derivedCurrentTickets] Attendee: ${attendeeIdentifier}, All Derived Individual Tickets:`, JSON.stringify(individualTickets));
-      }
       return individualTickets;
     }
-    console.log(`[derivedCurrentTickets] Attendee: ${attendeeIdentifier}, No tickets derived.`);
     return [];
   });
 
-  console.log("[TicketSelectionStep] Final derivedCurrentTickets for UI:", JSON.stringify(derivedCurrentTickets));
+  // Main log for the tickets processed for UI rendering
+  console.log("!!!!!!!!!!!! TICKET SELECTION STEP: FINAL DERIVED TICKETS FOR UI !!!!!!!!!!!!", JSON.stringify(derivedCurrentTickets, null, 2));
 
   const currentTickets = derivedCurrentTickets;
 
@@ -153,17 +148,6 @@ export function TicketSelectionStep() {
     description: "",
     variant: "default" as "default" | "destructive" | "success" | "warning"
   })
-
-  console.log(
-    "TicketSelectionStep RENDER - currentTickets (placeholder):", 
-    currentTickets, 
-    "Length:", currentTickets.length
-  );
-  const localTotalAmount = currentTickets.reduce((sum, ticket) => sum + ticket.price, 0);
-  console.log(
-    "TicketSelectionStep RENDER - calculated localTotalAmount (based on placeholder):", 
-    localTotalAmount
-  );
 
   const [expandedAttendee, setExpandedAttendee] = useState<string | null>(null)
 
@@ -214,19 +198,17 @@ export function TicketSelectionStep() {
 
   const isIndividualTicketDirectlySelected = (attendeeIdentifier: string, ticketTypeId: string) => {
     const attendee = allStoreAttendees.find(a => (a as any).attendeeId === attendeeIdentifier);
-    const isSelected = !attendee?.ticket?.ticketDefinitionId && (attendee?.ticket?.selectedEvents || []).includes(ticketTypeId);
-    console.log(`[isIndividualTicketDirectlySelected] Attendee: ${attendeeIdentifier}, TicketTypeID: ${ticketTypeId}, StoreDefId: ${attendee?.ticket?.ticketDefinitionId}, StoreEvents: ${JSON.stringify(attendee?.ticket?.selectedEvents)}, IsSelected: ${isSelected}`);
+    const isSelected = !(attendee as any)?.ticket?.ticketDefinitionId && ((attendee as any)?.ticket?.selectedEvents || []).includes(ticketTypeId);
     return isSelected;
   };
   
   const isTicketCoveredBySelectedPackage = (attendeeIdentifier: string, ticketTypeId: string): boolean => {
     const attendee = allStoreAttendees.find(a => (a as any).attendeeId === attendeeIdentifier);
     let isCovered = false;
-    if (attendee?.ticket?.ticketDefinitionId) {
-      const selectedPackageInfo = ticketPackages.find(p => p.id === attendee.ticket!.ticketDefinitionId);
+    if ((attendee as any)?.ticket?.ticketDefinitionId) {
+      const selectedPackageInfo = ticketPackages.find(p => p.id === (attendee as any).ticket!.ticketDefinitionId);
       isCovered = selectedPackageInfo?.includes.includes(ticketTypeId) || false;
     }
-    console.log(`[isTicketCoveredBySelectedPackage] Attendee: ${attendeeIdentifier}, TicketTypeID: ${ticketTypeId}, StoreDefId: ${attendee?.ticket?.ticketDefinitionId}, IsCovered: ${isCovered}`);
     return isCovered;
   };
 
@@ -237,13 +219,13 @@ export function TicketSelectionStep() {
     const attendee = allStoreAttendees.find(a => (a as any).attendeeId === attendeeIdentifier);
     if (!attendee) return;
 
-    const isCurrentlySelected = attendee.ticket?.ticketDefinitionId === packageId;
+    const isCurrentlySelected = (attendee as any).ticket?.ticketDefinitionId === packageId;
 
     if (isCurrentlySelected) {
       // Deselect package
       updateAttendeeStore(attendeeIdentifier, { 
         ticket: { ticketDefinitionId: null, selectedEvents: [] } 
-      });
+      } as any);
     } else {
       // Select package
       updateAttendeeStore(attendeeIdentifier, { 
@@ -251,7 +233,7 @@ export function TicketSelectionStep() {
           ticketDefinitionId: packageId, 
           selectedEvents: selectedPackageInfo.includes // Store included events for clarity/consistency
         }
-      });
+      } as any);
     }
   };
 
@@ -262,7 +244,7 @@ export function TicketSelectionStep() {
     const attendee = allStoreAttendees.find(a => (a as any).attendeeId === attendeeIdentifier);
     if (!attendee) return;
 
-    const currentSelection = attendee.ticket || { ticketDefinitionId: null, selectedEvents: [] };
+    const currentSelection = (attendee as any).ticket || { ticketDefinitionId: null, selectedEvents: [] };
     
     // If the attendee currently has a package selected, we need to start with an empty selection
     // Otherwise, copy the current individual selections
@@ -291,15 +273,14 @@ export function TicketSelectionStep() {
         ticketDefinitionId: null, 
         selectedEvents: newSelectedEvents 
       }
-    });
+    } as any);
   };
 
   const isPackageSelectedForAttendee = (attendeeIdentifier: string, packageName: string) => {
     const packageInfo = ticketPackages.find(p => p.name === packageName);
     if (!packageInfo) return false;
     const attendee = allStoreAttendees.find(a => (a as any).attendeeId === attendeeIdentifier);
-    const isSelected = attendee?.ticket?.ticketDefinitionId === packageInfo.id;
-    console.log(`[isPackageSelectedForAttendee] Attendee: ${attendeeIdentifier}, PackageName: ${packageName}, PackageID: ${packageInfo.id}, StoreDefId: ${attendee?.ticket?.ticketDefinitionId}, IsSelected: ${isSelected}`);
+    const isSelected = (attendee as any)?.ticket?.ticketDefinitionId === packageInfo.id;
     return isSelected;
   };
 
@@ -324,12 +305,15 @@ export function TicketSelectionStep() {
           <User className="h-5 w-5 text-masonic-navy" />
           <span>
             {person.title} {person.firstName} {person.lastName}
-            {attendee.isPartner && <span className="ml-2 text-sm text-gray-500">({attendee.partnerType === 'lady' ? 'Lady Partner' : 'Guest Partner'})</span>}
+            {/* Only show rank for Mason attendees, not for any partner types */}
           </span>
         </div>
       )
     }
   }
+
+  // Calculate the total order amount
+  const orderTotalAmount = currentTickets.reduce((sum, ticket) => sum + ticket.price, 0);
 
   return (
     <div className="space-y-6">
@@ -342,26 +326,47 @@ export function TicketSelectionStep() {
       <div className="space-y-4">
         {eligibleAttendees.map((attendee: any) => (
           <Card key={attendee.attendeeId} className="border-masonic-navy overflow-hidden">
-            <CardHeader className="bg-masonic-lightblue py-3 px-4">
-              <div className="flex justify-between items-center">
-                <CardTitle className="text-lg">{renderAttendeeHeader(attendee)}</CardTitle>
-                <Badge variant="outline" className="bg-white">
-                  {getAttendeeTickets(attendee.attendeeId).length} tickets - ${getAttendeeTicketTotal(attendee.attendeeId)}
-                </Badge>
-              </div>
+            <CardHeader 
+              className={`bg-masonic-lightblue py-3 px-4 cursor-pointer ${expandedAttendee === attendee.attendeeId ? "" : "hover:bg-masonic-lightblue/90"}`}
+              onClick={() => setExpandedAttendee(expandedAttendee === attendee.attendeeId ? null : attendee.attendeeId)}
+            >
+              <table className="w-full">
+                <tbody>
+                  <tr className="align-middle">
+                    <td className="w-[80%]">
+                      <CardTitle className="text-lg">{renderAttendeeHeader(attendee)}</CardTitle>
+                    </td>
+                    <td className="w-[10%]">
+                      <div className="flex justify-end">
+                        <Badge variant="outline" className="bg-white">
+                          {attendee.attendeeType === "Mason" || attendee.attendeeType?.toLowerCase() === "mason" 
+                            ? "Mason" 
+                            : attendee.isPartner 
+                              ? "Partner" 
+                              : "Guest"}
+                        </Badge>
+                      </div>
+                    </td>
+                    <td className="w-[10%] pr-2">
+                      <div className="flex justify-end">
+                        <div className={expandedAttendee === attendee.attendeeId ? "" : "rotate-180 transform"}>
+                          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M6 15L12 9L18 15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
             </CardHeader>
             <CardContent className="p-0">
-              <Accordion
-                type="single"
-                collapsible
-                value={expandedAttendee === attendee.attendeeId ? attendee.attendeeId : undefined}
-                onValueChange={(value) => setExpandedAttendee(value)}
-              >
-                <AccordionItem value={attendee.attendeeId} className="border-0">
-                  <AccordionTrigger className="px-4 py-3 hover:bg-gray-50">
-                    Select tickets for this attendee
-                  </AccordionTrigger>
-                  <AccordionContent className="px-4 py-3 border-t">
+              {expandedAttendee === attendee.attendeeId ? (
+                /* Show the expanded accordion with ticket selection UI */
+                <div>
+                  
+                  {/* The ticket selection content */}
+                  <div className="px-4 py-3 border-t">
                     <div className="space-y-6">
                       {/* Package options */}
                       <div>
@@ -492,19 +497,20 @@ export function TicketSelectionStep() {
                                     onClick={() => {
                                       if (ticket.isPackage) {
                                         // Remove the whole package
-                                        updateAttendeeStore(ticket.attendeeId, { ticket: { ticketDefinitionId: null, selectedEvents: [] } });
+                                        updateAttendeeStore(ticket.attendeeId, { ticket: { ticketDefinitionId: null, selectedEvents: [] } } as any);
                                       } else {
                                         // Remove an individual ticket - find original ticketTypeId
                                         // The ticket.id for individual tickets is attendeeId-ticketTypeId
                                         const originalTicketTypeId = ticket.id.replace(`${ticket.attendeeId}-`, '');
-                                        const existingAttendeeSelection = allStoreAttendees.find(a => (a as any).attendeeId === ticket.attendeeId)?.ticket;
-                                        const updatedSelectedEvents = existingAttendeeSelection?.selectedEvents.filter(id => id !== originalTicketTypeId) || [];
+                                        const foundAttendee = allStoreAttendees.find(a => (a as any).attendeeId === ticket.attendeeId);
+                                        const existingAttendeeSelection = (foundAttendee as any)?.ticket;
+                                        const updatedSelectedEvents = existingAttendeeSelection?.selectedEvents.filter((id: string) => id !== originalTicketTypeId) || [];
                                         updateAttendeeStore(ticket.attendeeId, { 
                                           ticket: { 
                                             ticketDefinitionId: null, // Ensure package is cleared if removing last individual ticket
                                             selectedEvents: updatedSelectedEvents 
                                           }
-                                        });
+                                        } as any);
                                       }
                                     }}
                                   >
@@ -521,9 +527,40 @@ export function TicketSelectionStep() {
                         )}
                       </div>
                     </div>
-                  </AccordionContent>
-                </AccordionItem>
-              </Accordion>
+                  </div>
+                </div>
+              ) : (
+                /* Show the collapsed view with summary */
+                <div 
+                  className="cursor-pointer"
+                  onClick={() => setExpandedAttendee(attendee.attendeeId)}
+                >                  
+                  {/* Show ticket summary for collapsed view */}
+                  <div className="px-4 py-3 border-t">
+                    {getAttendeeTickets(attendee.attendeeId).length === 0 ? (
+                      <p className="text-gray-500 italic text-left py-2 text-sm">Click to expand and add tickets</p>
+                    ) : (
+                      <table className="w-full text-xs text-muted-foreground">
+                        <tbody>
+                          {getAttendeeTickets(attendee.attendeeId).map((ticket) => (
+                            <tr key={ticket.id} className="align-middle">
+                              <td className="font-medium py-1 align-middle w-[80%]" colSpan={2}>
+                                <div>{ticket.name} - {ticket.description}</div>
+                              </td>
+                              <td className="text-right py-1 align-middle w-[10%]">${ticket.price}</td>
+                            </tr>
+                          ))}
+                          <tr className="border-t align-middle">
+                            <td className="py-1 w-[80%]"></td>
+                            <td className="font-bold py-1 align-middle text-right w-[10%]">TOTAL</td>
+                            <td className="text-right font-bold py-1 align-middle w-[10%]">${getAttendeeTicketTotal(attendee.attendeeId)}</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    )}
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         ))}
@@ -540,7 +577,7 @@ export function TicketSelectionStep() {
                 attendee{eligibleAttendees.length !== 1 ? "s" : ""}
               </p>
             </div>
-            <div className="text-2xl font-bold text-masonic-navy">${localTotalAmount}</div>
+            <div className="text-2xl font-bold text-masonic-navy">${orderTotalAmount}</div>
           </div>
         </CardContent>
       </Card>
