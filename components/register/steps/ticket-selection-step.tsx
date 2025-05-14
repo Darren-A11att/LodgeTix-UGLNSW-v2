@@ -544,15 +544,22 @@ export function TicketSelectionStep() {
                         <tbody>
                           {getAttendeeTickets(attendee.attendeeId).map((ticket) => (
                             <tr key={ticket.id} className="align-middle">
-                              <td className="font-medium py-1 align-middle w-[80%]" colSpan={2}>
-                                <div>{ticket.name} - {ticket.description}</div>
+                              <td className="font-medium py-1 align-middle w-[22.5%]">
+                                {ticket.name}
+                              </td>
+                              <td className="py-1 align-left w-[67.5%] text-left font-normal">
+                                {ticket.description}
                               </td>
                               <td className="text-right py-1 align-middle w-[10%]">${ticket.price}</td>
                             </tr>
                           ))}
-                          <tr className="border-t align-middle">
-                            <td className="py-1 w-[80%]"></td>
-                            <td className="font-bold py-1 align-middle text-center w-[8%]">TOTAL</td>
+                          <tr className="border-t align-left">
+                            <td className="py-1 w-[22.5%]"></td>
+                            <td className="py-1 w-[67.5%]">
+                              <div className="flex justify-end pr-2">
+                                <span className="font-bold">TOTAL</span>
+                              </div>
+                            </td>
                             <td className="text-right font-bold py-1 align-middle w-[10%]">${getAttendeeTicketTotal(attendee.attendeeId)}</td>
                           </tr>
                         </tbody>
