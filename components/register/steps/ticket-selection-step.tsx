@@ -552,7 +552,7 @@ export function TicketSelectionStep() {
                           ))}
                           <tr className="border-t align-middle">
                             <td className="py-1 w-[80%]"></td>
-                            <td className="font-bold py-1 align-middle text-right w-[10%]">TOTAL</td>
+                            <td className="font-bold py-1 align-middle text-center w-[8%]">TOTAL</td>
                             <td className="text-right font-bold py-1 align-middle w-[10%]">${getAttendeeTicketTotal(attendee.attendeeId)}</td>
                           </tr>
                         </tbody>
