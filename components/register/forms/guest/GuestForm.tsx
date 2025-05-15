@@ -77,15 +77,20 @@ const GuestForm: React.FC<GuestFormProps> = ({
   const mappedGuestForChildren: GuestAttendee | null = useMemo(() => {
     if (!currentAttendee) return null;
 
-    let mappedContactPref: OldContactPreference = 'Directly'; // Default if undefined
-    if (currentAttendee.contactPreference === 'PrimaryAttendee') {
+    let mappedContactPref: OldContactPreference = ""; // Initialize to empty string for "Please Select"
+    const storePref = currentAttendee.contactPreference;
+
+    if (storePref === 'PrimaryAttendee') {
       mappedContactPref = 'Primary Attendee';
-    } else if (currentAttendee.contactPreference === 'ProvideLater') {
+    } else if (storePref === 'ProvideLater') {
       mappedContactPref = 'Provide Later';
-    } else if (currentAttendee.contactPreference === 'Directly') {
+    } else if (storePref === 'Directly') {
       mappedContactPref = 'Directly';
+    } else if (storePref === 'Mason/Guest') { // Added to handle all valid OldContactPreference types
+      mappedContactPref = 'Mason/Guest';
+    } else { // Handles '', undefined, null from store, or any other unexpected value
+      mappedContactPref = ''; // Default to empty string for "Please Select"
     }
-    // UnifiedAttendeeData does not have a "Mason/Guest" equivalent for contactPreference
 
     return {
       id: currentAttendee.attendeeId,
@@ -108,8 +113,30 @@ const GuestForm: React.FC<GuestFormProps> = ({
   const mappedPartnerForGuestPartnerForm: OldGuestPartnerDataForForm | null = useMemo(() => {
     if (!partner) return null;
     
-    // Use the store contact preference directly, provide a default if undefined
-    const partnerContactPrefForForm = partner.contactPreference || 'PrimaryAttendee'; 
+    // Use the store contact preference. If it's undefined, null, or not a valid store value that maps cleanly,
+    // default to empty string for "Please Select".
+    // The partner.contactPreference here is UnifiedAttendeeData['contactPreference']
+    // which can be '', 'Directly', 'PrimaryAttendee', 'ProvideLater', 'MasonLodge', 'GuestLodge' or undefined.
+    // OldGuestPartnerDataForForm expects OldContactPreference (which now includes '').
+
+    const storePartnerPref = partner.contactPreference;
+    let formPartnerPref: OldContactPreference = ''; // Default to "Please Select"
+
+    if (storePartnerPref === 'Directly' || 
+        storePartnerPref === 'PrimaryAttendee' || 
+        storePartnerPref === 'ProvideLater' || 
+        storePartnerPref === 'Mason/Guest' || 
+        storePartnerPref === '') {
+        // These values are directly assignable to OldContactPreference (now including '')
+        formPartnerPref = storePartnerPref as OldContactPreference;
+    } else if (storePartnerPref === 'MasonLodge' || storePartnerPref === 'GuestLodge'){
+        // These are store-specific values not in OldContactPreference.
+        // Decide how to map them. For now, default to "Please Select" as they don't have a direct match.
+        formPartnerPref = '';
+    } else {
+        // Handles undefined, null, or any other unexpected value from the store
+        formPartnerPref = '';
+    }
 
     return {
       id: partner.attendeeId,
@@ -117,7 +144,7 @@ const GuestForm: React.FC<GuestFormProps> = ({
       firstName: partner.firstName || '',
       lastName: partner.lastName || '',
       relationship: partner.relationship || '',
-      contactPreference: partnerContactPrefForForm, // Pass store value
+      contactPreference: formPartnerPref, 
       mobile: partner.primaryPhone,
       email: partner.primaryEmail,
       dietaryRequirements: partner.dietaryRequirements,
@@ -161,10 +188,10 @@ const GuestForm: React.FC<GuestFormProps> = ({
             // Removed console warning for performance
         }
     },
-    200 // 200ms debounce delay
+    50 // 50ms debounce delay for better UI responsiveness
   );
 
-  // Handler for GuestPartnerForm updates
+  // Handler for GuestPartnerForm updates - with reduced debounce to improve responsiveness
   const handlePartnerFieldChange = useDebouncedCallback(
     (partnerId: string, field: string, value: any) => { // Accept field as string
       let unifiedField: keyof UnifiedAttendeeData | null = null;
@@ -176,6 +203,8 @@ const GuestForm: React.FC<GuestFormProps> = ({
         case 'contactPreference': unifiedField = 'contactPreference'; break;
         case 'mobile': unifiedField = 'primaryPhone'; break;
         case 'email': unifiedField = 'primaryEmail'; break;
+        case 'primaryPhone': unifiedField = 'primaryPhone'; break;
+        case 'primaryEmail': unifiedField = 'primaryEmail'; break;
         case 'dietaryRequirements': unifiedField = 'dietaryRequirements'; break;
         case 'specialNeeds': unifiedField = 'specialNeeds'; break;
         default: /* Removed console warning for performance */ return;
@@ -187,10 +216,11 @@ const GuestForm: React.FC<GuestFormProps> = ({
           // Assuming GuestPartnerForm sends back the store format directly now
           // If it sends display format, mapping would be needed here.
         }
+        // Immediately update the store
         updateAttendeeInStore(partnerId, { [unifiedField]: valueForStore });
       }
     },
-    200 // 200ms debounce delay
+    50 // 50ms debounce delay for better responsiveness
   );
 
   const handlePhoneChange = useDebouncedCallback(
@@ -200,7 +230,7 @@ const GuestForm: React.FC<GuestFormProps> = ({
         handleGuestFieldChange(mappedGuestForChildren.id, 'mobile', value);
       }
     },
-    200 // 200ms debounce delay
+    50 // 50ms debounce delay for better UI responsiveness
   );
 
   const handleRemoveSelf = useCallback(() => {

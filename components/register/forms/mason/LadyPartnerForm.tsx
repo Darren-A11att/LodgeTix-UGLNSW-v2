@@ -77,9 +77,12 @@ const LadyPartnerForm: React.FC<LadyPartnerFormProps> = ({
   // Create a ref to store the latest props
   const partnerRef = useRef(partner);
   
-  // Update the ref when props change
+  // Update the ref and state when props change
   useEffect(() => {
     partnerRef.current = partner;
+    // Update local state when props change
+    setContactPreference(partner.contactPreference || '');
+    setMobile(partner.mobile || '');
   }, [partner]);
   
   // Local state for conditional rendering and UI display
@@ -107,7 +110,8 @@ const LadyPartnerForm: React.FC<LadyPartnerFormProps> = ({
   // Handle phone input change (special case for PhoneInput component)
   const handlePhoneChange = (value: string) => {
     setMobile(value);
-    // We'll update the store on blur
+    // Update the store immediately
+    updateField(id, "mobile", value);
   };
 
   const showContactFields = contactPreference === "Directly" || typeof contactPreference === 'undefined';
@@ -224,16 +228,10 @@ const LadyPartnerForm: React.FC<LadyPartnerFormProps> = ({
             id={`relationship-${id}`}
             name={`relationship-${id}`}
             ref={relationshipRef}
-            defaultValue={partner.relationship || ''}
-            onBlur={() => {
+            value={partner.relationship || ''}
+            onChange={(e) => {
               setRelationshipInteracted(true);
-              const newValue = relationshipRef.current?.value || '';
-              const currentValue = partnerRef.current.relationship || '';
-              
-              // Only update if value has changed
-              if (newValue !== currentValue) {
-                updateField(id, "relationship", newValue);
-              }
+              updateField(id, "relationship", e.target.value);
             }}
             required
             className={`w-full px-4 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 
@@ -260,16 +258,10 @@ const LadyPartnerForm: React.FC<LadyPartnerFormProps> = ({
             id={`ladyTitle-${id}`}
             name={`ladyTitle-${id}`}
             ref={titleRef}
-            defaultValue={partner.title || ''}
-            onBlur={() => {
+            value={partner.title || ''}
+            onChange={(e) => {
               setTitleInteracted(true);
-              const newValue = titleRef.current?.value || '';
-              const currentValue = partnerRef.current.title || '';
-              
-              // Only update if value has changed
-              if (newValue !== currentValue) {
-                updateField(id, "title", newValue);
-              }
+              updateField(id, "title", e.target.value);
             }}
             required
             className={`w-full px-4 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 
@@ -297,16 +289,10 @@ const LadyPartnerForm: React.FC<LadyPartnerFormProps> = ({
             id={`ladyFirstName-${id}`}
             name={`ladyFirstName-${id}`}
             ref={firstNameRef}
-            defaultValue={partner.firstName || ''}
-            onBlur={() => {
+            value={partner.firstName || ''}
+            onChange={(e) => {
               setFirstNameInteracted(true);
-              const newValue = firstNameRef.current?.value || '';
-              const currentValue = partnerRef.current.firstName || '';
-              
-              // Only update if value has changed
-              if (newValue !== currentValue) {
-                updateField(id, "firstName", newValue);
-              }
+              updateField(id, "firstName", e.target.value);
             }}
             required
             className={`w-full px-4 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 
@@ -328,16 +314,10 @@ const LadyPartnerForm: React.FC<LadyPartnerFormProps> = ({
             id={`ladyLastName-${id}`}
             name={`ladyLastName-${id}`}
             ref={lastNameRef}
-            defaultValue={partner.lastName || ''}
-            onBlur={() => {
+            value={partner.lastName || ''}
+            onChange={(e) => {
               setLastNameInteracted(true);
-              const newValue = lastNameRef.current?.value || '';
-              const currentValue = partnerRef.current.lastName || '';
-              
-              // Only update if value has changed
-              if (newValue !== currentValue) {
-                updateField(id, "lastName", newValue);
-              }
+              updateField(id, "lastName", e.target.value);
             }}
             required
             className={`w-full px-4 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 
@@ -367,7 +347,7 @@ const LadyPartnerForm: React.FC<LadyPartnerFormProps> = ({
               id={`ladyContactPreference-${id}`}
               name={`ladyContactPreference-${id}`}
               ref={contactPreferenceRef}
-              defaultValue={getSelectValue()}
+              value={getSelectValue()}
               onChange={(e) => {
                 setContactPreferenceInteracted(true);
                 const selectedValue = e.target.value;
@@ -394,13 +374,7 @@ const LadyPartnerForm: React.FC<LadyPartnerFormProps> = ({
                 setSelectedDelegateLabel(delegateLabelUpdate);
                 
                 // Immediately update the store
-                if (storeValue !== partnerRef.current.contactPreference) {
-                  updateField(id, "contactPreference", storeValue ?? 'Directly');
-                }
-              }}
-              onBlur={() => {
-                // Just mark as interacted for validation styling
-                setContactPreferenceInteracted(true);
+                updateField(id, "contactPreference", storeValue ?? 'Directly');
               }}
               required
               className={`w-full px-4 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 
@@ -425,17 +399,15 @@ const LadyPartnerForm: React.FC<LadyPartnerFormProps> = ({
                   className="block text-sm font-medium text-slate-700 mb-1"
                   htmlFor={`ladyMobile-${id}`}
                 >
-                  Mobile
+                  Mobile *
                 </label>
                 <PhoneInput
                   name={`ladyMobile-${id}`}
                   value={mobile}
                   onChange={handlePhoneChange}
+                  // Phone input is handled via onChange, onBlur just marks as interacted
                   onBlur={() => {
                     setPhoneInteracted(true);
-                    if (mobile !== partnerRef.current.mobile) {
-                      updateField(id, "mobile", mobile);
-                    }
                   }}
                   required={showContactFields}
                 />
@@ -453,16 +425,10 @@ const LadyPartnerForm: React.FC<LadyPartnerFormProps> = ({
                   id={`ladyEmail-${id}`}
                   name={`email-${id}`}
                   ref={emailRef}
-                  defaultValue={partner.email || ''}
-                  onBlur={() => {
+                  value={partner.email || ''}
+                  onChange={(e) => {
                     setEmailInteracted(true);
-                    const newValue = emailRef.current?.value || '';
-                    const currentValue = partnerRef.current.email || '';
-                    
-                    // Only update if value has changed
-                    if (newValue !== currentValue) {
-                      updateField(id, "email", newValue);
-                    }
+                    updateField(id, "email", e.target.value);
                   }}
                   required={showContactFields}
                   className={`w-full px-4 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 
@@ -497,16 +463,10 @@ const LadyPartnerForm: React.FC<LadyPartnerFormProps> = ({
           id={`ladyDietary-${id}`}
           name={`dietaryRequirements-${id}`}
           ref={dietaryRequirementsRef}
-          defaultValue={partner.dietaryRequirements || ''}
-          onBlur={() => {
+          value={partner.dietaryRequirements || ''}
+          onChange={(e) => {
             setDietaryInteracted(true);
-            const newValue = dietaryRequirementsRef.current?.value || '';
-            const currentValue = partnerRef.current.dietaryRequirements || '';
-            
-            // Only update if value has changed
-            if (newValue !== currentValue) {
-              updateField(id, "dietaryRequirements", newValue);
-            }
+            updateField(id, "dietaryRequirements", e.target.value);
           }}
           placeholder="E.g., vegetarian, gluten-free, allergies"
           className={`w-full px-4 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 ${dietaryInteracted ? 'interacted' : ''}`}
@@ -524,16 +484,10 @@ const LadyPartnerForm: React.FC<LadyPartnerFormProps> = ({
           id={`ladySpecialNeeds-${id}`}
           name={`specialNeeds-${id}`}
           ref={specialNeedsRef}
-          defaultValue={partner.specialNeeds || ''}
-          onBlur={() => {
+          value={partner.specialNeeds || ''}
+          onChange={(e) => {
             setSpecialNeedsInteracted(true);
-            const newValue = specialNeedsRef.current?.value || '';
-            const currentValue = partnerRef.current.specialNeeds || '';
-            
-            // Only update if value has changed
-            if (newValue !== currentValue) {
-              updateField(id, "specialNeeds", newValue);
-            }
+            updateField(id, "specialNeeds", e.target.value);
           }}
           rows={2}
           className={`w-full px-4 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 ${specialNeedsInteracted ? 'interacted' : ''}`}

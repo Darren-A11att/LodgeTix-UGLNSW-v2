@@ -3,6 +3,7 @@ import { GuestAttendee, ContactPreference, MasonAttendee } from '@/lib/registrat
 import { HelpCircle } from 'lucide-react';
 import { PhoneInput } from '@/components/ui/phone-input';
 import type { UnifiedAttendeeData } from '@/lib/registrationStore';
+import ContactConfirmationMessage from '../../ui/ContactConfirmationMessage';
 
 interface GuestContactInfoProps {
   guest: GuestAttendee | null;
@@ -135,8 +136,8 @@ const GuestContactInfo: React.FC<GuestContactInfoProps> = ({
         </div>
         
         {showConfirmation && (
-          <div className="col-span-8 flex items-center text-sm text-slate-700 bg-blue-50 p-3 rounded-md border border-blue-200">
-            {getConfirmationMessage()} *
+          <div className="col-span-8 flex items-center">
+            <ContactConfirmationMessage messageText={getConfirmationMessage()} />
           </div>
         )}
         

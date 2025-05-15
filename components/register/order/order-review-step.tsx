@@ -2,24 +2,17 @@
 
 import { useState, useMemo, useEffect } from "react"
 import { useRegistrationStore, UnifiedAttendeeData, PackageSelectionType } from '../../../lib/registrationStore'
+import { useLocationStore } from '../../../lib/locationStore'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
 import { Badge } from "@/components/ui/badge"
-import { Check, ChevronRight, CreditCard, Info, Ticket, User, Users, Edit3, Trash2, AlertTriangle } from "lucide-react"
-import type { Attendee, MasonAttendee, GuestAttendee, PartnerAttendee } from "@/lib/registration-types"
+import { Check, ChevronRight, CreditCard, Info, Ticket, User, Users, Edit3, Trash2, AlertTriangle, HelpCircle } from "lucide-react"
+import type { Attendee, MasonAttendee, GuestAttendee, PartnerAttendee, PARTNER_RELATIONSHIP_OPTIONS } from "@/lib/registration-types"
+import { PhoneInput } from '@/components/ui/phone-input'
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { SectionHeader } from "../registration/SectionHeader"
-import { 
-  Dialog, 
-  DialogContent, 
-  DialogHeader, 
-  DialogTitle, 
-  DialogDescription, 
-  DialogFooter,
-  DialogTrigger 
-} from "@/components/ui/dialog"
 import { 
   AlertDialog, 
   AlertDialogAction, 
@@ -30,8 +23,7 @@ import {
   AlertDialogHeader, 
   AlertDialogTitle 
 } from "@/components/ui/alert-dialog"
-import { default as MasonForm } from "../forms/mason/MasonForm"
-import { default as GuestForm } from "../forms/guest/GuestForm"
+import AttendeeEditModal from "../attendee/AttendeeEditModal"
 
 // Sample ticket types and packages - these should ideally be imported from a shared location
 // For now, defining minimal versions here for type safety in ticket derivation logic
@@ -47,7 +39,7 @@ const ticketPackagesMinimal = [
   { id: "social", name: "Social Package", price: 180, includes: ["banquet", "brunch", "tour"] },
 ];
 
-export function OrderReviewStep() {
+function OrderReviewStep() {
   const registrationType = useRegistrationStore((s) => s.registrationType);
   const allStoreAttendees = useRegistrationStore((s) => s.attendees);
   
@@ -65,10 +57,57 @@ export function OrderReviewStep() {
   const goToPrevStep = useRegistrationStore((s) => s.goToPrevStep);
   const updateAttendeeStore = useRegistrationStore((s) => s.updateAttendee);
 
-  const attendeesForDisplay: UnifiedAttendeeData[] = useMemo(() => [
-    ...(primaryAttendee ? [primaryAttendee] : []),
-    ...otherAttendees,
-  ], [primaryAttendee, otherAttendees]);
+  // Create an ordering helper outside of any hooks to avoid conditional hook execution
+  const getOrderedAttendees = (primary: UnifiedAttendeeData | undefined, others: UnifiedAttendeeData[], allAttendees: UnifiedAttendeeData[]): UnifiedAttendeeData[] => {
+    const orderedAttendees: UnifiedAttendeeData[] = [];
+    
+    // Add primary attendee first if it exists
+    if (primary) {
+      orderedAttendees.push(primary);
+      
+      // If primary attendee has a partner, add it immediately after
+      if (primary.partner) {
+        const primaryPartner = others.find(att => att.attendeeId === primary.partner);
+        if (primaryPartner) {
+          orderedAttendees.push(primaryPartner);
+        }
+      }
+    }
+    
+    // For remaining attendees, add each one followed by their partner if they have one
+    const remainingAttendees = others.filter(att => {
+      // Skip attendees that are partners of others (they'll be added with their related attendee)
+      if (att.isPartner && (att.attendeeId === primary?.partner || 
+          others.some(otherAtt => otherAtt.partner === att.attendeeId))) {
+        return false;
+      }
+      // Skip primary's partner as it's already added
+      if (primary && primary.partner === att.attendeeId) {
+        return false;
+      }
+      return true;
+    });
+    
+    // Add each remaining attendee followed by their partner
+    for (const attendee of remainingAttendees) {
+      orderedAttendees.push(attendee);
+      
+      // If this attendee has a partner, add it immediately after
+      if (attendee.partner) {
+        const partner = allAttendees.find(att => att.attendeeId === attendee.partner);
+        if (partner) {
+          orderedAttendees.push(partner);
+        }
+      }
+    }
+    
+    return orderedAttendees;
+  };
+  
+  // Now use the helper function inside useMemo to maintain proper hook ordering
+  const attendeesForDisplay: UnifiedAttendeeData[] = useMemo(() => 
+    getOrderedAttendees(primaryAttendee, otherAttendees, allStoreAttendees)
+  , [primaryAttendee, otherAttendees, allStoreAttendees]);
 
   const [currentTickets, setCurrentTickets] = useState<Array<any & { attendeeId: string; price: number; name: string; description?: string; isPackage?: boolean }>>([]);
 
@@ -116,6 +155,7 @@ export function OrderReviewStep() {
   const [editingAttendee, setEditingAttendee] = useState<{ attendeeData: UnifiedAttendeeData; index: number } | null>(null);
   const [isRemoveConfirmOpen, setIsRemoveConfirmOpen] = useState(false);
   const [removingAttendeeId, setRemovingAttendeeId] = useState<string | null>(null);
+  
 
   const getAttendeeTickets = (attendeeId: string) => {
     return currentTickets.filter((ticket) => ticket.attendeeId === attendeeId)
@@ -145,14 +185,6 @@ export function OrderReviewStep() {
   const openEditModal = (attendeeData: UnifiedAttendeeData, index: number) => {
     setEditingAttendee({ attendeeData, index });
     setIsEditModalOpen(true);
-  }
-
-  const handleUpdateAttendee = (updatedData: Partial<UnifiedAttendeeData>) => {
-    if (editingAttendee?.attendeeData.attendeeId) {
-      updateAttendeeStore(editingAttendee.attendeeData.attendeeId, updatedData);
-    }
-    setIsEditModalOpen(false);
-    setEditingAttendee(null);
   };
 
   const openRemoveConfirm = (attendeeId: string) => {
@@ -333,40 +365,18 @@ export function OrderReviewStep() {
         </CardFooter>
       </Card>
 
+      
+      {/* Using the new AttendeeEditModal component */}
       {isEditModalOpen && editingAttendee && (
-          <Dialog open={isEditModalOpen} onOpenChange={(isOpen) => { if (!isOpen) { setIsEditModalOpen(false); setEditingAttendee(null); } else { setIsEditModalOpen(true); } }}>
-              <DialogContent className="sm:max-w-lg md:max-w-xl lg:max-w-2xl max-h-[90vh] overflow-y-auto p-0">
-                  <DialogHeader className="p-6 pb-0">
-                      <DialogTitle>Edit Attendee: {editingAttendee.attendeeData.firstName} {editingAttendee.attendeeData.lastName}</DialogTitle>
-                      <DialogDescription>
-                          Make changes to the attendee details below. Ensure all mandatory fields are completed.
-                      </DialogDescription>
-                  </DialogHeader>
-                  <div className="p-6">
-                      {editingAttendee.attendeeData.attendeeType === "mason" && (
-                          <MasonForm 
-                              attendeeId={editingAttendee.attendeeData.attendeeId}
-                              isPrimary={editingAttendee.attendeeData.isPrimary || false}
-                              attendeeNumber={editingAttendee.index}
-                              key={editingAttendee.attendeeData.attendeeId}
-                          />
-                      )}
-                      {editingAttendee.attendeeData.attendeeType === "guest" && (
-                          <GuestForm 
-                              attendeeId={editingAttendee.attendeeData.attendeeId}
-                              attendeeNumber={editingAttendee.index}
-                              key={editingAttendee.attendeeData.attendeeId}
-                          />
-                      )}
-                      {(editingAttendee.attendeeData.isPartner) && (
-                        <div className="mt-4">
-                            <p className="text-sm font-medium text-slate-600">Relationship</p>
-                            {/* ... rest of logic for partner relationship display/edit ... */}
-                        </div>
-                      )}
-                  </div>
-              </DialogContent>
-          </Dialog>
+        <AttendeeEditModal
+          isOpen={isEditModalOpen}
+          onClose={() => {
+            setIsEditModalOpen(false);
+            setEditingAttendee(null);
+          }}
+          attendeeData={editingAttendee.attendeeData}
+          attendeeNumber={editingAttendee.index + 1}
+        />
       )}
 
       <AlertDialog open={isRemoveConfirmOpen} onOpenChange={setIsRemoveConfirmOpen}>
@@ -389,3 +399,5 @@ export function OrderReviewStep() {
     </div>
   )
 }
+
+export default OrderReviewStep;

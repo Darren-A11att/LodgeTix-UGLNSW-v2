@@ -2,8 +2,9 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { HelpCircle, X } from 'lucide-react';
 import { PhoneInput } from '@/components/ui/phone-input';
 // Using UnifiedAttendeeData to get the correct ContactPreference type from the store definitions
-import type { UnifiedAttendeeData } from '../../../../lib/registrationStore';
+import type { UnifiedAttendeeData } from '@/shared/types/supabase';
 import { PARTNER_RELATIONSHIP_OPTIONS } from '@/lib/registration-types';
+import ContactConfirmationMessage from '../../ui/ContactConfirmationMessage';
 
 // Extract ContactPreference type, allowing undefined for local form state
 type FormContactPreference = UnifiedAttendeeData['contactPreference'] | undefined;
@@ -67,9 +68,12 @@ const GuestPartnerForm: React.FC<GuestPartnerFormProps> = ({
   // Create a ref to store the latest props
   const partnerRef = useRef(partnerData);
   
-  // Update the ref when props change
+  // Update the ref and state when props change
   useEffect(() => {
     partnerRef.current = partnerData;
+    // Update local state when props change
+    setContactPreference(partnerData.contactPreference);
+    setMobile(partnerData.mobile || '');
   }, [partnerData]);
   
   // Local state for conditional rendering and UI display
@@ -94,10 +98,12 @@ const GuestPartnerForm: React.FC<GuestPartnerFormProps> = ({
   // Handle phone input change (special case for PhoneInput component)
   const handlePhoneChange = (value: string) => {
     setMobile(value);
-    // We'll update the store on blur
+    // Update the store immediately
+    updateField(partnerData.id, "primaryPhone", value);
   };
 
-  const showContactFields = contactPreference === "Directly" || typeof contactPreference === 'undefined';
+  // const showContactFields = contactPreference === "Directly" || typeof contactPreference === 'undefined';
+  const showContactFields = contactPreference === "Directly";
 
   const getConfirmationMessage = () => {
     const pref = contactPreference;
@@ -191,16 +197,10 @@ const GuestPartnerForm: React.FC<GuestPartnerFormProps> = ({
              id={`partnerRelationship-${partnerData.id}`}
             name="relationship"
             ref={relationshipRef}
-            defaultValue={partnerData.relationship || ''}
-            onBlur={() => {
+            value={partnerData.relationship || ''}
+            onChange={(e) => {
               setRelationshipInteracted(true);
-              const newValue = relationshipRef.current?.value || '';
-              const currentValue = partnerRef.current.relationship || '';
-              
-              // Only update if value has changed
-              if (newValue !== currentValue) {
-                updateField(partnerData.id, 'relationship', newValue);
-              }
+              updateField(partnerData.id, 'relationship', e.target.value);
             }}
             required
             className={`w-full px-4 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 
@@ -224,16 +224,10 @@ const GuestPartnerForm: React.FC<GuestPartnerFormProps> = ({
              id={`partnerTitle-${partnerData.id}`}
             name="title"
             ref={titleRef}
-            defaultValue={partnerData.title || ''}
-            onBlur={() => {
+            value={partnerData.title || ''}
+            onChange={(e) => {
               setTitleInteracted(true);
-              const newValue = titleRef.current?.value || '';
-              const currentValue = partnerRef.current.title || '';
-              
-              // Only update if value has changed
-              if (newValue !== currentValue) {
-                updateField(partnerData.id, 'title', newValue);
-              }
+              updateField(partnerData.id, 'title', e.target.value);
             }}
             required
             className={`w-full px-4 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 
@@ -258,16 +252,10 @@ const GuestPartnerForm: React.FC<GuestPartnerFormProps> = ({
              id={`partnerFirstName-${partnerData.id}`}
             name="firstName"
             ref={firstNameRef}
-            defaultValue={partnerData.firstName || ''}
-            onBlur={() => {
+            value={partnerData.firstName || ''}
+            onChange={(e) => {
               setFirstNameInteracted(true);
-              const newValue = firstNameRef.current?.value || '';
-              const currentValue = partnerRef.current.firstName || '';
-              
-              // Only update if value has changed
-              if (newValue !== currentValue) {
-                updateField(partnerData.id, 'firstName', newValue);
-              }
+              updateField(partnerData.id, 'firstName', e.target.value);
             }}
             required
             className={`w-full px-4 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 
@@ -286,16 +274,10 @@ const GuestPartnerForm: React.FC<GuestPartnerFormProps> = ({
              id={`partnerLastName-${partnerData.id}`}
             name="lastName"
             ref={lastNameRef}
-            defaultValue={partnerData.lastName || ''}
-            onBlur={() => {
+            value={partnerData.lastName || ''}
+            onChange={(e) => {
               setLastNameInteracted(true);
-              const newValue = lastNameRef.current?.value || '';
-              const currentValue = partnerRef.current.lastName || '';
-              
-              // Only update if value has changed
-              if (newValue !== currentValue) {
-                updateField(partnerData.id, 'lastName', newValue);
-              }
+              updateField(partnerData.id, 'lastName', e.target.value);
             }}
             required
             className={`w-full px-4 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 
@@ -309,58 +291,60 @@ const GuestPartnerForm: React.FC<GuestPartnerFormProps> = ({
       {/* Contact Preference Section */}
       <div className="mb-3">
         <div className="grid grid-cols-12 gap-4">
-          <div className="col-span-4">
-            <label className="block text-sm font-medium text-slate-700 mb-1" htmlFor={`g-partner-contactPreference-${partnerData.id}`}>
-              Contact *
-               {/* HelpCircle if needed */}
-            </label>
-            <select
-              id={`g-partner-contactPreference-${partnerData.id}`}
-              name={`g-partner-contactPreference-${partnerData.id}`}
-              ref={contactPreferenceRef}
-              defaultValue={getSelectValue()} // Use the existing function to determine initial value
-              onChange={(e) => { // Handle changes for UI updates
-                  setContactPreferenceInteracted(true);
-                  const selectedValue = e.target.value;
-                  const selectedIndex = e.target.selectedIndex;
-                  const selectedLabel = selectedIndex >= 0 ? e.target.options[selectedIndex].text : null;
+          <div className={`flex items-center gap-x-2 ${showContactFields ? 'col-span-4' : 'col-span-12'}`}>
+            <div className={`${showContactFields ? 'w-full' : 'w-auto min-w-[200px] flex-shrink-0'}`}>
+              <label className="block text-sm font-medium text-slate-700 mb-1" htmlFor={`g-partner-contactPreference-${partnerData.id}`}>
+                Contact *
+                {/* HelpCircle if needed */}
+              </label>
+              <select
+                id={`g-partner-contactPreference-${partnerData.id}`}
+                name={`g-partner-contactPreference-${partnerData.id}`}
+                ref={contactPreferenceRef}
+                value={getSelectValue()} // Use the existing function to determine initial value
+                onChange={(e) => { // Handle changes for UI updates
+                    setContactPreferenceInteracted(true);
+                    const selectedValue = e.target.value;
+                    const selectedIndex = e.target.selectedIndex;
+                    const selectedLabel = selectedIndex >= 0 ? e.target.options[selectedIndex].text : null;
 
-                  let storeValue: UnifiedAttendeeData['contactPreference'] = undefined;
-                  
-                  // Map dropdown selection to store value for local state
-                  if (selectedValue === "delegate-primary" || selectedValue === "delegate-related") {
-                      storeValue = "PrimaryAttendee";
-                  }
-                  else if (selectedValue === "Directly") {
-                      storeValue = "Directly";
-                  }
-                  else if (selectedValue === "ProvideLater") {
-                      storeValue = "ProvideLater";
-                  }
-                  
-                  // Update local state for UI rendering
-                  setContactPreference(storeValue);
-                  setSelectedDelegateLabel(selectedValue.startsWith("delegate") ? selectedLabel : null);
-                  
-                  // Immediately update the store (don't wait for onBlur)
-                  if (storeValue !== partnerRef.current.contactPreference) {
+                    let storeValue: UnifiedAttendeeData['contactPreference'] = undefined;
+                    
+                    // Map dropdown selection to store value for local state
+                    if (selectedValue === "delegate-primary" || selectedValue === "delegate-related") {
+                        storeValue = "PrimaryAttendee";
+                    }
+                    else if (selectedValue === "Directly") {
+                        storeValue = "Directly";
+                    }
+                    else if (selectedValue === "ProvideLater") {
+                        storeValue = "ProvideLater";
+                    }
+                    
+                    // Update local state for UI rendering
+                    setContactPreference(storeValue);
+                    setSelectedDelegateLabel(selectedValue.startsWith("delegate") ? selectedLabel : null);
+                    
+                    // Immediately update the store (don't wait for onBlur)
                     updateField(partnerData.id, "contactPreference", storeValue ?? 'Directly');
-                  }
-              }}
-              onBlur={() => {
-                // Just mark as interacted for validation styling
-                setContactPreferenceInteracted(true);
-              }}
-              required
-              className={`w-full px-4 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 
-                        ${contactPreferenceInteracted ? 'interacted' : ''} 
-                        [&.interacted:invalid]:border-red-500 focus:[&.interacted:invalid]:border-red-500 focus:[&.interacted:invalid]:ring-red-500`}
-            >
-              {getDynamicGuestPartnerContactOptions().map(option => { 
-                const key = `${option.value}-${option.label}`; // Key remains unique
-                return <option key={key} value={option.value} disabled={option.disabled}>{option.label}</option>
-              })}
-            </select>
+                }}
+                required
+                className={`w-full px-4 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50 
+                          ${contactPreferenceInteracted ? 'interacted' : ''} 
+                          [&.interacted:invalid]:border-red-500 focus:[&.interacted:invalid]:border-red-500 focus:[&.interacted:invalid]:ring-red-500`}
+              >
+                {getDynamicGuestPartnerContactOptions().map(option => { 
+                  const key = `${option.value}-${option.label}`; // Key remains unique
+                  return <option key={key} value={option.value} disabled={option.disabled}>{option.label}</option>
+                })}
+              </select>
+            </div>
+            
+            {!showContactFields && partnerData.contactPreference && partnerData.contactPreference !== "Directly" && (
+              <div className="flex-1 pt-5 pl-2">
+                <ContactConfirmationMessage messageText={getConfirmationMessage()} />
+              </div>
+            )}
           </div>
 
           {showContactFields && (
@@ -375,9 +359,6 @@ const GuestPartnerForm: React.FC<GuestPartnerFormProps> = ({
                   onChange={handlePhoneChange}
                   onBlur={() => {
                     setPhoneInteracted(true);
-                    if (mobile !== partnerRef.current.mobile) {
-                      updateField(partnerData.id, "primaryPhone", mobile);
-                    }
                   }}
                   required={contactPreference === "Directly"}
                   className={`${phoneInteracted ? 'interacted' : ''}`}
@@ -392,16 +373,10 @@ const GuestPartnerForm: React.FC<GuestPartnerFormProps> = ({
                   id={`g-partner-email-${partnerData.id}`}
                   name={`g-partner-email-${partnerData.id}`}
                   ref={emailRef}
-                  defaultValue={partnerData.email || ''}
-                  onBlur={() => {
+                  value={partnerData.email || ''}
+                  onChange={(e) => {
                     setEmailInteracted(true);
-                    const newValue = emailRef.current?.value || '';
-                    const currentValue = partnerRef.current.email || '';
-                    
-                    // Only update if value has changed
-                    if (newValue !== currentValue) {
-                      updateField(partnerData.id, "primaryEmail", newValue);
-                    }
+                    updateField(partnerData.id, "primaryEmail", e.target.value);
                   }}
                   required={partnerData.contactPreference === "Directly"} 
                   className={`w-full px-4 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50
@@ -414,19 +389,8 @@ const GuestPartnerForm: React.FC<GuestPartnerFormProps> = ({
             </>
           )}
         </div>
-        
-        {/* Fixed contact confirmation message layout */}
-        {contactPreference && contactPreference !== 'Directly' && (
-          <div className="mt-2 mb-4 grid grid-cols-12">
-            <div className="col-span-12">
-              <div className="text-sm text-slate-600 bg-slate-100 p-3 rounded-md">
-                {getConfirmationMessage()}
-              </div>
-            </div>
-          </div>
-        )}
       </div>
-      
+
       {/* Dietary Requirements */}
       <div className="mb-4">
         <label
@@ -440,15 +404,9 @@ const GuestPartnerForm: React.FC<GuestPartnerFormProps> = ({
           id={`g-partner-dietary-${partnerData.id}`}
           name={`g-partner-dietary-${partnerData.id}`}
           ref={dietaryRequirementsRef}
-          defaultValue={partnerData.dietaryRequirements || ''}
-          onBlur={() => {
-            const newValue = dietaryRequirementsRef.current?.value || '';
-            const currentValue = partnerRef.current.dietaryRequirements || '';
-            
-            // Only update if value has changed
-            if (newValue !== currentValue) {
-              updateField(partnerData.id, "dietaryRequirements", newValue);
-            }
+          value={partnerData.dietaryRequirements || ''}
+          onChange={(e) => {
+            updateField(partnerData.id, "dietaryRequirements", e.target.value);
           }}
           placeholder="E.g., vegetarian, gluten-free, allergies"
           className={`w-full px-4 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50`}
@@ -467,15 +425,9 @@ const GuestPartnerForm: React.FC<GuestPartnerFormProps> = ({
           id={`g-partner-specialNeeds-${partnerData.id}`}
           name={`g-partner-specialNeeds-${partnerData.id}`}
           ref={specialNeedsRef}
-          defaultValue={partnerData.specialNeeds || ''}
-          onBlur={() => {
-            const newValue = specialNeedsRef.current?.value || '';
-            const currentValue = partnerRef.current.specialNeeds || '';
-            
-            // Only update if value has changed
-            if (newValue !== currentValue) {
-              updateField(partnerData.id, "specialNeeds", newValue);
-            }
+          value={partnerData.specialNeeds || ''}
+          onChange={(e) => {
+            updateField(partnerData.id, "specialNeeds", e.target.value);
           }}
           rows={2}
           className={`w-full px-4 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary/50`}

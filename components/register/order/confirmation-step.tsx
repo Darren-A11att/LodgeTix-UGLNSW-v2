@@ -43,7 +43,7 @@ const ticketPackagesMinimal = [
   { id: "social", name: "Social Package", price: 180, includes: ["banquet", "brunch", "tour"] },
 ];
 
-export function ConfirmationStep() {
+function ConfirmationStep() {
   const store = useRegistrationStore()
 
   const {
@@ -242,7 +242,7 @@ export function ConfirmationStep() {
               </CardDescription>
             </CardHeader>
             <CardContent className="p-0">
-              <ScrollArea className="max-h-[400px]">
+              <ScrollArea className="h-[400px]" type="always">
                 <div className="space-y-4 p-4">
                   {currentTickets.map((ticket) => {
                     const attendee = allAttendees.find((a) => a.attendeeId === ticket.attendeeId);
@@ -446,3 +446,5 @@ export function ConfirmationStep() {
     </div>
   )
 }
+
+export default ConfirmationStep;
