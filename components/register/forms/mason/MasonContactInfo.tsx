@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { HelpCircle } from 'lucide-react';
 import { PhoneInput } from '@/components/ui/phone-input';
 import { ContactPreference, MasonAttendee, UnifiedAttendeeData } from '@/lib/registration-types';
+import ContactConfirmationMessage from '../../ui/ContactConfirmationMessage';
 
 interface MasonContactInfoProps {
   mason: Pick<UnifiedAttendeeData, 'primaryPhone' | 'primaryEmail' | 'contactPreference'>;
@@ -206,9 +207,7 @@ const MasonContactInfo: React.FC<MasonContactInfoProps> = ({
             {/* Show confirmation message if needed for additional masons */}
             {showConfirmation && (
                  <div className="col-span-8 flex items-center pl-2 pt-2">
-                    <p className="text-sm text-slate-600 bg-slate-50 p-3 rounded-md border border-slate-200 w-full">
-                        {getConfirmationMessage()}
-                    </p>
+                    <ContactConfirmationMessage messageText={getConfirmationMessage()} />
                 </div>
             )}
           </div>

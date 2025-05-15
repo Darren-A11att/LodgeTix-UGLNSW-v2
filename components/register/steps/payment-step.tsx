@@ -34,7 +34,7 @@ const ticketPackagesMinimal = [
   { id: "social", name: "Social Package", price: 180, includes: ["banquet", "brunch", "tour"] },
 ];
 
-export function PaymentStep() {
+function PaymentStep() {
   // Store state from Zustand
   const allStoreAttendees = useRegistrationStore((s) => s.attendees);
   const registrationType = useRegistrationStore((s) => s.registrationType);
@@ -423,3 +423,5 @@ export function PaymentStep() {
     </div>
   );
 }
+
+export default PaymentStep;

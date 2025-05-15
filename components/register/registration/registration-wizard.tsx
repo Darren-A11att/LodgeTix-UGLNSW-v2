@@ -11,10 +11,10 @@ import { RegistrationTypeStep } from "../steps/registration-type-step"
 
 // Lazily load heavier components
 const AttendeeDetailsStep = lazy(() => import('../attendee/AttendeeDetails'))
-const TicketSelectionStep = lazy(() => import('../steps/ticket-selection-step').then(mod => ({ default: mod.TicketSelectionStep })))
-const OrderReviewStep = lazy(() => import('../order/order-review-step').then(mod => ({ default: mod.OrderReviewStep })))
-const PaymentStep = lazy(() => import('../steps/payment-step').then(mod => ({ default: mod.PaymentStep })))
-const ConfirmationStep = lazy(() => import('../order/confirmation-step').then(mod => ({ default: mod.ConfirmationStep })))
+const TicketSelectionStep = lazy(() => import('../steps/ticket-selection-step'))
+const OrderReviewStep = lazy(() => import('../order/order-review-step'))
+const PaymentStep = lazy(() => import('../steps/payment-step'))
+const ConfirmationStep = lazy(() => import('../order/confirmation-step'))
 
 export interface RegistrationWizardProps {
   // eventId: string; // Example: if event context is needed

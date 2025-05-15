@@ -81,7 +81,7 @@ const ticketPackages = [
   },
 ]
 
-export function TicketSelectionStep() {
+function TicketSelectionStep() {
   const allStoreAttendees = useRegistrationStore((s) => s.attendees);
   const updateAttendeeStore = useRegistrationStore((s) => s.updateAttendee);
 
@@ -151,12 +151,56 @@ export function TicketSelectionStep() {
 
   const [expandedAttendee, setExpandedAttendee] = useState<string | null>(null)
 
-  // Get all attendees in order
-  const allAttendees: Attendee[] = [
-    ...(primaryAttendee ? [primaryAttendee as Attendee] : []),
-    ...(additionalAttendees as Attendee[]),
-  ];
-
+  // Create a helper function to order attendees so partners appear after their associated Mason or Guest
+  const getOrderedAttendees = (primary: MasonAttendee | GuestAttendee | undefined, additional: (MasonAttendee | GuestAttendee | PartnerAttendee)[], all: any[]): Attendee[] => {
+    const ordered: Attendee[] = [];
+    
+    // Add primary attendee first if it exists
+    if (primary) {
+      ordered.push(primary as Attendee);
+      
+      // If primary attendee has a partner, add it immediately after
+      if (primary.partner) {
+        const primaryPartner = additional.find(att => att.attendeeId === primary.partner);
+        if (primaryPartner) {
+          ordered.push(primaryPartner as Attendee);
+        }
+      }
+    }
+    
+    // For remaining attendees, add each one followed by their partner if they have one
+    const remainingAttendees = additional.filter(att => {
+      // Skip attendees that are partners of others (they'll be added with their related attendee)
+      if (att.isPartner && (att.attendeeId === primary?.partner || 
+          additional.some(otherAtt => otherAtt.partner === att.attendeeId))) {
+        return false;
+      }
+      // Skip primary's partner as it's already added
+      if (primary && primary.partner === att.attendeeId) {
+        return false;
+      }
+      return true;
+    });
+    
+    // Add each remaining attendee followed by their partner
+    for (const attendee of remainingAttendees) {
+      ordered.push(attendee as Attendee);
+      
+      // If this attendee has a partner, add it immediately after
+      if (attendee.partner) {
+        const partner = all.find(att => att.attendeeId === attendee.partner);
+        if (partner) {
+          ordered.push(partner as Attendee);
+        }
+      }
+    }
+    
+    return ordered;
+  };
+  
+  // Use the helper function to order attendees
+  const allAttendees: Attendee[] = getOrderedAttendees(primaryAttendee, additionalAttendees, allStoreAttendees);
+  
   // Filter out partner attendees as they don't need separate tickets
   const eligibleAttendees = allAttendees;
 
@@ -617,3 +661,5 @@ export function TicketSelectionStep() {
     </div>
   )
 }
+
+export default TicketSelectionStep;

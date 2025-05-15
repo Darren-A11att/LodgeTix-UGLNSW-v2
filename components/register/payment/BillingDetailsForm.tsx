@@ -57,10 +57,22 @@ export const BillingDetailsForm: React.FC<BillingDetailsFormProps> = ({
   const [isLoadingCountries, setIsLoadingCountries] = useState(false);
   const [isLoadingStates, setIsLoadingStates] = useState(false);
   const [fetchError, setFetchError] = useState<{countries?: string, states?: string} | null>(null);
+  
+  // Placeholder for IP Geolocation data - replace with your actual store access
+  // const { ipCountryIsoCode, ipStateName } = useIpGeoStore(state => ({
+  //   ipCountryIsoCode: state.ipCountryIsoCode, // e.g., "AU"
+  //   ipStateName: state.ipStateName,          // e.g., "New South Wales"
+  // }));
+  const ipCountryIsoCode = null; // Replace with actual data
+  const ipStateName = null;    // Replace with actual data
+
+  const [hasAttemptedGeoCountryPreselection, setHasAttemptedGeoCountryPreselection] = useState(false);
+  const [hasAttemptedGeoStatePreselection, setHasAttemptedGeoStatePreselection] = useState(false);
 
   // Form watchers
   const billToPrimaryWatched = form.watch('billToPrimary');
   const selectedCountry = form.watch('country');
+  const selectedState = form.watch('stateTerritory'); // Watch state for geo preselection logic
 
   // Convert data to expected format
   const zodCountries: ZodCountryType[] = countries.map(c => ({ 
@@ -134,6 +146,18 @@ export const BillingDetailsForm: React.FC<BillingDetailsFormProps> = ({
     fetchCountries();
   }, []);
 
+  // Pre-select country based on IP geolocation data
+  useEffect(() => {
+    if (countries.length > 0 && ipCountryIsoCode && !hasAttemptedGeoCountryPreselection && !form.getValues('country')) {
+      const geoCountry = countries.find(c => c.iso2 === ipCountryIsoCode);
+      if (geoCountry) {
+        const countryToSet: ZodCountryType = { name: geoCountry.name, isoCode: geoCountry.iso2, id: geoCountry.id };
+        form.setValue('country', countryToSet, { shouldValidate: true });
+      }
+      setHasAttemptedGeoCountryPreselection(true);
+    }
+  }, [countries, ipCountryIsoCode, hasAttemptedGeoCountryPreselection, form]);
+
   // Fetch states when selected country changes
   useEffect(() => {
     const fetchStates = async () => {
@@ -158,10 +182,38 @@ export const BillingDetailsForm: React.FC<BillingDetailsFormProps> = ({
     
     fetchStates();
   }, [selectedCountry?.id]);
+  
+  // Pre-select state based on IP geolocation data, after country is set and states are loaded
+  useEffect(() => {
+    if (states.length > 0 && 
+        selectedCountry?.isoCode === ipCountryIsoCode && 
+        typeof ipStateName === 'string' && // More robust type guard
+        ipStateName && 
+        !hasAttemptedGeoStatePreselection && 
+        !form.getValues('stateTerritory')) {
+      const geoState = states.find(s => s.name.toLowerCase() === ipStateName.toLowerCase()); // Now ipStateName is confirmed string
+      if (geoState) {
+        const stateToSet: StateTerritoryType = { 
+          id: geoState.id, 
+          name: geoState.name, 
+          isoCode: geoState.state_code, 
+          countryCode: selectedCountry.isoCode 
+        };
+        form.setValue('stateTerritory', stateToSet, { shouldValidate: true });
+      }
+      setHasAttemptedGeoStatePreselection(true);
+    }
+    if (selectedCountry?.isoCode !== ipCountryIsoCode) {
+      setHasAttemptedGeoStatePreselection(false);
+    }
+  }, [states, selectedCountry, ipCountryIsoCode, ipStateName, hasAttemptedGeoStatePreselection, form]);
 
   // Clear state selection when country changes
   useEffect(() => {
-    form.setValue('stateTerritory', undefined, { shouldValidate: true });
+    // Only clear if the change wasn't from our geo-preselection of state
+    if (form.getValues('stateTerritory')?.countryCode !== selectedCountry?.isoCode) {
+      form.setValue('stateTerritory', undefined, { shouldValidate: true });
+    }
   }, [selectedCountry, form]);
 
   return (
@@ -247,56 +299,23 @@ export const BillingDetailsForm: React.FC<BillingDetailsFormProps> = ({
         </div>
         <Separator className="my-6" />
         
-        {/* Row 2: Two-Column Layout for Address Details */}
         <div className="grid grid-cols-1 md:grid-cols-[1fr,1fr] gap-x-8 relative">
           <div className="hidden md:block absolute inset-y-0 left-1/2 w-px bg-gray-300 transform -translate-x-1/2"></div>
 
-          {/* Left Column */}
+          {/* Left Column - REORDERED and Business Number ADDED */}
           <div className="space-y-4 md:pr-4">
-            <FormField 
-              control={form.control} 
-              name="businessName" 
-              render={({ field }) => {
-                const inputRef = useRef<HTMLInputElement>(null);
-                
-                const handleBlur = () => {
-                  if (inputRef.current && inputRef.current.value !== field.value) {
-                    field.onChange(inputRef.current.value);
-                  }
-                  field.onBlur();
-                };
-                
-                return (
-                  <FormItem>
-                    <FormLabel>Business Name</FormLabel>
-                    <FormControl>
-                      <Input 
-                        ref={inputRef} 
-                        name={field.name}
-                        defaultValue={field.value} 
-                        onBlur={handleBlur} 
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem> 
-                );
-              }} 
-            />
+            {/* 1. Mobile Number */}
             <FormField
               control={form.control}
               name="mobileNumber"
               render={({ field }) => {
                 const phoneRef = useRef<string>(field.value || '');
-                
-                // We need custom handling for PhoneInput because of its internal formatting
                 const handlePhoneChange = (value: string) => {
-                  // Only update form field value if the phone number actually changed
                   if (value !== phoneRef.current) {
                     phoneRef.current = value;
                     field.onChange(value);
                   }
                 };
-                
                 return (
                   <FormItem>
                     <FormLabel>Mobile Number *</FormLabel>
@@ -313,19 +332,19 @@ export const BillingDetailsForm: React.FC<BillingDetailsFormProps> = ({
                 );
               }}
             />
+
+            {/* 2. Email Address */}
             <FormField 
               control={form.control} 
               name="emailAddress" 
               render={({ field }) => {
                 const inputRef = useRef<HTMLInputElement>(null);
-                
                 const handleBlur = () => {
                   if (inputRef.current && inputRef.current.value !== field.value) {
                     field.onChange(inputRef.current.value);
                   }
                   field.onBlur();
                 };
-                
                 return (
                   <FormItem>
                     <FormLabel>Email Address *</FormLabel>
@@ -341,12 +360,99 @@ export const BillingDetailsForm: React.FC<BillingDetailsFormProps> = ({
                     <FormMessage />
                   </FormItem> 
                 );
+              }}
+            />
+
+            {/* 3. Business Name */}
+            <FormField 
+              control={form.control} 
+              name="businessName" 
+              render={({ field }) => {
+                const inputRef = useRef<HTMLInputElement>(null);
+                const handleBlur = () => {
+                  if (inputRef.current && inputRef.current.value !== field.value) {
+                    field.onChange(inputRef.current.value);
+                  }
+                  field.onBlur();
+                };
+                return (
+                  <FormItem>
+                    <FormLabel>Business Name</FormLabel>
+                    <FormControl>
+                      <Input 
+                        ref={inputRef} 
+                        name={field.name}
+                        defaultValue={field.value} 
+                        onBlur={handleBlur} 
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem> 
+                );
+              }}
+            />
+
+            {/* 4. Business Number (NEW FIELD) */}
+            <FormField 
+              control={form.control} 
+              name="businessNumber" 
+              render={({ field }) => {
+                const inputRef = useRef<HTMLInputElement>(null);
+                const handleBlur = () => {
+                  if (inputRef.current && inputRef.current.value !== field.value) {
+                    field.onChange(inputRef.current.value);
+                  }
+                  field.onBlur();
+                };
+                return (
+                  <FormItem>
+                    <FormLabel>Business Number</FormLabel> {/* Optional, so no asterisk */}
+                    <FormControl>
+                      <Input 
+                        ref={inputRef} 
+                        name={field.name}
+                        defaultValue={field.value} 
+                        onBlur={handleBlur} 
+                        placeholder="E.g., ABN, ACN" // Added placeholder
+                      />
+                    </FormControl>
+                    <FormMessage /> {/* For potential validation messages if you add them later */}
+                  </FormItem> 
+                );
               }} 
             />
           </div>
 
-          {/* Right Column */}
+          {/* Right Column (Country, Address Line 1, Suburb, Postcode/State) - Layout as previously modified */}
           <div className="space-y-4 md:pl-4">
+            {/* 1. Country */}
+            <Controller
+              control={form.control}
+              name="country"
+              render={({ field, fieldState: { error } }) => (
+                <FormItem>
+                  <FormLabel>Country *</FormLabel>
+                  <FilterableCombobox 
+                    label="Country"
+                    items={zodCountries} 
+                    placeholder={isLoadingCountries ? "Loading countries..." : "Search for a country..."}
+                    id="country-select"
+                    name={field.name}
+                    value={field.value || null}
+                    onChange={(selectedZodCountry: ZodCountryType | null) => {
+                      field.onChange(selectedZodCountry);
+                    }}
+                    displayValue={(zodCountry: ZodCountryType | null) => zodCountry?.name || ''}
+                    itemKey={(zodCountry: ZodCountryType) => zodCountry.id! || zodCountry.isoCode}
+                    loading={isLoadingCountries}
+                  />
+                  {fetchError?.countries && <div className="text-sm text-red-500 mt-1">{fetchError.countries}</div>}
+                  {error && <FormMessage>{error.message}</FormMessage>} 
+                </FormItem>
+              )}
+            />
+
+            {/* 2. Street Address (addressLine1) */}
             <FormField 
               control={form.control} 
               name="addressLine1" 
@@ -376,6 +482,8 @@ export const BillingDetailsForm: React.FC<BillingDetailsFormProps> = ({
                 );
               }} 
             />
+
+            {/* 3. Suburb */}
             <FormField 
               control={form.control} 
               name="suburb" 
@@ -405,64 +513,41 @@ export const BillingDetailsForm: React.FC<BillingDetailsFormProps> = ({
                 );
               }} 
             />
-            <FormField 
-              control={form.control} 
-              name="postcode" 
-              render={({ field }) => {
-                const inputRef = useRef<HTMLInputElement>(null);
-                
-                const handleBlur = () => {
-                  if (inputRef.current && inputRef.current.value !== field.value) {
-                    field.onChange(inputRef.current.value);
-                  }
-                  field.onBlur();
-                };
-                
-                return (
-                  <FormItem>
-                    <FormLabel>Postcode *</FormLabel>
-                    <FormControl>
-                      <Input 
-                        ref={inputRef} 
-                        name={field.name}
-                        defaultValue={field.value} 
-                        onBlur={handleBlur} 
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem> 
-                );
-              }} 
-            />
+            
+            {/* 4. Postcode and State/Territory on the same line */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {/* Country Selection - FilterableCombobox for type-to-search */}
-              <Controller
-                control={form.control}
-                name="country"
-                render={({ field, fieldState: { error } }) => (
-                  <FormItem>
-                    <FormLabel>Country *</FormLabel>
-                    <FilterableCombobox<ZodCountryType>
-                      label="Country"
-                      items={zodCountries}
-                      placeholder={isLoadingCountries ? "Loading countries..." : "Search for a country..."}
-                      id="country-select"
-                      name={field.name}
-                      value={field.value || null}
-                      onChange={(selectedZodCountry: ZodCountryType | null) => {
-                        field.onChange(selectedZodCountry);
-                      }}
-                      displayValue={(zodCountry: ZodCountryType | null) => zodCountry?.name || ''}
-                      itemKey={(zodCountry: ZodCountryType) => zodCountry.id! || zodCountry.isoCode}
-                      loading={isLoadingCountries}
-                    />
-                    {fetchError?.countries && <div className="text-sm text-red-500 mt-1">{fetchError.countries}</div>}
-                    {error && <FormMessage>{error.message}</FormMessage>} 
-                  </FormItem>
-                )}
+              {/* 4a. Postcode */}
+              <FormField 
+                control={form.control} 
+                name="postcode" 
+                render={({ field }) => {
+                  const inputRef = useRef<HTMLInputElement>(null);
+                  
+                  const handleBlur = () => {
+                    if (inputRef.current && inputRef.current.value !== field.value) {
+                      field.onChange(inputRef.current.value);
+                    }
+                    field.onBlur();
+                  };
+                  
+                  return (
+                    <FormItem>
+                      <FormLabel>Postcode *</FormLabel>
+                      <FormControl>
+                        <Input 
+                          ref={inputRef} 
+                          name={field.name}
+                          defaultValue={field.value} 
+                          onBlur={handleBlur} 
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem> 
+                  );
+                }}
               />
-              
-              {/* State/Territory Selection - Standard Select Dropdown using short code */}
+
+              {/* 4b. State/Territory (Controller using Select) */}
               <Controller
                 control={form.control}
                 name="stateTerritory"
@@ -471,13 +556,12 @@ export const BillingDetailsForm: React.FC<BillingDetailsFormProps> = ({
                     <FormLabel>State/Territory *</FormLabel>
                     <Select
                       onValueChange={(value) => {
-                        const selectedState = states.find(s => s.id.toString() === value);
-                        if (selectedState) {
-                          // Convert library state to our schema state
+                        const selectedStateFromList = states.find(s => s.id.toString() === value);
+                        if (selectedStateFromList) {
                           const stateObj: StateTerritoryType = {
-                            id: selectedState.id,
-                            name: selectedState.name,
-                            isoCode: selectedState.state_code, // Use the state_code (short code like NSW)
+                            id: selectedStateFromList.id,
+                            name: selectedStateFromList.name,
+                            isoCode: selectedStateFromList.state_code,
                             countryCode: selectedCountry?.isoCode
                           };
                           field.onChange(stateObj);
@@ -504,10 +588,9 @@ export const BillingDetailsForm: React.FC<BillingDetailsFormProps> = ({
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {states.map((state) => (
-                          <SelectItem key={state.id} value={state.id.toString()}>
-                            {/* Display short code if available, otherwise use full name */}
-                            {state.state_code || state.name}
+                        {states.map((s) => (
+                          <SelectItem key={s.id} value={s.id.toString()}>
+                            {s.state_code || s.name}
                           </SelectItem>
                         ))}
                       </SelectContent>

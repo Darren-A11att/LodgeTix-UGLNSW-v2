@@ -59,8 +59,8 @@ const MasonForm: React.FC<MasonFormProps> = ({
   const removeAttendee = useRegistrationStore((state) => state.removeAttendee);
   const addLadyPartnerAttendee = useRegistrationStore((state) => state.addLadyPartnerAttendee);
 
-  // Debounced version of updateAttendee with shorter delay for better responsiveness
-  const debouncedUpdateAttendee = useDebouncedCallback(updateAttendee, 200);
+  // Debounced version of updateAttendee with very short delay for better UI responsiveness
+  const debouncedUpdateAttendee = useDebouncedCallback(updateAttendee, 50);
 
   if (!mason) {
       console.warn(`MasonForm rendered for non-existent/loading attendeeId: ${attendeeId}`);
@@ -560,6 +560,7 @@ const MasonForm: React.FC<MasonFormProps> = ({
           partner={ladyPartnerData}
           id={ladyPartnerData.attendeeId}
           updateField={(partnerAttendeeId: string, fieldName: keyof UnifiedAttendeeData, fieldValue: any) => {
+            // Use a shorter debounce for partner fields to ensure UI updates quickly
             debouncedUpdateAttendee(partnerAttendeeId, { [fieldName]: fieldValue });
           }}
           onRemove={() => removeAttendee(ladyPartnerData.attendeeId)}

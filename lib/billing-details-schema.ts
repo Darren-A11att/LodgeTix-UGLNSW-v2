@@ -22,6 +22,7 @@ export const billingDetailsSchema = z.object({
   firstName: z.string().min(1, 'First name is required'),
   lastName: z.string().min(1, 'Last name is required'),
   businessName: z.string().optional(),
+  businessNumber: z.string().optional(),
   addressLine1: z.string().min(1, 'Address Line 1 is required'),
   mobileNumber: z.string().min(1, 'Mobile number is required'), // Consider more specific validation later
   suburb: z.string().min(1, 'Suburb is required'),
@@ -31,4 +32,20 @@ export const billingDetailsSchema = z.object({
   stateTerritory: stateTerritorySchema.optional(), // Updated, and making it optional for now
 });
 
-export type BillingDetails = z.infer<typeof billingDetailsSchema>; 
+export type BillingDetails = z.infer<typeof billingDetailsSchema>;
+
+// Updated validation logic if needed
+export const validateBillingDetails = (data: BillingDetails) => {
+  // console.log("Validating billing details:", data);
+  const result = billingDetailsSchema.safeParse(data);
+  if (!result.success) {
+    // console.error("Validation errors:", result.error.flatten().fieldErrors);
+  }
+  return result;
+};
+
+export const isBillingDetailsComplete = (details: BillingDetails | null | undefined): boolean => {
+  if (!details) return false;
+  const result = billingDetailsSchema.safeParse(details);
+  return result.success;
+}; 
