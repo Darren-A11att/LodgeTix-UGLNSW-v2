@@ -1,6 +1,6 @@
 'use client'
 
-import { createBrowserClient } from '@/lib/supabase-browser'
+import { supabase } from '@/lib/supabase-browser'
 import { User, Session, SupabaseClient } from '@supabase/supabase-js'
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react'
 
@@ -19,8 +19,6 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 // Provider component
 export function AuthProvider({ children }: { children: ReactNode }) {
-  // Create the supabase client instance using useState to ensure it's created only once on the client
-  const [supabase] = useState(() => createBrowserClient())
   const [user, setUser] = useState<User | null>(null)
   const [session, setSession] = useState<Session | null>(null)
   const [isLoading, setIsLoading] = useState(true)

@@ -2,7 +2,7 @@ import { create, StateCreator } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { getAllGrandLodges, GrandLodgeRow } from './api/grandLodges';
 import { getLodgesByGrandLodgeId, LodgeRow, createLodge as createLodgeApi, searchAllLodges as searchAllLodgesApi, getLodgesByStateRegionCode } from './api/lodges';
-import { supabase } from './supabase';
+import { supabase } from './supabase-browser';
 import { searchGrandLodges as searchGrandLodgesService } from './services/masonic-services';
 
 // --- Define Interfaces First ---

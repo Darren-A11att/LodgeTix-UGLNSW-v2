@@ -1,10 +1,5 @@
-import { createClient } from "@supabase/supabase-js"
+import { supabase } from "@/lib/supabase-browser"
 import type { GrandLodge, Lodge, CreateLodgeData } from "@/lib/types/masonic-types"
-
-// Initialize the Supabase client
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL as string
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string
-const supabase = createClient(supabaseUrl, supabaseKey)
 
 /**
  * Search for Grand Lodges with prioritization
