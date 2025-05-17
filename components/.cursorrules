@@ -1,0 +1,25 @@
+# Components Directory Rules
+
+## Client vs Server Components
+- Server components by default
+- Use "use client" only for:
+  - Event handlers (onClick, onChange)
+  - Browser APIs (window, document)
+  - React hooks (useState, useEffect)
+  - Third-party client libraries
+
+## Component Structure
+```
+components/
+  ui/              # Primitive UI components
+  forms/           # Form components
+  layouts/         # Layout components
+  features/        # Feature-specific components
+```
+
+## Best Practices
+- Extract client interactivity to leaf components
+- Keep components focused and single-purpose
+- Use composition over complex props
+- Implement proper TypeScript interfaces
+- Test components in isolation

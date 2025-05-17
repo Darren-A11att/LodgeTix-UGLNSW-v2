@@ -67,6 +67,18 @@ API routes are in `/app/api/` with endpoints for:
 ### UUID Migration
 The system is transitioning to UUIDs for primary keys, with compatibility layer in `id-transition-utils.ts`.
 
+## Tech Stack Standard
+
+Please refer to `/development/Tech-stack/TECH-STACK-STANDARD.md` for the official technology choices and implementation guidelines. Key technologies include:
+
+- **Framework**: Next.js 15 with App Router
+- **UI**: React 19, TypeScript 5, TailwindCSS, shadcn/ui
+- **State**: Zustand, React Context
+- **Database**: Supabase (PostgreSQL)
+- **Payments**: Stripe
+- **Icons**: Lucide React (exclusively)
+- **Forms**: React Hook Form + Zod
+
 ## Special Notes and Gotchas
 1. **Environment Variables**: The app requires Supabase and Stripe environment variables:
    - `NEXT_PUBLIC_SUPABASE_URL`

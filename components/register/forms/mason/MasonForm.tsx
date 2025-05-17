@@ -9,7 +9,7 @@ import MasonLodgeInfo from './MasonLodgeInfo';
 import MasonContactInfo from './MasonContactInfo';
 import MasonAdditionalInfo from './MasonAdditionalInfo';
 import LadyPartnerToggle from './LadyPartnerToggle';
-import { FaTrash } from 'react-icons/fa';
+// import { FaTrash } from 'react-icons/fa'; // Unused import removed
 import { X } from 'lucide-react';
 import { PhoneInput } from '@/components/ui/phone-input';
 import { useLocationStore } from '../../../../lib/locationStore';

@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, memo } from "react";
 import { FilterableComboboxProps } from "./types";
 import { Combobox, ComboboxButton, ComboboxInput, ComboboxOption, ComboboxOptions } from '@headlessui/react'
-import { CheckIcon, ChevronUpDownIcon } from '@heroicons/react/20/solid'
+import { Check, ChevronsUpDown } from 'lucide-react'
 
 // Memoized version of the component to prevent unnecessary rerenders
 export const FilterableCombobox = memo(function FilterableCombobox<T extends { name: string; isoCode: string; id?: number }>({
@@ -89,7 +89,7 @@ export const FilterableCombobox = memo(function FilterableCombobox<T extends { n
           className="absolute inset-y-0 right-0 flex items-center rounded-r-md px-2 focus:outline-none"
           onClick={() => setOpen(prev => !prev)}
         >
-          <ChevronUpDownIcon className="size-5 text-gray-400" aria-hidden="true" />
+          <ChevronsUpDown className="size-5 text-gray-400" aria-hidden="true" />
         </ComboboxButton>
         
         {open && (
@@ -119,7 +119,7 @@ export const FilterableCombobox = memo(function FilterableCombobox<T extends { n
                             active ? 'text-primary-foreground' : 'text-primary'
                           }`}
                         >
-                          <CheckIcon className="size-5" aria-hidden="true" />
+                          <Check className="size-5" aria-hidden="true" />
                         </span>
                       )}
                     </>
