@@ -1,8 +1,8 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
 
 // Use environment variables for configuration
-const supabaseUrl = import.meta.env.NEXT_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.NEXT_SUPABASE_ANON_KEY;
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
 // Map of original DB table names to their actual PascalCase names
 // This helps ensure we use the correct table names after the standardization

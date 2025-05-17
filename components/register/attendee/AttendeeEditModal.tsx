@@ -1,13 +1,17 @@
-import React from 'react';
-import { X } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { Pencil, Users } from 'lucide-react';
 import {
   Dialog,
   DialogContent,
   DialogHeader,
+  DialogFooter,
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { useRegistrationStore, UnifiedAttendeeData } from '../../../lib/registrationStore';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { useRegistrationStore, UnifiedAttendeeData, selectRegistrationType, selectAttendees } from '../../../lib/registrationStore';
 import MasonForm from '../forms/mason/MasonForm';
 import GuestForm from '../forms/guest/GuestForm';
 import LadyPartnerForm from '../forms/mason/LadyPartnerForm';
@@ -17,91 +21,110 @@ interface AttendeeEditModalProps {
   isOpen: boolean;
   onClose: () => void;
   attendeeData: UnifiedAttendeeData;
-  attendeeNumber: number;
 }
 
 const AttendeeEditModal: React.FC<AttendeeEditModalProps> = ({
   isOpen,
   onClose,
   attendeeData,
-  attendeeNumber
 }) => {
-  // Get primary attendee data for context (needed by some forms)
+  const [editableAttendeeData, setEditableAttendeeData] = useState<UnifiedAttendeeData>(attendeeData);
+
+  useEffect(() => {
+    setEditableAttendeeData(attendeeData);
+  }, [attendeeData]);
+
+  const registrationType = useRegistrationStore(selectRegistrationType);
+  const allAttendees = useRegistrationStore(selectAttendees);
+  const totalTickets = useRegistrationStore(state => 
+    // @ts-expect-error Property 'ticket' does not exist on type 'UnifiedAttendeeData'.
+    state.attendees.reduce((acc, att) => acc + (att.ticket?.selectedEvents?.length || 0) + (att.ticket?.ticketDefinitionId ? 1 : 0), 0)
+  );
+  const storeTotalTickets = useRegistrationStore(state => {
+    return state.attendees.flatMap(attendee => {
+        // @ts-expect-error Property 'ticket' does not exist on type 'UnifiedAttendeeData'.
+        if (!attendee.ticket) return [];
+        // @ts-expect-error Property 'ticket' does not exist on type 'UnifiedAttendeeData'.
+        const { ticketDefinitionId, selectedEvents } = attendee.ticket;
+        if (ticketDefinitionId) return [{ type: 'package' }];
+        return selectedEvents?.map((eventId: string) => ({ type: 'event' })) || [];
+    }).length;
+  });
+
   const primaryAttendee = useRegistrationStore(state => 
     state.attendees.find(att => att.isPrimary)
   );
 
-  // Get partner data if applicable
   const partnerData = useRegistrationStore(state => {
-    if (attendeeData.partner) {
-      return state.attendees.find(att => att.attendeeId === attendeeData.partner);
+    if (editableAttendeeData.partner) {
+      return state.attendees.find(att => att.attendeeId === editableAttendeeData.partner);
     }
     return null;
   });
 
-  // Get the attendee that this partner belongs to (for partners)
   const relatedAttendee = useRegistrationStore(state => {
-    if (attendeeData.partnerOf) {
-      return state.attendees.find(att => att.attendeeId === attendeeData.partnerOf);
+    if (editableAttendeeData.partnerOf) {
+      return state.attendees.find(att => att.attendeeId === editableAttendeeData.partnerOf);
     }
     return null;
   });
 
-  const updateAttendee = useRegistrationStore(state => state.updateAttendee);
+  const updateAttendeeInStore = useRegistrationStore(state => state.updateAttendee);
   const removeAttendee = useRegistrationStore(state => state.removeAttendee);
 
-  // Helper function to get the appropriate form based on attendee type
+  const handleLocalFormChange = (updatedFields: Partial<UnifiedAttendeeData>) => {
+    setEditableAttendeeData(prev => ({ ...prev, ...updatedFields }));
+  };
+
   const renderAttendeeForm = () => {
-    const attendeeType = attendeeData.attendeeType.toLowerCase();
+    const currentData = editableAttendeeData;
+    const attendeeType = currentData.attendeeType.toLowerCase();
     
-    // Handle Mason
     if (attendeeType === "mason") {
       return (
         <MasonForm
-          attendeeId={attendeeData.attendeeId}
-          attendeeNumber={attendeeNumber}
-          isPrimary={attendeeData.isPrimary}
+          attendeeId={currentData.attendeeId}
+          attendeeNumber={0}
+          isPrimary={currentData.isPrimary}
         />
       );
     }
     
-    // Handle Guest  
     if (attendeeType === "guest") {
       return (
         <GuestForm
-          attendeeId={attendeeData.attendeeId}
-          attendeeNumber={attendeeNumber}
+          attendeeId={currentData.attendeeId}
+          attendeeNumber={0}
         />
       );
     }
     
-    // Handle Lady Partner
-    if (attendeeType === "ladypartner" || 
-        (attendeeData.isPartner && attendeeData.partnerType === 'lady')) {
-      
+    const isLadyPartner = currentData.partnerOf && currentData.attendeeType.toLowerCase() === 'ladypartner';
+    const isGuestPartner = currentData.partnerOf && currentData.attendeeType.toLowerCase() === 'guestpartner';
+
+    if (attendeeType === "ladypartner" || isLadyPartner) {
       const relatedMason = relatedAttendee;
-      
       return (
         <LadyPartnerForm
           partner={{
-            id: attendeeData.attendeeId,
-            title: attendeeData.title || '',
-            firstName: attendeeData.firstName || '',
-            lastName: attendeeData.lastName || '',
-            relationship: attendeeData.relationship || '',
-            contactPreference: attendeeData.contactPreference,
-            mobile: attendeeData.primaryPhone,
-            email: attendeeData.primaryEmail,
-            dietaryRequirements: attendeeData.dietaryRequirements,
-            specialNeeds: attendeeData.specialNeeds
+            id: currentData.attendeeId,
+            title: currentData.title || '',
+            firstName: currentData.firstName || '',
+            lastName: currentData.lastName || '',
+            relationship: currentData.relationship || '',
+            contactPreference: currentData.contactPreference,
+            mobile: currentData.primaryPhone ?? undefined,
+            email: currentData.primaryEmail ?? undefined,
+            dietaryRequirements: currentData.dietaryRequirements ?? undefined,
+            specialNeeds: currentData.specialNeeds ?? undefined
           }}
-          id={attendeeData.attendeeId}
+          id={currentData.attendeeId}
           updateField={(id: string, field: string, value: string | boolean) => {
-            updateAttendee(id, { [field]: value });
+            handleLocalFormChange({ [field]: value } as Partial<UnifiedAttendeeData>);
           }}
           relatedMasonName={relatedMason ? `${relatedMason.firstName || ''} ${relatedMason.lastName || ''}`.trim() : ''}
           onRemove={() => {
-            removeAttendee(attendeeData.attendeeId);
+            removeAttendee(currentData.attendeeId);
             onClose();
           }}
           primaryAttendeeData={primaryAttendee}
@@ -110,79 +133,112 @@ const AttendeeEditModal: React.FC<AttendeeEditModalProps> = ({
       );
     }
     
-    // Handle Guest Partner
-    if (attendeeType === "guestpartner" || 
-        (attendeeData.isPartner && attendeeData.partnerType === 'guest')) {
-      
+    if (attendeeType === "guestpartner" || isGuestPartner) {
       const relatedGuest = relatedAttendee;
-      
       return (
         <GuestPartnerForm
           partnerData={{
-            id: attendeeData.attendeeId,
-            title: attendeeData.title || '',
-            firstName: attendeeData.firstName || '',
-            lastName: attendeeData.lastName || '',
-            relationship: attendeeData.relationship || '',
-            contactPreference: attendeeData.contactPreference,
-            mobile: attendeeData.primaryPhone,
-            email: attendeeData.primaryEmail,
-            dietaryRequirements: attendeeData.dietaryRequirements,
-            specialNeeds: attendeeData.specialNeeds
+            id: currentData.attendeeId,
+            title: currentData.title || '',
+            firstName: currentData.firstName || '',
+            lastName: currentData.lastName || '',
+            relationship: currentData.relationship || '',
+            contactPreference: currentData.contactPreference,
+            mobile: currentData.primaryPhone ?? undefined,
+            email: currentData.primaryEmail ?? undefined,
+            dietaryRequirements: currentData.dietaryRequirements ?? undefined,
+            specialNeeds: currentData.specialNeeds ?? undefined
           }}
           relatedGuestName={relatedGuest ? `${relatedGuest.firstName || ''} ${relatedGuest.lastName || ''}`.trim() : ''}
           primaryAttendeeData={primaryAttendee}
           updateField={(id: string, field: string, value: any) => {
-            updateAttendee(id, { [field]: value });
+            handleLocalFormChange({ [field]: value } as Partial<UnifiedAttendeeData>);
           }}
           onRemove={() => {
-            removeAttendee(attendeeData.attendeeId);
+            removeAttendee(currentData.attendeeId);
             onClose();
           }}
-          relatedGuestContactPreference={relatedGuest?.contactPreference || undefined}
+          relatedGuestContactPreference={relatedGuest?.contactPreference ?? undefined}
         />
       );
     }
     
-    return <div className="text-center text-gray-500">Unknown attendee type</div>;
+    return <div className="text-center text-gray-500">Unknown attendee type: {currentData.attendeeType}</div>;
   };
 
-  // Get the attendee type for the dialog title
-  const getAttendeeTypeLabel = () => {
-    if (attendeeData.isPrimary) return "Primary Attendee";
-    
-    const attendeeType = attendeeData.attendeeType.toLowerCase();
-    
-    if (attendeeType === 'mason') return "Mason";
-    if (attendeeType === 'guest') return "Guest";
-    
-    if (attendeeData.isPartner) {
-      // Determine partner type from attendeeType or partnerType field
-      if (attendeeType === 'ladypartner' || attendeeData.partnerType === 'lady') {
-        return "Lady Partner";
-      }
-      if (attendeeType === 'guestpartner' || attendeeData.partnerType === 'guest') {
-        return "Guest Partner";
-      }
+  const getAttendeeTypeBadgeLabel = () => {
+    const type = editableAttendeeData.attendeeType.toLowerCase();
+    if (type === 'mason') return "Mason";
+    if (type === 'guest') return "Guest";
+    if (editableAttendeeData.partnerOf) {
+        if (type === 'ladypartner') return "Partner (Lady)";
+        if (type === 'guestpartner') return "Partner (Guest)";
+        return "Partner";
     }
-    
-    return "Attendee";
+    return editableAttendeeData.attendeeType;
+  };
+
+  const handleSaveChanges = () => {
+    updateAttendeeInStore(editableAttendeeData.attendeeId, editableAttendeeData);
+    onClose();
+  };
+
+  const handleDiscardChanges = () => {
+    setEditableAttendeeData(attendeeData);
+    onClose();
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="sm:max-w-xl md:max-w-3xl lg:max-w-4xl max-h-[90vh] overflow-y-auto p-0">
-        <DialogHeader className="sticky top-0 z-10 bg-white p-6 pb-0 border-b">
-          <DialogTitle className="text-xl font-bold text-masonic-navy">
-            Edit {getAttendeeTypeLabel()}: {attendeeData.firstName} {attendeeData.lastName}
-          </DialogTitle>
-          <DialogDescription className="text-gray-600">
-            Make changes to the attendee details below. All changes are saved automatically.
-          </DialogDescription>
-        </DialogHeader>
-        <div className="p-6">
-          {renderAttendeeForm()}
-        </div>
+    <Dialog open={isOpen} onOpenChange={(open) => {
+      if (!open) {
+        handleDiscardChanges();
+      } else {
+      }
+    }}>
+      <DialogContent className="sm:max-w-2xl md:max-w-3xl lg:max-w-4xl p-0">
+        <Card className="shadow-none border border-masonic-lightgold rounded-lg">
+          <CardHeader className="bg-masonic-navy text-white rounded-t-lg p-4">
+            <div className="flex justify-between items-start">
+              <div className="flex items-center space-x-2">
+                <Pencil className="h-6 w-6" />
+                <div>
+                  <DialogTitle asChild>
+                    <CardTitle className="text-xl font-semibold">Edit Attendee</CardTitle>
+                  </DialogTitle>
+                  <DialogDescription asChild>
+                    <CardDescription className="text-sm text-slate-300">
+                      Please edit the details for the attendee below.
+                    </CardDescription>
+                  </DialogDescription>
+                </div>
+              </div>
+              <Badge variant="outline" className="text-gray-200 border-gray-400 hover:bg-gray-700">
+                {getAttendeeTypeBadgeLabel()}
+              </Badge>
+            </div>
+          </CardHeader>
+          
+          <CardContent className="p-0">
+            {renderAttendeeForm()}
+          </CardContent>
+
+          <CardFooter className="p-6 flex justify-end space-x-3 bg-gray-50 border-t border-masonic-lightgold">
+            <Button 
+              variant="outline" 
+              onClick={handleDiscardChanges}
+              className="bg-white text-masonic-navy border-masonic-navy hover:bg-masonic-navy/5 w-40"
+            >
+              Discard Changes
+            </Button>
+            <Button 
+              variant="default" 
+              onClick={handleSaveChanges} 
+              className="bg-masonic-navy text-white hover:bg-masonic-navy/90 w-40"
+            >
+              Save & Close
+            </Button>
+          </CardFooter>
+        </Card>
       </DialogContent>
     </Dialog>
   );

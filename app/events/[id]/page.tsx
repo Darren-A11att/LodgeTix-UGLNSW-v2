@@ -15,9 +15,10 @@ export function generateStaticParams() {
   }));
 }
 
-export default function EventPage({ params }: { params: { id: string } }) {
+export default async function EventPage({ params }: { params: Promise<{ id: string }> }) {
   // The id param is actually the slug from the URL
-  const event = getEventByIdOrSlug(params.id)
+  const { id } = await params
+  const event = getEventByIdOrSlug(id)
 
   if (!event) {
     return (

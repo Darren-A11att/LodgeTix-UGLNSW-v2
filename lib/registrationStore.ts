@@ -4,10 +4,13 @@ import { v4 as uuidv4 } from 'uuid';
 import { TicketType } from '../shared/types/register';
 import { TicketDefinitionType } from '../shared/types/ticket';
 import { UnifiedAttendeeData } from '../shared/types/supabase';
+import { RegistrationType } from './registration-types';
+
+// Re-export UnifiedAttendeeData for backward compatibility
+export type { UnifiedAttendeeData };
 
 // --- Placeholder Types (Defined locally) ---
-// Using RegistrationType defined here until shared types are stable
-export type RegistrationType = 'individual' | 'lodge' | 'delegation';
+// Using RegistrationType from './registration-types'
 
 // Placeholder type for package/ticket selections per attendee
 // TODO: Define the actual structure based on package data

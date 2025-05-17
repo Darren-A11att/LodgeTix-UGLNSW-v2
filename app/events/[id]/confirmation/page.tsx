@@ -19,8 +19,9 @@ const getEventDetails = (id: string) => {
   }
 }
 
-export default function ConfirmationPage({ params }: { params: { id: string } }) {
-  const event = getEventDetails(params.id)
+export default async function ConfirmationPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
+  const event = getEventDetails(id)
 
   const totalPrice = event.tickets.reduce((sum, ticket) => {
     return sum + ticket.price * ticket.quantity
