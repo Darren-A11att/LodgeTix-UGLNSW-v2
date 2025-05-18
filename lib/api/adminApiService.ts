@@ -1,4 +1,4 @@
-import { supabase, table, supabaseTables } from '../../supabase';
+import { supabase, table, supabaseTables } from '../supabase';
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 interface PaginationParams {

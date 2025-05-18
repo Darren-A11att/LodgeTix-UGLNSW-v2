@@ -50,8 +50,14 @@ const AttendeeDetails: React.FC<AttendeeDetailsProps> = ({
 
   const primaryAttendee = useMemo((): UnifiedAttendeeData | undefined => allAttendees.find(att => att.isPrimary), [allAttendees]);
   
-  const masonCount = useMemo(() => allAttendees.filter(att => att.attendeeType.toLowerCase() === 'mason').length, [allAttendees]);
-  const guestCount = useMemo(() => allAttendees.filter(att => att.attendeeType.toLowerCase() === 'guest' && att.isPartner !== true).length, [allAttendees]);
+  const masonCount = useMemo(() => allAttendees.filter(att => {
+    const type = att.attendeeType?.toLowerCase();
+    return type === 'mason';
+  }).length, [allAttendees]);
+  const guestCount = useMemo(() => allAttendees.filter(att => {
+    const type = att.attendeeType?.toLowerCase();
+    return type === 'guest';
+  }).length, [allAttendees]);
 
   const canAddMason = useMemo(() => {
     if (registrationType === 'individual') return masonCount < 1;
@@ -87,7 +93,7 @@ const AttendeeDetails: React.FC<AttendeeDetailsProps> = ({
     console.log("[AttendeeDetails] Current attendees:", allAttendees.map(a => ({
       id: a.attendeeId,
       type: a.attendeeType,
-      isPartner: a.isPartner
+      isPartner: a.attendeeType === 'LadyPartner' || a.attendeeType === 'GuestPartner'
     })));
   };
 
@@ -110,7 +116,8 @@ const AttendeeDetails: React.FC<AttendeeDetailsProps> = ({
 
       {/* Unified Attendee Rendering Loop */}
       {allAttendees.map((attendee, idx) => {
-        if (attendee.attendeeType.toLowerCase() === 'mason') {
+        const type = attendee.attendeeType?.toLowerCase();
+        if (type === 'mason') {
           return (
             <MasonForm
               key={attendee.attendeeId}
@@ -119,7 +126,7 @@ const AttendeeDetails: React.FC<AttendeeDetailsProps> = ({
               isPrimary={attendee.isPrimary ?? false}
             />
           );
-        } else if (attendee.attendeeType.toLowerCase() === 'guest' && attendee.isPartner !== true) {
+        } else if (type === 'guest') {
            return (
              <GuestForm
                key={attendee.attendeeId}
@@ -139,14 +146,14 @@ const AttendeeDetails: React.FC<AttendeeDetailsProps> = ({
             onAdd={handleAddMason}
             onRemove={() => {
               const nonPrimaryMasonIndices = allAttendees
-                .map((att, index) => (att.attendeeType === 'mason' && !att.isPrimary) ? index : -1)
+                .map((att, index) => (att.attendeeType?.toLowerCase() === 'mason' && !att.isPrimary) ? index : -1)
                 .filter(index => index !== -1);
               
               if (nonPrimaryMasonIndices.length > 0) {
                 const lastNonPrimaryMasonIndex = nonPrimaryMasonIndices[nonPrimaryMasonIndices.length - 1];
                 removeAttendeeStore(allAttendees[lastNonPrimaryMasonIndex].attendeeId);
               } else {
-                 const primaryMasonIndex = allAttendees.findIndex(att => att.attendeeType === 'mason' && att.isPrimary);
+                 const primaryMasonIndex = allAttendees.findIndex(att => att.attendeeType?.toLowerCase() === 'mason' && att.isPrimary);
                  if (primaryMasonIndex !== -1 && registrationType !== 'individual' && masonCount === 1) { 
                     removeAttendeeStore(allAttendees[primaryMasonIndex].attendeeId);
                  }
@@ -162,7 +169,7 @@ const AttendeeDetails: React.FC<AttendeeDetailsProps> = ({
             onAdd={handleAddGuest}
             onRemove={() => {
               const guestIndices = allAttendees
-                .map((att, index) => (att.attendeeType.toLowerCase() === 'guest' && att.isPartner !== true) ? index : -1)
+                .map((att, index) => (att.attendeeType?.toLowerCase() === 'guest') ? index : -1)
                 .filter(index => index !== -1);
 
               if (guestIndices.length > 0) {

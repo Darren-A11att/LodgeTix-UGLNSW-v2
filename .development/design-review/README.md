@@ -1,30 +1,66 @@
 # LodgeTix Design Review
 
 ## Overview
-This directory contains a comprehensive design review of the LodgeTix registration wizard, documenting design inconsistencies and providing recommendations for a unified design system.
+This directory contains a comprehensive design review of the LodgeTix registration wizard, documenting design inconsistencies and providing step-by-step implementation guidance for creating a unified design system.
 
-## Review Structure
+## 🚀 Start Here
+[`00-TODO-Design-Refactor.md`](./00-TODO-Design-Refactor.md) - Master implementation checklist with system prompt and detailed steps
+
+## Implementation Guide (In Order)
+
+### Phase 1: Foundation Setup
+1. [`01-tailwind-configuration.md`](./01-tailwind-configuration.md) - Configure Tailwind with masonic colors, typography, and spacing
+2. [`02-form-layout-components.md`](./02-form-layout-components.md) - Create core layout components (FormGrid, FieldLayout)
+
+### Phase 2: Typography & Colors
+3. [`03-typography-system.md`](./03-typography-system.md) - Implement consistent typography with components
+4. [`04-color-consolidation.md`](./04-color-consolidation.md) - Consolidate colors to masonic palette
+
+### Phase 3: Core Components Update
+5. [`05-form-field-redesign.md`](./05-form-field-redesign.md) - Refactor form fields with responsive sizing
+6. [`06-card-component-system.md`](./06-card-component-system.md) - Standardize card components
+
+### Phase 4: Registration Flow Updates
+7. [`07-mason-form-refactor.md`](./07-mason-form-refactor.md) - Update Mason form with new layout system
+8. [`08-guest-form-refactor.md`](./08-guest-form-refactor.md) - Update Guest form with consistent patterns
+
+### Phase 5: Step Components
+9. [`09-attendee-card-redesign.md`](./09-attendee-card-redesign.md) - Two-column mobile layout for attendee cards
+10. [`10-ticket-selection-redesign.md`](./10-ticket-selection-redesign.md) - Replace tables with responsive layouts
+11. [`11-order-review-redesign.md`](./11-order-review-redesign.md) - Sidebar layout with mobile optimization
+
+### Phase 6: Modal & Mobile Optimizations
+12. [`12-modal-mobile-optimization.md`](./12-modal-mobile-optimization.md) - Update modals with dvh units
+13. [`13-responsive-utilities.md`](./13-responsive-utilities.md) - Create responsive utility hooks and components
+
+### Phase 7: Testing & Documentation
+14. [`14-testing-checklist.md`](./14-testing-checklist.md) - Comprehensive cross-browser testing
+15. [`15-documentation-updates.md`](./15-documentation-updates.md) - Create Storybook stories and documentation
+
+## Original Analysis Files
 
 ### Step-by-Step Analysis
-1. [`01-registration-type-step.md`](./01-registration-type-step.md) - Registration type selection
-2. [`02-ticket-selection-step.md`](./02-ticket-selection-step.md) - Ticket selection interface
-3. [`03-attendee-details-step.md`](./03-attendee-details-step.md) - Attendee information forms
-4. [`04-order-review-step.md`](./04-order-review-step.md) - Order review and summary
-5. [`05-payment-step.md`](./05-payment-step.md) - Payment processing
-6. [`06-confirmation-step.md`](./06-confirmation-step.md) - Registration confirmation
+- [`registration-type-step.md`](./registration-type-step.md) - Registration type selection analysis
+- [`ticket-selection-step.md`](./ticket-selection-step.md) - Ticket selection interface analysis
+- [`attendee-details-step.md`](./attendee-details-step.md) - Attendee information forms analysis
+- [`order-review-step.md`](./order-review-step.md) - Order review and summary analysis
+- [`payment-step.md`](./payment-step.md) - Payment processing analysis
+- [`confirmation-step.md`](./confirmation-step.md) - Registration confirmation analysis
 
 ### Cross-Cutting Issues
 - [`color-inconsistencies.md`](./color-inconsistencies.md) - Color usage analysis
 - [`typography-inconsistencies.md`](./typography-inconsistencies.md) - Typography patterns
 - [`spacing-layout-issues.md`](./spacing-layout-issues.md) - Spacing and layout problems
-- [`form-field-layout-system.md`](./form-field-layout-system.md) - Form field sizing and responsive grid
-- [`mobile-responsive-patterns.md`](./mobile-responsive-patterns.md) - Mobile-first design patterns
 
-### Recommendations
-- [`design-system-recommendations.md`](./design-system-recommendations.md) - Comprehensive design system proposal
+### Initial Recommendations
 - [`existing-design-elements.md`](./existing-design-elements.md) - Reusable elements in current codebase
-- [`implementation-roadmap.md`](./implementation-roadmap.md) - How to leverage existing code
-- [`mason-form-redesign-example.md`](./mason-form-redesign-example.md) - Practical implementation example
+- [`form-field-layout-system.md`](./form-field-layout-system.md) - Form field sizing specification
+- [`mobile-responsive-patterns.md`](./mobile-responsive-patterns.md) - Mobile-first patterns
+- [`mason-form-redesign-example.md`](./mason-form-redesign-example.md) - Example implementation
+- [`two-column-implementation.md`](./two-column-implementation.md) - Two-column layout guide
+- [`attendee-card-two-column.md`](./attendee-card-two-column.md) - Attendee card responsive design
+- [`ticket-selection-two-column.md`](./ticket-selection-two-column.md) - Ticket selection mobile layout
+- [`order-review-two-column.md`](./order-review-two-column.md) - Order review responsive layout
 
 ## Key Findings
 

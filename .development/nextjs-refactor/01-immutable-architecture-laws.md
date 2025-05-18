@@ -98,3 +98,13 @@ These are the non-negotiable architectural laws that MUST be followed in all Nex
 - Laws must be enforceable and measurable
 - Laws must integrate with existing laws, not duplicate
 - See [SOP-001-How-To-Write-Laws.md](./SOP-001-How-To-Write-Laws.md) for the process
+
+### Law 14: Domain-Specific Laws Are Mandatory
+- UI components must follow [UI Design Laws](./02-immutable-ui-design-laws.md)
+- Themes must adhere to [Theme Design Laws](./13-theme-design-laws.md)
+- Internationalization follows [i18n Laws](./14-i18n-laws.md)
+- Accessibility enforced by [Accessibility Laws](./15-accessibility-laws.md)
+- Error handling complies with [Error Handling Laws](./17-error-handling-laws.md)
+- Logging adheres to [Logging Laws](./18-logging-laws.md)
+- Deployments follow [Deployment Laws](./20-deployment-laws.md)
+- Security enforced by [Security Laws](./21-security-laws.md)

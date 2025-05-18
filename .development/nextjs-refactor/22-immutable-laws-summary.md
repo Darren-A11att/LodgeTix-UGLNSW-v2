@@ -1,164 +1,170 @@
-# Immutable Laws Summary - Next.js Development
+# Immutable Laws Summary
 
-## The 13 Commandments of Next.js Development
+This is a quick reference guide to all immutable laws that MUST be followed in the LodgeTix Next.js project.
 
-### 1. **Thou Shalt Use Server Components by Default**
-Client components only when explicit interactivity is required. This is the way.
+## Architecture Laws (from 01-immutable-architecture-laws.md)
 
-### 2. **Thou Shalt Honor the File-Based Routing**
-The `app/` directory structure is sacred. Routes reflect files, files reflect routes.
+1. **Server Components by Default** - Use client components only when necessary
+2. **File-Based Routing is Sacred** - Never circumvent Next.js routing conventions
+3. **Co-location is King** - Keep related files together
+4. **Convention Over Configuration** - Follow Next.js naming conventions strictly
+5. **Type Safety is Mandatory** - TypeScript with strict mode, no `any` types
+6. **Data Fetching at the Right Level** - Fetch at highest component level
+7. **Separation of Concerns** - Business logic in services, UI logic in components
+8. **Progressive Enhancement** - Build features that work without JavaScript first
+9. **Performance by Design** - Use dynamic imports, optimize images, minimize JS
+10. **Consistency Above Cleverness** - Follow established patterns
+11. **File Extensions Match Content** - `.tsx` for JSX, `.ts` for everything else
+12. **Type Safety Patterns Must Be Followed** - Strict TypeScript configuration
+13. **Law Creation Follows Process** - New laws require SOP compliance
+14. **Domain-Specific Laws Are Mandatory** - All domains have their own laws
 
-### 3. **Thou Shalt Co-locate Religiously**
-Components, styles, tests, and utilities that work together, live together.
+## UI Design Laws (from 02-immutable-ui-design-laws.md)
 
-### 4. **Thou Shalt Follow Naming Conventions**
-- `page.tsx` for pages
-- `_components/` for route components
-- PascalCase for components
-- camelCase for utilities
-- Never deviate
+1. **Component Composition Hierarchy** - Build from single-responsibility units
+2. **Mobile-First Responsive Design** - Design for mobile, extend to desktop
+3. **Accessibility is Mandatory** - Keyboard accessible, ARIA labels, alt text
+4. **User Feedback for Every Action** - Loading states, error messages, confirmations
+5. **Consistent Design System Usage** - Use tokens only, no hardcoded values
+6. **Performance-First Rendering** - Lazy load, code-split, minimize client JS
+7. **State Management Proximity** - State lives close to usage
+8. **Error Boundaries Required** - Every page needs error handling
+9. **Separation of Concerns** - UI logic separate from business logic
+10. **Testing Coverage Requirements** - Visual regression, accessibility, interaction tests
 
-### 5. **Thou Shalt Type Everything**
-TypeScript is not optional. `any` is forbidden without written justification.
+## Theme Design Laws (from 13-theme-design-laws.md)
 
-### 6. **Thou Shalt Fetch Data in Server Components**
-Data fetching belongs on the server. Client fetching is the exception, not the rule.
+1. **Design Tokens Only** - No raw values, semantic naming required
+2. **CSS Variables Required** - Runtime switching, system preference support
+3. **Type-Safe Themes** - TypeScript definitions for all themes
+4. **Dark Mode Support** - All components must support dark mode
+5. **Accessible Color Contrast** - WCAG AA compliance mandatory
+6. **Component Theme Variants** - Use tokens, no inline styles
+7. **Theme Context Usage** - Single provider, efficient updates
+8. **Responsive Design Tokens** - Breakpoints, spacing, typography scales
+9. **Theme Performance** - Minimize repaints, lazy load, cache preferences
+10. **Theme Documentation** - Document all tokens and patterns
 
-### 7. **Thou Shalt Separate Concerns**
-- Business logic → services/utilities
-- UI logic → components
-- Data fetching → server components
-- State → appropriate level only
+## Internationalization Laws (from 14-i18n-laws.md)
 
-### 8. **Thou Shalt Build Progressively**
-Server-first, enhance with client features. JavaScript should enhance, not be required.
+1. **No Hardcoded Text** - All text must use translation keys
+2. **Locale-Aware Formatting** - Dates, numbers, currency per locale
+3. **Translation Key Structure** - Hierarchical, consistent, contextual
+4. **Bidirectional Text Support** - RTL languages, logical properties
+5. **Dynamic Content Loading** - Lazy load bundles, code-split
+6. **Context-Aware Translations** - Pluralization, gender, parameters
+7. **Language Detection** - Auto-detect, persist choice, provide switcher
+8. **Translation Workflow** - Version control, review process, audits
+9. **Performance Optimization** - Minimize bundles, cache translations
+10. **Accessibility in i18n** - Language tags, screen reader support
 
-### 9. **Thou Shalt Optimize Performance**
-- Next.js Image for all images
-- Dynamic imports for code splitting
-- Proper caching strategies
-- Minimize client JavaScript
+## Accessibility Laws (from 15-accessibility-laws.md)
 
-### 10. **Thou Shalt Be Consistent**
-Follow patterns even when you think you know better. Consistency trumps cleverness.
+1. **Keyboard Navigation is Mandatory** - All elements keyboard accessible
+2. **Semantic HTML First** - Use proper elements, hierarchical headers
+3. **ARIA Only When Necessary** - Don't change native semantics
+4. **Color Independent Information** - Never use color alone
+5. **WCAG AA Compliance Required** - Contrast ratios, text sizing
+6. **Image Accessibility Required** - Alt text for all images
+7. **Form Accessibility Mandatory** - Labels, errors, validation
+8. **Time Limit Accommodations** - Extend, warn, pause capabilities
+9. **Motion and Animation Control** - Respect reduced motion preference
+10. **Screen Reader Compatibility** - All content accessible
 
-### 11. **Thou Shalt Match Extensions to Content**
-Use `.tsx` only for JSX. Use `.ts` for everything else. The extension reveals the content.
+## Error Handling Laws (from 17-error-handling-laws.md)
 
-### 12. **Thou Shalt Follow TypeScript Laws**
-Strict configuration. Type safety. No `any`. See the patterns documentation.
+1. **Error Boundaries Mandatory** - Every page must have boundaries
+2. **User-Friendly Error Messages** - No technical details to users
+3. **Comprehensive Error Logging** - Log with context and stack traces
+4. **Graceful Degradation Required** - Partial functionality during errors
+5. **Network Error Resilience** - Retry logic, offline states
+6. **Form Error Management** - Client and server validation
+7. **API Error Standardization** - Consistent format and codes
+8. **Type-Safe Error Handling** - Specific error types, discriminated unions
+9. **Performance During Errors** - Optimize error handling performance
+10. **Security in Error Handling** - Never expose sensitive data
 
-### 13. **Thou Shalt Create Laws Properly**
-Laws must be necessary, enforceable, and integrated. Follow the SOP.
+## Logging Laws (from 18-logging-laws.md)
 
-## Quick Reference Structure
+1. **Structured Logging Only** - JSON format, consistent fields
+2. **Security First Logging** - Never log sensitive information
+3. **Contextual Information Required** - Request ID, user ID, environment
+4. **Appropriate Log Levels** - ERROR, WARN, INFO, DEBUG correctly used
+5. **Performance Conscious Logging** - Async, sampling, buffering
+6. **Error Context Mandatory** - Stack traces, conditions, browser info
+7. **Client-Side Log Management** - Batch, respect privacy, handle offline
+8. **Monitoring Integration** - Searchable, alerts, real-time analysis
+9. **Environment-Specific Configuration** - Different levels per environment
+10. **Log Retention Compliance** - Retention periods, rotation, archival
 
-```
-app/
-├── (customer)/          # Public routes
-├── (admin)/            # Protected routes
-├── (auth)/             # Auth routes
-├── api/                # API endpoints
-└── _components/        # Global shared components
+## Deployment Laws (from 20-deployment-laws.md)
 
-Each route folder MUST contain:
-├── page.tsx            # Route page
-├── loading.tsx         # Loading state
-├── error.tsx           # Error boundary
-├── layout.tsx          # Layout (if needed)
-└── _components/        # Route-specific components
-```
+1. **Zero-Downtime Deployments** - Rolling updates, health checks
+2. **Environment Parity Required** - Dev, staging, prod identical
+3. **Automated Deployment Pipeline** - No manual deployments
+4. **Container-Based Deployment** - Immutable images, versioned
+5. **Security Throughout Pipeline** - Encrypted secrets, scanning
+6. **Build Optimization Mandatory** - Tree shaking, code splitting
+7. **Performance Monitoring Required** - RUM, Web Vitals, budgets
+8. **Error Recovery Planning** - Automated rollback, backups
+9. **Documentation Requirements** - Process docs, runbooks, changelogs
+10. **Progressive Rollout Strategy** - Feature flags, canary deployments
 
-## The Golden Rules
+## Security Laws (from 21-security-laws.md)
 
-1. **Start with Server Components** - Only add 'use client' when you must
-2. **Co-locate Everything** - Keep related files together
-3. **Type Everything** - No exceptions
-4. **Follow Conventions** - Even when it feels redundant
-5. **Test Behavior** - Not implementation
-6. **Document Decisions** - Especially deviations
-7. **Performance First** - Every decision should consider performance
-8. **Accessibility Always** - It's not optional
-9. **Error Handling Everywhere** - Expect the unexpected
-10. **Consistency Over Cleverness** - Boring is better
+1. **Zero Trust Architecture** - Validate everything, trust nothing
+2. **Input Validation Mandatory** - Whitelist approach, sanitize all
+3. **Authentication Standards** - MFA for admin, session expiry
+4. **Data Protection Required** - Encrypt at rest and in transit
+5. **Security Headers Mandatory** - CSP, X-Frame-Options, HSTS
+6. **Error Handling Security** - No stack traces to users
+7. **Third-Party Security** - Audit dependencies, monitor vulnerabilities
+8. **API Security Standards** - Rate limiting, authentication
+9. **Security Monitoring Active** - Real-time logging, scanning
+10. **OWASP Compliance** - Follow Top 10, regular training
 
-## File Organization Pattern
+## Quick Reference
 
-```typescript
-// 1. Framework imports (React, Next.js)
-import { useState } from 'react'
-import Image from 'next/image'
+### Most Critical Laws
+- Type Safety is Mandatory (Architecture #5)
+- Zero Trust Architecture (Security #1)
+- Accessibility is Mandatory (UI Design #3)
+- No Hardcoded Text (i18n #1)
+- Error Boundaries Mandatory (Error Handling #1)
 
-// 2. External libraries
-import { format } from 'date-fns'
+### Performance Laws
+- Server Components by Default (Architecture #1)
+- Performance by Design (Architecture #9)
+- Performance-First Rendering (UI Design #6)
+- Theme Performance (Theme #9)
+- Performance Optimization (i18n #9)
 
-// 3. Internal imports (absolute paths)
-import { Button } from '@/components/ui/button'
+### Security Laws
+- Security First Logging (Logging #2)
+- Security Throughout Pipeline (Deployment #5)
+- Error Handling Security (Security #6)
+- API Security Standards (Security #8)
+- OWASP Compliance (Security #10)
 
-// 4. Types
-import type { Event } from '@/shared/types'
+### Developer Experience Laws
+- Convention Over Configuration (Architecture #4)
+- Consistency Above Cleverness (Architecture #10)
+- Type-Safe Themes (Theme #3)
+- Type-Safe Error Handling (Error Handling #8)
+- Documentation Requirements (Deployment #9)
 
-// 5. Component/Function
-export function Component() {
-  // Implementation
-}
-```
+## Enforcement
 
-## Component Pattern
+All laws are enforced through:
+1. Code review checklists
+2. Automated testing and linting
+3. CI/CD pipeline checks
+4. Regular audits
+5. Team training
 
-```typescript
-// 1. Types
-interface Props {
-  // Define all props
-}
+## References
 
-// 2. Component
-export function Component({ prop }: Props) {
-  // 3. State
-  const [state, setState] = useState()
-  
-  // 4. Hooks
-  const data = useCustomHook()
-  
-  // 5. Effects
-  useEffect(() => {}, [])
-  
-  // 6. Handlers
-  const handleEvent = () => {}
-  
-  // 7. Early returns
-  if (loading) return <Loading />
-  
-  // 8. Main render
-  return <div>...</div>
-}
-```
-
-## Data Fetching Pattern
-
-```typescript
-// Server Component (default)
-export default async function Page() {
-  const data = await fetchData() // Direct fetching
-  return <ClientComponent data={data} />
-}
-
-// Client Component (only when needed)
-'use client'
-export function InteractiveComponent() {
-  const [state, setState] = useState()
-  // Interactive logic
-}
-```
-
-## Remember
-
-**These are LAWS, not suggestions. They ensure:**
-- Consistency across the entire codebase
-- Optimal performance by default
-- Maintainable code for teams
-- Type safety throughout
-- Accessibility for all users
-- Testable architecture
-
-**When in doubt, check the laws. When certain, check the laws anyway.**
+For detailed implementation patterns, see:
+- Pattern files (##-*-patterns.md)
+- SOP documents (SOP-###-*.md)
+- Practical guides (##-practical-guide-*.md)

@@ -1,173 +1,90 @@
 # Immutable UI Design Laws
 
-## Core UI Design Principles
+## Core Laws for User Interface
 
-These are the non-negotiable UI design laws that MUST be followed in all Next.js development:
+These are the non-negotiable UI laws that MUST be followed in all Next.js development:
 
-### Law 1: Component Composition Over Inheritance
-- **Always** compose components using smaller, reusable pieces
-- Never use inheritance for component extension
-- Prefer composition patterns like Higher-Order Components (HOCs) or render props when necessary
+### Law 1: Component Composition Hierarchy
+- Components must be composed from smaller, single-responsibility units
+- Each component serves exactly one purpose
+- Parent components only orchestrate child components
+- Never duplicate component logic - extract and reuse
+- Maximum component file size: 200 lines
 
-### Law 2: Separation of Concerns
+### Law 2: Mobile-First Responsive Design
+- All UI must be designed for mobile screens first
+- Desktop layouts extend mobile designs, never replace
+- Use CSS logical properties for international support
+- Test all breakpoints in development
+- Never use fixed pixel widths for containers
+
+### Law 3: Accessibility is Mandatory
+- Every interactive element must be keyboard accessible
+- All images require meaningful alt text
+- Color alone must never convey information
+- Focus indicators must be clearly visible
+- ARIA labels required for non-text content
+
+### Law 4: User Feedback for Every Action
+- All user actions must provide immediate feedback
+- Loading states required for async operations
+- Error messages must be actionable
+- Success confirmations must be clear
+- Progress indicators for multi-step processes
+
+### Law 5: Consistent Design System Usage
+- Only use tokens from the design system
+- Never hardcode colors, spacing, or typography
+- All components must use theme variables
+- Custom styles require design system extension
+- Component variants must be documented
+
+### Law 6: Performance-First Rendering
+- Lazy load all below-fold components
+- Images must use Next.js Image component
+- Minimize client-side JavaScript
+- Code-split at route boundaries
+- Implement virtual scrolling for long lists
+
+### Law 7: State Management Proximity
+- State must live closest to where it's used
+- Lift state only when required by multiple components
+- Global state only for truly global data
+- Form state must be isolated per form
+- Never store derived state
+
+### Law 8: Error Boundaries Required
+- Every page must have an error boundary
+- Major UI sections need their own boundaries
+- Error fallbacks must match brand design
+- User data must survive error states
+- Error recovery actions must be provided
+
+### Law 9: Separation of Concerns
 - UI components handle presentation only
-- Business logic belongs in hooks, services, or server components
-- Styling, structure, and behavior must be clearly separated
+- Business logic must live in separate files
+- Styling, markup, and behavior clearly separated
+- Data fetching separated from display
+- Event handlers extracted when complex
 
-### Law 3: Mobile-First Responsive Design
-- **Always** design for mobile screens first
-- Use Tailwind's responsive modifiers (sm:, md:, lg:, xl:, 2xl:)
-- Never use fixed pixel widths for layout containers
-
-### Law 4: Accessibility is Not Optional
-- All interactive elements must be keyboard accessible
-- Proper ARIA labels are required for non-text elements
-- Color contrast must meet WCAG AA standards minimum
-
-### Law 5: Performance-First UI
-- Lazy load components that are below the fold
-- Use Next.js Image component for all images
-- Minimize client-side JavaScript with server components
-
-### Law 6: Consistent Design Tokens
-- Use design tokens from the theme for all styling
-- Never hardcode colors, spacing, or typography values
-- Maintain consistency through shared configuration
-
-### Law 7: State Proximity Principle
-- Keep state as close as possible to where it's used
-- Lift state only when necessary for sharing
-- Prefer local state over global state
-
-### Law 8: Error Boundaries are Mandatory
-- Every major UI section must have error boundaries
-- Provide meaningful fallback UI for errors
-- Log errors appropriately for debugging
-
-### Law 9: Loading States are Required
-- Every async operation must show loading feedback
-- Use suspense boundaries for data fetching
-- Provide skeleton screens for better UX
-
-### Law 10: Form Validation Rules
-- Client-side validation for immediate feedback
-- Server-side validation for security
-- Clear error messages with actionable feedback
-
-## Implementation Patterns
-
-### Component Structure
-```typescript
-//  CORRECT: Clear separation of concerns
-export function UserProfile({ userId }: UserProfileProps) {
-  // Data fetching in server component
-  const user = await getUser(userId);
-  
-  return (
-    <div className="p-4 md:p-6">
-      <UserAvatar user={user} />
-      <UserDetails user={user} />
-    </div>
-  );
-}
-
-// L INCORRECT: Mixed concerns
-export function UserProfile({ userId }: UserProfileProps) {
-  const [user, setUser] = useState(null);
-  
-  useEffect(() => {
-    // Client-side data fetching - avoid when possible
-    fetchUser(userId).then(setUser);
-  }, [userId]);
-  
-  return (
-    <div style={{ padding: '16px' }}> {/* Hardcoded styles */}
-      {/* Mixed presentation and logic */}
-    </div>
-  );
-}
-```
-
-### Responsive Design
-```typescript
-//  CORRECT: Mobile-first responsive design
-<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-  {items.map(item => (
-    <Card key={item.id} className="p-4 sm:p-6">
-      {/* Content */}
-    </Card>
-  ))}
-</div>
-
-// L INCORRECT: Desktop-first with fixed widths
-<div style={{ width: '1200px', display: 'grid' }}>
-  {/* Fixed width container */}
-</div>
-```
-
-### Accessibility
-```typescript
-//  CORRECT: Accessible interactive element
-<button
-  onClick={handleClick}
-  aria-label="Delete item"
-  className="p-2 hover:bg-gray-100 focus:ring-2"
->
-  <TrashIcon className="h-4 w-4" aria-hidden="true" />
-</button>
-
-// L INCORRECT: Inaccessible interaction
-<div onClick={handleClick}>
-  <TrashIcon />
-</div>
-```
-
-### Performance Optimization
-```typescript
-//  CORRECT: Optimized image loading
-import Image from 'next/image';
-
-<Image
-  src={user.avatar}
-  alt={user.name}
-  width={48}
-  height={48}
-  loading="lazy"
-/>
-
-// L INCORRECT: Unoptimized image
-<img src={user.avatar} />
-```
-
-### Loading States
-```typescript
-//  CORRECT: Proper loading feedback
-export default async function Page() {
-  return (
-    <Suspense fallback={<LoadingSkeleton />}>
-      <UserList />
-    </Suspense>
-  );
-}
-
-// L INCORRECT: No loading feedback
-export default async function Page() {
-  const users = await getUsers();
-  return <UserList users={users} />;
-}
-```
+### Law 10: Testing Coverage Requirements
+- All components must have visual regression tests
+- Interactive elements require interaction tests
+- Accessibility tests for every component
+- Responsive behavior must be tested
+- Error states must have test coverage
 
 ## Enforcement
 
 These laws are enforced through:
-1. Code review checklist
-2. ESLint rules for accessibility
-3. TypeScript for type safety
-4. Automated testing for functionality
-5. Performance monitoring in production
+1. Component design reviews before implementation
+2. Automated accessibility testing in CI
+3. Performance budgets in build pipeline
+4. Visual regression testing
+5. Code review checklist requirements
 
 ## References
 
-- [Web Content Accessibility Guidelines (WCAG)](https://www.w3.org/WAI/WCAG21/quickref/)
-- [Next.js Image Optimization](https://nextjs.org/docs/app/building-your-application/optimizing/images)
-- [Tailwind CSS Responsive Design](https://tailwindcss.com/docs/responsive-design)
+- [07-component-patterns.md](./07-component-patterns.md) - Detailed implementation
+- [15-accessibility-patterns.md](./15-accessibility-patterns.md) - WCAG compliance
+- [16-performance-patterns.md](./16-performance-patterns.md) - Performance guidelines

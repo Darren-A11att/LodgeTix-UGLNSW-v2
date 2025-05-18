@@ -1,9 +1,23 @@
 "use client"
 
-import { useState, useEffect, useRef, memo } from "react";
+import { useState, useEffect, memo } from "react";
 import { FilterableComboboxProps } from "./types";
-import { Combobox, ComboboxButton, ComboboxInput, ComboboxOption, ComboboxOptions } from '@headlessui/react'
 import { Check, ChevronsUpDown } from 'lucide-react'
+import { cn } from "@/lib/utils"
+import { Button } from "@/components/ui/button"
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
 
 // Memoized version of the component to prevent unnecessary rerenders
 export const FilterableCombobox = memo(function FilterableCombobox<T extends { name: string; isoCode: string; id?: number }>({
@@ -16,125 +30,82 @@ export const FilterableCombobox = memo(function FilterableCombobox<T extends { n
   onChange,
   displayValue,
   itemKey,
-  filterFunction = (item, query) => 
-    (item.name?.toLowerCase() || '').includes(query.toLowerCase()) ||
-    (item.isoCode?.toLowerCase() || '').includes(query.toLowerCase()),
+  filterFunction,
   loading = false,
   disabled = false,
 }: FilterableComboboxProps<T>) {
-  // Use refs for values that don't need to trigger re-renders
-  const queryRef = useRef('');
   const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
   
-  // Only create state for filtered items when dropdown is open
-  const [filteredItems, setFilteredItems] = useState<T[]>(items);
-  
-  // Update filtered items only when necessary
-  const updateFilteredItems = (query: string) => {
-    queryRef.current = query;
-    if (open) {
-      const newFilteredItems = query === ''
-        ? items
-        : items.filter((item) => filterFunction(item, query));
-      setFilteredItems(newFilteredItems);
-    }
-  };
-
-  // Reset query when value changes externally
+  // Reset query when value changes
   useEffect(() => {
-    queryRef.current = '';
-    // Only update filtered items when dropdown is open
-    if (open) {
-      setFilteredItems(items);
-    }
-  }, [value, items, open]);
+    setQuery("");
+  }, [value]);
   
-  // Update filtered items when dropdown is opened
-  useEffect(() => {
-    if (open) {
-      const newFilteredItems = queryRef.current === ''
-        ? items
-        : items.filter((item) => filterFunction(item, queryRef.current));
-      setFilteredItems(newFilteredItems);
-    }
-  }, [open, items, filterFunction]);
+  // Compute display value from current selection
+  const currentDisplayValue = value ? displayValue(value) : "";
 
   return (
-    <Combobox
-      as="div"
-      value={value}
-      onChange={(item: T | null) => {
-        onChange(item);
-        setOpen(false);
-        queryRef.current = '';
-      }}
-      disabled={disabled || loading}
-    >
-      <div className="relative">
-        <ComboboxInput
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
           id={id}
           name={name}
-          className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
-          placeholder={loading ? "Loading..." : placeholder}
-          onChange={(event) => {
-            // Update filtered items when input changes
-            updateFilteredItems(event.target.value);
-            if (!open) setOpen(true);
-          }}
-          onFocus={() => setOpen(true)}
-          displayValue={displayValue}
-          autoComplete="off"
-        />
-        <ComboboxButton 
-          className="absolute inset-y-0 right-0 flex items-center rounded-r-md px-2 focus:outline-none"
-          onClick={() => setOpen(prev => !prev)}
+          variant="outline"
+          role="combobox"
+          aria-expanded={open}
+          className="w-full justify-between"
+          disabled={disabled || loading}
         >
-          <ChevronsUpDown className="size-5 text-gray-400" aria-hidden="true" />
-        </ComboboxButton>
-        
-        {open && (
-          <ComboboxOptions 
-            className="absolute z-10 mt-1 max-h-60 w-full overflow-auto rounded-md bg-white py-1 text-base shadow-lg ring-1 ring-black/5 focus:outline-none sm:text-sm"
-            static
-          >
-            {filteredItems.length > 0 ? (
-              filteredItems.map((item) => (
-                <ComboboxOption
-                  key={itemKey(item)}
-                  value={item}
-                  className={({ active }) => 
-                    `relative cursor-default select-none py-2 pl-3 pr-9 ${
-                      active ? 'bg-primary text-primary-foreground' : 'text-gray-900'
-                    }`
+          {currentDisplayValue || placeholder}
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0">
+        <Command>
+          <CommandInput
+            placeholder={loading ? "Loading..." : placeholder}
+            value={query}
+            onValueChange={setQuery}
+          />
+          <CommandList>
+            <CommandEmpty>
+              {query !== '' ? 'No results found' : 'No options available'}
+            </CommandEmpty>
+            <CommandGroup>
+              {items
+                .filter((item) => {
+                  if (!query) return true;
+                  // Use provided filter function or default to name/isoCode search
+                  if (filterFunction) {
+                    return filterFunction(item, query);
                   }
-                >
-                  {({ active, selected }) => (
-                    <>
-                      <span className={`block truncate ${selected ? 'font-semibold' : ''}`}>
-                        {item.name}
-                      </span>
-                      {selected && (
-                        <span 
-                          className={`absolute inset-y-0 right-0 flex items-center pr-4 ${
-                            active ? 'text-primary-foreground' : 'text-primary'
-                          }`}
-                        >
-                          <Check className="size-5" aria-hidden="true" />
-                        </span>
+                  return (item.name?.toLowerCase() || '').includes(query.toLowerCase()) ||
+                         (item.isoCode?.toLowerCase() || '').includes(query.toLowerCase());
+                })
+                .map((item) => (
+                  <CommandItem
+                    key={itemKey(item)}
+                    value={item.name}
+                    onSelect={() => {
+                      onChange(item);
+                      setOpen(false);
+                    }}
+                  >
+                    <Check
+                      className={cn(
+                        "mr-2 h-4 w-4",
+                        value && itemKey(value) === itemKey(item) ? "opacity-100" : "opacity-0"
                       )}
-                    </>
-                  )}
-                </ComboboxOption>
-              ))
-            ) : (
-              <div className="relative cursor-default select-none py-2 px-4 text-gray-700">
-                {queryRef.current !== '' ? 'No results found' : 'No options available'}
-              </div>
-            )}
-          </ComboboxOptions>
-        )}
-      </div>
-    </Combobox>
+                    />
+                    {item.name}
+                  </CommandItem>
+                ))}
+            </CommandGroup>
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
   );
 }, (prevProps, nextProps) => {
   // Custom comparison to prevent unnecessary re-renders

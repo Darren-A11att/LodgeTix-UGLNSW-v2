@@ -48,6 +48,17 @@ const isValidEmail = (email: string | undefined | null): boolean => {
   }
 };
 
+// Helper function to normalize attendee type
+const normalizeAttendeeType = (type: string): string => {
+  const typeMap: Record<string, string> = {
+    'mason': 'Mason',
+    'guest': 'Guest', 
+    'ladypartner': 'LadyPartner',
+    'guestpartner': 'GuestPartner'
+  };
+  return typeMap[type.toLowerCase()] || type;
+};
+
 // Function to validate attendee data
 // Make sure UnifiedAttendeeData is imported or available in this scope
 // For now, assuming it's available via registrationStore imports or globally
@@ -71,23 +82,24 @@ const validateAttendeeData = (attendees: ReturnType<typeof selectAttendees>): st
     return `Guest ${index + 1}`;
   };
   
-  const masons = attendees.filter(att => att.attendeeType === 'mason');
-  const guests = attendees.filter(att => att.attendeeType === 'guest');
+  const masons = attendees.filter(att => normalizeAttendeeType(att.attendeeType) === 'Mason');
+  const guests = attendees.filter(att => normalizeAttendeeType(att.attendeeType) === 'Guest');
 
   attendees.forEach((attendee) => {
     let descriptiveLabel = "";
+    const normalizedType = normalizeAttendeeType(attendee.attendeeType);
 
-    if (attendee.attendeeType === 'mason') {
+    if (normalizedType === 'Mason') {
       descriptiveLabel = getMasonOrderLabel(attendee, masons);
-    } else if (attendee.isPartner && attendee.partnerType === 'lady') {
-      const masonOwner = attendees.find(m => m.attendeeId === attendee.relatedAttendeeId);
+    } else if (normalizedType === 'LadyPartner') {
+      const masonOwner = attendees.find(m => m.attendeeId === attendee.partnerOf);
       const masonOwnerLabel = masonOwner ? getMasonOrderLabel(masonOwner, masons) + "'s" : "Associated Mason's";
       descriptiveLabel = `${masonOwnerLabel} Lady/Partner`;
-    } else if (attendee.isPartner && attendee.partnerType === 'guest') {
-      const guestOwner = attendees.find(g => g.attendeeId === attendee.relatedAttendeeId);
+    } else if (normalizedType === 'GuestPartner') {
+      const guestOwner = attendees.find(g => g.attendeeId === attendee.partnerOf);
       const guestOwnerLabel = guestOwner ? getGuestOrderLabel(guestOwner, guests) + "'s" : "Associated Guest's";
       descriptiveLabel = `${guestOwnerLabel} Partner`;
-    } else if (attendee.attendeeType === 'guest' && !attendee.isPartner) {
+    } else if (normalizedType === 'Guest') {
       descriptiveLabel = getGuestOrderLabel(attendee, guests);
     } else {
       // Fallback for unexpected cases or if a guest is somehow a partner without a partnerType
@@ -101,18 +113,18 @@ const validateAttendeeData = (attendees: ReturnType<typeof selectAttendees>): st
     if (!isNonEmpty(attendee.lastName)) errors.push(`${descriptiveLabel}: Last Name is required.`);
 
     // Mason specific
-    if (attendee.attendeeType === 'mason') {
+    if (normalizedType === 'Mason') {
       if (!isNonEmpty(attendee.rank)) errors.push(`${descriptiveLabel}: Rank is required.`);
       if (!isNonEmpty(attendee.grandLodgeId)) errors.push(`${descriptiveLabel}: Grand Lodge is required.`);
       if (!isNonEmpty(attendee.lodgeId) && !isNonEmpty(attendee.lodgeNameNumber)) errors.push(`${descriptiveLabel}: Lodge is required.`);
       // There is no membershipNumber field in this application
-    } else if (attendee.isPartner) { // Check if partner
+    } else if (normalizedType === 'LadyPartner' || normalizedType === 'GuestPartner') { // Check if partner
       // Partner specific validation (treat as Guest generally, plus relationship)
       if (!attendee.relationship) errors.push("Partner relationship is required.");
       if (attendee.contactPreference === 'Directly' && !attendee.primaryEmail && !attendee.primaryPhone) {
           errors.push("Partner Email or Phone is required if contacting directly.");
       }
-    } else if (attendee.attendeeType === 'guest') {
+    } else if (normalizedType === 'Guest') {
       // Guest specific validation
       if (attendee.contactPreference === 'Directly' && !attendee.primaryEmail && !attendee.primaryPhone) {
           errors.push("Guest Email or Phone is required if contacting directly.");
@@ -120,7 +132,7 @@ const validateAttendeeData = (attendees: ReturnType<typeof selectAttendees>): st
     }
 
     // Contact Info for relevant types
-    if (attendee.attendeeType === 'mason' || attendee.attendeeType === 'guest') {
+    if (normalizedType === 'Mason' || normalizedType === 'Guest') {
       // If contactPreference is 'Directly', email and phone are mandatory.
       if (attendee.contactPreference === 'Directly') {
         if (!isValidEmail(attendee.primaryEmail)) {
@@ -129,7 +141,7 @@ const validateAttendeeData = (attendees: ReturnType<typeof selectAttendees>): st
         if (!isNonEmpty(attendee.primaryPhone)) {
           errors.push(`${descriptiveLabel}: Phone Number is required when contact preference is 'Directly'.`);
         }
-      } else if (attendee.isPrimary && attendee.attendeeType === 'mason') {
+      } else if (attendee.isPrimary && normalizedType === 'Mason') {
         // This block specifically validates the Primary Mason's email and phone,
         // as their fields are always visible and marked required on the form,
         // and their contactPreference defaults to 'Directly'.
