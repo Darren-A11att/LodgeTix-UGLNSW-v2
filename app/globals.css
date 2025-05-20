@@ -2,6 +2,13 @@
 @tailwind components;
 @tailwind utilities;
 
+html,
+body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
 @layer base {
   :root {
     --background: 0 0% 100%;
@@ -263,6 +270,28 @@
 
   .container-custom {
     @apply container mx-auto px-4 sm:px-6 lg:px-8 max-w-7xl;
+  }
+  
+  /* Form grid layout with responsive columns */
+  .form-grid {
+    @apply grid grid-cols-12 gap-4;
+  }
+  
+  /* Form field sizing utilities with responsive behavior */
+  .field-sm {
+    @apply col-span-12 sm:col-span-6 md:col-span-4 lg:col-span-3;
+  }
+  
+  .field-md {
+    @apply col-span-12 sm:col-span-6 md:col-span-6 lg:col-span-6;
+  }
+  
+  .field-lg {
+    @apply col-span-12 sm:col-span-12 md:col-span-8 lg:col-span-9;
+  }
+  
+  .field-full {
+    @apply col-span-12;
   }
 
   /* Make all form selects the same height for consistency */

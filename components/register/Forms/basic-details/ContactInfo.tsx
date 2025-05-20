@@ -57,13 +57,14 @@ export const ContactInfo: React.FC<SectionProps> = ({
 
       {/* Contact fields - show for primary or when "Directly" is selected */}
       {showContactFields && (
-        <div className="space-y-4">
+        <div className="form-grid">
           <EmailField
             label="Email Address"
             name="primaryEmail"
             value={data.primaryEmail || ''}
             onChange={(value) => onChange('primaryEmail', value)}
             required={true}
+            className="field-md"
           />
 
           <PhoneField
@@ -72,6 +73,7 @@ export const ContactInfo: React.FC<SectionProps> = ({
             value={data.primaryPhone || ''}
             onChange={(value) => onChange('primaryPhone', value)}
             required={true}
+            className="field-md"
           />
         </div>
       )}

@@ -19,6 +19,13 @@ const config = {
       },
     },
     extend: {
+      // Form field sizing utilities
+      gridColumn: {
+        'field-sm': 'span 1 / span 1',
+        'field-md': 'span 2 / span 2',
+        'field-lg': 'span 3 / span 3',
+        'field-full': 'span 12 / span 12',
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",

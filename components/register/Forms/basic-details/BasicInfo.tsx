@@ -1,9 +1,11 @@
-import React, { useCallback, useEffect } from 'react';
+import React, { useCallback, useEffect, useMemo } from 'react';
 import { TextField, SelectField } from '../shared/FieldComponents';
 import { AttendeeData, SectionProps } from '../attendee/types';
-import { MASON_TITLES, GUEST_TITLES, MASON_RANKS } from '../attendee/utils/constants';
-import { handleTitleChange } from '../attendee/utils/businessLogic';
+import { MASON_TITLES, GUEST_TITLES, MASON_RANKS, isGrandTitle } from '../attendee/utils/constants';
+import { handleTitleChange, handleRankChange } from '../attendee/utils/businessLogic';
 import { cn } from '@/lib/utils';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { InfoIcon } from 'lucide-react';
 
 /**
  * BasicInfo Component
@@ -44,14 +46,67 @@ export const BasicInfo = React.memo<SectionProps>(({
   const handleTitleChangeWithLogic = useCallback((newTitle: string) => {
     if (type === 'Mason') {
       const updates = handleTitleChange(newTitle, data.rank || '');
+      
+      // First update the title to ensure order of operations
       onChange('title', newTitle);
+      
+      // Then update rank if needed (this is key for automated rank changes)
       if (updates.rank) {
+        console.log(`[BasicInfo] Title change triggered rank update: ${updates.rank}`);
         onChange('rank', updates.rank);
       }
     } else {
       onChange('title', newTitle);
     }
   }, [type, data.rank, onChange]);
+  
+  // Handle rank change with title logic for Masons
+  const handleRankChangeWithLogic = useCallback((newRank: string) => {
+    if (type === 'Mason') {
+      const updates = handleRankChange(newRank, data.title || '', data.rank || '');
+      
+      // First update the rank to ensure order of operations
+      onChange('rank', newRank);
+      
+      // Then update title or other fields if needed
+      if (updates.title && updates.title !== data.title) {
+        console.log(`[BasicInfo] Rank change triggered title update: ${updates.title}`);
+        onChange('title', updates.title);
+      }
+      
+      // Clear grand officer fields if changing from GL rank
+      if (data.rank === 'GL' && newRank !== 'GL') {
+        onChange('grandOfficerStatus', undefined);
+        onChange('presentGrandOfficerRole', undefined);
+        onChange('otherGrandOfficerRole', undefined);
+      }
+    } else {
+      onChange('rank', newRank);
+    }
+  }, [type, data.title, data.rank, onChange]);
+  
+  // Check for title/rank mismatches and show warnings
+  const titleRankMismatch = useMemo(() => {
+    if (type !== 'Mason') return null;
+    
+    if (isGrandTitle(data.title || '') && data.rank !== 'GL') {
+      return {
+        type: 'title-rank',
+        message: `Grand title "${data.title}" should have Grand Lodge (GL) rank. Click to fix.`,
+        fix: () => onChange('rank', 'GL')
+      };
+    }
+    
+    if (data.title === 'W Bro' && data.rank !== 'GL' && data.rank !== 'IM') {
+      return {
+        type: 'title-rank',
+        message: `Title "W Bro" should have Installed Master (IM) or Grand Lodge (GL) rank. Click to fix.`,
+        fix: () => onChange('rank', 'IM')
+      };
+    }
+    
+    return null;
+  }, [type, data.title, data.rank, onChange]);
 
   // Convert rank constants to options
   const rankOptions = MASON_RANKS.map(rank => ({ 
@@ -65,7 +120,7 @@ export const BasicInfo = React.memo<SectionProps>(({
         {isPrimary ? 'Your Details' : 'Attendee Details'}
       </h3>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="form-grid">
         {/* Title */}
         <SelectField
           label="Title"
@@ -74,7 +129,7 @@ export const BasicInfo = React.memo<SectionProps>(({
           onChange={handleTitleChangeWithLogic}
           options={titleOptions}
           required={true}
-          className="md:col-span-1"
+          className="field-sm"
         />
 
         {/* First Name */}
@@ -84,7 +139,7 @@ export const BasicInfo = React.memo<SectionProps>(({
           value={data.firstName || ''}
           onChange={(value) => onChange('firstName', value)}
           required={true}
-          className="md:col-span-1"
+          className="field-md"
         />
 
         {/* Last Name */}
@@ -94,21 +149,21 @@ export const BasicInfo = React.memo<SectionProps>(({
           value={data.lastName || ''}
           onChange={(value) => onChange('lastName', value)}
           required={true}
-          className="md:col-span-1"
+          className="field-md"
         />
       </div>
 
       {/* Mason-specific fields */}
       {type === 'Mason' && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="form-grid">
           <SelectField
             label="Rank"
             name="rank"
             value={data.rank || ''}
-            onChange={(value) => onChange('rank', value)}
+            onChange={handleRankChangeWithLogic}
             options={rankOptions}
             required={true}
-            className="md:col-span-1"
+            className="field-md"
           />
           
           {/* Suffix field could go here if needed */}
@@ -118,21 +173,33 @@ export const BasicInfo = React.memo<SectionProps>(({
             value={data.suffix || ''}
             onChange={(value) => onChange('suffix', value)}
             placeholder="Jr., Sr., III, etc."
-            className="md:col-span-1"
+            className="field-md"
           />
+          
+          {/* Warning for title/rank mismatches */}
+          {titleRankMismatch && (
+            <div className="field-full mt-2">
+              <Alert variant="warning" className="cursor-pointer" onClick={titleRankMismatch.fix}>
+                <InfoIcon className="h-4 w-4" />
+                <AlertDescription>
+                  {titleRankMismatch.message}
+                </AlertDescription>
+              </Alert>
+            </div>
+          )}
         </div>
       )}
 
       {/* Guest-specific fields */}
       {type === 'Guest' && (
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="form-grid">
           <TextField
             label="Suffix"
             name="suffix"
             value={data.suffix || ''}
             onChange={(value) => onChange('suffix', value)}
             placeholder="Jr., Sr., III, etc."
-            className="md:col-span-1"
+            className="field-md"
           />
         </div>
       )}

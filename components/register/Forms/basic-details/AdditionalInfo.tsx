@@ -10,7 +10,7 @@ export const AdditionalInfo: React.FC<SectionProps> = ({
     <div className="space-y-6">
       <h3 className="text-lg font-semibold">Additional Information</h3>
 
-      <div className="space-y-4">
+      <div className="form-grid">
         <TextareaField
           label="Dietary Requirements"
           name="dietaryRequirements"
@@ -19,6 +19,7 @@ export const AdditionalInfo: React.FC<SectionProps> = ({
           placeholder="Please list any dietary requirements or food allergies"
           rows={3}
           maxLength={200}
+          className="field-full"
         />
 
         <TextareaField
@@ -29,6 +30,7 @@ export const AdditionalInfo: React.FC<SectionProps> = ({
           placeholder="Please list any special needs or accessibility requirements"
           rows={3}
           maxLength={500}
+          className="field-full"
         />
       </div>
 
