@@ -62,5 +62,4 @@ const LoadingState: React.FC = () => (
   </div>
 );
 
-export { MasonForm };
 export default MasonForm;

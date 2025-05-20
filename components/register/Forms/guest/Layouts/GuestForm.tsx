@@ -41,5 +41,4 @@ const LoadingState: React.FC = () => (
   </div>
 );
 
-export { GuestForm };
 export default GuestForm;

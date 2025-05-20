@@ -7,15 +7,8 @@ import { cn } from '@/lib/utils';
 import { Loader2 } from 'lucide-react';
 
 // Lazy load form components for better performance
-const MasonForm = lazy(async () => {
-  const module = await import('../mason/Layouts/MasonForm');
-  return module;
-});
-
-const GuestForm = lazy(async () => {
-  const module = await import('../guest/Layouts/GuestForm');
-  return module;
-});
+const MasonForm = lazy(() => import('../mason/Layouts/MasonForm'));
+const GuestForm = lazy(() => import('../guest/Layouts/GuestForm'));
 
 // Loading fallback component
 const FormLoadingFallback = () => (
