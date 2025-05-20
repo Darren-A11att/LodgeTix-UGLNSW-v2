@@ -88,7 +88,7 @@ export const TextField: React.FC<FieldProps & {
   type?: string;
   placeholder?: string;
   maxLength?: number;
-  debounceMs?: number;
+  updateOnBlur?: boolean;
 }> = ({ 
   label, 
   name, 
@@ -102,30 +102,30 @@ export const TextField: React.FC<FieldProps & {
   maxLength,
   className,
   inputClassName,
-  debounceMs = 0 // Default to no debounce, use directly with debounced hooks
+  updateOnBlur = true // Default to updating store only on blur
 }) => {
   const [localValue, setLocalValue] = useState(value);
   
-  // Update local value when prop value changes
+  // Update local value when prop value changes from parent
   useEffect(() => {
     setLocalValue(value);
   }, [value]);
 
-  // Handle input change with optional debounce
+  // Handle input change locally without propagating to parent/store
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newValue = e.target.value;
     setLocalValue(newValue);
     
-    if (debounceMs <= 0) {
-      // No debounce, update immediately
+    // Only update the store immediately if updateOnBlur is false
+    if (!updateOnBlur) {
       onChange(newValue);
-    } else {
-      // Clear any existing timeout and set a new one
-      const timeoutId = setTimeout(() => {
-        onChange(newValue);
-      }, debounceMs);
-      
-      return () => clearTimeout(timeoutId);
+    }
+  };
+  
+  // When field loses focus, update the store with current value
+  const handleBlur = () => {
+    if (updateOnBlur && localValue !== value) {
+      onChange(localValue);
     }
   };
   
@@ -136,6 +136,7 @@ export const TextField: React.FC<FieldProps & {
         type={type}
         value={localValue}
         onChange={handleChange}
+        onBlur={handleBlur}
         placeholder={placeholder}
         maxLength={maxLength}
         disabled={disabled}
@@ -148,45 +149,56 @@ export const TextField: React.FC<FieldProps & {
 // Email field - uses HTML5 email validation
 export const EmailField: React.FC<FieldProps & {
   placeholder?: string;
-  debounceMs?: number;
-}> = ({ label, name, value, onChange, error, required, disabled, placeholder, className, inputClassName, debounceMs = 0 }) => {
+  updateOnBlur?: boolean;
+}> = ({ label, name, value, onChange, error, required, disabled, placeholder, className, inputClassName, updateOnBlur = true }) => {
   const [localValue, setLocalValue] = useState(value);
+  const [localError, setLocalError] = useState('');
   
   // Update local value when prop value changes
   useEffect(() => {
     setLocalValue(value);
   }, [value]);
   
-  const handleChange = (newValue: string) => {
+  // Handle change locally with email formatting
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newValue = e.target.value;
     const formatted = formatEmail(newValue);
     setLocalValue(formatted);
     
-    if (debounceMs <= 0) {
-      onChange(formatted);
+    // Validate immediately for user feedback
+    if (formatted && formatted.length > 0) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      setLocalError(emailRegex.test(formatted) ? '' : 'Invalid email format');
     } else {
-      const timeoutId = setTimeout(() => {
-        onChange(formatted);
-      }, debounceMs);
-      
-      return () => clearTimeout(timeoutId);
+      setLocalError('');
+    }
+    
+    // Only update parent immediately if not using blur
+    if (!updateOnBlur) {
+      onChange(formatted);
+    }
+  };
+  
+  // Update parent on blur
+  const handleBlur = () => {
+    if (updateOnBlur && localValue !== value) {
+      onChange(localValue);
     }
   };
 
   return (
-    <TextField
-      label={label}
-      name={name}
-      value={localValue}
-      onChange={handleChange}
-      type="email"
-      placeholder={placeholder || "email@example.com"}
-      error={error}
-      required={required}
-      disabled={disabled}
-      className={className}
-      inputClassName={inputClassName}
-      // Don't pass debounce to TextField since we're handling it here
-    />
+    <FieldWrapper label={label} name={name} required={required} error={error || localError} className={className}>
+      <Input
+        id={name}
+        type="email"
+        value={localValue}
+        onChange={handleChange}
+        onBlur={handleBlur}
+        placeholder={placeholder || "email@example.com"}
+        disabled={disabled}
+        className={cn((error || localError) && "border-red-500", inputClassName)}
+      />
+    </FieldWrapper>
   );
 };
 
@@ -194,7 +206,7 @@ export const EmailField: React.FC<FieldProps & {
 export const PhoneField: React.FC<FieldProps & {
   placeholder?: string;
   international?: boolean;
-  debounceMs?: number;
+  updateOnBlur?: boolean;
 }> = ({ 
   label, 
   name, 
@@ -207,7 +219,7 @@ export const PhoneField: React.FC<FieldProps & {
   international = true,
   className, 
   inputClassName,
-  debounceMs = 0
+  updateOnBlur = true
 }) => {
   const [localValue, setLocalValue] = useState(value);
   const [localError, setLocalError] = useState('');
@@ -217,7 +229,9 @@ export const PhoneField: React.FC<FieldProps & {
     setLocalValue(value);
   }, [value]);
 
-  const handleChange = (newValue: string) => {
+  // Handle local change with formatting
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newValue = e.target.value;
     const formatted = formatPhoneNumber(newValue);
     setLocalValue(formatted);
     
@@ -228,33 +242,32 @@ export const PhoneField: React.FC<FieldProps & {
       setLocalError('');
     }
     
-    // But update propagation is debounced if needed
-    if (debounceMs <= 0) {
+    // Only update parent immediately if not using blur
+    if (!updateOnBlur) {
       onChange(formatted);
-    } else {
-      const timeoutId = setTimeout(() => {
-        onChange(formatted);
-      }, debounceMs);
-      
-      return () => clearTimeout(timeoutId);
+    }
+  };
+  
+  // Update parent on blur
+  const handleBlur = () => {
+    if (updateOnBlur && localValue !== value) {
+      onChange(localValue);
     }
   };
 
   return (
-    <TextField
-      label={label}
-      name={name}
-      value={localValue}
-      onChange={handleChange}
-      type="tel"
-      placeholder={placeholder || "0400 000 000"}
-      error={error || localError}
-      required={required}
-      disabled={disabled}
-      className={className}
-      inputClassName={inputClassName}
-      // Don't pass debounce to TextField since we're handling it here
-    />
+    <FieldWrapper label={label} name={name} required={required} error={error || localError} className={className}>
+      <Input
+        id={name}
+        type="tel"
+        value={localValue}
+        onChange={handleChange}
+        onBlur={handleBlur}
+        placeholder={placeholder || "0400 000 000"}
+        disabled={disabled}
+        className={cn((error || localError) && "border-red-500", inputClassName)}
+      />
+    </FieldWrapper>
   );
 };
 
@@ -270,6 +283,7 @@ export const SelectField: React.FC<{
   required?: boolean;
   disabled?: boolean;
   className?: string;
+  updateOnBlur?: boolean;
 }> = ({ 
   label, 
   name, 
@@ -280,13 +294,21 @@ export const SelectField: React.FC<{
   error, 
   required, 
   disabled, 
-  className 
+  className,
+  updateOnBlur = false // For Select, almost always want immediate updates for UX
 }) => {
+  // Select component from shadcn/ui handles its own state
+  // We only need to intercept the onChange event if using blur updates
+  const handleValueChange = (newValue: string) => {
+    // Select components generally need to update immediately for proper UX
+    onChange(newValue);
+  };
+  
   return (
     <FieldWrapper label={label} name={name} required={required} error={error} className={className}>
       <Select
         value={value}
-        onValueChange={onChange}
+        onValueChange={handleValueChange}
         disabled={disabled}
       >
         <SelectTrigger id={name} className={cn(error && "border-red-500")}>
@@ -309,6 +331,7 @@ export const TextareaField: React.FC<FieldProps & {
   placeholder?: string;
   rows?: number;
   maxLength?: number;
+  updateOnBlur?: boolean;
 }> = ({ 
   label, 
   name, 
@@ -321,14 +344,41 @@ export const TextareaField: React.FC<FieldProps & {
   rows = 3, 
   maxLength,
   className,
-  inputClassName 
+  inputClassName,
+  updateOnBlur = true // Default to updating store only on blur
 }) => {
+  const [localValue, setLocalValue] = useState(value);
+  
+  // Update local value when prop value changes
+  useEffect(() => {
+    setLocalValue(value);
+  }, [value]);
+  
+  // Handle input change locally
+  const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const newValue = e.target.value;
+    setLocalValue(newValue);
+    
+    // Only update parent/store immediately if not using blur
+    if (!updateOnBlur) {
+      onChange(newValue);
+    }
+  };
+  
+  // When field loses focus, update parent/store
+  const handleBlur = () => {
+    if (updateOnBlur && localValue !== value) {
+      onChange(localValue);
+    }
+  };
+  
   return (
     <FieldWrapper label={label} name={name} required={required} error={error} className={className}>
       <Textarea
         id={name}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
+        value={localValue}
+        onChange={handleChange}
+        onBlur={handleBlur}
         placeholder={placeholder}
         rows={rows}
         maxLength={maxLength}
