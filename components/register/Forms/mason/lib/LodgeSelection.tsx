@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { AutocompleteInput } from '../../shared/AutocompleteInput';
+import AutocompleteInput from '../../shared/AutocompleteInput';
 import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -111,82 +111,123 @@ export const LodgeSelection: React.FC<LodgeSelectionProps> = ({
 
   // Load selected lodge data with improved reliability
   useEffect(() => {
-    // Skip if user is actively typing - let them finish
+    // React Hooks must be called at the top level - not inside conditionals or loops
+    // Use a local variable instead for tracking processing state
+    
+    // Skip if user is actively typing
     if (userIsTypingRef.current) return;
     
+    // Use a local variable to track processing state
+    let isProcessing = false;
+    
     if (value && !selectedLodge) {
+      isProcessing = true;
       console.log(`[LodgeSelection] Loading lodge data for ID: ${value}`);
       
-      // First try to find it in the current lodges list
-      const foundInCurrentList = lodges.find(l => l.id === value);
-      if (foundInCurrentList) {
-        console.log(`[LodgeSelection] Found lodge in current list: ${foundInCurrentList.display_name}`);
-        setSelectedLodge(foundInCurrentList);
-        setInputValue(foundInCurrentList.display_name);
-        lodgeNameRef.current = foundInCurrentList.display_name;
-        setIsInitialized(true);
-        return;
+      // Check if the value we're loading matches the primaryMason
+      if (primaryMason?.lodgeId === value) {
+        // If we have an active "use same lodge" setting, let that effect handle it
+        if (useSameLodge) {
+          return;
+        }
       }
       
-      // Next, try to find it in search results
-      const foundInSearch = allLodgeSearchResults.find(l => l.id === value);
-      if (foundInSearch) {
-        console.log(`[LodgeSelection] Found lodge in search results: ${foundInSearch.display_name}`);
-        setSelectedLodge(foundInSearch);
-        setInputValue(foundInSearch.display_name);
-        lodgeNameRef.current = foundInSearch.display_name;
-        setIsInitialized(true);
-        return;
+      try {
+        // First try to find it in the current lodges list
+        const foundInCurrentList = lodges.find(l => l.id === value);
+        if (foundInCurrentList) {
+          console.log(`[LodgeSelection] Found lodge in current list: ${foundInCurrentList.display_name}`);
+          setSelectedLodge(foundInCurrentList);
+          setInputValue(foundInCurrentList.display_name);
+          lodgeNameRef.current = foundInCurrentList.display_name;
+          setIsInitialized(true);
+          return;
+        }
+        
+        // Next, try to find it in search results
+        const foundInSearch = allLodgeSearchResults.find(l => l.id === value);
+        if (foundInSearch) {
+          console.log(`[LodgeSelection] Found lodge in search results: ${foundInSearch.display_name}`);
+          setSelectedLodge(foundInSearch);
+          setInputValue(foundInSearch.display_name);
+          lodgeNameRef.current = foundInSearch.display_name;
+          setIsInitialized(true);
+          return;
+        }
+        
+        // If we have a lodgeNameNumber from primary mason, use it
+        if (primaryMason?.lodgeNameNumber && primaryMason.lodgeId === value) {
+          console.log(`[LodgeSelection] Using lodge name from primary mason: ${primaryMason.lodgeNameNumber}`);
+          setInputValue(primaryMason.lodgeNameNumber);
+          lodgeNameRef.current = primaryMason.lodgeNameNumber;
+          initialLoadDoneRef.current = true;
+          setIsInitialized(true);
+          return;
+        }
+        
+        // If all else fails, try to search for it directly - but only once
+        if (!isLoadingAllLodges && !initialLoadDoneRef.current) {
+          console.log(`[LodgeSelection] Searching for lodge with ID: ${value}`);
+          searchAllLodgesAction(value);
+          initialLoadDoneRef.current = true;
+          setInputValue('Looking up Lodge...');
+        }
+      } finally {
+        // Flag is no longer needed as we're using a local variable
+        isProcessing = false;
       }
-      
-      // If we have a lodgeNameNumber, use it
-      if (primaryMason?.lodgeNameNumber && primaryMason.lodgeId === value) {
-        console.log(`[LodgeSelection] Using lodge name from primary mason: ${primaryMason.lodgeNameNumber}`);
-        setInputValue(primaryMason.lodgeNameNumber);
-        lodgeNameRef.current = primaryMason.lodgeNameNumber;
-        initialLoadDoneRef.current = true;
-        setIsInitialized(true);
-        return;
-      }
-      
-      // If all else fails, try to search for it directly
-      if (!isLoadingAllLodges && !initialLoadDoneRef.current) {
-        console.log(`[LodgeSelection] Searching for lodge with ID: ${value}`);
-        searchAllLodgesAction(value);
-        initialLoadDoneRef.current = true;
-        setInputValue('Looking up Lodge...');
-      }
-    } else if (!value) {
-      // Clear selection if value is empty/null
+    } else if (!value && selectedLodge) {
+      // Clear selection if value is empty/null but we have a selectedLodge
       setSelectedLodge(null);
       setInputValue('');
       lodgeNameRef.current = null;
     }
-  }, [value, lodges, selectedLodge, allLodgeSearchResults, isLoadingAllLodges, searchAllLodgesAction, primaryMason]);
+  }, [value, lodges, selectedLodge, allLodgeSearchResults, isLoadingAllLodges, searchAllLodgesAction, primaryMason?.lodgeId, primaryMason?.lodgeNameNumber, useSameLodge]);
 
+  // Create this ref at the top level, outside any hooks or conditions
+  const isHandlingSameLodgeChange = useRef(false);
+  
   // Handle use same lodge checkbox
   useEffect(() => {
+    // Don't call hooks inside conditions
+    if (isHandlingSameLodgeChange.current) return;
+    
     if (useSameLodge && primaryMason?.lodgeId && primaryMason?.lodgeNameNumber) {
+      isHandlingSameLodgeChange.current = true;
       console.log(`[LodgeSelection] Using same lodge as primary: ${primaryMason.lodgeNameNumber}`);
-      onChange(primaryMason.lodgeId, primaryMason.lodgeNameNumber);
-      setInputValue(primaryMason.lodgeNameNumber);
+      
+      // Update references first
       lodgeNameRef.current = primaryMason.lodgeNameNumber;
+      setInputValue(primaryMason.lodgeNameNumber);
       
       // Try to find the lodge in current list for info display
       const primaryLodge = lodges.find(l => l.id === primaryMason.lodgeId);
-      if (primaryLodge) {
-        setSelectedLodge(primaryLodge);
-      } else {
-        // If not found, set selected lodge to null but keep the input value
-        setSelectedLodge(null);
+      setSelectedLodge(primaryLodge || null);
+      
+      // Call onChange last to avoid triggering other effects
+      if (value !== primaryMason.lodgeId) {
+        onChange(primaryMason.lodgeId, primaryMason.lodgeNameNumber);
       }
+      
+      // Reset the flag after a short delay
+      setTimeout(() => {
+        isHandlingSameLodgeChange.current = false;
+      }, 0);
     } else if (!useSameLodge && !value) {
       // When unchecking "use same lodge", clear the selection if no value was set previously
+      isHandlingSameLodgeChange.current = true;
       setSelectedLodge(null);
       setInputValue('');
+      lodgeNameRef.current = null;
+      
       onChange('', '');
+      
+      // Reset the flag after a short delay
+      setTimeout(() => {
+        isHandlingSameLodgeChange.current = false;
+      }, 0);
     }
-  }, [useSameLodge, primaryMason, onChange, lodges]);
+  }, [useSameLodge, primaryMason?.lodgeId, primaryMason?.lodgeNameNumber, value, lodges, onChange]);
 
   // Handle lodge selection
   const handleSelect = useCallback((lodge: LodgeOption | null) => {
