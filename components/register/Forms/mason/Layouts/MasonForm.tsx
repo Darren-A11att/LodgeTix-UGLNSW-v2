@@ -1,12 +1,12 @@
 import React, { useCallback } from 'react';
-import { BasicInfo } from '../../basic-details/BasicInfo';
-import { ContactInfo } from '../../basic-details/ContactInfo';
-import { AdditionalInfo } from '../../basic-details/AdditionalInfo';
+import { BasicInfo } from '@/components/register/Forms/basic-details/BasicInfo';
+import { ContactInfo } from '@/components/register/Forms/basic-details/ContactInfo';
+import { AdditionalInfo } from '@/components/register/Forms/basic-details/AdditionalInfo';
 import { GrandLodgeSelection } from '../lib/GrandLodgeSelection';
 import { LodgeSelection } from '../lib/LodgeSelection';
 import { GrandOfficerFields } from '../utils/GrandOfficerFields';
-import { useAttendeeData } from '../../attendee/lib/useAttendeeData';
-import { FormProps } from '../../attendee/types';
+import { useAttendeeData } from '@/components/register/Forms/attendee/lib/useAttendeeData';
+import { FormProps } from '@/components/register/Forms/attendee/types';
 
 const MasonForm: React.FC<FormProps> = ({ attendeeId, attendeeNumber, isPrimary }) => {
   const { attendee, updateField } = useAttendeeData(attendeeId);
