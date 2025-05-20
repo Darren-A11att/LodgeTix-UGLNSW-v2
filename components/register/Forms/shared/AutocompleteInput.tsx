@@ -7,8 +7,8 @@ export type BaseOption = object;
 
 // Update the generic constraint to use BaseOption
 interface AutocompleteInputProps<T extends BaseOption> { 
-  id?: string;
-  name?: string;
+  id: string;
+  name: string;
   value: string;
   onChange: (value: string) => void;
   onSelect?: (value: T | null) => void; // Allow selecting null if input cleared/no match
@@ -37,8 +37,8 @@ interface AutocompleteInputProps<T extends BaseOption> {
 
 // Update the function signature constraint
 function AutocompleteInput<T extends BaseOption>({
-  id = 'autocomplete',
-  name = 'autocomplete',
+  id,
+  name,
   value,
   onChange = (val: string) => { console.warn(`AutocompleteInput (${id}/${name}): Missing onChange handler`, val); },
   onSelect,
@@ -80,7 +80,7 @@ function AutocompleteInput<T extends BaseOption>({
       setInputValue(value);
     }
   }, [value]);
-
+  
   // Handle search function
   const performSearch = useCallback(async (query: string) => {
     if (!searchFunction || query.length < minSearchLength) {
@@ -129,56 +129,93 @@ function AutocompleteInput<T extends BaseOption>({
   }, [inputValue, searchFunction, searchAsYouType, debounceMs, performSearch]);
 
   // Filter options based on input, handle loading state
+  // Using useRef to avoid infinite loops but still access updated props
+  const optionsRef = useRef(options);
+  const isLoadingRef = useRef(isLoading);
+  const allowCreateRef = useRef(allowCreate);
+  const getOptionLabelRef = useRef(getOptionLabel);
+  
+  // Update refs when props change
+  useEffect(() => {
+    optionsRef.current = options;
+    isLoadingRef.current = isLoading;
+    allowCreateRef.current = allowCreate;
+    getOptionLabelRef.current = getOptionLabel;
+  }, [options, isLoading, allowCreate, getOptionLabel]);
+  
+  // Memoized filter function to avoid recomputing on every render
   const updateFilteredOptions = useCallback(() => {
+    // If search function is provided, let it handle filtering
     if (searchFunction) {
-      return; // Let search function handle filtering
+      return;
     }
-
-    if (!isLoading && inputValue.trim() !== "") {
+    
+    const currentOptions = optionsRef.current;
+    const currentIsLoading = isLoadingRef.current;
+    const currentAllowCreate = allowCreateRef.current;
+    const currentGetOptionLabel = getOptionLabelRef.current;
+    
+    // If loading is finished, use the provided options directly.
+    // If loading is ongoing OR input is empty, clear options.
+    if (!currentIsLoading && inputValue.trim() !== "") {
       try {
-        const validOptions = options.filter(opt => opt !== null && typeof opt === 'object');
+        // Make a defensive copy of options first
+        const validOptions = currentOptions.filter(opt => opt !== null && typeof opt === 'object');
         
+        // Apply filtering if filterOptions is provided, otherwise do default filtering
         if (filterOptions) {
           setFilteredOptions(filterOptions(validOptions, inputValue).slice(0, 10));
         } else {
           // Default filtering
           const filtered = validOptions.filter(option => {
-            const label = getOptionLabel(option).toLowerCase();
+            const label = currentGetOptionLabel(option).toLowerCase();
             return label.includes(inputValue.toLowerCase());
           });
           setFilteredOptions(filtered.slice(0, 10));
         }
         
+        // Safely check for exact match with proper null/undefined handling
         const exactMatch = validOptions.some(
-          (option) => getOptionLabel(option).toLowerCase() === inputValue.toLowerCase()
+          (option) => {
+            try {
+              const label = currentGetOptionLabel(option).toLowerCase();
+              return label === inputValue.toLowerCase();
+            } catch (err) {
+              return false;
+            }
+          }
         );
         
         setShowCreateOption(
-          allowCreate && !exactMatch && inputValue.trim().length > 0
+          currentAllowCreate && !exactMatch && inputValue.trim().length > 0,
         );
       } catch (err) {
-        console.error('Error processing options:', err);
+        console.error('Error processing options in AutocompleteInput:', err);
         setFilteredOptions([]);
         setShowCreateOption(false);
       }
-    } else {
+    } else { // Covers isLoading or empty inputValue
       setFilteredOptions([]);
       setShowCreateOption(false);
     }
     
-    setHighlightedIndex(-1);
-  }, [inputValue, options, isLoading, allowCreate, getOptionLabel, filterOptions]);
-
-  // Update filtered options when needed
+    setHighlightedIndex(-1); // Reset highlight on options change
+  }, [inputValue, filterOptions]); // Only depend on inputValue and filterOptions to avoid loops
+  
+  // Run the filter operation when inputValue changes
   useEffect(() => {
-    if (!searchFunction) {
-      updateFilteredOptions();
-    }
-  }, [updateFilteredOptions, searchFunction]);
+    updateFilteredOptions();
+  }, [updateFilteredOptions, inputValue]);
+  
+  // Also update filtered options when options or loading state changes
+  useEffect(() => {
+    updateFilteredOptions();
+  }, [options, isLoading]);
 
-  // Handle outside click to close dropdown
+  // Handle outside click to close dropdown (Refined)
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
+      // Check if the click is outside the entire component container
       if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
           setShowDropdown(false);
       }
@@ -187,19 +224,22 @@ function AutocompleteInput<T extends BaseOption>({
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
-  }, []);
+  }, []); // Empty dependency array - only runs on mount/unmount
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (isLoading) return;
     const newValue = e.target.value;
     setInputValue(newValue);
     
+    // Call onChange directly (it's guaranteed to be a function now)
     onChange(newValue); 
     
+    // Explicitly ensure dropdown is shown after input change
     if (!showDropdown) {
         setShowDropdown(true); 
     }
     
+    // If the text value becomes empty or doesn't match any option label, trigger onSelect with null
     if (newValue.trim() === '' || !options.some(opt => getOptionLabel(opt) === newValue)) {
        if (onSelect && typeof onSelect === 'function') {
           onSelect(null); 
@@ -212,10 +252,10 @@ function AutocompleteInput<T extends BaseOption>({
       ? formatSelected(option)
       : getOptionLabel(option);
     setInputValue(selectedValue);
-    onChange(selectedValue);
+    onChange(selectedValue); // Notify parent of final text value
 
     if (onSelect) {
-      onSelect(option);
+      onSelect(option); // Notify parent of selected *object*
     }
 
     setShowDropdown(false);
@@ -229,6 +269,7 @@ function AutocompleteInput<T extends BaseOption>({
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
+    // Handle keyboard navigation
     const totalOptions = filteredOptions.length + (showCreateOption ? 1 : 0);
 
     if (e.key === "ArrowDown") {
@@ -264,13 +305,14 @@ function AutocompleteInput<T extends BaseOption>({
     setInputValue("");
     onChange("");
     if(onSelect) {
-      onSelect(null);
+      onSelect(null); // Notify selection cleared
     }
     if (inputRef.current) {
       inputRef.current.focus();
     }
   };
 
+  // Determine input classes based on state
   const inputClasses = `
     w-full px-4 py-2 pl-10 pr-10 border rounded-md focus:outline-none focus:ring-2 
     ${error ? 'border-red-500 focus:ring-red-500/50' : 'border-slate-300 focus:ring-primary/50'}
@@ -320,41 +362,48 @@ function AutocompleteInput<T extends BaseOption>({
         />
       </div>
 
-      {showDropdown && !showLoading && (filteredOptions.length > 0 || showCreateOption) && (
-        <div
-          ref={dropdownRef}
-          className="absolute z-10 w-full mt-1 bg-white border border-slate-300 rounded-md shadow-lg max-h-60 overflow-y-auto"
-        >
-          <ul className="list-none p-0 m-0 w-full">
-            {filteredOptions.map((option, index) => {
-              const optionLabel = getOptionLabel(option);
-              const optionValue = getOptionValue(option);
-              const isHighlighted = index === highlightedIndex;
-              return (
-                <li
-                  key={String(optionValue)}
-                  onClick={() => handleSelect(option)}
-                  onMouseEnter={() => setHighlightedIndex(index)}
-                  className={`px-4 py-2 cursor-pointer ${isHighlighted ? 'bg-primary/10 text-primary' : 'hover:bg-slate-100'}`}
-                >
-                  {renderOption ? renderOption(option) : optionLabel}
-                </li>
-              );
-            })}
-
-            {showCreateOption && (
-              <li
-                onClick={handleCreateNew}
-                onMouseEnter={() => setHighlightedIndex(filteredOptions.length)}
-                className={`px-4 py-2 cursor-pointer flex items-center ${highlightedIndex === filteredOptions.length ? 'bg-primary/10 text-primary' : 'hover:bg-slate-100'}`}
+      {(() => { // IIFE for logging
+          const shouldShow = showDropdown && !showLoading && (filteredOptions.length > 0 || showCreateOption);
+          // Remove detailed logging for dropdown visibility check
+          // if (showDropdown) { 
+          //   console.log(`[AutocompleteInput ${id}] Dropdown Check: ...`);
+          // }
+          return shouldShow && (
+              <div
+                ref={dropdownRef}
+                className="absolute z-10 w-full mt-1 bg-white border border-slate-300 rounded-md shadow-lg max-h-60 overflow-y-auto"
               >
-                <Plus className="h-4 w-4 mr-2" />
-                {createNewText} "{inputValue}"
-              </li>
-            )}
-          </ul>
-        </div>
-      )}
+                <ul className="list-none p-0 m-0 w-full">
+                  {filteredOptions.map((option, index) => {
+                    const optionLabel = getOptionLabel(option);
+                    const optionValue = getOptionValue(option);
+                    const isHighlighted = index === highlightedIndex;
+                    return (
+                      <li
+                        key={String(optionValue)}
+                        onClick={() => handleSelect(option)}
+                        onMouseEnter={() => setHighlightedIndex(index)}
+                        className={`px-4 py-2 cursor-pointer ${isHighlighted ? 'bg-primary/10 text-primary' : 'hover:bg-slate-100'}`}
+                      >
+                        {renderOption ? renderOption(option) : optionLabel}
+                      </li>
+                    );
+                  })}
+
+                  {showCreateOption && (
+                    <li
+                      onClick={handleCreateNew}
+                      onMouseEnter={() => setHighlightedIndex(filteredOptions.length)}
+                      className={`px-4 py-2 cursor-pointer flex items-center ${highlightedIndex === filteredOptions.length ? 'bg-primary/10 text-primary' : 'hover:bg-slate-100'}`}
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      {createNewText} "{inputValue}"
+                    </li>
+                  )}
+                </ul>
+              </div>
+          );
+      })()}
       {error && (
           <p className="mt-1 text-xs text-red-600">{error}</p>
       )}
@@ -362,5 +411,4 @@ function AutocompleteInput<T extends BaseOption>({
   );
 }
 
-export { AutocompleteInput };
 export default AutocompleteInput;
