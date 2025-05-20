@@ -1788,6 +1788,7 @@ export type UnifiedAttendeeData = {
   partner?: string | null; // FK: Mason/Guest -> LadyPartner/GuestPartner attendeeId (UUID)
   partnerOf?: string | null; // FK: LadyPartner/GuestPartner -> Mason/Guest attendeeId (UUID)
   guestOfId?: string | null; // FK: Guest -> Mason attendeeId (UUID)
+  isPartner?: string | null; // FK: Partners link to their related Mason/Guest attendeeId (UUID)
   // --- End New/Updated Fields ---
 
   // Fields potentially from join or calculation, ensure they are handled if needed

@@ -185,13 +185,7 @@ export function GuestBasicInfo({ form, errors, touchedFields }) {
         registration={form.register('relationship')}
         error={errors.relationship?.message}
         touched={touchedFields.relationship}
-        options={[
-          { value: 'spouse', label: 'Spouse' },
-          { value: 'partner', label: 'Partner' },
-          { value: 'family', label: 'Family' },
-          { value: 'friend', label: 'Friend' },
-          { value: 'colleague', label: 'Colleague' },
-        ]}
+        options={GuestRelationship.options}
       />
       
       <TextField
@@ -251,9 +245,9 @@ export function GuestContactInfo({ form, errors, touchedFields }) {
         error={errors.contactPreference?.message}
         touched={touchedFields.contactPreference}
         options={[
-          { value: 'email', label: 'Email preferred' },
-          { value: 'phone', label: 'Phone preferred' },
-          { value: 'either', label: 'Either is fine' },
+          { value: '', label: 'Please Select' },
+          { value: 'Directly', label: 'Directly' },
+          { value: 'ProvideLater', label: 'Provide Later' },
         ]}
       />
     </FormGrid>

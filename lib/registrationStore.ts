@@ -55,11 +55,12 @@ export interface RegistrationState {
   addPrimaryAttendee: () => string; // Returns new attendeeId
   loadDraft: (id: string) => void; // Sets draftId, relies on middleware for loading
   clearRegistration: () => void;
+  clearAllAttendees: () => void; // Clear all attendees but keep other state
   setRegistrationType: (type: RegistrationType) => void;
+  addAttendee: (type: UnifiedAttendeeData['attendeeType']) => string; // Generic add attendee function
   addMasonAttendee: () => string; // Returns new attendeeId
   addGuestAttendee: (guestOfId?: string | null) => string; // Optional Mason ID, returns new attendeeId
-  addLadyPartnerAttendee: (masonAttendeeId: string) => string | null; // Mason ID, returns new partner ID or null if mason not found
-  addGuestPartnerAttendee: (guestAttendeeId: string) => string | null; // Guest ID, returns new partner ID or null if guest not found
+  addPartnerAttendee: (attendeeId: string) => string | null; // Parent attendee ID, returns new partner ID or null if attendee not found
   updateAttendee: (attendeeId: string, updatedData: Partial<UnifiedAttendeeData>) => void;
   removeAttendee: (attendeeId: string) => void;
   updatePackageSelection: (attendeeId: string, selection: PackageSelectionType) => void;
@@ -75,7 +76,7 @@ export interface RegistrationState {
 }
 
 // --- Initial State ---
-const initialRegistrationState: Omit<RegistrationState, 'startNewRegistration' | 'addPrimaryAttendee' | 'loadDraft' | 'clearRegistration' | 'setRegistrationType' | 'addMasonAttendee' | 'addGuestAttendee' | 'addLadyPartnerAttendee' | 'addGuestPartnerAttendee' | 'updateAttendee' | 'removeAttendee' | 'updatePackageSelection' | 'updateBillingDetails' | 'setAgreeToTerms' | '_updateStatus' | 'setCurrentStep' | 'goToNextStep' | 'goToPrevStep' | 'setConfirmationNumber'> = {
+const initialRegistrationState: Omit<RegistrationState, 'startNewRegistration' | 'addPrimaryAttendee' | 'loadDraft' | 'clearRegistration' | 'clearAllAttendees' | 'setRegistrationType' | 'addAttendee' | 'addMasonAttendee' | 'addGuestAttendee' | 'addPartnerAttendee' | 'updateAttendee' | 'removeAttendee' | 'updatePackageSelection' | 'updateBillingDetails' | 'setAgreeToTerms' | '_updateStatus' | 'setCurrentStep' | 'goToNextStep' | 'goToPrevStep' | 'setConfirmationNumber'> = {
     draftId: null,
     registrationType: null,
     attendees: [],
@@ -108,7 +109,7 @@ const createDefaultAttendee = (
     attendeeId: newAttendeeId,
     attendeeType: attendeeType,
     isPrimary: options.isPrimary ?? false,
-    isPartner: options.partnerOf ? true : false, // Explicitly set isPartner based on partnerOf
+    isPartner: options.partnerOf ?? null, // Set to FK of related attendee or null
     // --- Initialize all fields based on our defaults list ---
     orderId: undefined,
     eventId: undefined, // Assuming this is set later if needed
@@ -220,8 +221,25 @@ export const useRegistrationStore = create<RegistrationState>(
         console.log('Registration state cleared.');
       },
 
+      clearAllAttendees: () => {
+        set(state => ({
+          attendees: [],
+          packages: {},
+        }));
+        console.log('[Store] Cleared all attendees and their package selections.');
+      },
+
       setRegistrationType: (type) => {
         set({ registrationType: type });
+      },
+
+      // Generic attendee addition function
+      addAttendee: (type) => {
+        const normalizedType = type.charAt(0).toUpperCase() + type.slice(1).toLowerCase();
+        const newAttendee = createDefaultAttendee(normalizedType as UnifiedAttendeeData['attendeeType']);
+        set(state => ({ attendees: [...state.attendees, newAttendee] }));
+        console.log(`[Store] Added Generic Attendee (ID: ${newAttendee.attendeeId}, Type: ${newAttendee.attendeeType})`);
+        return newAttendee.attendeeId;
       },
 
       addMasonAttendee: () => {
@@ -239,64 +257,39 @@ export const useRegistrationStore = create<RegistrationState>(
         return newGuest.attendeeId;
       },
 
-      addLadyPartnerAttendee: (masonAttendeeId) => {
+      addPartnerAttendee: (attendeeId) => {
         const state = get();
-        const masonIndex = state.attendees.findIndex(att => att.attendeeId === masonAttendeeId && att.attendeeType.toLowerCase() === 'mason');
+        const attendeeIndex = state.attendees.findIndex(att => att.attendeeId === attendeeId);
 
-        if (masonIndex === -1) {
-          console.error(`[Store] addLadyPartnerAttendee: Mason with ID ${masonAttendeeId} not found.`);
+        if (attendeeIndex === -1) {
+          console.error(`[Store] addPartnerAttendee: Attendee with ID ${attendeeId} not found.`);
           return null;
         }
-        if (state.attendees[masonIndex].partner) {
-          console.warn(`[Store] addLadyPartnerAttendee: Mason with ID ${masonAttendeeId} already has a partner.`);
-          // Optionally remove old partner first, or just return null/existing partner ID
-          return state.attendees[masonIndex].partner; // Return existing partner ID
+        if (state.attendees[attendeeIndex].partner) {
+          console.warn(`[Store] addPartnerAttendee: Attendee with ID ${attendeeId} already has a partner.`);
+          return state.attendees[attendeeIndex].partner; // Return existing partner ID
         }
 
-        const newPartner = createDefaultAttendee('LadyPartner', { partnerOf: masonAttendeeId });
-        // Initial state is empty string which will show as "Please Select"
+        // Create a Guest with isPartner set to the parent attendee's ID
+        const newPartner = createDefaultAttendee('Guest', { partnerOf: attendeeId });
+        newPartner.isPartner = attendeeId; // Set the FK
+        
+        // Initialize with default values to avoid validation errors
+        newPartner.title = 'Unknown';
+        newPartner.firstName = 'Partner';
+        newPartner.lastName = 'TBC';
         
         const updatedAttendees = [...state.attendees];
-        // Update the Mason's partner field
-        updatedAttendees[masonIndex] = {
-          ...updatedAttendees[masonIndex],
+        // Update the parent attendee's partner field
+        updatedAttendees[attendeeIndex] = {
+          ...updatedAttendees[attendeeIndex],
           partner: newPartner.attendeeId,
         };
         // Add the new partner
         updatedAttendees.push(newPartner);
 
         set({ attendees: updatedAttendees });
-        console.log(`[Store] Added Lady Partner (ID: ${newPartner.attendeeId}) for Mason (ID: ${masonAttendeeId})`);
-        return newPartner.attendeeId;
-      },
-      
-      addGuestPartnerAttendee: (guestAttendeeId) => {
-         const state = get();
-        const guestIndex = state.attendees.findIndex(att => att.attendeeId === guestAttendeeId && att.attendeeType.toLowerCase() === 'guest');
-
-        if (guestIndex === -1) {
-          console.error(`[Store] addGuestPartnerAttendee: Guest with ID ${guestAttendeeId} not found.`);
-          return null;
-        }
-         if (state.attendees[guestIndex].partner) {
-          console.warn(`[Store] addGuestPartnerAttendee: Guest with ID ${guestAttendeeId} already has a partner.`);
-          return state.attendees[guestIndex].partner; // Return existing partner ID
-        }
-
-        const newPartner = createDefaultAttendee('GuestPartner', { partnerOf: guestAttendeeId });
-        // Initial state is empty string which will show as "Please Select"
-        
-        const updatedAttendees = [...state.attendees];
-        // Update the Guest's partner field
-        updatedAttendees[guestIndex] = {
-          ...updatedAttendees[guestIndex],
-          partner: newPartner.attendeeId,
-        };
-        // Add the new partner
-        updatedAttendees.push(newPartner);
-
-        set({ attendees: updatedAttendees });
-        console.log(`[Store] Added Guest Partner (ID: ${newPartner.attendeeId}) for Guest (ID: ${guestAttendeeId})`);
+        console.log(`[Store] Added Partner (ID: ${newPartner.attendeeId}) for Attendee (ID: ${attendeeId})`);
         return newPartner.attendeeId;
       },
 
@@ -322,14 +315,26 @@ export const useRegistrationStore = create<RegistrationState>(
           let updatedAttendees = [...state.attendees]; // Create a mutable copy
 
           // --- Determine linked IDs and necessary updates ---
-          if (attendeeToRemove.attendeeType.toLowerCase() === 'mason' && attendeeToRemove.partner) {
+          const isGuest = attendeeToRemove.attendeeType.toLowerCase() === 'guest';
+          const isMason = attendeeToRemove.attendeeType.toLowerCase() === 'mason';
+          
+          // Check if it's a partner being removed
+          if (isGuest && attendeeToRemove.isPartner) {
+            // This is a partner (of either Mason or Guest)
+            const relatedAttendeeId = attendeeToRemove.isPartner;
+            const relatedAttendee = state.attendees.find(att => att.attendeeId === relatedAttendeeId);
+            
+            if (relatedAttendee) {
+              if (relatedAttendee.attendeeType.toLowerCase() === 'mason') {
+                masonIdToUpdate = relatedAttendeeId;
+              } else if (relatedAttendee.attendeeType.toLowerCase() === 'guest') {
+                guestIdToUpdate = relatedAttendeeId;
+              }
+            }
+          } 
+          // Check if it's a Mason/Guest with a partner
+          else if ((isMason || isGuest) && attendeeToRemove.partner) {
             partnerIdToRemove = attendeeToRemove.partner;
-          } else if (attendeeToRemove.attendeeType.toLowerCase() === 'guest' && attendeeToRemove.partner) {
-            partnerIdToRemove = attendeeToRemove.partner;
-          } else if (attendeeToRemove.attendeeType.toLowerCase() === 'ladypartner' && attendeeToRemove.partnerOf) {
-            masonIdToUpdate = attendeeToRemove.partnerOf;
-          } else if (attendeeToRemove.attendeeType.toLowerCase() === 'guestpartner' && attendeeToRemove.partnerOf) {
-            guestIdToUpdate = attendeeToRemove.partnerOf;
           }
 
           // Filter out the primary attendee being removed

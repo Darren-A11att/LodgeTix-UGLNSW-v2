@@ -5,9 +5,9 @@ import { LocationInitializer } from '@/components/location-initializer'
 import { AuthProvider } from '@/contexts/auth-provider'
 
 export const metadata: Metadata = {
-  title: 'v0 App',
+  title: 'Grand Proclamation 2025 | United Grand Lodge of NSW & ACT',
   description: 'Created with v0',
-  generator: 'v0.dev',
+  generator: ';)',
 }
 
 export default function RootLayout({

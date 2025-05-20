@@ -1,14 +1,14 @@
 import Link from "next/link"
 import { notFound } from "next/navigation"
 import { ArrowLeft, TicketIcon } from "lucide-react"
-import { getEventByIdOrSlug } from "@/lib/services/event-service"
+import { getEventById } from "@/lib/event-facade"
 import { TicketSelectionWithOrder } from "./components/ticket-selection-with-order"
 
 export default async function TicketsPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   
-  // Server-side data fetching
-  const event = await getEventByIdOrSlug(id)
+  // Server-side data fetching from facade
+  const event = await getEventById(id)
   
   if (!event) {
     notFound()

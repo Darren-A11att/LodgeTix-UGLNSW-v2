@@ -277,11 +277,11 @@ export function MasonBasicInfo({ form, errors, touchedFields }) {
         error={errors.title?.message}
         touched={touchedFields.title}
         options={[
-          { value: 'wbro', label: 'W.Bro.' },
-          { value: 'bro', label: 'Bro.' },
-          { value: 'rwbro', label: 'R.W.Bro.' },
-          { value: 'vwbro', label: 'V.W.Bro.' },
-          { value: 'mwbro', label: 'M.W.Bro.' },
+          { value: 'Bro', label: 'Bro' },
+          { value: 'W Bro', label: 'W Bro' },
+          { value: 'VW Bro', label: 'VW Bro' },
+          { value: 'RW Bro', label: 'RW Bro' },
+          { value: 'MW Bro', label: 'MW Bro' },
         ]}
       />
       
@@ -293,10 +293,11 @@ export function MasonBasicInfo({ form, errors, touchedFields }) {
         error={errors.rank?.message}
         touched={touchedFields.rank}
         options={[
-          { value: 'ea', label: 'Entered Apprentice' },
-          { value: 'fc', label: 'Fellow Craft' },
-          { value: 'mm', label: 'Master Mason' },
-          { value: 'pm', label: 'Past Master' },
+          { value: 'EAF', label: 'EAF' },
+          { value: 'FCF', label: 'FCF' },
+          { value: 'MM', label: 'MM' },
+          { value: 'IM', label: 'IM' },
+          { value: 'GL', label: 'GL' },
         ]}
       />
       

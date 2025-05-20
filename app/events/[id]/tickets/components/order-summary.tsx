@@ -4,7 +4,8 @@ import { useEffect, useState } from "react"
 import { usePathname } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
-import { getEventByIdOrSlug, Ticket } from "@/lib/event-utils"
+import { getEventByIdOrSlug } from "@/lib/event-facade"
+import type { Ticket } from "@/lib/event-utils"
 
 export function OrderSummary() {
   const pathname = usePathname()
@@ -17,23 +18,27 @@ export function OrderSummary() {
   useEffect(() => {
     if (!eventId) return
     
-    const event = getEventByIdOrSlug(eventId)
-    if (event?.tickets) {
-      setTickets(event.tickets)
-    }
-    
-    // Poll session storage for selected tickets
-    const checkStorage = () => {
-      const stored = window.sessionStorage.getItem(`tickets-${event?.slug}`)
-      if (stored) {
-        setSelectedTickets(JSON.parse(stored))
+    const fetchEvent = async () => {
+      const event = await getEventByIdOrSlug(eventId)
+      if (event?.tickets) {
+        setTickets(event.tickets)
       }
+      
+      // Poll session storage for selected tickets
+      const checkStorage = () => {
+        const stored = window.sessionStorage.getItem(`tickets-${event?.slug}`)
+        if (stored) {
+          setSelectedTickets(JSON.parse(stored))
+        }
+      }
+      
+      checkStorage()
+      const interval = setInterval(checkStorage, 100)
+      
+      return () => clearInterval(interval)
     }
     
-    checkStorage()
-    const interval = setInterval(checkStorage, 100)
-    
-    return () => clearInterval(interval)
+    fetchEvent()
   }, [eventId])
 
   const totalTickets = Object.values(selectedTickets).reduce((sum, qty) => sum + qty, 0)

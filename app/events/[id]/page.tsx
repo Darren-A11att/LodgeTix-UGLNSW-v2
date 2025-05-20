@@ -5,11 +5,11 @@ import { CalendarDays, Clock, MapPin, Share2, TicketIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { getEventByIdOrSlug, getEvents } from "@/lib/event-utils"
+import { getEventByIdOrSlug, getEvents } from "@/lib/event-facade"
 
 // Static generation for known events - using slugs for routes
-export function generateStaticParams() {
-  const events = getEvents();
+export async function generateStaticParams() {
+  const events = await getEvents();
   return events.map(event => ({
     id: event.slug // Using slug for route parameter
   }));
@@ -18,7 +18,7 @@ export function generateStaticParams() {
 export default async function EventPage({ params }: { params: Promise<{ id: string }> }) {
   // The id param is actually the slug from the URL
   const { id } = await params
-  const event = getEventByIdOrSlug(id)
+  const event = await getEventByIdOrSlug(id)
 
   if (!event) {
     return (

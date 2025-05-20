@@ -129,7 +129,7 @@ export interface LocationState {
   // --- Actions ---
   fetchIpData: () => Promise<void>;
   fetchInitialGrandLodges: () => Promise<void>;
-  searchGrandLodges: (searchTerm: string) => Promise<void>;
+  searchGrandLodges: (searchTerm: string) => Promise<GrandLodgeRow[]>;
   getLodgesByGrandLodge: (grandLodgeId: string, searchTerm?: string) => Promise<void>; // Changed: updates state, returns void
   searchAllLodgesAction: (term: string) => Promise<void>;
   createLodge: (lodgeData: Omit<LodgeRow, 'id' | 'created_at' | 'display_name'>) => Promise<LodgeRow | null>; // Keep return for immediate use
@@ -137,6 +137,7 @@ export interface LocationState {
   preloadGrandLodgesByRegion: (regionCode: string) => Promise<void>;
   preloadLodgesByRegion: (regionCode: string) => Promise<void>;
   clearCaches: () => void;
+  getUserLocation: () => IpApiData | Promise<IpApiData>; // Add getUserLocation
 }
 
 // --- Define State Creator Type Fourth ---
@@ -227,6 +228,19 @@ export const useLocationStore = create<LocationState>(
         }
       },
 
+      // Add getUserLocation function
+      getUserLocation: async () => {
+        const store = get();
+        // If we already have IP data and it's not loading, return it synchronously
+        if (!store.isLoadingIpData && store.ipData.ip !== '0.0.0.0') {
+          return store.ipData;
+        }
+        
+        // Otherwise, fetch the IP data and return it
+        await store.fetchIpData();
+        return get().ipData;
+      },
+
       fetchInitialGrandLodges: async () => {
         const { grandLodgeCache, ipData } = get();
         const now = Date.now();
@@ -299,282 +313,277 @@ export const useLocationStore = create<LocationState>(
         }
       },
 
-      searchGrandLodges: async (searchTerm: string) => {
-        console.log(`%%%%%% [LocationStore] searchGrandLodges TRIGGERED with searchTerm: "${searchTerm}" %%%%%%`);
-
-        const userCountry = get().ipData.country_name || 'Australia'; // Get user country, default if not available
-
-        if (!searchTerm.trim()) {
-          // If search term is empty, try to show initial GLs based on country or global cache
-          // This logic can be refined, but for now, let's use the existing approach or fetch initial for the country
-          const countryKey = get().ipData.country_name;
-          let initialGLsToShow: GrandLodgeRow[] = [];
-          if (countryKey && get().grandLodgeCache.byCountry[countryKey]) {
-            initialGLsToShow = get().grandLodgeCache.byCountry[countryKey];
-          } else if (get().grandLodgeCache.data.length > 0) {
-            initialGLsToShow = get().grandLodgeCache.data;
-          } else {
-            // If no cache, maybe trigger fetchInitialGrandLodges or a specific country fetch
-            // For simplicity, let's fall back to an empty array if no relevant cache.
-            // Or better, call fetchInitialGrandLodges if appropriate.
-            // For now, this just clears, which is probably not ideal for empty search.
-            // Let's assume fetchInitialGrandLodges would have populated based on country.
-             if (get().grandLodges.length > 0) { // Use current display list if populated
-                initialGLsToShow = get().grandLodges;
-             }
+      preloadGrandLodgesByCountry: async (countryName: string) => {
+        const { grandLodgeCache } = get();
+        const now = Date.now();
+        
+        // Check cache first
+        if (grandLodgeCache.byCountry[countryName]) {
+          // If cache is still fresh, we're done
+          if (!isCacheExpired(grandLodgeCache.timestamp)) {
+            console.log(`[LocationStore] GLs for country ${countryName} already cached and fresh.`);
+            return;
           }
-          
-          console.log(`%%%%%% [LocationStore] Empty search term, serving initial GLs (count: ${initialGLsToShow.length}) %%%%%%`);
-          set({ grandLodges: initialGLsToShow, isLoadingGrandLodges: false, grandLodgeError: null });
-          return;
+          console.log(`[LocationStore] GLs for country ${countryName} cached but stale. Refreshing...`);
+        } else {
+          console.log(`[LocationStore] Preloading GLs for country ${countryName}...`);
         }
 
-        set({ isLoadingGrandLodges: true, grandLodgeError: null });
         try {
-          // Use the new prioritized search service
-          const results = await searchGrandLodgesService(searchTerm, userCountry);
-          console.log(`%%%%%% [LocationStore] Results from searchGrandLodgesService for searchTerm "${searchTerm}" and country "${userCountry}":`, JSON.stringify(results.slice(0,5), null, 2), `Count: ${results.length} %%%%%%`);
-
-          set({ grandLodges: results, isLoadingGrandLodges: false, grandLodgeError: null });
-        } catch (error: any) {
-          console.error(`%%%%%% [LocationStore] Error in searchGrandLodgesService call for searchTerm "${searchTerm}", country "${userCountry}":`, error, `%%%%%%`);
-          set({ grandLodges: [], isLoadingGrandLodges: false, grandLodgeError: error.message || 'Failed to search Grand Lodges' });
+          const countryData = await getAllGrandLodges({ countryName });
+          
+          // Update cache
+          set(state => {
+            const updatedCache = { 
+              ...state.grandLodgeCache,
+              timestamp: now, // Refresh global timestamp on any successful fetch 
+              byCountry: { ...state.grandLodgeCache.byCountry, [countryName]: countryData },
+            };
+            // If global data is empty, use this as initial load
+            if (updatedCache.data.length === 0) {
+              updatedCache.data = countryData;
+            }
+            return { grandLodgeCache: updatedCache };
+          });
+          console.log(`[LocationStore] Preloaded ${countryData.length} GLs for country ${countryName}`);
+        } catch (error) {
+          console.error(`[LocationStore] Failed to preload GLs for country ${countryName}:`, error);
         }
       },
-      
-      getLodgesByGrandLodge: async (grandLodgeId: string, searchTerm?: string): Promise<void> => {
-          const { lodgeCache } = get();
-          const now = Date.now();
-          const cacheEntry = lodgeCache.byGrandLodge?.[grandLodgeId];
-      
-          // If searching, fetch directly and update display state, don't bother caching search results complexly
-          if (searchTerm) {
-              set({ isLoadingLodges: true, lodgeError: null });
-              try {
-                  const data = await getLodgesByGrandLodgeId(grandLodgeId, searchTerm);
-                  set({ lodges: data, isLoadingLodges: false }); // Update display list
-              } catch (error) {
-                  console.error(`Error searching lodges for GL ${grandLodgeId} with term ${searchTerm}:`, error);
-                  set({ isLoadingLodges: false, lodgeError: "Failed to search Lodges.", lodges: [] });
-              }
-          return;
+
+      preloadGrandLodgesByRegion: async (regionCode: string) => {
+        const { grandLodgeCache } = get();
+        const now = Date.now();
+        
+        // Check region-specific cache first
+        if (grandLodgeCache.byRegion[regionCode]) {
+          // If cache is still fresh, we're done (use global timestamp as proxy for now)
+          if (!isCacheExpired(grandLodgeCache.timestamp)) {
+            console.log(`[LocationStore] GLs for region ${regionCode} already cached and fresh.`);
+            return;
+          }
+          console.log(`[LocationStore] GLs for region ${regionCode} cached but stale. Refreshing...`);
+        } else {
+          console.log(`[LocationStore] Preloading GLs for region ${regionCode}...`);
         }
 
-          // Check cache validity for non-search requests
-          if (cacheEntry && !isCacheExpired(cacheEntry.timestamp)) {
-              set({ lodges: cacheEntry.data, isLoadingLodges: false }); // Update display list from cache
+        try {
+          // Fetch GLs by region
+          const regionData = await getAllGrandLodges({ regionCode });
+          
+          // Update cache
+          set(state => {
+            const updatedCache = { 
+              ...state.grandLodgeCache,
+              timestamp: now, // Refresh timestamp
+              byRegion: { ...state.grandLodgeCache.byRegion, [regionCode]: regionData },
+            };
+            return { grandLodgeCache: updatedCache };
+          });
+          console.log(`[LocationStore] Preloaded ${regionData.length} GLs for region ${regionCode}`);
+        } catch (error) {
+          console.error(`[LocationStore] Failed to preload GLs for region ${regionCode}:`, error);
+        }
+      },
+
+      preloadLodgesByRegion: async (regionCode: string) => {
+        const { lodgeCache } = get();
+        const now = Date.now();
+        
+        // Check region-specific cache
+        if (lodgeCache.byRegion[regionCode]?.data) {
+          const regionCacheEntry = lodgeCache.byRegion[regionCode];
+          if (!isCacheExpired(regionCacheEntry.timestamp)) {
+            console.log(`[LocationStore] Lodges for region ${regionCode} already cached and fresh (byRegion).`);
+            return;
+          }
+          console.log(`[LocationStore] Lodges for region ${regionCode} cached but stale (byRegion). Refreshing...`);
+        } else {
+          console.log(`[LocationStore] Preloading Lodges for region ${regionCode}...`);
+        }
+
+        try {
+          const regionLodges = await getLodgesByStateRegionCode(regionCode);
+          
+          // Update cache
+          set(state => {
+            const updatedCache = { 
+              ...state.lodgeCache,
+              byRegion: { 
+                ...state.lodgeCache.byRegion, 
+                [regionCode]: { data: regionLodges, timestamp: now } 
+              },
+            };
+            return { lodgeCache: updatedCache };
+          });
+          console.log(`[LocationStore] Preloaded ${regionLodges.length} Lodges for region ${regionCode}`);
+        } catch (error) {
+          console.error(`[LocationStore] Failed to preload Lodges for region ${regionCode}:`, error);
+        }
+      },
+
+      searchGrandLodges: async (searchTerm: string) => {
+        if (!searchTerm || searchTerm.length < 2) return [];
+        
+        console.log(`[LocationStore] Searching Grand Lodges for: "${searchTerm}"...`);
+        set({ isLoadingGrandLodges: true, grandLodgeError: null });
+        
+        try {
+          const searchResults = await searchGrandLodgesService(searchTerm);
+          console.log(`[LocationStore] Found ${searchResults.length} Grand Lodges matching "${searchTerm}"`);
+          set({ grandLodges: searchResults, isLoadingGrandLodges: false });
+          return searchResults;
+        } catch (error) {
+          console.error(`[LocationStore] Grand Lodge search error for "${searchTerm}":`, error);
+          set({ 
+            grandLodgeError: `Search failed: ${error instanceof Error ? error.message : 'Unknown error'}`, 
+            isLoadingGrandLodges: false 
+          });
+          return [];
+        }
+      },
+
+      getLodgesByGrandLodge: async (grandLodgeId: string, searchTerm?: string) => {
+        const cacheKey = grandLodgeId;
+        const { lodgeCache } = get();
+        const cacheEntry = lodgeCache.byGrandLodge[cacheKey];
+        
+        // Handle search terms differently - always fetch if search term provided
+        if (!searchTerm && cacheEntry?.data) {
+          if (!isCacheExpired(cacheEntry.timestamp)) {
+            console.log(`[LocationStore] Using cached Lodges for GL ID: ${grandLodgeId}`);
+            set({ lodges: cacheEntry.data, isLoadingLodges: false });
+            return;
+          }
+          // Cache exists but expired, refresh
+          console.log(`[LocationStore] Lodge cache expired for GL ID: ${grandLodgeId}, refreshing...`);
+        } else if (searchTerm) {
+          console.log(`[LocationStore] Searching Lodges for GL ID: ${grandLodgeId} with term: "${searchTerm}"`); 
+        } else {
+          console.log(`[LocationStore] Fetching all Lodges for GL ID: ${grandLodgeId}`);
+        }
+        
+        // Fetch from backend
+        set({ isLoadingLodges: true, lodgeError: null });
+        try {
+          const lodges = await getLodgesByGrandLodgeId(grandLodgeId, searchTerm);
+          set({ lodges, isLoadingLodges: false });
+          
+          // Only cache if this was a full fetch, not a search
+          if (!searchTerm) {
+            set(state => ({
+              lodgeCache: {
+                ...state.lodgeCache,
+                byGrandLodge: {
+                  ...state.lodgeCache.byGrandLodge,
+                  [cacheKey]: { data: lodges, timestamp: Date.now() }
+                }
+              }
+            }));
+          }
+        } catch (error) {
+          console.error(`[LocationStore] Failed to fetch Lodges for GL ID: ${grandLodgeId}:`, error);
+          set({ 
+            lodgeError: `Failed to load Lodges${searchTerm ? ' for search: ' + searchTerm : ''}`,
+            isLoadingLodges: false,
+          });
+        }
+      },
+
+      searchAllLodgesAction: async (searchTerm: string) => {
+        if (!searchTerm || searchTerm.length < 2) {
+          set({ allLodgeSearchResults: [], allLodgesError: null });
           return;
         }
         
-          // Fetch from API if not cached or expired (non-search)
-          set({ isLoadingLodges: true, lodgeError: null });
-          try {
-              const data = await getLodgesByGrandLodgeId(grandLodgeId);
-              set({ lodges: data, isLoadingLodges: false }); // Update display list
-              // Update cache
-              set(state => ({
-                  lodgeCache: {
-                      ...state.lodgeCache,
-                      byGrandLodge: {
-                          ...state.lodgeCache.byGrandLodge,
-                          [grandLodgeId]: { data: data, timestamp: Date.now() }
-                      }
-                  }
-              }));
-          } catch (error) {
-              console.error(`Error fetching lodges for GL ${grandLodgeId}:`, error);
-              set({ isLoadingLodges: false, lodgeError: "Failed to load Lodges.", lodges: [] });
-          }
-      },
-
-      searchAllLodgesAction: async (term: string): Promise<void> => {
+        console.log(`[LocationStore] Searching ALL Lodges for: "${searchTerm}"...`);
         set({ isLoadingAllLodges: true, allLodgesError: null });
+        
         try {
-          const data = await searchAllLodgesApi(term);
-          set({ allLodgeSearchResults: data, isLoadingAllLodges: false });
+          const results = await searchAllLodgesApi(searchTerm);
+          console.log(`[LocationStore] Found ${results.length} Lodges matching "${searchTerm}"`);
+          set({ allLodgeSearchResults: results, isLoadingAllLodges: false });
         } catch (error) {
-          console.error('Error searching all lodges:', error);
-          set({ allLodgesError: (error as Error).message, isLoadingAllLodges: false, allLodgeSearchResults: [] });
+          console.error(`[LocationStore] All lodges search error for "${searchTerm}":`, error);
+          set({ 
+            allLodgesError: `Search failed: ${error instanceof Error ? error.message : 'Unknown error'}`, 
+            isLoadingAllLodges: false 
+          });
         }
       },
 
-      createLodge: async (lodgeData: Omit<LodgeRow, 'id' | 'created_at' | 'display_name'>) => {
+      createLodge: async (lodgeData) => {
+        console.log(`[LocationStore] Creating new lodge: ${lodgeData.name}`);
         try {
           const newLodge = await createLodgeApi(lodgeData);
-          if (newLodge && newLodge.grand_lodge_id) {
-            const glId = newLodge.grand_lodge_id;
-            set(state => {
-              const currentCache = { ...state.lodgeCache }; 
-              const byGrandLodgeCache = currentCache.byGrandLodge || {};
-              const glCacheEntry = byGrandLodgeCache[glId];
-              if (glCacheEntry && glCacheEntry.data) {
-                const updatedLodges = [...glCacheEntry.data, newLodge].sort((a, b) => (a.display_name || a.name).localeCompare(b.display_name || b.name));
-                byGrandLodgeCache[glId] = { ...glCacheEntry, data: updatedLodges }; 
-              } else {
-                byGrandLodgeCache[glId] = { data: [newLodge], timestamp: Date.now() };
+          console.log(`[LocationStore] Successfully created lodge: ${newLodge.id}`);
+          
+          // Update currentLodges if we're in the GL context of the new lodge
+          const currentGlLodges = get().lodges;
+          if (newLodge.grand_lodge_id && get().lodges.some(l => l.grand_lodge_id === newLodge.grand_lodge_id)) {
+            console.log(`[LocationStore] Adding new lodge to current GL lodge list`);
+            set({ lodges: [...currentGlLodges, newLodge] });
+            
+            // Also update cache
+            const cacheKey = newLodge.grand_lodge_id;
+            const cacheEntry = get().lodgeCache.byGrandLodge[cacheKey];
+            if (cacheEntry?.data) {
+              set(state => ({
+                lodgeCache: {
+                  ...state.lodgeCache,
+                  byGrandLodge: {
+                    ...state.lodgeCache.byGrandLodge,
+                    [cacheKey]: { 
+                      data: [...cacheEntry.data, newLodge], 
+                      timestamp: Date.now() 
+                    }
+                  }
                 }
-              return { lodgeCache: { ...currentCache, byGrandLodge: byGrandLodgeCache } };
-            });
+              }));
+            }
           }
-          return newLodge; // Return the created lodge or null
+          
+          // Add to region cache if applicable
+          if (newLodge.region_code) {
+            const regionCacheEntry = get().lodgeCache.byRegion[newLodge.region_code];
+            if (regionCacheEntry?.data) {
+              set(state => ({
+                lodgeCache: {
+                  ...state.lodgeCache,
+                  byRegion: {
+                    ...state.lodgeCache.byRegion,
+                    [newLodge.region_code!]: { 
+                      data: [...regionCacheEntry.data, newLodge], 
+                      timestamp: Date.now() 
+                    }
+                  }
+                }
+              }));
+            }
+          }
+          
+          return newLodge;
         } catch (error) {
-          console.error('Error creating lodge in store:', error);
+          console.error(`[LocationStore] Failed to create lodge:`, error);
           return null;
         }
       },
-      
-      preloadGrandLodgesByCountry: async (countryCode: string) => {
-        // This function is keyed by countryCode (e.g., 'AU'), but we need countryName for the API call
-        // We should get the countryName from the ipData state
-        const { ipData } = get();
-        const countryName = ipData.country_name;
 
-        if (!countryCode || !countryName) return;
-        const cacheKey = countryCode; // Still use code for cache key
-        const { grandLodgeCache } = get();
-        // Check if already cached and not expired
-        if (grandLodgeCache.byCountry[cacheKey] && !isCacheExpired(grandLodgeCache.timestamp)) {
-          console.log(`[LocationStore] GLs for country ${cacheKey} already cached and fresh.`);
-          return;
-        }
-        console.log(`[LocationStore] Preloading GLs for country: ${countryName} (Code: ${cacheKey})`);
-        try {
-          // Fetch using countryName filter
-          const data = await getAllGrandLodges({ countryName: countryName });
-          set(state => {
-            const updatedCache = {
-              ...state.grandLodgeCache,
-              timestamp: Date.now(), // Update timestamp on new fetch
-              byCountry: {
-                ...state.grandLodgeCache.byCountry,
-                [cacheKey]: data
-              }
-            };
-            // Also update main data if it's empty or older?
-            if (updatedCache.data.length === 0 || isCacheExpired(state.grandLodgeCache.timestamp)) {
-                updatedCache.data = data;
-            }
-            return { grandLodgeCache: updatedCache };
-          });
-        } catch (error) {
-          console.error(`[LocationStore] Error preloading GLs for country ${countryName}:`, error);
-        }
-      },
-      
-      preloadGrandLodgesByRegion: async (regionCode: string) => {
-        if (!regionCode) return;
-        const cacheKey = regionCode;
-        const { grandLodgeCache } = get();
-        // Check if already cached and not expired
-        if (grandLodgeCache.byRegion[cacheKey] && !isCacheExpired(grandLodgeCache.timestamp)) {
-          console.log(`[LocationStore] GLs for region ${cacheKey} already cached and fresh.`);
-          return;
-        }
-        console.log(`[LocationStore] Preloading GLs for region: ${cacheKey} (using searchTerm)`);
-        try {
-          // Using searchTerm for region might work if names are unique or API handles it
-          const data = await getAllGrandLodges({ searchTerm: regionCode });
-          set(state => {
-            const updatedCache = {
-              ...state.grandLodgeCache,
-              timestamp: Date.now(),
-              byRegion: {
-                ...state.grandLodgeCache.byRegion,
-                [cacheKey]: data
-              }
-            };
-             // Also update main data if it's empty or older?
-             if (updatedCache.data.length === 0 || isCacheExpired(state.grandLodgeCache.timestamp)) {
-                updatedCache.data = data;
-            }
-            return { grandLodgeCache: updatedCache };
-          });
-        } catch (error) {
-          console.error(`[LocationStore] Error preloading GLs for region ${cacheKey}:`, error);
-        }
-      },
-      
-      preloadLodgesByRegion: async (regionCode: string) => { 
-        if (!regionCode) return;
-        const cacheKey = regionCode;
-        const { lodgeCache } = get();
-         // Check region cache first
-         if (lodgeCache.byRegion[cacheKey] && !isCacheExpired(lodgeCache.byRegion[cacheKey].timestamp)) {
-           console.log(`[LocationStore] Lodges for region ${cacheKey} already cached and fresh (byRegion).`);
-           return; 
-          }
-        console.log(`[LocationStore] Preloading lodges for region: ${cacheKey}`);
-        try {
-          // Fetch lodges using the API function
-          const data = await getLodgesByStateRegionCode(regionCode);
-          
-          // Sort lodges (optional)
-          data.sort((a, b) => (a.display_name || a.name).localeCompare(b.display_name || b.name));
-          console.log(`[LocationStore] Successfully fetched ${data.length} lodges for region ${regionCode}.`);
-
-          // Group fetched lodges by Grand Lodge ID
-          const lodgesByGlId: Record<string, LodgeRow[]> = {};
-          data.forEach(lodge => {
-            if (lodge.grand_lodge_id) {
-              if (!lodgesByGlId[lodge.grand_lodge_id]) {
-                lodgesByGlId[lodge.grand_lodge_id] = [];
-              }
-              lodgesByGlId[lodge.grand_lodge_id].push(lodge);
-            }
-          });
-          console.log(`[LocationStore] Grouped preloaded lodges into ${Object.keys(lodgesByGlId).length} GL groups.`);
-            
-          // Store in cache (both byRegion and byGrandLodge)
-          const now = Date.now();
-          set(state => {
-            const updatedLodgeCache = { ...state.lodgeCache };
-              
-            // Update byRegion cache
-            updatedLodgeCache.byRegion = {
-              ...updatedLodgeCache.byRegion,
-              [cacheKey]: { data: data, timestamp: now }
-            };
-              
-            // Update byGrandLodge cache
-            const updatedByGrandLodge = { ...updatedLodgeCache.byGrandLodge };
-            Object.entries(lodgesByGlId).forEach(([glId, lodges]) => {
-              updatedByGrandLodge[glId] = { data: lodges, timestamp: now };
-            });
-            updatedLodgeCache.byGrandLodge = updatedByGrandLodge;
-
-            return { lodgeCache: updatedLodgeCache };
-          });
-          console.log(`[LocationStore] Updated lodge cache for region ${regionCode} and associated GLs.`);
-
-        } catch (error) {
-          console.error(`[LocationStore] Error preloading lodges for region ${cacheKey}:`, error);
-          // Cache empty result on error for the region
-           set(state => ({
-            lodgeCache: { ...state.lodgeCache, byRegion: { ...state.lodgeCache.byRegion, [cacheKey]: { data: [], timestamp: Date.now() } } }
-          }));
-        }
-      },
-      
       clearCaches: () => {
+        console.log('[LocationStore] Clearing all caches');
         set({
           grandLodgeCache: defaultGrandLodgeCache,
-             lodgeCache: defaultLodgeCache, 
-             // Reset display lists too?
-             grandLodges: [],
-             lodges: [],
-             allLodgeSearchResults: [] 
+          lodgeCache: defaultLodgeCache
         });
-         console.log('Location caches cleared');
-      },
+      }
     }),
     {
       name: 'lodgetix-location-storage',
-      // Persist only caches and IP data
       partialize: (state) => ({
-        ipData: state.ipData, 
+        ipData: state.ipData,
         grandLodgeCache: state.grandLodgeCache,
-        lodgeCache: state.lodgeCache 
-      }),
+        lodgeCache: state.lodgeCache
+      })
     }
   ) as LocationStateCreator
 );
