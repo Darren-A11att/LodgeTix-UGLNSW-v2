@@ -5,10 +5,10 @@ import { AdditionalInfo } from '@/components/register/Forms/basic-details/Additi
 import { useAttendeeData } from '@/components/register/Forms/attendee/lib/useAttendeeData';
 import { FormProps } from '@/components/register/Forms/attendee/types';
 
-const GuestForm: React.FC<FormProps> = ({ attendeeId, attendeeNumber, isPrimary }) => {
+export const GuestForm: React.FC<FormProps> = ({ attendeeId, attendeeNumber, isPrimary }) => {
   const { attendee, updateField } = useAttendeeData(attendeeId);
   
-  if (!attendee) return <LoadingState />;
+  if (!attendee) return <div className="p-4 text-center">Loading...</div>;
   
   return (
     <>
