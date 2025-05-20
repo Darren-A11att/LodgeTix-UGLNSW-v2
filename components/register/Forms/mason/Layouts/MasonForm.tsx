@@ -7,11 +7,31 @@ import { LodgeSelection } from '../lib/LodgeSelection';
 import { GrandOfficerFields } from '../utils/GrandOfficerFields';
 import { useAttendeeDataWithDebounce } from '@/components/register/Forms/attendee/lib/useAttendeeData';
 import { FormProps } from '@/components/register/Forms/attendee/types';
+import { useRegistrationStore } from '@/lib/registrationStore';
+import { shouldShowUseSameLodge } from '@/components/register/Forms/attendee/utils/businessLogic';
 
 export const MasonForm: React.FC<FormProps> = ({ attendeeId, attendeeNumber, isPrimary }) => {
-  const { attendee, updateField } = useAttendeeDataWithDebounce(attendeeId);
+  const { attendee, updateField, updateMultipleFields } = useAttendeeDataWithDebounce(attendeeId);
+  
+  // Get primary mason for lodge selection
+  const primaryMason = useRegistrationStore(state => 
+    state.attendees.find(a => a.isPrimary && a.attendeeType === 'Mason')
+  );
+  
+  // Callbacks for complex field updates
+  const handleLodgeChange = useCallback((lodgeId: string, lodgeNameNumber?: string) => {
+    updateMultipleFields({
+      lodgeId,
+      lodgeNameNumber: lodgeNameNumber || ''
+    });
+  }, [updateMultipleFields]);
   
   if (!attendee) return <div className="p-4 text-center">Loading...</div>;
+  
+  // Check if we should show "use same lodge" option
+  const showSameLodgeOption = !isPrimary && 
+                              attendee.attendeeType === 'Mason' && 
+                              primaryMason?.lodgeId;
   
   return (
     <>
@@ -37,7 +57,10 @@ export const MasonForm: React.FC<FormProps> = ({ attendeeId, attendeeNumber, isP
       <LodgeSelection 
         grandLodgeId={attendee.grandLodgeId}
         value={attendee.lodgeId}
-        onChange={(value) => updateField('lodgeId', value)}
+        onChange={handleLodgeChange}
+        required={isPrimary}
+        showUseSameLodge={showSameLodgeOption}
+        primaryMason={primaryMason}
       />
       
       <ContactInfo 

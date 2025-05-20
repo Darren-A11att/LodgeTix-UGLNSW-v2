@@ -12,5 +12,5 @@ import React from "react"
  * </SectionHeader>
  */
 export function SectionHeader({ children }: { children: React.ReactNode }) {
-  return <div className="text-center mb-8">{children}</div>
+  return <div className="text-center">{children}</div>
 } 

@@ -121,69 +121,33 @@ export function RegistrationTypeStep() {
   }, [clearAllAttendees, addAttendee, updateAttendee]);
 
   const handleSelectType = useCallback((type: RegistrationType['id']) => {
-    const currentState = useRegistrationStore.getState();
-    const currentDraftType = currentState.registrationType;
-    const hasExistingAttendees = currentState.attendees && currentState.attendees.length > 0;
-    const hasExistingData = hasExistingAttendees && currentState.currentStep > 1;
+    const currentDraftType = useRegistrationStore.getState().registrationType;
     
-    // Show draft modal if:
-    // 1. There's an existing registration with a different type, OR
-    // 2. There's an existing registration with the same type but with attendee data already filled
-    if ((currentDraftType !== null && currentDraftType !== type) || 
-        (currentDraftType !== null && currentDraftType === type && hasExistingData)) {
-      console.log("Showing draft modal - existing data detected");
+    if (currentDraftType !== null && currentDraftType !== type) {
       setPendingRegistrationType(type);
       setShowDraftModal(true);
     } else {
-      console.log("No existing data or same type - proceeding with selection");
       setSelectedType(type);
       storeSetRegistrationType(type);
       initializeAttendees(type);
-      
-      // Explicitly move to the next step when a registration type is selected
-      const goToNextStep = useRegistrationStore.getState().goToNextStep;
-      goToNextStep();
+      // Note: Navigation to the next step is now handled by parent component
     }
   }, [storeSetRegistrationType, initializeAttendees]);
 
   const handleContinueDraft = () => {
     setShowDraftModal(false);
-    
-    // When continuing with a draft, go to the current step in the store
-    // or step 2 (attendee details) if we're not sure
-    const currentState = useRegistrationStore.getState();
-    const currentStepInStore = currentState.currentStep;
-    
-    console.log("Continuing with existing draft - registration type:", currentState.registrationType);
-    console.log("Current step in store:", currentStepInStore);
-    
-    if (currentStepInStore > 1) {
-      // Stay on the current step of the draft
-      console.log("Keeping user at existing step:", currentStepInStore);
-    } else {
-      // If we're on step 1, move to step 2 (attendee details)
-      const goToNextStep = useRegistrationStore.getState().goToNextStep;
-      goToNextStep();
-      console.log("Moving to attendee details for existing draft");
-    }
-    
+    // We don't navigate here anymore
     setPendingRegistrationType(null);
   };
 
   const handleStartNew = () => {
     setShowDraftModal(false);
-    console.log("Starting new registration - clearing existing data");
     storeClearRegistration();
-    
     if (pendingRegistrationType) {
-      console.log("Setting new registration type:", pendingRegistrationType);
       setSelectedType(pendingRegistrationType);
       storeSetRegistrationType(pendingRegistrationType);
       initializeAttendees(pendingRegistrationType);
-      
-      // Explicitly move to the next step
-      const goToNextStep = useRegistrationStore.getState().goToNextStep;
-      goToNextStep();
+      // We don't navigate here anymore
     }
     setPendingRegistrationType(null);
   };

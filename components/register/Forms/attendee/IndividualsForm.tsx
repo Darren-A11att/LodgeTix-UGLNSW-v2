@@ -1,11 +1,11 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useState, useMemo } from 'react';
 import { useRegistrationStore } from '@/lib/registrationStore';
 import { AttendeeWithPartner } from './AttendeeWithPartner';
-import { AddRemoveControl } from '../shared/AddRemoveControl';
+import { AddRemoveControl, LegacyAddRemoveControl } from '../shared/AddRemoveControl';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { Users, Plus } from 'lucide-react';
+import { Users, Plus, UserRound, UserCog } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { AttendeeData } from './types';
 import { validateAttendee } from './utils/validation';
@@ -36,11 +36,21 @@ export const IndividualsForm: React.FC<IndividualsFormProps> = ({
 
   // Filter to only show primary attendees (not partners)
   const primaryAttendees = attendees.filter(a => !a.isPartner);
+  
+  // Compute mason and guest counts
+  const masonCount = useMemo(() => {
+    return primaryAttendees.filter(a => a.attendeeType === 'Mason').length;
+  }, [primaryAttendees]);
+  
+  const guestCount = useMemo(() => {
+    return primaryAttendees.filter(a => a.attendeeType === 'Guest').length;
+  }, [primaryAttendees]);
 
-  // Add new attendee - first attendee is Mason, rest are Guests
+  // Add new attendee - first attendee is Mason, rest can be selected
   const handleAddAttendee = useCallback(() => {
     if (primaryAttendees.length >= maxAttendees) return;
     
+    // Default behavior for backward compatibility
     const attendeeType = primaryAttendees.length === 0 ? 'Mason' : 'Guest';
     const newAttendeeId = attendeeType === 'Mason' 
       ? addMasonAttendee() 
@@ -92,33 +102,6 @@ export const IndividualsForm: React.FC<IndividualsFormProps> = ({
 
   return (
     <div className={cn("space-y-6", className)}>
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold flex items-center gap-2">
-            <Users className="w-6 h-6" />
-            Individual Registration
-          </h2>
-          <p className="text-gray-600 mt-1">
-            Register yourself and additional attendees
-          </p>
-        </div>
-        
-        <AddRemoveControl
-          count={primaryAttendees.length}
-          onAdd={handleAddAttendee}
-          onRemove={() => {
-            const lastAttendee = primaryAttendees[primaryAttendees.length - 1];
-            if (lastAttendee && primaryAttendees.length > 1) {
-              handleRemoveAttendee(lastAttendee.attendeeId);
-            }
-          }}
-          minCount={1}
-          maxCount={maxAttendees}
-          countLabel="attendees"
-          variant="compact"
-        />
-      </div>
 
       {/* Attendee forms */}
       <div className="space-y-6">
@@ -187,19 +170,47 @@ export const IndividualsForm: React.FC<IndividualsFormProps> = ({
         })}
       </div>
 
-      {/* Add attendee button */}
-      {primaryAttendees.length < maxAttendees && (
-        <div className="flex justify-center">
-          <Button
-            variant="outline"
-            onClick={handleAddAttendee}
-            className="gap-2"
-          >
-            <Plus className="w-4 h-4" />
-            Add Another Attendee
-          </Button>
+      {/* Attendee type controls at the bottom of form */}
+      <div className="mt-6 pt-6 border-t border-slate-200 space-y-6">
+        <div className="flex items-center gap-4">
+          <LegacyAddRemoveControl
+            label="Mason"
+            count={primaryAttendees.filter(a => a.attendeeType === 'Mason').length}
+            onAdd={() => {
+              const newAttendeeId = addMasonAttendee();
+              setExpandedAttendees(prev => new Set([...prev, newAttendeeId]));
+            }}
+            onRemove={() => {
+              const masonAttendees = primaryAttendees.filter(a => a.attendeeType === 'Mason');
+              // Don't remove the first Mason if it's the only one
+              if (masonAttendees.length > 1) {
+                const lastMason = masonAttendees[masonAttendees.length - 1];
+                handleRemoveAttendee(lastMason.attendeeId);
+              }
+            }}
+            min={1}
+            max={5}
+            removeDisabled={primaryAttendees.filter(a => a.attendeeType === 'Mason').length <= 1}
+          />
+          <LegacyAddRemoveControl
+            label="Guest"
+            count={primaryAttendees.filter(a => a.attendeeType === 'Guest').length}
+            onAdd={() => {
+              const newAttendeeId = addGuestAttendee();
+              setExpandedAttendees(prev => new Set([...prev, newAttendeeId]));
+            }}
+            onRemove={() => {
+              const guestAttendees = primaryAttendees.filter(a => a.attendeeType === 'Guest');
+              if (guestAttendees.length > 0) {
+                const lastGuest = guestAttendees[guestAttendees.length - 1];
+                handleRemoveAttendee(lastGuest.attendeeId);
+              }
+            }}
+            min={0}
+            max={5}
+          />
         </div>
-      )}
+      </div>
 
       <Separator />
 

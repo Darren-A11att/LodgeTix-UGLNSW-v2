@@ -624,7 +624,7 @@ const MasonLodgeInfo: React.FC<MasonLodgeInfoProps> = ({
       
       {/* Show lodge fields if primary OR if not using same lodge */}
       {(isPrimary || !useSameLodge) && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+        <div className="form-grid gap-4 mb-4">
           {/* Grand Lodge Selection */}
           <div>
             <Label htmlFor={`grandLodge-${attendeeId}`}>
@@ -714,15 +714,6 @@ const MasonLodgeInfo: React.FC<MasonLodgeInfoProps> = ({
                 return filtered;
               }}
             />
-            
-            {selectedGrandLodge && (
-              <Alert className="mt-2 bg-blue-50 border-blue-200">
-                <InfoIcon className="h-4 w-4 text-blue-600" />
-                <AlertDescription className="text-blue-600 ml-2">
-                  Selected: {selectedGrandLodge.name} ({selectedGrandLodge.country})
-                </AlertDescription>
-              </Alert>
-            )}
           </div>
           
           {/* Lodge Selection */}
@@ -821,16 +812,6 @@ const MasonLodgeInfo: React.FC<MasonLodgeInfoProps> = ({
                   </button>
                 </div>
               </div>
-            )}
-            
-            {selectedLodge && (
-              <Alert className="mt-2 bg-blue-50 border-blue-200">
-                <InfoIcon className="h-4 w-4 text-blue-600" />
-                <AlertDescription className="text-blue-600 ml-2">
-                  Selected: {selectedLodge.display_name || `${selectedLodge.name} No. ${selectedLodge.number || 'N/A'}`}
-                  {selectedLodge.district && ` • District: ${selectedLodge.district}`}
-                </AlertDescription>
-              </Alert>
             )}
           </div>
         </div>

@@ -445,15 +445,6 @@ export const GrandLodgeSelection: React.FC<GrandLodgeSelectionProps> = ({
       {error && (
         <p className="text-sm text-red-500 mt-1">{error}</p>
       )}
-      
-      {selectedGrandLodge && (
-        <Alert className="mt-2 bg-blue-50 border-blue-200">
-          <InfoIcon className="h-4 w-4 text-blue-600" />
-          <AlertDescription className="text-blue-600 ml-2">
-            Selected: {selectedGrandLodge.name} ({selectedGrandLodge.country})
-          </AlertDescription>
-        </Alert>
-      )}
     </div>
   );
 };

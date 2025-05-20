@@ -12,7 +12,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Form } from "@/components/ui/form";
 import { ArrowLeft } from "lucide-react";
-import { SectionHeader } from "../Shared/SectionHeader";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { StripeBillingDetailsForClient } from "../payment/types";
 
@@ -20,6 +19,7 @@ import { StripeBillingDetailsForClient } from "../payment/types";
 import { BillingDetailsForm } from "../payment/BillingDetailsForm";
 import { PaymentMethod } from "../payment/PaymentMethod";
 import { OrderSummary } from "../payment/OrderSummary";
+import { TwoColumnStepLayout } from "../Layouts/TwoColumnStepLayout";
 
 // Placeholder ticket definitions (should be imported from a shared source eventually)
 const ticketTypesMinimal = [
@@ -341,14 +341,9 @@ function PaymentStep() {
     }
   }, [primaryAttendee, form.watch('billToPrimary'), form.reset]);
 
-  return (
-    <div className="space-y-8">
-      <SectionHeader>
-        <h1 className="text-2xl font-bold text-masonic-navy">Payment Details</h1>
-        <div className="masonic-divider"></div>
-        <p className="text-gray-600">Please provide your billing information and payment method.</p>
-      </SectionHeader>
-
+  // Render the form part
+  const renderFormContent = () => (
+    <div className="space-y-6">
       {submissionError && (
         <Alert variant="destructive">
           <AlertTitle>Submission Error</AlertTitle>
@@ -356,71 +351,77 @@ function PaymentStep() {
         </Alert>
       )}
       
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
-        <div className="lg:col-span-2 space-y-6">
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onBillingSubmit)} className="space-y-6">
-              <BillingDetailsForm form={form} primaryAttendee={primaryAttendee}/>
-              
-              {totalAmount > 0 && clientSecret && (
-                <PaymentMethod 
-                  clientSecret={clientSecret} 
-                  onPaymentSuccess={handleSuccessfulPayment}
-                  onPaymentError={handlePaymentError}
-                  billingDetails={form.getValues()}
-                  totalAmount={totalAmount}
-                  paymentIntentError={paymentIntentError}
-                  isPaymentIntentLoading={isPaymentIntentLoading}
-                  setIsProcessingPayment={setIsProcessingPayment}
-                />
-              )}
-              {isPaymentIntentLoading && totalAmount > 0 && (
-                <Alert>
-                  <AlertDescription>Loading payment options...</AlertDescription>
-                </Alert>
-              )}
-              {paymentIntentError && totalAmount > 0 &&(
-                <Alert variant="destructive">
-                  <AlertTitle>Payment Gateway Error</AlertTitle>
-                  <AlertDescription>{paymentIntentError} Please try refreshing the page or contact support.</AlertDescription>
-                </Alert>
-              )}
-              {localPaymentProcessingError && (
-                 <Alert variant="destructive">
-                   <AlertTitle>Payment Error</AlertTitle>
-                   <AlertDescription>{localPaymentProcessingError}</AlertDescription>
-                 </Alert>
-              )}
-            </form>
-          </Form>
-        </div>
-
-        <div className="lg:col-span-1 space-y-6">
-          <OrderSummary
-            primaryAttendee={primaryAttendee}
-            additionalAttendees={otherAttendees}
-            currentTickets={currentTicketsForSummary}
-            totalAmount={totalAmount}
-            isProcessingPayment={isProcessingPayment}
-            isSubmittingOrder={isSubmittingOrder}
-            isPaymentIntentLoading={isPaymentIntentLoading}
-            localPaymentProcessingError={localPaymentProcessingError}
-            submissionError={submissionError}
-          />
-        </div>
-      </div>
+      <Form {...form}>
+        <form onSubmit={form.handleSubmit(onBillingSubmit)} className="space-y-6">
+          <BillingDetailsForm form={form} primaryAttendee={primaryAttendee}/>
+          
+          {totalAmount > 0 && clientSecret && (
+            <PaymentMethod 
+              clientSecret={clientSecret} 
+              onPaymentSuccess={handleSuccessfulPayment}
+              onPaymentError={handlePaymentError}
+              billingDetails={form.getValues()}
+              totalAmount={totalAmount}
+              paymentIntentError={paymentIntentError}
+              isPaymentIntentLoading={isPaymentIntentLoading}
+              setIsProcessingPayment={setIsProcessingPayment}
+            />
+          )}
+          {isPaymentIntentLoading && totalAmount > 0 && (
+            <Alert>
+              <AlertDescription>Loading payment options...</AlertDescription>
+            </Alert>
+          )}
+          {paymentIntentError && totalAmount > 0 &&(
+            <Alert variant="destructive">
+              <AlertTitle>Payment Gateway Error</AlertTitle>
+              <AlertDescription>{paymentIntentError} Please try refreshing the page or contact support.</AlertDescription>
+            </Alert>
+          )}
+          {localPaymentProcessingError && (
+              <Alert variant="destructive">
+                <AlertTitle>Payment Error</AlertTitle>
+                <AlertDescription>{localPaymentProcessingError}</AlertDescription>
+              </Alert>
+          )}
+        </form>
+      </Form>
 
       <div className="flex justify-between mt-8">
         <Button variant="outline" onClick={goToPrevStep} disabled={isSubmittingOrder || isProcessingPayment}>
           <ArrowLeft className="mr-2 h-4 w-4" /> Previous Step
         </Button>
         {(totalAmount === 0 && currentTicketsForSummary.length > 0) && (
-             <Button onClick={form.handleSubmit(onBillingSubmit)} disabled={isSubmittingOrder} className="bg-masonic-gold text-masonic-navy hover:bg-masonic-lightgold">
-                Complete Registration
-             </Button>
+            <Button onClick={form.handleSubmit(onBillingSubmit)} disabled={isSubmittingOrder} className="bg-masonic-gold text-masonic-navy hover:bg-masonic-lightgold">
+              Complete Registration
+            </Button>
         )}
       </div>
     </div>
+  );
+
+  // Render the summary part
+  const renderSummaryContent = () => (
+    <OrderSummary
+      primaryAttendee={primaryAttendee}
+      additionalAttendees={otherAttendees}
+      currentTickets={currentTicketsForSummary}
+      totalAmount={totalAmount}
+      isProcessingPayment={isProcessingPayment}
+      isSubmittingOrder={isSubmittingOrder}
+      isPaymentIntentLoading={isPaymentIntentLoading}
+      localPaymentProcessingError={localPaymentProcessingError}
+      submissionError={submissionError}
+    />
+  );
+
+  return (
+    <TwoColumnStepLayout
+      summaryContent={renderSummaryContent()}
+      summaryTitle="Order Summary"
+    >
+      {renderFormContent()}
+    </TwoColumnStepLayout>
   );
 }
 

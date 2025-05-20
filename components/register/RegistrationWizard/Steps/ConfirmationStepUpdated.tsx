@@ -215,7 +215,7 @@ END:VCALENDAR
       {/* Primary actions */}
       <Card>
         <CardContent className="pt-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="form-grid gap-4">
             <Button
               onClick={downloadTickets}
               disabled={isDownloading}
@@ -266,7 +266,7 @@ END:VCALENDAR
           <CardTitle>Event Details</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="form-grid gap-4">
             <div className="flex items-start gap-3">
               <Calendar className="w-5 h-5 text-gray-400 mt-0.5" />
               <div>
