@@ -5,11 +5,11 @@ import { AdditionalInfo } from '@/components/register/Forms/basic-details/Additi
 import { GrandLodgeSelection } from '../lib/GrandLodgeSelection';
 import { LodgeSelection } from '../lib/LodgeSelection';
 import { GrandOfficerFields } from '../utils/GrandOfficerFields';
-import { useAttendeeData } from '@/components/register/Forms/attendee/lib/useAttendeeData';
+import { useAttendeeDataWithDebounce } from '@/components/register/Forms/attendee/lib/useAttendeeData';
 import { FormProps } from '@/components/register/Forms/attendee/types';
 
 export const MasonForm: React.FC<FormProps> = ({ attendeeId, attendeeNumber, isPrimary }) => {
-  const { attendee, updateField } = useAttendeeData(attendeeId);
+  const { attendee, updateField } = useAttendeeDataWithDebounce(attendeeId);
   
   if (!attendee) return <div className="p-4 text-center">Loading...</div>;
   

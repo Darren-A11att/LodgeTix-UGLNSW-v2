@@ -203,15 +203,8 @@ export const IndividualsForm: React.FC<IndividualsFormProps> = ({
 
       <Separator />
 
-      {/* Action buttons */}
-      <div className="flex justify-between">
-        <Button variant="outline">
-          Save Draft
-        </Button>
-        <Button onClick={handleComplete}>
-          Continue to Tickets
-        </Button>
-      </div>
+      {/* Action buttons - removed since navigation is handled by WizardBodyStructureLayout */}
+      {/* Keep the handleComplete function so it can still be called by the onComplete prop */}
     </div>
   );
 };

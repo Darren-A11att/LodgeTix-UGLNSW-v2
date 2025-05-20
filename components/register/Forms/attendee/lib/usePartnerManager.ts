@@ -2,7 +2,7 @@ import { useCallback, useMemo } from 'react';
 import { useRegistrationStore } from '@/lib/registrationStore';
 import { AttendeeData } from '../types';
 import { useShallow } from 'zustand/react/shallow';
-import { useAttendeeData } from './useAttendeeData';
+import { useAttendeeDataWithDebounce } from './useAttendeeData';
 
 export const usePartnerManager = (attendeeId: string) => {
   const { 
@@ -66,7 +66,7 @@ export const usePartnerManager = (attendeeId: string) => {
 // Partner data synchronization utility
 export const usePartnerDataSync = (attendeeId: string) => {
   const { attendee, partner } = usePartnerManager(attendeeId);
-  const { updateMultipleFields } = useAttendeeData(partner?.attendeeId || '');
+  const { updateMultipleFields } = useAttendeeDataWithDebounce(partner?.attendeeId || '');
 
   const syncPartnerData = useCallback(
     (fields: string[]) => {

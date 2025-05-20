@@ -2,11 +2,11 @@ import React, { useCallback } from 'react';
 import { BasicInfo } from '@/components/register/Forms/basic-details/BasicInfo';
 import { ContactInfo } from '@/components/register/Forms/basic-details/ContactInfo';
 import { AdditionalInfo } from '@/components/register/Forms/basic-details/AdditionalInfo';
-import { useAttendeeData } from '@/components/register/Forms/attendee/lib/useAttendeeData';
+import { useAttendeeDataWithDebounce } from '@/components/register/Forms/attendee/lib/useAttendeeData';
 import { FormProps } from '@/components/register/Forms/attendee/types';
 
 export const GuestForm: React.FC<FormProps> = ({ attendeeId, attendeeNumber, isPrimary }) => {
-  const { attendee, updateField } = useAttendeeData(attendeeId);
+  const { attendee, updateField } = useAttendeeDataWithDebounce(attendeeId);
   
   if (!attendee) return <div className="p-4 text-center">Loading...</div>;
   

@@ -1,11 +1,11 @@
 import { useCallback, useEffect } from 'react';
 import { AttendeeData } from '../types';
-import { useAttendeeData } from './useAttendeeData';
+import { useAttendeeDataWithDebounce } from './useAttendeeData';
 
 const STORAGE_PREFIX = 'lodgetix_form_draft_';
 
 export const usePersistence = (attendeeId: string, autoSave = true) => {
-  const { attendee, updateMultipleFields } = useAttendeeData(attendeeId);
+  const { attendee, updateMultipleFields } = useAttendeeDataWithDebounce(attendeeId);
   const storageKey = `${STORAGE_PREFIX}${attendeeId}`;
 
   // Save draft to localStorage
@@ -85,7 +85,7 @@ export const usePersistence = (attendeeId: string, autoSave = true) => {
 
 // Session storage variant for sensitive data
 export const useSessionPersistence = (attendeeId: string, autoSave = true) => {
-  const { attendee, updateMultipleFields } = useAttendeeData(attendeeId);
+  const { attendee, updateMultipleFields } = useAttendeeDataWithDebounce(attendeeId);
   const storageKey = `${STORAGE_PREFIX}session_${attendeeId}`;
 
   // Save draft to sessionStorage
