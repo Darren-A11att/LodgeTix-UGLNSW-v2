@@ -5,6 +5,9 @@ import { useRegistrationStore, selectCurrentStep, selectRegistrationType, select
 import { RegistrationStepIndicator } from "./Shared/registration-step-indicator"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { User } from "lucide-react"
+// Import the layout components
+// WizardShellLayout is now handled by layout.tsx
+import { WizardBodyStructureLayout } from "./Layouts/WizardBodyStructureLayout"
 
 // Import base component directly (it's small)
 import { RegistrationTypeStep } from "./Steps/registration-type-step"
@@ -210,8 +213,7 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = (props) => 
     if (currentStep === 2) {
       const errors = validateAttendeeData(allAttendees); // Call it directly
       setValidationErrors(errors);
-      console.log("!!!!!!!!!!!! VALIDATION ERRORS !!!!!!!!!!!!:", errors);
-      console.log("!!!!!!!!!!!! ALL ATTENDEES FOR VALIDATION !!!!!!!!!!!!:", JSON.stringify(allAttendees, null, 2));
+      // Removed console logs for production performance
     } else {
       // Clear errors if not on the attendee details step, or if attendee details are not yet loaded
       // setValidationErrors([]); 
@@ -222,15 +224,22 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = (props) => 
 
   // Logic to handle step advancement, potentially with validation
   const handleNext = () => {
-    // Validation is now run reactively, and errors are in validationErrors.
-    // The button in AttendeeDetailsStep will be enabled/disabled based on validationErrors and agreeToTerms.
-    // So, if handleNext is called, it implies the button was enabled.
-    // However, it's good practice to ensure, or rely on AttendeeDetails.tsx to gate this.
-    // For safety, we could re-run or check here, but it might be redundant
-    // if AttendeeDetails.tsx's button is the sole enabler of this call.
-    // if (runValidations() && agreeToTerms) { // This check is effectively done by the button's disabled state
-      goToNextStep()
-    // }
+    // Step-specific validation
+    if (currentStep === 2) { // Attendee Details step
+      // Only advance if validation passes and terms are agreed to
+      const isValid = runValidations();
+      if (isValid && agreeToTerms) {
+        goToNextStep();
+      } else {
+        // Show validation errors
+        setValidationErrors(validateAttendeeData(allAttendees));
+        // You might want to scroll to errors or show a notification
+        console.log("Cannot advance: validation errors or terms not agreed to");
+      }
+    } else {
+      // For other steps, just advance
+      goToNextStep();
+    }
   }
 
   const handleBack = () => {
@@ -255,8 +264,49 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = (props) => 
     </div>
   )
 
-  // --- Render Current Step ---
-  const renderStep = () => {
+  // Step title and description mapping
+  const getStepContent = (step: number) => {
+    switch (step) {
+      case 1:
+        return {
+          title: "Select Registration Type",
+          description: "Please select how you would like to register for this event"
+        }
+      case 2:
+        return {
+          title: "Attendee Details",
+          description: "Please provide information for all attendees"
+        }
+      case 3:
+        return {
+          title: "Select Tickets",
+          description: "Choose tickets for each attendee"
+        }
+      case 4:
+        return {
+          title: "Review Order",
+          description: "Review your registration details before payment"
+        }
+      case 5:
+        return {
+          title: "Payment",
+          description: "Complete your registration payment"
+        }
+      case 6:
+        return {
+          title: "Confirmation",
+          description: "Registration successful"
+        }
+      default:
+        return {
+          title: "Registration",
+          description: ""
+        }
+    }
+  }
+
+  // Updated renderStep function - now just returns the content without wrappers
+  const renderStepContent = () => {
     switch (currentStep) {
       case 1:
         return <RegistrationTypeStep />
@@ -301,43 +351,72 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = (props) => 
     }
   }
 
-  // Log the entire store state whenever it changes
-  useEffect(() => {
-    const unsubscribe = useRegistrationStore.subscribe(
-      (newState, prevState) => {
-        console.log("Zustand Store Updated:", newState)
-        // You can also log prevState if you need to compare
-        // console.log("Previous State:", prevState)
-      }
-    )
-    // Cleanup subscription on component unmount
-    return () => {
-      unsubscribe()
+  // Terms and conditions for step 2
+  const renderAdditionalButtonContent = () => {
+    if (currentStep === 2) {
+      return (
+        <div className="flex items-center">
+          <input
+            type="checkbox"
+            id="agree-terms"
+            checked={agreeToTerms}
+            onChange={(e) => handleAgreeToTermsChange(e.target.checked)}
+            className="mr-2"
+          />
+          <label htmlFor="agree-terms" className="text-sm">
+            I agree to the terms and conditions
+          </label>
+        </div>
+      );
     }
-  }, []) // Empty dependency array ensures this runs once on mount and cleans up on unmount
+    return null;
+  };
+
+  // Get current step info
+  const { title, description } = getStepContent(currentStep);
+  
+  // Determine if next button should be disabled
+  const isNextDisabled = () => {
+    if (currentStep === 2) {
+      return validationErrors.length > 0 || !agreeToTerms;
+    }
+    return false;
+  };
+
+  // Log the entire store state whenever it changes - commented out for production performance
+  // useEffect(() => {
+  //   const unsubscribe = useRegistrationStore.subscribe(
+  //     (newState, prevState) => {
+  //       console.log("Zustand Store Updated:", newState)
+  //       // You can also log prevState if you need to compare
+  //       // console.log("Previous State:", prevState)
+  //     }
+  //   )
+  //   // Cleanup subscription on component unmount
+  //   return () => {
+  //     unsubscribe()
+  //   }
+  // }, []) // Empty dependency array ensures this runs once on mount and cleans up on unmount
 
   // Only show the attendee summary for steps 2-6, not for step 1 (Registration Type)
   const showAttendeeSummary = currentStep > 1
 
   return (
-    <div className="container mx-auto max-w-6xl px-4 flex flex-col min-h-[100svh] max-h-[100dvh]">
-      <header className="py-4">
-        <RegistrationStepIndicator currentStep={currentStep} />
-      </header>
-
-      <main className="flex-1 overflow-y-auto py-4">
-        <div className={`${showAttendeeSummary ? "grid grid-cols-1 lg:grid-cols-4 gap-6" : ""}`}>
-          <div className={showAttendeeSummary ? "lg:col-span-4" : "w-full"}>
-            {renderStep()}
-          </div>
+    <WizardBodyStructureLayout
+      currentStep={currentStep}
+      sectionTitle={title}
+      sectionDescription={description}
+      onBack={currentStep > 1 ? handleBack : undefined}
+      onNext={currentStep < 6 ? handleNext : undefined}
+      disableNext={isNextDisabled()}
+      hideBack={currentStep === 1 || currentStep === 6}
+      additionalButtonContent={renderAdditionalButtonContent()}
+    >
+      <div className={`${showAttendeeSummary ? "grid grid-cols-1 lg:grid-cols-4 gap-6" : ""}`}>
+        <div className={showAttendeeSummary ? "lg:col-span-4" : "w-full"}>
+          {renderStepContent()}
         </div>
-      </main>
-      
-      <footer className="py-4 border-t border-gray-100 mt-auto">
-        <div className="flex justify-between items-center">
-          <div className="text-xs text-gray-500">&copy; {new Date().getFullYear()} LodgeTix</div>
-        </div>
-      </footer>
-    </div>
+      </div>
+    </WizardBodyStructureLayout>
   )
 }

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -88,6 +88,7 @@ export const TextField: React.FC<FieldProps & {
   type?: string;
   placeholder?: string;
   maxLength?: number;
+  debounceMs?: number;
 }> = ({ 
   label, 
   name, 
@@ -100,15 +101,41 @@ export const TextField: React.FC<FieldProps & {
   placeholder, 
   maxLength,
   className,
-  inputClassName 
+  inputClassName,
+  debounceMs = 0 // Default to no debounce, use directly with debounced hooks
 }) => {
+  const [localValue, setLocalValue] = useState(value);
+  
+  // Update local value when prop value changes
+  useEffect(() => {
+    setLocalValue(value);
+  }, [value]);
+
+  // Handle input change with optional debounce
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newValue = e.target.value;
+    setLocalValue(newValue);
+    
+    if (debounceMs <= 0) {
+      // No debounce, update immediately
+      onChange(newValue);
+    } else {
+      // Clear any existing timeout and set a new one
+      const timeoutId = setTimeout(() => {
+        onChange(newValue);
+      }, debounceMs);
+      
+      return () => clearTimeout(timeoutId);
+    }
+  };
+  
   return (
     <FieldWrapper label={label} name={name} required={required} error={error} className={className}>
       <Input
         id={name}
         type={type}
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
+        value={localValue}
+        onChange={handleChange}
         placeholder={placeholder}
         maxLength={maxLength}
         disabled={disabled}
@@ -121,17 +148,35 @@ export const TextField: React.FC<FieldProps & {
 // Email field - uses HTML5 email validation
 export const EmailField: React.FC<FieldProps & {
   placeholder?: string;
-}> = ({ label, name, value, onChange, error, required, disabled, placeholder, className, inputClassName }) => {
+  debounceMs?: number;
+}> = ({ label, name, value, onChange, error, required, disabled, placeholder, className, inputClassName, debounceMs = 0 }) => {
+  const [localValue, setLocalValue] = useState(value);
+  
+  // Update local value when prop value changes
+  useEffect(() => {
+    setLocalValue(value);
+  }, [value]);
+  
   const handleChange = (newValue: string) => {
     const formatted = formatEmail(newValue);
-    onChange(formatted);
+    setLocalValue(formatted);
+    
+    if (debounceMs <= 0) {
+      onChange(formatted);
+    } else {
+      const timeoutId = setTimeout(() => {
+        onChange(formatted);
+      }, debounceMs);
+      
+      return () => clearTimeout(timeoutId);
+    }
   };
 
   return (
     <TextField
       label={label}
       name={name}
-      value={value}
+      value={localValue}
       onChange={handleChange}
       type="email"
       placeholder={placeholder || "email@example.com"}
@@ -140,6 +185,7 @@ export const EmailField: React.FC<FieldProps & {
       disabled={disabled}
       className={className}
       inputClassName={inputClassName}
+      // Don't pass debounce to TextField since we're handling it here
     />
   );
 };
@@ -148,6 +194,7 @@ export const EmailField: React.FC<FieldProps & {
 export const PhoneField: React.FC<FieldProps & {
   placeholder?: string;
   international?: boolean;
+  debounceMs?: number;
 }> = ({ 
   label, 
   name, 
@@ -159,18 +206,37 @@ export const PhoneField: React.FC<FieldProps & {
   placeholder, 
   international = true,
   className, 
-  inputClassName 
+  inputClassName,
+  debounceMs = 0
 }) => {
-  const [localError, setLocalError] = React.useState('');
+  const [localValue, setLocalValue] = useState(value);
+  const [localError, setLocalError] = useState('');
+  
+  // Update local value when prop value changes
+  useEffect(() => {
+    setLocalValue(value);
+  }, [value]);
 
   const handleChange = (newValue: string) => {
     const formatted = formatPhoneNumber(newValue);
-    onChange(formatted);
+    setLocalValue(formatted);
     
+    // Validation check happens immediately for UX feedback
     if (formatted && !validatePhone(formatted)) {
       setLocalError('Invalid phone number');
     } else {
       setLocalError('');
+    }
+    
+    // But update propagation is debounced if needed
+    if (debounceMs <= 0) {
+      onChange(formatted);
+    } else {
+      const timeoutId = setTimeout(() => {
+        onChange(formatted);
+      }, debounceMs);
+      
+      return () => clearTimeout(timeoutId);
     }
   };
 
@@ -178,7 +244,7 @@ export const PhoneField: React.FC<FieldProps & {
     <TextField
       label={label}
       name={name}
-      value={value}
+      value={localValue}
       onChange={handleChange}
       type="tel"
       placeholder={placeholder || "0400 000 000"}
@@ -187,6 +253,7 @@ export const PhoneField: React.FC<FieldProps & {
       disabled={disabled}
       className={className}
       inputClassName={inputClassName}
+      // Don't pass debounce to TextField since we're handling it here
     />
   );
 };
