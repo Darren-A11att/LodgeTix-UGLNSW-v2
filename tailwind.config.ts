@@ -19,12 +19,25 @@ const config = {
       },
     },
     extend: {
-      // Form field sizing utilities
+      /**
+       * Form field sizing utilities
+       * 
+       * These custom grid column utilities define how much space a form field
+       * should occupy within a 12-column grid system. They're used in conjunction
+       * with the .field-sm, .field-md, .field-lg, and .field-full classes defined
+       * in globals.css.
+       * 
+       * Usage:
+       * <TextField className="field-sm" /> - Small field (3 columns on desktop)
+       * <TextField className="field-md" /> - Medium field (6 columns on desktop)
+       * <TextField className="field-lg" /> - Large field (9 columns on desktop)
+       * <TextField className="field-full" /> - Full-width field (12 columns)
+       */
       gridColumn: {
-        'field-sm': 'span 1 / span 1',
-        'field-md': 'span 2 / span 2',
-        'field-lg': 'span 3 / span 3',
-        'field-full': 'span 12 / span 12',
+        'field-sm': 'span 1 / span 1',  // Base size for small fields (expanded in globals.css)
+        'field-md': 'span 2 / span 2',  // Base size for medium fields (expanded in globals.css)
+        'field-lg': 'span 3 / span 3',  // Base size for large fields (expanded in globals.css)
+        'field-full': 'span 12 / span 12', // Always full width regardless of screen size
       },
       colors: {
         border: "hsl(var(--border))",

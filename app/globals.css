@@ -272,24 +272,54 @@ body {
     @apply container mx-auto px-4 sm:px-6 lg:px-8 max-w-7xl;
   }
   
-  /* Form grid layout with responsive columns */
+  /**
+   * Form Grid System
+   *
+   * This is a 12-column responsive grid system for form layouts.
+   * All form sections should be wrapped in a .form-grid container,
+   * and individual form fields should use one of the field size classes.
+   */
+  
+  /* Base form grid container - 12 columns with consistent spacing */
   .form-grid {
     @apply grid grid-cols-12 gap-4;
   }
   
-  /* Form field sizing utilities with responsive behavior */
+  /**
+   * Form Field Sizing Utilities
+   *
+   * These classes provide consistent, responsive sizing for form fields:
+   * 
+   * - All fields are full width (12 columns) on mobile for better touch targets
+   * - On small screens (sm), small and medium fields take 2 columns (adjusted for your design)
+   * - On medium screens (md), fields follow a 6-6-8 column pattern
+   * - On large screens (lg), fields follow a 3-6-9 column pattern
+   *
+   * Usage examples:
+   * <div className="form-grid">
+   *   <TextField className="field-sm" label="Title" />  <!-- Small field -->
+   *   <TextField className="field-md" label="Name" />   <!-- Medium field -->
+   *   <TextArea className="field-lg" label="Bio" />     <!-- Large field -->
+   *   <Checkbox className="field-full" label="Terms" /> <!-- Full-width field -->
+   * </div>
+   */
+  
+  /* Small fields - Good for short inputs like titles, postal codes, etc. */
   .field-sm {
-    @apply col-span-12 sm:col-span-6 md:col-span-4 lg:col-span-3;
+    @apply col-span-12 sm:col-span-2 md:col-span-6 lg:col-span-3;
   }
   
+  /* Medium fields - Good for names, phone numbers, etc. */
   .field-md {
-    @apply col-span-12 sm:col-span-6 md:col-span-6 lg:col-span-6;
+    @apply col-span-12 sm:col-span-2 md:col-span-6 lg:col-span-6;
   }
   
+  /* Large fields - Good for addresses, longer inputs */
   .field-lg {
-    @apply col-span-12 sm:col-span-12 md:col-span-8 lg:col-span-9;
+    @apply col-span-12 sm:col-span-2 md:col-span-8 lg:col-span-9;
   }
   
+  /* Full-width fields - For textareas, checkboxes, or sections that should span the entire grid */
   .field-full {
     @apply col-span-12;
   }
