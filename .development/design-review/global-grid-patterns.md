@@ -2,7 +2,7 @@
 
 ## Option 1: Custom Utility Classes in CSS
 ```css
-/* app/globals.css */
+/* style/styles/globals.css */
 @layer components {
   /* Form grid patterns */
   .form-grid {

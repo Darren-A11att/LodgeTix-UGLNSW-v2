@@ -1,4 +1,4 @@
-import React, { useCallback, useState, useMemo } from 'react';
+import React, { useCallback, useState, useMemo, useEffect } from 'react';
 import { useRegistrationStore } from '@/lib/registrationStore';
 import { AttendeeWithPartner } from './AttendeeWithPartner';
 import { AddRemoveControl, LegacyAddRemoveControl } from '../shared/AddRemoveControl';
@@ -9,6 +9,7 @@ import { Users, Plus, UserRound, UserCog } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { AttendeeData } from './types';
 import { validateAttendee } from './utils/validation';
+import formSaveManager from '@/lib/formSaveManager';
 
 interface IndividualsFormProps {
   maxAttendees?: number;
@@ -50,6 +51,9 @@ export const IndividualsForm: React.FC<IndividualsFormProps> = ({
   const handleAddAttendee = useCallback(() => {
     if (primaryAttendees.length >= maxAttendees) return;
     
+    // First save any pending changes to ensure current data is preserved
+    formSaveManager.saveBeforeNavigation();
+    
     // Default behavior for backward compatibility
     const attendeeType = primaryAttendees.length === 0 ? 'Mason' : 'Guest';
     const newAttendeeId = attendeeType === 'Mason' 
@@ -58,16 +62,32 @@ export const IndividualsForm: React.FC<IndividualsFormProps> = ({
     
     // Expand the new attendee
     setExpandedAttendees(prev => new Set([...prev, newAttendeeId]));
+    
+    // Explicitly save state after adding attendee
+    setTimeout(() => {
+      formSaveManager.saveOnAttendeeChange();
+    }, 100); // Small delay to ensure component has rendered
   }, [addMasonAttendee, addGuestAttendee, primaryAttendees, maxAttendees]);
 
   // Remove attendee
   const handleRemoveAttendee = useCallback((attendeeId: string) => {
+    // First save any pending changes to ensure we don't lose data from other attendees
+    formSaveManager.saveBeforeNavigation();
+    
+    // Remove the attendee
     removeAttendee(attendeeId);
+    
+    // Update expanded state
     setExpandedAttendees(prev => {
       const next = new Set(prev);
       next.delete(attendeeId);
       return next;
     });
+    
+    // Explicitly save state after removing attendee
+    setTimeout(() => {
+      formSaveManager.saveOnAttendeeChange();
+    }, 100); // Small delay to ensure store has updated
   }, [removeAttendee]);
 
   // Toggle attendee expansion
@@ -92,12 +112,19 @@ export const IndividualsForm: React.FC<IndividualsFormProps> = ({
     });
   }, [attendees]);
 
-  // Validate and complete
+  // Validate and complete - now with explicit save
   const handleComplete = useCallback(() => {
-    const isValid = validateAllAttendees();
-    if (isValid && onComplete) {
-      onComplete();
-    }
+    // First, save all form fields to ensure we have the latest data
+    formSaveManager.saveBeforeNavigation().then(() => {
+      // After saving, validate attendees
+      const isValid = validateAllAttendees();
+      if (isValid && onComplete) {
+        console.log('[IndividualsForm] Form validation passed - proceeding to next step');
+        onComplete();
+      } else {
+        console.log('[IndividualsForm] Form validation failed');
+      }
+    });
   }, [validateAllAttendees, onComplete]);
 
   return (
@@ -122,7 +149,7 @@ export const IndividualsForm: React.FC<IndividualsFormProps> = ({
                 onClick={() => toggleAttendeeExpansion(attendee.attendeeId)}
               >
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-lg">
+                  <CardTitle className="text-lg font-semibold">
                     {isPrimary ? 'Your Details' : `Attendee ${attendeeNumber}`}
                     {!isExpanded && attendee.firstName && attendee.lastName && (
                       <span className="font-normal text-gray-600 ml-2">
@@ -141,6 +168,7 @@ export const IndividualsForm: React.FC<IndividualsFormProps> = ({
                           e.stopPropagation();
                           handleRemoveAttendee(attendee.attendeeId);
                         }}
+                        className="text-destructive hover:bg-destructive/10"
                       >
                         Remove
                       </Button>
@@ -156,12 +184,13 @@ export const IndividualsForm: React.FC<IndividualsFormProps> = ({
               </CardHeader>
 
               {isExpanded && (
-                <CardContent>
+                <CardContent className="px-6 pt-2 pb-6">
                   <AttendeeWithPartner
                     attendeeId={attendee.attendeeId}
                     attendeeNumber={attendeeNumber}
                     isPrimary={isPrimary}
                     allowPartner={allowPartners}
+                    onRemove={!isPrimary ? () => handleRemoveAttendee(attendee.attendeeId) : undefined}
                   />
                 </CardContent>
               )}
@@ -177,8 +206,16 @@ export const IndividualsForm: React.FC<IndividualsFormProps> = ({
             label="Mason"
             count={primaryAttendees.filter(a => a.attendeeType === 'Mason').length}
             onAdd={() => {
+              // Save current form state before adding a new attendee
+              formSaveManager.saveBeforeNavigation();
+              
               const newAttendeeId = addMasonAttendee();
               setExpandedAttendees(prev => new Set([...prev, newAttendeeId]));
+              
+              // Explicitly save after adding attendee
+              setTimeout(() => {
+                formSaveManager.saveOnAttendeeChange();
+              }, 100);
             }}
             onRemove={() => {
               const masonAttendees = primaryAttendees.filter(a => a.attendeeType === 'Mason');
@@ -196,8 +233,16 @@ export const IndividualsForm: React.FC<IndividualsFormProps> = ({
             label="Guest"
             count={primaryAttendees.filter(a => a.attendeeType === 'Guest').length}
             onAdd={() => {
+              // Save current form state before adding a new attendee
+              formSaveManager.saveBeforeNavigation();
+              
               const newAttendeeId = addGuestAttendee();
               setExpandedAttendees(prev => new Set([...prev, newAttendeeId]));
+              
+              // Explicitly save after adding attendee
+              setTimeout(() => {
+                formSaveManager.saveOnAttendeeChange();
+              }, 100);
             }}
             onRemove={() => {
               const guestAttendees = primaryAttendees.filter(a => a.attendeeType === 'Guest');

@@ -1,5 +1,6 @@
 import React, { useCallback } from 'react';
-import { SelectField, TextareaField } from '../../shared/FieldComponents';
+import { SelectField, TextField } from '../../shared/FieldComponents';
+import { TextField as TextInput } from '../../shared/FieldComponents';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -7,6 +8,7 @@ import { AttendeeData } from '../../attendee/types';
 import { GRAND_OFFICER_ROLES } from '../../attendee/utils/constants';
 import { shouldShowOtherGrandOfficerInput } from '../../attendee/utils/businessLogic';
 import { cn } from '@/lib/utils';
+import { GrandOfficerDropdown } from '../../shared/GrandOfficerDropdown';
 
 interface GrandOfficerFieldsProps {
   data: AttendeeData;
@@ -28,16 +30,21 @@ export const GrandOfficerFields: React.FC<GrandOfficerFieldsProps> = ({
     return null;
   }
 
-  const showOtherInput = shouldShowOtherGrandOfficerInput(data);
-  
   // Convert roles to select options
   const roleOptions = GRAND_OFFICER_ROLES.map(role => ({
     value: role,
     label: role
   }));
 
+  // Grand Officer status options
+  const statusOptions = [
+    { value: 'Present', label: 'Present' },
+    { value: 'Past', label: 'Past' }
+  ];
+
   // Handle status change
   const handleStatusChange = useCallback((status: string) => {
+    console.log('Grand Officer status selection:', status);
     onChange('grandOfficerStatus', status);
     
     // Clear role fields if changing from Present to Past
@@ -49,6 +56,10 @@ export const GrandOfficerFields: React.FC<GrandOfficerFieldsProps> = ({
 
   // Handle role change
   const handleRoleChange = useCallback((role: string) => {
+    // Explicitly log selection to check if this function is being called
+    console.log('Grand Office selection:', role);
+    
+    // Use immediate update for dropdown selections
     onChange('presentGrandOfficerRole', role);
     
     // Clear other field if not selecting "Other"
@@ -58,80 +69,59 @@ export const GrandOfficerFields: React.FC<GrandOfficerFieldsProps> = ({
   }, [onChange]);
 
   return (
-    <div className={cn("space-y-6", className)}>
-      <h3 className="text-lg font-semibold">Grand Officer Details</h3>
-
-      {/* Grand Officer Status */}
-      <div className="space-y-2">
-        <Label>
-          Grand Officer Status
-          {required && <span className="text-red-500 ml-1">*</span>}
-        </Label>
-        <RadioGroup
-          value={data.grandOfficerStatus || ''}
-          onValueChange={handleStatusChange}
-        >
-          <div className="flex space-x-6">
-            <div className="flex items-center space-x-2">
-              <RadioGroupItem value="Past" id="past-officer" />
-              <Label htmlFor="past-officer" className="font-normal cursor-pointer">
-                Past
-              </Label>
-            </div>
-            <div className="flex items-center space-x-2">
-              <RadioGroupItem value="Present" id="present-officer" />
-              <Label htmlFor="present-officer" className="font-normal cursor-pointer">
-                Present
-              </Label>
-            </div>
-          </div>
-        </RadioGroup>
-        {errors.grandOfficerStatus && (
-          <p className="text-sm text-red-500">{errors.grandOfficerStatus}</p>
-        )}
-      </div>
-
-      {/* Present Officer Role (only shown if status is Present) */}
-      {data.grandOfficerStatus === 'Present' && (
-        <SelectField
-          label="Grand Officer Role"
-          name="presentGrandOfficerRole"
-          value={data.presentGrandOfficerRole || ''}
-          onChange={handleRoleChange}
-          options={roleOptions}
+    <div className={cn("grid grid-cols-12 gap-4", className)}>
+      {/* Grand Rank - 2 columns (matching Masonic Title) */}
+      <div className="col-span-2">
+        <TextField
+          label="Grand Rank"
+          name="suffix"
+          value={data.suffix || ''}
+          onChange={(value) => onChange('suffix', value)}
+          placeholder="PGRNK"
           required={required}
         />
-      )}
-
-      {/* Other Role Input (only shown if role is Other) */}
-      {showOtherInput && (
-        <div className="space-y-2">
-          <Label htmlFor="other-role">
-            Please specify role
-            {required && <span className="text-red-500 ml-1">*</span>}
-          </Label>
-          <Input
-            id="other-role"
-            value={data.otherGrandOfficerRole || ''}
-            onChange={(e) => onChange('otherGrandOfficerRole', e.target.value)}
-            placeholder="Enter specific role"
-            className={cn(errors.otherGrandOfficerRole && "border-red-500")}
+      </div>
+      
+      {/* Grand Officer Status - 2 columns (matching Masonic Title) */}
+      <div className="col-span-2">
+        <SelectField
+          label="Grand Officer"
+          name="grandOfficerStatus"
+          value={data.grandOfficerStatus || ''}
+          onChange={handleStatusChange}
+          options={statusOptions}
+          required={required}
+        />
+      </div>
+      
+      {/* Present Officer Role - 4 columns (expanded) */}
+      {data.grandOfficerStatus === 'Present' && (
+        <div className="col-span-4">
+          <GrandOfficerDropdown
+            label="Grand Office"
+            name="presentGrandOfficerRole"
+            value={data.presentGrandOfficerRole || ''}
+            onChange={(value) => handleRoleChange(value)}
+            options={roleOptions}
+            required={required}
+            className="relative z-10"
           />
-          {errors.otherGrandOfficerRole && (
-            <p className="text-sm text-red-500">{errors.otherGrandOfficerRole}</p>
-          )}
         </div>
       )}
-
-      {/* Additional Details */}
-      <TextareaField
-        label="Additional Grand Officer Details"
-        name="grandOfficerDetails"
-        value={data.grandOfficerDetails || ''}
-        onChange={(value) => onChange('grandOfficerDetails', value)}
-        placeholder="Enter position details, years of service, or other relevant information"
-        rows={3}
-      />
+      
+      {/* Other Role Input - 4 columns (expanded) */}
+      {data.presentGrandOfficerRole === 'Other' && (
+        <div className="col-span-4">
+          <TextField
+            label="Other Grand Office"
+            name="otherGrandOfficerRole"
+            value={data.otherGrandOfficerRole || ''}
+            onChange={(value) => onChange('otherGrandOfficerRole', value)}
+            placeholder="Enter specific role"
+            required={required}
+          />
+        </div>
+      )}
     </div>
   );
 };

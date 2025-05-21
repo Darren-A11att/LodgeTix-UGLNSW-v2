@@ -19,7 +19,7 @@ masonic: {
 ```
 
 ### CSS Variables (Multiple Definitions)
-Found in `/app/globals.css`:
+Found in `/style/styles/globals.css`:
 
 ```css
 /* Primary system colors */
@@ -34,7 +34,7 @@ Found in `/app/globals.css`:
 ```
 
 ### Existing Color Classes
-In `/app/globals.css`:
+In `/style/styles/globals.css`:
 - `.masonic-gradient`: Linear gradient for navy shades
 - `.masonic-gold-gradient`: Linear gradient for gold shades
 - `.masonic-divider`: Styled divider with gold color
@@ -48,7 +48,7 @@ Found in CSS files:
 - No explicit type scale defined
 
 ### Button Typography
-From `/app/globals.css`:
+From `/style/styles/globals.css`:
 ```css
 .btn-primary,
 .btn-secondary,
@@ -106,7 +106,7 @@ This utility handles class name merging and conflicts.
 ## 5. Spacing Patterns
 
 ### Container Pattern
-From `/app/globals.css`:
+From `/style/styles/globals.css`:
 ```css
 .container-custom {
   @apply container mx-auto px-4 sm:px-6 lg:px-8 max-w-7xl;
@@ -121,7 +121,7 @@ From `/app/globals.css`:
 ## 6. Interactive States
 
 ### Focus States
-From `/app/globals.css`:
+From `/style/styles/globals.css`:
 ```css
 .react-tel-input .form-control:focus {
   outline: none !important;

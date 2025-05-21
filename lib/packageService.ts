@@ -1,5 +1,6 @@
 import { supabase } from './supabase';
 import { RealtimeChannel } from '@supabase/supabase-js';
+import { generateUUID } from './uuid-slug-utils';
 
 // Package reservation interface
 export interface PackageReservation {
@@ -21,7 +22,7 @@ export interface PackageReservationResult {
 export class PackageService {
   private static readonly PACKAGE_RESERVATION_STORAGE_KEY = 'lodgetix_package_reservation_data';
   private static readonly PACKAGE_RESERVATION_STORAGE_EXPIRY = 'lodgetix_package_reservation_expiry';
-  private static clientId: string = crypto.randomUUID();
+  private static clientId: string = generateUUID();
   private static activeChannels: Map<string, RealtimeChannel> = new Map();
 
   /**
@@ -90,7 +91,7 @@ export class PackageService {
       }
       
       // Generate a reservation ID and expiry time (15 minutes from now)
-      const reservationId = crypto.randomUUID();
+      const reservationId = generateUUID();
       const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
       
       // Create the reservation object

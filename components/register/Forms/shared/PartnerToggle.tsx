@@ -55,7 +55,11 @@ export const PartnerToggle: React.FC<PartnerToggleProps> = ({
       size="sm"
       onClick={onToggle}
       disabled={disabled}
-      className={cn("transition-all", className)}
+      className={cn(
+        "transition-all", 
+        !hasPartner && "bg-[#c8a870] hover:bg-[#b49761] text-white border-[#c8a870]",
+        className
+      )}
     >
       {hasPartner ? (
         <>

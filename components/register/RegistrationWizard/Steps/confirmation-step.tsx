@@ -3,6 +3,7 @@
 import { useRegistrationStore } from '../../../../lib/registrationStore'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { cn } from "@/lib/utils"
 import {
   AlertCircle,
   Calendar,
@@ -30,6 +31,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { SectionHeader } from "../Shared/SectionHeader"
 import type { UnifiedAttendeeData } from '../../../../lib/registrationStore'
 import { OneColumnStepLayout } from "../Layouts/OneColumnStepLayout"
+import { useState, useEffect, useMemo } from 'react'
 
 // Placeholder ticket definitions (should be imported from a shared source eventually)
 const ticketTypesMinimal = [
@@ -46,6 +48,13 @@ const ticketPackagesMinimal = [
 
 function ConfirmationStep() {
   const store = useRegistrationStore()
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [registrationData, setRegistrationData] = useState<{
+    registration: any;
+    attendees: any[];
+    tickets: any[];
+  } | null>(null);
 
   const {
     registrationType,
@@ -53,47 +62,114 @@ function ConfirmationStep() {
     confirmationNumber: storeConfirmationNumber,
     attendees: allStoreAttendees,
     billingDetails,
+    draftId,
   } = store
 
-  // Derive attendee data
-  const primaryAttendee = allStoreAttendees?.find(att => att.isPrimary)
-  const additionalAttendees = allStoreAttendees?.filter(att => !att.isPrimary) || []
-
-  // Derive ticket data for summary and display
-  const currentTickets = allStoreAttendees?.flatMap(attendee => {
-    if (!attendee.ticket) return [];
-    const { ticketDefinitionId, selectedEvents } = attendee.ticket;
-    const attendeeId = attendee.attendeeId;
-    let tickets = [];
-    if (ticketDefinitionId) {
-      const pkgInfo = ticketPackagesMinimal.find(p => p.id === ticketDefinitionId);
-      if (pkgInfo) {
-        tickets.push({
-          id: `${attendeeId}-${pkgInfo.id}`,
-          name: pkgInfo.name,
-          price: pkgInfo.price,
-          attendeeId,
-          isPackage: true,
-          description: `Package: ${pkgInfo.name}`
-        });
+  // Fetch registration data from Supabase
+  useEffect(() => {
+    const fetchRegistrationData = async () => {
+      if (!draftId) {
+        setIsLoading(false);
+        return;
       }
-    } else if (selectedEvents) {
-      selectedEvents.forEach(eventId => {
-        const eventInfo = ticketTypesMinimal.find(e => e.id === eventId);
-        if (eventInfo) {
+
+      try {
+        setIsLoading(true);
+        setError(null);
+        
+        const response = await fetch(`/api/registrations/${draftId}`);
+        
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || "Failed to fetch registration details");
+        }
+        
+        const data = await response.json();
+        setRegistrationData(data);
+      } catch (error: any) {
+        console.error("Error fetching registration:", error);
+        setError("Failed to load registration details. Using locally stored data instead.");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    fetchRegistrationData();
+  }, [draftId]);
+
+  // Use Supabase data if available, otherwise fall back to store data
+  const primaryAttendee = useMemo(() => {
+    if (registrationData) {
+      return registrationData.attendees.find(att => 
+        att.attendeetype === 'primary' || 
+        att.attendeeid === registrationData.registration.primaryAttendeeId
+      );
+    }
+    return allStoreAttendees?.find(att => att.isPrimary);
+  }, [registrationData, allStoreAttendees]);
+  
+  const additionalAttendees = useMemo(() => {
+    if (registrationData) {
+      return registrationData.attendees.filter(att => 
+        att.attendeetype !== 'primary' && 
+        att.attendeeid !== registrationData.registration.primaryAttendeeId
+      );
+    }
+    return allStoreAttendees?.filter(att => !att.isPrimary) || [];
+  }, [registrationData, allStoreAttendees]);
+
+  // Map DB ticket data to the format expected by the UI
+  const currentTickets = useMemo(() => {
+    if (registrationData) {
+      return registrationData.tickets.map(ticket => ({
+        id: ticket.ticketid,
+        name: ticket.ticket_name || "Ticket", // You'll need to join with ticket definitions for better names
+        price: parseFloat(ticket.pricepaid) || 0,
+        attendeeId: ticket.attendeeid,
+        isPackage: !!ticket.packageId,
+        description: ticket.description || "Event ticket",
+      }));
+    }
+    
+    // Fall back to store data
+    return allStoreAttendees?.flatMap((attendee: any) => {
+      if (!attendee.ticket) return [];
+      const ticketData = attendee.ticket;
+      if (!ticketData) return [];
+      
+      const { ticketDefinitionId, selectedEvents } = ticketData;
+      const attendeeId = attendee.attendeeId;
+      let tickets = [];
+      if (ticketDefinitionId) {
+        const pkgInfo = ticketPackagesMinimal.find(p => p.id === ticketDefinitionId);
+        if (pkgInfo) {
           tickets.push({
-            id: `${attendeeId}-${eventInfo.id}`,
-            name: eventInfo.name,
-            price: eventInfo.price,
+            id: `${attendeeId}-${pkgInfo.id}`,
+            name: pkgInfo.name,
+            price: pkgInfo.price,
             attendeeId,
-            isPackage: false,
-            description: eventInfo.name
+            isPackage: true,
+            description: `Package: ${pkgInfo.name}`
           });
         }
-      });
-    }
-    return tickets;
-  }) || [];
+      } else if (selectedEvents) {
+        selectedEvents.forEach((eventId: string) => {
+          const eventInfo = ticketTypesMinimal.find(e => e.id === eventId);
+          if (eventInfo) {
+            tickets.push({
+              id: `${attendeeId}-${eventInfo.id}`,
+              name: eventInfo.name,
+              price: eventInfo.price,
+              attendeeId,
+              isPackage: false,
+              description: eventInfo.name
+            });
+          }
+        });
+      }
+      return tickets;
+    }) || [];
+  }, [registrationData, allStoreAttendees]);
 
   const handleReset = () => {
     clearRegistration()
@@ -104,11 +180,23 @@ function ConfirmationStep() {
     ...additionalAttendees,
   ]
 
-  const totalAmount = currentTickets.reduce((sum, ticket) => sum + (ticket.price || 0), 0)
-  const totalTickets = currentTickets.length
+  const totalAmount = useMemo(() => {
+    if (registrationData?.registration) {
+      return parseFloat(registrationData.registration.totalPricePaid) || 0;
+    }
+    return currentTickets.reduce((sum, ticket) => sum + (ticket.price || 0), 0);
+  }, [registrationData, currentTickets]);
 
-  // Use confirmation number from the store
-  const confirmationNumber = storeConfirmationNumber;
+  const totalTickets = currentTickets.length;
+
+  // Use confirmation number from Supabase if available, otherwise from store
+  const confirmationNumber = useMemo(() => {
+    if (registrationData?.registration) {
+      // Generate confirmation number from registration ID if not explicitly stored
+      return `REG-${registrationData.registration.registrationId.substring(0, 8).toUpperCase()}`;
+    }
+    return storeConfirmationNumber;
+  }, [registrationData, storeConfirmationNumber]);
 
   // Format date for display
   const formatDate = (date: Date) => {
@@ -121,11 +209,45 @@ function ConfirmationStep() {
   }
 
   const eventDate = new Date(2023, 10, 25) // November 25, 2023
-  const registrationDate = new Date()
+  const registrationDate = useMemo(() => {
+    if (registrationData?.registration) {
+      return new Date(registrationData.registration.registrationDate || registrationData.registration.createdAt);
+    }
+    return new Date();
+  }, [registrationData]);
+
+  // Get attendee title based on their type
+  const getAttendeeTitle = (att: any) => {
+    // For Supabase data
+    if (att.attendeetype) {
+      return att.attendeetype.toLowerCase() === 'mason' ? att.rank : att.title;
+    }
+    // For store data (UnifiedAttendeeData)
+    return att.attendeeType === 'Mason' ? att.rank : att.title;
+  };
+
+  // Loading state
+  if (isLoading) {
+    return (
+      <OneColumnStepLayout>
+        <div className="flex flex-col items-center justify-center p-12">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-masonic-navy mb-4"></div>
+          <p className="text-masonic-navy font-medium">Loading your registration details...</p>
+        </div>
+      </OneColumnStepLayout>
+    );
+  }
 
   return (
     <OneColumnStepLayout>
       <div className="space-y-8">
+        {error && (
+          <Alert variant="destructive" className="mb-4">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+
         <Button onClick={handleReset} className="w-full bg-masonic-gold hover:bg-masonic-gold/90 text-masonic-navy">
           Start New Registration
         </Button>
@@ -138,7 +260,9 @@ function ConfirmationStep() {
           </TabsList>
 
           <TabsContent value="confirmation" className="mt-4 space-y-4">
-            <Card className="border-masonic-navy">
+            <Card className={cn(
+              "rounded-lg border bg-card text-card-foreground shadow-sm border-masonic-navy"
+            )}>
               <CardHeader className="bg-masonic-navy text-white">
                 <div className="flex items-center justify-between">
                   <CardTitle className="flex items-center">
@@ -173,7 +297,7 @@ function ConfirmationStep() {
                 <div className="space-y-2 rounded-lg border p-3">
                   <h3 className="font-medium text-gray-700">Primary Attendee</h3>
                   <p className="text-masonic-navy">
-                    {primaryAttendee?.attendeeType === 'mason' ? primaryAttendee?.rank : primaryAttendee?.title} {primaryAttendee?.firstName} {primaryAttendee?.lastName}
+                    {getAttendeeTitle(primaryAttendee)} {primaryAttendee?.firstName} {primaryAttendee?.lastName}
                   </p>
                   {primaryAttendee?.primaryEmail && (
                     <div className="flex items-center text-sm text-gray-500">
@@ -240,11 +364,6 @@ function ConfirmationStep() {
                     {currentTickets.map((ticket) => {
                       const attendee = allAttendees.find((a) => a.attendeeId === ticket.attendeeId);
                       if (!attendee) return null;
-                      // Helper to get title based on attendee type
-                      const getAttendeeTitle = (att: UnifiedAttendeeData) => {
-                        if (att.attendeeType === "mason") return att.rank;
-                        return att.title;
-                      };
                       return (
                         <Card key={ticket.id} className="overflow-hidden border-masonic-lightgold">
                           <div className="flex flex-col md:flex-row">

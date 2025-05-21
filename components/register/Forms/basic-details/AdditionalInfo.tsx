@@ -7,31 +7,33 @@ export const AdditionalInfo: React.FC<SectionProps> = ({
   onChange 
 }) => {
   return (
-    <div className="space-y-6">
-      <h3 className="text-lg font-semibold">Additional Information</h3>
+    <div className="space-y-4">
+      <div className="grid grid-cols-12 gap-4">
+        <div className="col-span-12">
+          <TextareaField
+            label="Dietary Requirements"
+            name="dietaryRequirements"
+            value={data.dietaryRequirements || ''}
+            onChange={(value) => onChange('dietaryRequirements', value)}
+            placeholder="E.g., vegetarian, gluten-free, allergies"
+            rows={1}
+            maxLength={200}
+            inputClassName="min-h-[40px] py-1.5"
+          />
+        </div>
 
-      <div className="form-grid">
-        <TextareaField
-          label="Dietary Requirements"
-          name="dietaryRequirements"
-          value={data.dietaryRequirements || ''}
-          onChange={(value) => onChange('dietaryRequirements', value)}
-          placeholder="Please list any dietary requirements or food allergies"
-          rows={3}
-          maxLength={200}
-          className="field-full"
-        />
-
-        <TextareaField
-          label="Special Needs or Accessibility Requirements"
-          name="specialNeeds"
-          value={data.specialNeeds || ''}
-          onChange={(value) => onChange('specialNeeds', value)}
-          placeholder="Please list any special needs or accessibility requirements"
-          rows={3}
-          maxLength={500}
-          className="field-full"
-        />
+        <div className="col-span-12">
+          <TextareaField
+            label="Special Needs or Accessibility Requirements"
+            name="specialNeeds"
+            value={data.specialNeeds || ''}
+            onChange={(value) => onChange('specialNeeds', value)}
+            placeholder="Please list any special needs or accessibility requirements"
+            rows={1}
+            maxLength={500}
+            inputClassName="min-h-[40px] py-1.5"
+          />
+        </div>
       </div>
 
       <div className="text-sm text-gray-600">

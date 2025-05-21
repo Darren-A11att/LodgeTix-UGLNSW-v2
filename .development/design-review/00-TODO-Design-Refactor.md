@@ -180,7 +180,7 @@ You are a Front-End Engineer tasked with implementing a comprehensive design sys
 - Design System Documentation: `.development/design-review/`
 - Tailwind Config: `tailwind.config.ts`
 - shadcn/ui Components: `/components/ui/`
-- Existing Masonic Styles: `/app/globals.css`
+- Existing Masonic Styles: `/style/styles/globals.css`
 
 ---
 

@@ -60,6 +60,7 @@ interface FieldProps {
   disabled?: boolean;
   className?: string;
   inputClassName?: string;
+  updateOnBlur?: boolean;
 }
 
 // Base field wrapper
@@ -72,7 +73,7 @@ const FieldWrapper: React.FC<{
   children: React.ReactNode;
 }> = ({ label, name, required, error, className, children }) => {
   return (
-    <div className={cn("space-y-2", className)}>
+    <div className={cn("space-y-1", className)}>
       <Label htmlFor={name}>
         {label}
         {required && <span className="text-red-500 ml-1">*</span>}
@@ -88,7 +89,6 @@ export const TextField: React.FC<FieldProps & {
   type?: string;
   placeholder?: string;
   maxLength?: number;
-  updateOnBlur?: boolean;
 }> = ({ 
   label, 
   name, 
@@ -295,26 +295,39 @@ export const SelectField: React.FC<{
   required, 
   disabled, 
   className,
-  updateOnBlur = false // For Select, almost always want immediate updates for UX
+  updateOnBlur = true // Change to true by default to match other components
 }) => {
-  // Select component from shadcn/ui handles its own state
-  // We only need to intercept the onChange event if using blur updates
+  // Track value changes with useEffect to prevent focus issues
+  const [localValue, setLocalValue] = useState(value);
+  
+  // Update local value when prop value changes
+  useEffect(() => {
+    setLocalValue(value);
+  }, [value]);
+
+  // Handle value change with additional state management
   const handleValueChange = (newValue: string) => {
-    // Select components generally need to update immediately for proper UX
+    // Log the selection for debugging
+    console.log(`Selection in ${name}:`, newValue);
+    
+    // Update local state first
+    setLocalValue(newValue);
+    
+    // Then propagate to parent
     onChange(newValue);
   };
   
   return (
     <FieldWrapper label={label} name={name} required={required} error={error} className={className}>
       <Select
-        value={value}
+        value={localValue}
         onValueChange={handleValueChange}
         disabled={disabled}
       >
-        <SelectTrigger id={name} className={cn(error && "border-red-500")}>
+        <SelectTrigger id={name} className={cn(error && "border-red-500", "px-3 py-2 h-10 text-base md:text-sm justify-between")}>
           <SelectValue placeholder={placeholder || "Select an option"} />
         </SelectTrigger>
-        <SelectContent>
+        <SelectContent className="z-50">
           {options.map((option) => (
             <SelectItem key={option.value} value={option.value}>
               {option.label}

@@ -1,13 +1,14 @@
 "use client"
 
 import React, { useState, useEffect, Suspense, lazy } from 'react'
-import { useRegistrationStore, selectCurrentStep, selectRegistrationType, selectConfirmationNumber, selectAttendees } from '../../../lib/registrationStore'
+import { useRegistrationStore, selectCurrentStep, selectRegistrationType, selectConfirmationNumber, selectAttendees, selectLastSaved, selectDraftId, selectDraftRecoveryHandled } from '../../../lib/registrationStore'
 import { RegistrationStepIndicator } from "./Shared/registration-step-indicator"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { User } from "lucide-react"
 // Import the layout components
 // WizardShellLayout is now handled by layout.tsx
 import { WizardBodyStructureLayout } from "./Layouts/WizardBodyStructureLayout"
+import DraftRecoveryModal from '../Functions/DraftRecoveryModal'
 
 // Import base component directly (it's small)
 import { RegistrationTypeStep } from "./Steps/registration-type-step"
@@ -20,7 +21,7 @@ const PaymentStep = lazy(() => import('./Steps/payment-step'))
 const ConfirmationStep = lazy(() => import('./Steps/confirmation-step'))
 
 export interface RegistrationWizardProps {
-  // eventId: string; // Example: if event context is needed
+  eventId?: string; // Event ID for the registration, passed from the page
 }
 
 // Helper to check for non-empty string
@@ -31,19 +32,15 @@ const isNonEmpty = (value: string | undefined | null): boolean => {
 // Basic email validation
 const isValidEmail = (email: string | undefined | null): boolean => {
   if (!isNonEmpty(email)) {
-    console.log(`isValidEmail: Input '${String(email)}' is considered empty or not a string by isNonEmpty.`);
+    // Don't log when the field is empty - this is causing UI interference
     return false;
   }
 
-  // Log character codes for the email string
-  const charCodes = (email as string).split('').map(char => char.charCodeAt(0));
-  console.log(`isValidEmail: Email string for validation: '${email}', Length: ${(email as string).length}, CharCodes: ${charCodes.join(',')}`);
-
+  // Only log debugging information when actually validating a non-empty email
   const pattern = "^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$"; // Standard email regex pattern
   try {
     const emailRegex = new RegExp(pattern);
     const result = emailRegex.test(email as string);
-    console.log(`isValidEmail: Testing '${email}' with pattern '${pattern}'. Result: ${result}`);
     return result;
   } catch (e) {
     console.error(`isValidEmail: Error creating or using RegExp with pattern '${pattern}' for email '${email}'.`, e);
@@ -66,7 +63,7 @@ const normalizeAttendeeType = (type: string): string => {
 // Make sure UnifiedAttendeeData is imported or available in this scope
 // For now, assuming it's available via registrationStore imports or globally
 const validateAttendeeData = (attendees: ReturnType<typeof selectAttendees>): string[] => {
-  const errors: string[] = [];
+  let errors: string[] = []; // Changed from const to let
   if (!attendees || attendees.length === 0) {
     // This should ideally be handled by ensuring a primary attendee exists.
     // errors.push("At least one attendee (Primary Mason) is required.");
@@ -124,75 +121,219 @@ const validateAttendeeData = (attendees: ReturnType<typeof selectAttendees>): st
     } else if (normalizedType === 'LadyPartner' || normalizedType === 'GuestPartner') { // Check if partner
       // Partner specific validation (treat as Guest generally, plus relationship)
       if (!attendee.relationship) errors.push("Partner relationship is required.");
+      // Only validate email/phone if contact preference is explicitly set to "Directly"
       if (attendee.contactPreference === 'Directly' && !attendee.primaryEmail && !attendee.primaryPhone) {
           errors.push("Partner Email or Phone is required if contacting directly.");
       }
+      // Do not validate these fields for other contact preference options
     } else if (normalizedType === 'Guest') {
       // Guest specific validation
+      // Only validate email/phone if contact preference is explicitly set to "Directly"
       if (attendee.contactPreference === 'Directly' && !attendee.primaryEmail && !attendee.primaryPhone) {
           errors.push("Guest Email or Phone is required if contacting directly.");
       }
+      // Do not validate these fields for "Via Primary Attendee" or "Provide Later"
     }
 
     // Contact Info for relevant types
     if (normalizedType === 'Mason' || normalizedType === 'Guest') {
-      // If contactPreference is 'Directly', email and phone are mandatory.
-      if (attendee.contactPreference === 'Directly') {
+      // Debug output for contact preference validation
+      console.log(`CONTACT DEBUG for ${descriptiveLabel}:`, {
+        type: normalizedType,
+        contactPreference: attendee.contactPreference || "Empty",
+        isPrimary: attendee.isPrimary,
+        email: attendee.primaryEmail,
+        phone: attendee.primaryPhone,
+        isPartner: !!attendee.isPartner,
+        partnerOf: attendee.partnerOf || "None"
+      });
+
+      // NO DEFAULT VALUES
+      // If contact preference is required but missing, validation will catch it
+      // We don't set defaults because we want users to explicitly select values
+      
+      // **** PARTNER VALIDATION ****
+      // No special handling or defaults - make validation consistent
+      // Partners must explicitly select contact preferences just like other fields
+      
+      // Simplified validation logic - only validate fields that should be visible
+      
+      // 1. Primary attendees always need contact details
+      if (attendee.isPrimary) {
+        // Primary attendees must always provide contact details
+        if (!isValidEmail(attendee.primaryEmail)) {
+          errors.push(`${descriptiveLabel}: A valid Email is required.`);
+        }
+        if (!isNonEmpty(attendee.primaryPhone)) {
+          errors.push(`${descriptiveLabel}: Phone Number is required.`);
+        }
+      } 
+      // 2. Non-primary attendees need to select a contact preference
+      else if (!attendee.contactPreference) {
+        // If there's no contact preference, push a validation error
+        errors.push(`${descriptiveLabel}: Please select a contact preference.`);
+      }
+      // 3. If "Directly" is selected, validate contact fields
+      else if (attendee.contactPreference === 'Directly') {
+        // Only when "Directly" is selected do we validate email/phone
         if (!isValidEmail(attendee.primaryEmail)) {
           errors.push(`${descriptiveLabel}: A valid Email is required when contact preference is 'Directly'.`);
         }
         if (!isNonEmpty(attendee.primaryPhone)) {
           errors.push(`${descriptiveLabel}: Phone Number is required when contact preference is 'Directly'.`);
         }
-      } else if (attendee.isPrimary && normalizedType === 'Mason') {
-        // This block specifically validates the Primary Mason's email and phone,
-        // as their fields are always visible and marked required on the form,
-        // and their contactPreference defaults to 'Directly'.
-        // This ensures their fields are checked even if, hypothetically, their contactPreference was changed from 'Directly'.
-        if (!isValidEmail(attendee.primaryEmail)) {
-          errors.push(`${descriptiveLabel}: Email Address is required.`);
-        }
-        if (!isNonEmpty(attendee.primaryPhone)) {
-          errors.push(`${descriptiveLabel}: Mobile Number is required.`);
-        }
       }
-      // No validation error is raised for the contactPreference field itself if it's 'Please Select' or another non-'Directly' option.
+      // 4. Other contact preferences (PrimaryAttendee, ProvideLater) don't need contact fields validated
+      else {
+        // These valid options skip email/phone validation
+        console.log(`Non-direct contact preference for ${descriptiveLabel}: ${attendee.contactPreference} - skipping contact validation`);
+        
+        // Clear any existing contact field validation errors for this attendee
+        errors = errors.filter(err => {
+          if (!err.includes(descriptiveLabel)) return true;
+          
+          const isEmailOrPhoneError = 
+            err.includes('Email') || 
+            err.includes('email') ||
+            err.includes('Phone') || 
+            err.includes('phone') ||
+            err.includes('contact directly');
+            
+          return !isEmailOrPhoneError;
+        });
+      }
+      
+      // The contact preference validation above now handles all scenarios,
+      // including partners with non-direct contact preferences
+      // No special handling for partners needed beyond this
     }
   });
   return errors;
 };
 
-export const RegistrationWizard: React.FC<RegistrationWizardProps> = (props) => {
+export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ eventId }) => {
   const currentStep = useRegistrationStore(selectCurrentStep)
   const registrationType = useRegistrationStore(selectRegistrationType)
   const confirmationNumber = useRegistrationStore(selectConfirmationNumber)
+  const draftId = useRegistrationStore(selectDraftId)
+  const lastSaved = useRegistrationStore(selectLastSaved)
   const allAttendees = useRegistrationStore(selectAttendees); // Get all attendees
+  const draftRecoveryHandled = useRegistrationStore(selectDraftRecoveryHandled); // Get draft recovery flag
   const goToNextStep = useRegistrationStore(state => state.goToNextStep)
   const goToPrevStep = useRegistrationStore(state => state.goToPrevStep)
   const setCurrentStep = useRegistrationStore(state => state.setCurrentStep) // Direct step setting
-
+  const setEventId = useRegistrationStore(state => state.setEventId) // For setting the eventId
+  const startNewRegistration = useRegistrationStore(state => state.startNewRegistration)
+  const clearRegistration = useRegistrationStore(state => state.clearRegistration)
+  const setDraftRecoveryHandled = useRegistrationStore(state => state.setDraftRecoveryHandled)
+  
+  // State for Draft Recovery Modal
+  const [showDraftRecoveryModal, setShowDraftRecoveryModal] = useState(false)
+  
+  // Track whether we're in a loading/initializing state
+  const [isInitializing, setIsInitializing] = useState(true);
+  
+  // Effect to handle event ID and registration initialization
   useEffect(() => {
-    // This effect runs once on mount, after Zustand has likely rehydrated from localStorage.
-    const storeState = useRegistrationStore.getState();
-    const hasExistingIncompleteRegistration = storeState.registrationType !== null && storeState.confirmationNumber === null;
-
-    if (hasExistingIncompleteRegistration && storeState.currentStep !== 1) {
-      console.log("Existing incomplete registration found. Forcing step to 1.");
+    if (eventId) {
+      const storeState = useRegistrationStore.getState();
+      const hasExistingIncompleteRegistration = storeState.registrationType !== null && 
+                                               storeState.confirmationNumber === null;
+      
+      // Always start a new registration when the user clicks register
+      console.log(`Setting up event: ${eventId}, ${hasExistingIncompleteRegistration ? 'has existing draft but ignoring' : 'no draft'}`);
+      
+      // Start fresh regardless of existing registrations
+      console.log(`Starting new registration with eventId: ${eventId}`);
+      startNewRegistration('individual');
+      
+      // Always set current step to 1 (Registration Type) on initial load
       setCurrentStep(1);
+      
+      setEventId(eventId);
+      // Set initializing to false to proceed to the registration type step
+      setIsInitializing(false);
+      // Never show modal on initial load
+      setShowDraftRecoveryModal(false);
     }
-  }, [setCurrentStep]); // Added setCurrentStep to dependency array as it's used inside.
+  }, [eventId, setEventId, startNewRegistration, setCurrentStep]);
+  
+  // Handler for continuing existing draft
+  const handleContinueDraft = () => {
+    console.log("Continuing with existing draft registration");
+    setShowDraftRecoveryModal(false);
+    
+    // Set the event ID for the existing registration if needed
+    if (eventId) {
+      setEventId(eventId);
+    }
+    
+    // Always reset to step 1 (Registration Type) as per requirement
+    setCurrentStep(1);
+    
+    // Initialization is complete after user makes their choice
+    setIsInitializing(false);
+  };
+  
+  // Handler for starting a new registration
+  const handleStartNew = () => {
+    console.log("Starting new registration, discarding previous draft");
+    // Completely clear the existing registration
+    clearRegistration();
+    
+    // Start fresh with the current event ID
+    startNewRegistration('individual');
+    if (eventId) {
+      setEventId(eventId);
+    }
+    
+    // Reset to step 1 (Registration Type)
+    setCurrentStep(1);
+    
+    setShowDraftRecoveryModal(false);
+    
+    // Initialization is complete after user makes their choice
+    setIsInitializing(false);
+  };
+  
+  // Handler for canceling the modal
+  const handleCancelRecovery = () => {
+    // Just close the modal without changing anything
+    console.log("Recovery modal canceled, maintaining current state");
+    setShowDraftRecoveryModal(false);
+    
+    // No existing draft, so start a new one anyway (just don't show another modal)
+    startNewRegistration('individual');
+    if (eventId) {
+      setEventId(eventId);
+    }
+    
+    // Initialization is complete even if user cancels
+    setIsInitializing(false);
+  };
 
   // State for AttendeeDetailsStep props
+  // No defaults - user must explicitly agree to terms
   const [agreeToTerms, setAgreeToTerms] = useState(false)
   const [validationErrors, setValidationErrors] = useState<string[]>([])
 
   const handleAgreeToTermsChange = (checked: boolean) => {
+    // Simple direct state update - no defaults, no special handling
     setAgreeToTerms(checked)
-    // Potentially clear certain validation errors when terms are agreed/disagreed
+    
+    // Simple store update
+    try {
+      const store = useRegistrationStore.getState();
+      if (store && store.setAgreeToTerms) {
+        store.setAgreeToTerms(checked);
+      }
+    } catch (e) {
+      console.error("Error updating terms agreement in store:", e);
+    }
+    
+    // Clear errors related to terms if checked
     if (checked) {
       setValidationErrors(errors => errors.filter(e => e !== 'You must agree to the terms and conditions.'))
-    } else {
-      // Optionally add a validation error if unchecked, or handle in AttendeeDetailsStep
     }
   }
   
@@ -208,33 +349,102 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = (props) => 
     return errors.length === 0;
   }, [currentStep, allAttendees]); // Add allAttendees to dependencies
 
+  // Effect to ensure all attendees have default contact preferences set
+  useEffect(() => {
+    // Only run this on the attendee details step
+    if (currentStep === 2 && allAttendees && allAttendees.length > 0) {
+      console.log("SYNC: Synchronizing default values for all attendees");
+      const store = useRegistrationStore.getState();
+      
+      // Process each attendee to ensure they have proper defaults
+      allAttendees.forEach(attendee => {
+        const updates: Record<string, any> = {};
+        let needsUpdate = false;
+        
+        // Check contact preference
+        if (!attendee.contactPreference) {
+          const defaultPreference = attendee.isPrimary ? 'Directly' : 'PrimaryAttendee';
+          console.log(`SYNC: Setting default contactPreference for ${attendee.attendeeId} to ${defaultPreference}`);
+          updates.contactPreference = defaultPreference;
+          needsUpdate = true;
+        }
+        
+        // If the attendee needs updates, apply them
+        if (needsUpdate && store.updateAttendee) {
+          store.updateAttendee(attendee.attendeeId, updates);
+        }
+      });
+    }
+  }, [currentStep, allAttendees]);
+
   // useEffect to run validations when attendees change or step changes to attendee details
   useEffect(() => {
     if (currentStep === 2) {
-      const errors = validateAttendeeData(allAttendees); // Call it directly
-      setValidationErrors(errors);
-      // Removed console logs for production performance
+      try {
+        // Give time for store updates to complete before validation
+        setTimeout(() => {
+          const errors = validateAttendeeData(allAttendees); // Call it directly
+          setValidationErrors(errors);
+          
+          // Add debugging to help diagnose validation issues
+          console.log("VALIDATION DEBUG: Current attendee details validation errors:", errors);
+          console.log("VALIDATION DEBUG: agreeToTerms:", agreeToTerms);
+          console.log("VALIDATION DEBUG: Continue button would be disabled:", errors.length > 0 || !agreeToTerms);
+
+          if (errors.length > 0) {
+            console.log("VALIDATION DEBUG: Attendee data:", JSON.stringify(allAttendees, null, 2));
+          }
+        }, 100);
+      } catch (error) {
+        console.error("Error during validation effect:", error);
+        // Don't block UI on error - just log it
+        setValidationErrors([]);
+      }
     } else {
       // Clear errors if not on the attendee details step, or if attendee details are not yet loaded
       // setValidationErrors([]); 
       // For now, let errors persist until the user moves back and then forward, or fixes them.
       // If an error from a previous step should clear when moving away, add logic here.
     }
-  }, [currentStep, allAttendees]);
+  }, [currentStep, allAttendees, agreeToTerms]);
 
   // Logic to handle step advancement, potentially with validation
   const handleNext = () => {
+    // Add debug info
+    console.log("handleNext called for step:", currentStep);
+    
     // Step-specific validation
     if (currentStep === 2) { // Attendee Details step
-      // Only advance if validation passes and terms are agreed to
-      const isValid = runValidations();
-      if (isValid && agreeToTerms) {
+      // Clear previous errors and re-run validation to ensure we have latest state
+      setValidationErrors([]);
+      
+      try {
+        // Force fresh validation against latest state
+        const freshErrors = validateAttendeeData(allAttendees);
+        console.log("Fresh validation errors:", freshErrors);
+        
+        setValidationErrors(freshErrors);
+        
+        // Only advance if validation passes and terms are agreed to
+        if (freshErrors.length === 0 && agreeToTerms) {
+          console.log("Validation passed, proceeding to next step");
+          goToNextStep();
+        } else {
+          // You might want to scroll to errors or show a notification
+          console.log("Cannot advance: validation errors or terms not agreed to");
+          console.log("Validation errors:", freshErrors);
+          console.log("agreeToTerms:", agreeToTerms);
+          
+          // Display errors near the top of the window
+          const errorContainer = document.querySelector('.validation-errors');
+          if (errorContainer && freshErrors.length > 0) {
+            errorContainer.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
+        }
+      } catch (error) {
+        console.error("Error during validation:", error);
+        // Fallback - show error but don't block progress
         goToNextStep();
-      } else {
-        // Show validation errors
-        setValidationErrors(validateAttendeeData(allAttendees));
-        // You might want to scroll to errors or show a notification
-        console.log("Cannot advance: validation errors or terms not agreed to");
       }
     } else {
       // For other steps, just advance
@@ -273,6 +483,13 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = (props) => 
           description: "Please select how you would like to register for this event"
         }
       case 2:
+        // Change title to "Lodge Details" if registration type is 'lodge'
+        if (registrationType === 'lodge') {
+          return {
+            title: "Lodge Details",
+            description: "Please provide information for all lodge members"
+          }
+        }
         return {
           title: "Attendee Details",
           description: "Please provide information for all attendees"
@@ -387,21 +604,39 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = (props) => 
   // Only show the attendee summary for steps 2-6, not for step 1 (Registration Type)
   const showAttendeeSummary = currentStep > 1
 
-  return (
-    <WizardBodyStructureLayout
-      currentStep={currentStep}
-      sectionTitle={title}
-      sectionDescription={description}
-      onBack={currentStep > 1 ? handleBack : undefined}
-      onNext={currentStep < 6 ? handleNext : undefined}
-      disableNext={isNextDisabled()}
-      hideBack={currentStep === 1 || currentStep === 6}
-      additionalButtonContent={renderAdditionalButtonContent()}
-    >
-      {/* Use a consistent wrapper for all steps */}
-      <div className="w-full">
-        {renderStepContent()}
+  // Since we don't show the draft recovery modal here anymore,
+  // we don't need to display a special loading state
+  if (isInitializing) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-pulse">Loading registration...</div>
       </div>
-    </WizardBodyStructureLayout>
+    );
+  }
+
+  return (
+    <>
+      {/* Draft Recovery Modal - always disabled in this component */}
+      <DraftRecoveryModal 
+        isOpen={false} // Always disabled in the main wizard
+        onClose={handleCancelRecovery}
+        onContinue={handleContinueDraft}
+        onStartNew={handleStartNew}
+        registrationType={registrationType}
+        lastSaved={lastSaved?.toString()}
+        attendeeCount={allAttendees.length}
+      />
+
+      <WizardBodyStructureLayout
+        currentStep={currentStep}
+        sectionTitle={title}
+        sectionDescription={description}
+      >
+        {/* Use a consistent wrapper for all steps */}
+        <div className="w-full">
+          {renderStepContent()}
+        </div>
+      </WizardBodyStructureLayout>
+    </>
   )
 }

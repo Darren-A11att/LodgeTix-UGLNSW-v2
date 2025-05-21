@@ -67,7 +67,7 @@ function MasonForm() {
 
 ### 3. Using CSS Custom Properties for Runtime Control
 ```css
-/* app/globals.css */
+/* style/styles/globals.css */
 @layer base {
   :root {
     /* Define field widths as CSS variables */

@@ -323,7 +323,17 @@ export const GrandLodgeSelection: React.FC<GrandLodgeSelectionProps> = ({
     setTimeout(() => {
       userIsTypingRef.current = false;
     }, 500);
-  }, [searchGrandLodges, filterLocalOptions, ipData?.country_name]);
+    
+    // If clearing the input, clear the selection
+    if (value === '') {
+      setSelectedGrandLodge(null);
+      onChange('');
+    } else if (selectedGrandLodge) {
+      // If there's a selected lodge but input doesn't match it,
+      // keep the ID in sync
+      onChange(selectedGrandLodge.id);
+    }
+  }, [searchGrandLodges, filterLocalOptions, ipData?.country_name, selectedGrandLodge, onChange]);
 
   // Search function for autocomplete - with memoization
   const searchFunctionRef = useRef<Record<string, GrandLodgeOption[]>>({});

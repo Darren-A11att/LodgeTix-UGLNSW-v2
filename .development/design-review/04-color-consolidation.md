@@ -112,7 +112,7 @@ After:
 
 ### 4. Create Semantic Color Classes
 
-Location: `/app/globals.css`
+Location: `/style/styles/globals.css`
 
 ```css
 /* Semantic color utilities */

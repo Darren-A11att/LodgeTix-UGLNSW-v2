@@ -223,12 +223,19 @@ export const LodgeSelection: React.FC<LodgeSelectionProps> = ({
   }, [grandLodgeId, lodges, lodgeCache, getLodgesByGrandLodge]);
   
   // Reset lodge selection when grandLodgeId changes
+  // But only if the lodgeId is not already set in the store
   useEffect(() => {
-    // Clear lodge selection when grand lodge changes
+    // Don't reset if we already have a valid lodgeId for this grandLodge
+    if (value && grandLodgeId) {
+      // Try to load the lodge data
+      return;
+    }
+    
+    // Otherwise clear selection for a new grandLodge
     setSelectedLodge(null);
     setInputValue('');
     onChange('', '');
-  }, [grandLodgeId, onChange]);
+  }, [grandLodgeId, onChange, value]);
 
   // Handle input change with tracking for user interaction
   const inputChangeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -253,9 +260,21 @@ export const LodgeSelection: React.FC<LodgeSelectionProps> = ({
       inputChangeTimeoutRef.current = null;
     }, 500);
     
-    // Always notify parent of the text change
-    onChange(value === '' ? '' : value, '');
-  }, [onChange]);
+    // If clearing the input, clear the selection
+    if (value === '') {
+      setSelectedLodge(null);
+      lodgeNameRef.current = null;
+      onChange('', '');
+    } else if (selectedLodge) {
+      // If there's a selected lodge but input doesn't match it,
+      // preserve the ID but update the display value
+      onChange(selectedLodge.id, value);
+    } else {
+      // For a partial input with no selection, don't set ID yet
+      // but update display value so it persists
+      onChange('', value);
+    }
+  }, [onChange, selectedLodge]);
 
   // Load selected lodge data with improved reliability
   useEffect(() => {
@@ -488,7 +507,7 @@ export const LodgeSelection: React.FC<LodgeSelectionProps> = ({
     setUseSameLodge(checked);
     
     // Apply lodge data from primary mason
-    if (checked && primaryAttendee) {
+    if (checked && primaryMason?.lodgeId && primaryMason?.lodgeNameNumber) {
       const updates = handleUseSameLodgeChange(true, undefined, primaryAttendee);
       
       // Update UI state
@@ -596,7 +615,7 @@ export const LodgeSelection: React.FC<LodgeSelectionProps> = ({
           />
           <Label 
             htmlFor="use-same-lodge" 
-            className="text-sm font-normal cursor-pointer"
+            className="cursor-pointer"
           >
             Use same lodge as {primaryAttendee.firstName || 'Primary Mason'} 
             {primaryAttendee.lodgeNameNumber && `(${primaryAttendee.lodgeNameNumber})`}

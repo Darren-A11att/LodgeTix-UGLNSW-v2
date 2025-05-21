@@ -1,4 +1,5 @@
 import React from 'react';
+import { cn } from '@/lib/utils';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
 import { PARTNER_RELATIONSHIPS } from '@/lib/constants/relationships';
@@ -16,14 +17,14 @@ interface PartnerRelationshipSelectProps {
 export const PartnerRelationshipSelect: React.FC<PartnerRelationshipSelectProps> = ({
   value,
   onChange,
-  attendeeName = "this attendee",
-  label = "Relationship to",
+  attendeeName = "",
+  label = "Relationship",
   required = false,
   disabled = false,
   className,
 }) => {
   return (
-    <div className={className}>
+    <div className={cn("space-y-2", className)}>
       <Label htmlFor="partner-relationship">
         {label} {attendeeName}
         {required && <span className="text-red-500 ml-1">*</span>}
@@ -33,7 +34,7 @@ export const PartnerRelationshipSelect: React.FC<PartnerRelationshipSelectProps>
         onValueChange={onChange}
         disabled={disabled}
       >
-        <SelectTrigger id="partner-relationship">
+        <SelectTrigger id="partner-relationship" className="h-10 text-base md:text-sm">
           <SelectValue placeholder="Select relationship" />
         </SelectTrigger>
         <SelectContent>

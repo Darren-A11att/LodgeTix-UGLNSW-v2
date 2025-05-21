@@ -490,18 +490,94 @@ export const useLocationStore = create<LocationState>(
         }
       },
 
-      searchAllLodgesAction: async (searchTerm: string) => {
+      searchAllLodgesAction: async (searchTerm: string, grandLodgeId?: string) => {
         if (!searchTerm || searchTerm.length < 2) {
           set({ allLodgeSearchResults: [], allLodgesError: null });
           return;
         }
         
-        console.log(`[LocationStore] Searching ALL Lodges for: "${searchTerm}"...`);
+        console.log(`[LocationStore] Searching ALL Lodges for: "${searchTerm}"${grandLodgeId ? ` in Grand Lodge ${grandLodgeId}` : ''}...`);
         set({ isLoadingAllLodges: true, allLodgesError: null });
         
         try {
-          const results = await searchAllLodgesApi(searchTerm);
-          console.log(`[LocationStore] Found ${results.length} Lodges matching "${searchTerm}"`);
+          let results = [];
+          
+          // Handle searches differently depending on whether we have a grandLodgeId
+          if (grandLodgeId) {
+            // For Grand Lodge specific searches, use direct Supabase queries for better performance
+            // and to avoid syntax errors with the .or() method
+            const { supabase } = await import('./supabase-browser');
+            
+            // Create separate queries for text and numeric searches
+            const queries = [];
+            
+            // Text search query
+            const textQuery = supabase
+              .from("lodges")
+              .select("*")
+              .eq("grand_lodge_id", grandLodgeId)
+              .or(`name.ilike.%${searchTerm}%,display_name.ilike.%${searchTerm}%,district.ilike.%${searchTerm}%,meeting_place.ilike.%${searchTerm}%`)
+              .order("display_name", { ascending: true })
+              .limit(20);
+            
+            queries.push(textQuery);
+            
+            // Add number search query if term is numeric
+            const isNumeric = /^\d+$/.test(searchTerm);
+            if (isNumeric) {
+              const numberQuery = supabase
+                .from("lodges")
+                .select("*")
+                .eq("grand_lodge_id", grandLodgeId)
+                .eq("number", parseInt(searchTerm, 10))
+                .limit(5);
+              
+              queries.push(numberQuery);
+            }
+            
+            // Execute all queries in parallel
+            const queryResults = await Promise.all(queries);
+            
+            // Check for errors
+            const hasErrors = queryResults.some(result => result.error);
+            if (hasErrors) {
+              const errorResults = queryResults.filter(result => result.error);
+              console.error('[LocationStore] Error in lodge queries:', errorResults.map(r => r.error));
+              
+              // Fall back to RPC method if direct queries fail
+              const { data, error } = await supabase.rpc('search_all_lodges', {
+                search_term: searchTerm.trim(),
+                result_limit: 20
+              });
+              
+              if (!error && data) {
+                results = data.filter(lodge => lodge.grand_lodge_id === grandLodgeId);
+              } else {
+                // Last resort fallback to API method with grandLodgeId filtering built in
+                results = await searchAllLodgesApi(searchTerm, 20, grandLodgeId);
+              }
+            } else {
+              // Combine all successful results and filter duplicates
+              results = queryResults.flatMap(result => result.data || [])
+                .filter((lodge, index, self) => index === self.findIndex(l => l.id === lodge.id));
+            }
+          } else {
+            // For global searches without a specific Grand Lodge, use the RPC method
+            // which is optimized for searching across all lodges
+            const { data, error } = await supabase.rpc('search_all_lodges', {
+              search_term: searchTerm.trim(),
+              result_limit: 20
+            });
+            
+            if (!error && data) {
+              results = data;
+            } else {
+              // Fallback to API method if RPC fails
+              results = await searchAllLodgesApi(searchTerm, 20, grandLodgeId);
+            }
+          }
+          
+          console.log(`[LocationStore] Found ${results.length} Lodges matching "${searchTerm}"${grandLodgeId ? ` in Grand Lodge ${grandLodgeId}` : ''}`);
           set({ allLodgeSearchResults: results, isLoadingAllLodges: false });
         } catch (error) {
           console.error(`[LocationStore] All lodges search error for "${searchTerm}":`, error);

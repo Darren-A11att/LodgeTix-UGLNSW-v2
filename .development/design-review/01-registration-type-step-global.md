@@ -92,7 +92,7 @@ export const registrationDesign = {
 ```
 
 ### 3. Implement Global Classes
-Location: `/app/globals.css`
+Location: `/style/styles/globals.css`
 
 ```css
 @layer components {

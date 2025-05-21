@@ -1,10 +1,11 @@
 import { create, StateCreator } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { v4 as uuidv4 } from 'uuid';
+import { v7 as uuidv7 } from 'uuid';
 import { TicketType } from '../shared/types/register';
 import { TicketDefinitionType } from '../shared/types/ticket';
 import { UnifiedAttendeeData } from '../shared/types/supabase';
 import { RegistrationType } from './registration-types';
+import { generateUUID } from './uuid-slug-utils';
 
 // Re-export UnifiedAttendeeData for backward compatibility
 export type { UnifiedAttendeeData };
@@ -37,6 +38,7 @@ export interface BillingDetailsType {
 // --- State Interface ---
 export interface RegistrationState {
   draftId: string | null;
+  eventId: string | null; // Add eventId field for the event being registered for
   registrationType: RegistrationType | null;
   attendees: UnifiedAttendeeData[];
   // Using Record<attendeeId, PackageSelectionType> for packages
@@ -49,6 +51,7 @@ export interface RegistrationState {
   availableTickets: (TicketType | TicketDefinitionType)[]; // Add availableTickets
   currentStep: number; // Add currentStep for navigation
   confirmationNumber: string | null; // Add confirmationNumber for completion
+  draftRecoveryHandled: boolean; // Flag to track if draft recovery has been handled
 
   // --- Actions ---
   startNewRegistration: (type: RegistrationType) => string; // Returns new draftId
@@ -73,11 +76,17 @@ export interface RegistrationState {
   goToPrevStep: () => void;
   // Confirmation methods
   setConfirmationNumber: (number: string) => void;
+  // Event methods
+  setEventId: (id: string) => void; // Set the eventId for the current registration
+  
+  // Draft recovery methods
+  setDraftRecoveryHandled: (handled: boolean) => void; // Set if draft recovery has been handled
 }
 
 // --- Initial State ---
-const initialRegistrationState: Omit<RegistrationState, 'startNewRegistration' | 'addPrimaryAttendee' | 'loadDraft' | 'clearRegistration' | 'clearAllAttendees' | 'setRegistrationType' | 'addAttendee' | 'addMasonAttendee' | 'addGuestAttendee' | 'addPartnerAttendee' | 'updateAttendee' | 'removeAttendee' | 'updatePackageSelection' | 'updateBillingDetails' | 'setAgreeToTerms' | '_updateStatus' | 'setCurrentStep' | 'goToNextStep' | 'goToPrevStep' | 'setConfirmationNumber'> = {
+const initialRegistrationState: Omit<RegistrationState, 'startNewRegistration' | 'addPrimaryAttendee' | 'loadDraft' | 'clearRegistration' | 'clearAllAttendees' | 'setRegistrationType' | 'addAttendee' | 'addMasonAttendee' | 'addGuestAttendee' | 'addPartnerAttendee' | 'updateAttendee' | 'removeAttendee' | 'updatePackageSelection' | 'updateBillingDetails' | 'setAgreeToTerms' | '_updateStatus' | 'setCurrentStep' | 'goToNextStep' | 'goToPrevStep' | 'setConfirmationNumber' | 'setEventId' | 'setDraftRecoveryHandled'> = {
     draftId: null,
+    eventId: null, // Initialize eventId as null
     registrationType: null,
     attendees: [],
     packages: {},
@@ -89,6 +98,7 @@ const initialRegistrationState: Omit<RegistrationState, 'startNewRegistration' |
     availableTickets: [], // Initialize availableTickets
     currentStep: 1, // Start at step 1
     confirmationNumber: null, // No confirmation until complete
+    draftRecoveryHandled: false, // Initialize draft recovery flag
 };
 
 type RegistrationStateCreator = StateCreator<RegistrationState>;
@@ -104,7 +114,8 @@ const createDefaultAttendee = (
     guestOfId?: string | null; // Mason attendeeId for guests
   } = {}
 ): UnifiedAttendeeData => {
-  const newAttendeeId = uuidv4();
+  // Use UUID v7 for time-ordered UUIDs - important for database efficiency and consistency
+  const newAttendeeId = generateUUID();
   return {
     attendeeId: newAttendeeId,
     attendeeType: attendeeType,
@@ -155,7 +166,9 @@ export const useRegistrationStore = create<RegistrationState>(
       _updateStatus: (status, error = null) => set({ status, error }),
 
       startNewRegistration: (type) => {
-        const newDraftId = `draft_${Date.now()}_${uuidv4().substring(0, 7)}`;
+        // Using a full, proper UUID v7 for the draft ID
+        // UUID v7 is already time-ordered, so we don't need to add timestamps
+        const newDraftId = generateUUID();
         console.log(`[Store] Starting new registration (Type: ${type}). Draft ID: ${newDraftId}. Clearing previous state.`); // DEBUG
         // Reset state, set new draftId and type, keep attendees empty for now
         set({
@@ -188,12 +201,12 @@ export const useRegistrationStore = create<RegistrationState>(
 
           // For now, assume primary is always mason. Refine if needed.
           const primaryAttendee = createDefaultAttendee('mason', { isPrimary: true });
-          // Set primary mason contact preference default
-          // Primary mason gets 'Directly' contact preference by default
-          primaryAttendee.contactPreference = 'Directly';
+          // IMPORTANT: No default contact preference
+          // User must explicitly select this
+          primaryAttendee.contactPreference = '';
           
           newAttendeeId = primaryAttendee.attendeeId;
-          console.log(`[Store] Adding primary attendee (Type: mason, ID: ${primaryAttendee.attendeeId})`); // DEBUG
+          console.log(`[Store] Adding primary attendee (Type: mason, ID: ${primaryAttendee.attendeeId}, ContactPref: ${primaryAttendee.contactPreference})`); // DEBUG
           return { attendees: [primaryAttendee] };
         });
         
@@ -237,8 +250,13 @@ export const useRegistrationStore = create<RegistrationState>(
       addAttendee: (type) => {
         const normalizedType = type.charAt(0).toUpperCase() + type.slice(1).toLowerCase();
         const newAttendee = createDefaultAttendee(normalizedType as UnifiedAttendeeData['attendeeType']);
+        
+        // No default contact preference - user must select
+        // Ensure it's an empty string
+        newAttendee.contactPreference = '';
+        
         set(state => ({ attendees: [...state.attendees, newAttendee] }));
-        console.log(`[Store] Added Generic Attendee (ID: ${newAttendee.attendeeId}, Type: ${newAttendee.attendeeType})`);
+        console.log(`[Store] Added Generic Attendee (ID: ${newAttendee.attendeeId}, Type: ${newAttendee.attendeeType}, ContactPref: '${newAttendee.contactPreference}')`);
         return newAttendee.attendeeId;
       },
 
@@ -274,10 +292,7 @@ export const useRegistrationStore = create<RegistrationState>(
         const newPartner = createDefaultAttendee('Guest', { partnerOf: attendeeId });
         newPartner.isPartner = attendeeId; // Set the FK
         
-        // Initialize with default values to avoid validation errors
-        newPartner.title = 'Unknown';
-        newPartner.firstName = 'Partner';
-        newPartner.lastName = 'TBC';
+        // No default values - let user fill them in
         
         const updatedAttendees = [...state.attendees];
         // Update the parent attendee's partner field
@@ -402,7 +417,13 @@ export const useRegistrationStore = create<RegistrationState>(
       goToPrevStep: () => set(state => ({ currentStep: Math.max(1, state.currentStep - 1) })),
 
       // Confirmation actions
-      setConfirmationNumber: (number) => set({ confirmationNumber: number })
+      setConfirmationNumber: (number) => set({ confirmationNumber: number }),
+      
+      // Event actions
+      setEventId: (id) => set({ eventId: id }),
+      
+      // Draft recovery actions
+      setDraftRecoveryHandled: (handled) => set({ draftRecoveryHandled: handled })
 
     }),
     {
@@ -414,6 +435,7 @@ export const useRegistrationStore = create<RegistrationState>(
         packages: state.packages,
         billingDetails: state.billingDetails,
         agreeToTerms: state.agreeToTerms, // Persist agreeToTerms
+        draftRecoveryHandled: state.draftRecoveryHandled, // Persist draftRecoveryHandled flag
         lastSaved: Date.now(),
       }),
       onRehydrateStorage: () => {
@@ -437,4 +459,6 @@ export const selectBillingDetails = (state: RegistrationState) => state.billingD
 export const selectAgreeToTerms = (state: RegistrationState) => state.agreeToTerms;
 export const selectDraftId = (state: RegistrationState) => state.draftId;
 export const selectLastSaved = (state: RegistrationState) => state.lastSaved;
-export const selectConfirmationNumber = (state: RegistrationState) => state.confirmationNumber; 
+export const selectConfirmationNumber = (state: RegistrationState) => state.confirmationNumber;
+export const selectEventId = (state: RegistrationState) => state.eventId;
+export const selectDraftRecoveryHandled = (state: RegistrationState) => state.draftRecoveryHandled; 

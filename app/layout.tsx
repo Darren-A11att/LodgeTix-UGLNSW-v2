@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
-import './globals.css'
+import React from 'react'
+import '@/styles/globals.css'
 import './disableFastRefreshLogs'
 import { LocationInitializer } from '@/components/location-initializer'
 import { AuthProvider } from '@/contexts/auth-provider'

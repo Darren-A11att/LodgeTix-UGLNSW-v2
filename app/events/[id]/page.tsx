@@ -45,7 +45,7 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
             <Share2 className="mr-2 h-4 w-4" /> Share
           </Button>
           <Button size="sm" asChild>
-            <Link href={`/events/${event.slug}/tickets`}>Get Tickets</Link>
+            <Link href={`/events/${event.slug}/register`}>Get Tickets</Link>
           </Button>
         </div>
       </header>
@@ -180,7 +180,7 @@ export default async function EventPage({ params }: { params: Promise<{ id: stri
               </CardContent>
               <CardFooter>
                 <Button className="w-full" asChild>
-                  <Link href={`/events/${event.slug}/tickets`}>
+                  <Link href={`/events/${event.slug}/register`}>
                     <TicketIcon className="mr-2 h-4 w-4" /> Get Tickets
                   </Link>
                 </Button>

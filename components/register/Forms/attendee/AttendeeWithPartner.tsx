@@ -3,8 +3,9 @@ import { usePartnerManager } from './lib/usePartnerManager';
 import { FormProps } from './types';
 import { PartnerToggle } from '../shared/PartnerToggle';
 import { Separator } from '@/components/ui/separator';
+import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { Loader2 } from 'lucide-react';
+import { Loader2, X } from 'lucide-react';
 
 // Lazy load form components for better performance
 const MasonForm = lazy(() => import('../mason/Layouts/MasonForm'));
@@ -20,6 +21,7 @@ const FormLoadingFallback = () => (
 interface AttendeeWithPartnerProps extends FormProps {
   allowPartner?: boolean;
   className?: string;
+  onRemove?: () => void;
 }
 
 export const AttendeeWithPartner: React.FC<AttendeeWithPartnerProps> = ({ 
@@ -28,8 +30,9 @@ export const AttendeeWithPartner: React.FC<AttendeeWithPartnerProps> = ({
   isPrimary = false,
   allowPartner = true,
   className,
+  onRemove,
 }) => {
-  const { attendee, partner, hasPartner, togglePartner } = usePartnerManager(attendeeId);
+  const { attendee, partner, hasPartner, togglePartner, updatePartnerRelationship } = usePartnerManager(attendeeId);
 
   // Determine which form to render based on attendee type
   const AttendeeFormComponent = useMemo(() => {
@@ -50,27 +53,27 @@ export const AttendeeWithPartner: React.FC<AttendeeWithPartnerProps> = ({
   }
 
   return (
-    <div className={cn("space-y-8", className)}>
+    <div className={cn("space-y-4", className)}>
       {/* Main attendee form */}
       <Suspense fallback={<FormLoadingFallback />}>
         <AttendeeFormComponent
           attendeeId={attendeeId}
           attendeeNumber={attendeeNumber}
           isPrimary={isPrimary}
+          onRemove={onRemove}
         />
       </Suspense>
 
-      {/* Partner toggle - only show if allowed and no partner exists */}
+      {/* Partner toggle - show only when partners are allowed and no partner exists */}
       {allowPartner && !partner && (
         <>
           <Separator />
           <div className="flex justify-center">
             <PartnerToggle
-              hasPartner={hasPartner}
+              hasPartner={false}
               onToggle={togglePartner}
               partnerLabel="partner"
               addText="Add Partner"
-              removeText="Remove Partner"
             />
           </div>
         </>
@@ -79,12 +82,24 @@ export const AttendeeWithPartner: React.FC<AttendeeWithPartnerProps> = ({
       {/* Partner form - always renders as Guest */}
       {partner && (
         <>
-          <Separator className="my-8" />
+          <Separator className="my-4" />
+          <div className="flex justify-between items-center px-4 mb-2">
+            <h3 className="text-lg font-semibold">Partner Details</h3>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => togglePartner()}
+              className="flex items-center text-destructive hover:bg-destructive/10"
+            >
+              <X className="h-4 w-4 mr-1" /> Remove
+            </Button>
+          </div>
           <Suspense fallback={<FormLoadingFallback />}>
             <GuestForm
               attendeeId={partner.attendeeId}
               attendeeNumber={attendeeNumber + 1}
               isPrimary={false}
+              onRelationshipChange={(relationship) => updatePartnerRelationship(relationship as any)}
             />
           </Suspense>
         </>

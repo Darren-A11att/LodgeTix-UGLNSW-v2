@@ -317,6 +317,7 @@ function AutocompleteInput<T extends BaseOption>({
     w-full px-4 py-2 pl-10 pr-10 border rounded-md focus:outline-none focus:ring-2 
     ${error ? 'border-red-500 focus:ring-red-500/50' : 'border-slate-300 focus:ring-primary/50'}
     ${disabled ? 'bg-slate-100 cursor-not-allowed' : 'bg-white'}
+    text-base md:text-sm
     ${className}
   `;
 

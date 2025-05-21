@@ -66,7 +66,7 @@ export const fieldWidths = {
 
 ### 3. CSS Custom Properties Approach
 ```css
-/* app/globals.css */
+/* style/styles/globals.css */
 @layer base {
   :root {
     /* Fractional widths */

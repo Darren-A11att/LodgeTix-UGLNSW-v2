@@ -13,6 +13,7 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { GrandLodgeSelection } from '../mason/lib/GrandLodgeSelection';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import formSaveManager from '@/lib/formSaveManager';
 
 interface DelegationsFormProps {
   delegationType?: 'GrandLodge' | 'MasonicGoverningBody';
@@ -112,32 +113,35 @@ export const DelegationsForm: React.FC<DelegationsFormProps> = ({
 
   // Validate and complete
   const handleComplete = useCallback(() => {
-    const isValid = validateAllAttendees();
-    
-    // Additional delegation-specific validation
-    if (!delegationDetails.name) {
-      alert('Please enter a delegation name');
-      return;
-    }
-    
-    if (!delegationDetails.grandLodgeId) {
-      alert('Please select a Grand Lodge');
-      return;
-    }
-    
-    if (delegateAttendees.length < minDelegates) {
-      alert(`At least ${minDelegates} delegate(s) are required`);
-      return;
-    }
-    
-    if (!headOfDelegation) {
-      alert('Please designate a Head of Delegation');
-      return;
-    }
+    // First, ensure all form data is saved
+    formSaveManager.saveBeforeNavigation().then(() => {
+      const isValid = validateAllAttendees();
+      
+      // Additional delegation-specific validation
+      if (!delegationDetails.name) {
+        alert('Please enter a delegation name');
+        return;
+      }
+      
+      if (!delegationDetails.grandLodgeId) {
+        alert('Please select a Grand Lodge');
+        return;
+      }
+      
+      if (delegateAttendees.length < minDelegates) {
+        alert(`At least ${minDelegates} delegate(s) are required`);
+        return;
+      }
+      
+      if (!headOfDelegation) {
+        alert('Please designate a Head of Delegation');
+        return;
+      }
 
-    if (isValid && onComplete) {
-      onComplete();
-    }
+      if (isValid && onComplete) {
+        onComplete();
+      }
+    });
   }, [validateAllAttendees, delegationDetails, delegateAttendees.length, minDelegates, headOfDelegation, onComplete]);
 
   // Auto-add primary delegate if none exists
@@ -304,6 +308,7 @@ export const DelegationsForm: React.FC<DelegationsFormProps> = ({
                   attendeeNumber={delegateNumber}
                   isPrimary={isHead}
                   allowPartner={allowPartners}
+                  onRemove={!isHead ? () => handleRemoveDelegate(delegate.attendeeId) : undefined}
                 />
               </CardContent>
             </Card>

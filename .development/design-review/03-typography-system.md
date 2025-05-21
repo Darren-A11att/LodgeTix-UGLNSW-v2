@@ -7,7 +7,7 @@ You are implementing a consistent typography system for the LodgeTix platform. T
 
 ### 1. Create Typography CSS Variables
 
-Location: `/app/globals.css`
+Location: `/style/styles/globals.css`
 
 ```css
 :root {
@@ -258,7 +258,7 @@ import { Label } from '@/components/ui/typography'
 
 ### 4. Create Typography Utility Classes
 
-Location: `/app/globals.css`
+Location: `/style/styles/globals.css`
 
 ```css
 /* Typography utilities */

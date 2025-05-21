@@ -315,7 +315,7 @@ export { AddRemoveControl } from './AddRemoveControl'
 
 ### 8. Add Required Animations
 
-Location: `/app/globals.css`
+Location: `/style/styles/globals.css`
 
 ```css
 @keyframes slide-up {

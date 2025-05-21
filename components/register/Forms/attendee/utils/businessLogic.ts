@@ -32,11 +32,12 @@ export const handleRankChange = (
 ): Partial<AttendeeData> => {
   const updates: Partial<AttendeeData> = { rank };
   
-  // Clear Grand Officer fields if rank changes from GL
+  // Clear Grand Officer fields and suffix if rank changes from GL
   if (currentRank === 'GL' && rank !== 'GL') {
     updates.grandOfficerStatus = undefined;
     updates.presentGrandOfficerRole = undefined;
     updates.otherGrandOfficerRole = undefined;
+    updates.suffix = undefined; // Clear suffix when leaving GL rank
   }
   
   // Adjust title if necessary
@@ -64,6 +65,8 @@ export const shouldShowOtherGrandOfficerInput = (
 export const shouldShowContactFields = (
   attendee: Partial<AttendeeData>
 ): boolean => {
+  // Show contact fields only for primary attendees or when contact preference is 'Directly'
+  // Hide for 'PrimaryAttendee' or 'ProvideLater' contact preferences
   return attendee.isPrimary || attendee.contactPreference === 'Directly';
 };
 
@@ -99,12 +102,12 @@ export const getPartnerDefaults = (
     attendeeType: 'Guest',
     isPrimary: false,
     isPartner: parentAttendee.attendeeId,
-    contactPreference: 'PrimaryAttendee',
+    contactPreference: '', // Empty string - must be selected by user
     // Copy some fields from parent
     lastName: parentAttendee.lastName,
     // Set default values for partner
-    title: 'Unknown',
-    firstName: 'Partner',
+    title: '',             // Empty string - must be selected by user
+    firstName: '',         // Empty string - must be filled by user
   };
 };
 
@@ -136,7 +139,9 @@ export const getRequiredFields = (attendee: Partial<AttendeeData>): string[] => 
   if (attendee.attendeeType === 'Mason') {
     required.push('rank');
     
+    // Add suffix (Grand Rank) as required field when rank is 'GL'
     if (attendee.rank === 'GL' && attendee.isPrimary) {
+      required.push('suffix');
       required.push('grandOfficerStatus');
       
       if (attendee.grandOfficerStatus === 'Present') {
@@ -156,6 +161,8 @@ export const getRequiredFields = (attendee: Partial<AttendeeData>): string[] => 
     }
   }
   
+  // Only require email and phone if contact fields should be shown
+  // This happens for primary attendees or when contactPreference is 'Directly'
   if (shouldShowContactFields(attendee)) {
     required.push('primaryEmail', 'primaryPhone');
   }

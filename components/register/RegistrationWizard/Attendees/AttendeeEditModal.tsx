@@ -140,18 +140,18 @@ const AttendeeEditModal: React.FC<AttendeeEditModalProps> = ({
       } else {
       }
     }}>
-      <DialogContent className="sm:max-w-2xl md:max-w-3xl lg:max-w-4xl p-0">
-        <Card className="shadow-none border border-masonic-lightgold rounded-lg">
-          <CardHeader className="bg-masonic-navy text-white rounded-t-lg p-4">
+      <DialogContent className="sm:max-w-2xl md:max-w-3xl lg:max-w-4xl p-0 max-h-[90dvh] max-w-[95dvw] flex flex-col">
+        <Card className="shadow-none border border-masonic-lightgold rounded-lg flex flex-col flex-1 min-h-0">
+          <CardHeader className="bg-masonic-navy text-white rounded-t-lg p-3 sm:p-4 flex-shrink-0">
             <div className="flex justify-between items-start">
               <div className="flex items-center space-x-2">
-                <Pencil className="h-6 w-6" />
+                <Pencil className="h-5 w-5 sm:h-6 sm:w-6" />
                 <div>
                   <DialogTitle asChild>
-                    <CardTitle className="text-xl font-semibold">Edit Attendee</CardTitle>
+                    <CardTitle className="text-lg sm:text-xl font-semibold">Edit Attendee</CardTitle>
                   </DialogTitle>
                   <DialogDescription asChild>
-                    <CardDescription className="text-sm text-slate-300">
+                    <CardDescription className="text-xs sm:text-sm text-slate-300">
                       Please edit the details for the attendee below.
                     </CardDescription>
                   </DialogDescription>
@@ -163,22 +163,29 @@ const AttendeeEditModal: React.FC<AttendeeEditModalProps> = ({
             </div>
           </CardHeader>
           
-          <CardContent className="p-0">
-            {renderAttendeeForm()}
+          <CardContent className="p-0 flex-1 flex flex-col min-h-0">
+            <div className="flex justify-between items-center px-3 sm:px-4 py-2 bg-gray-50 border-b flex-shrink-0">
+              <h3 className="text-base sm:text-lg font-semibold">
+                {editableAttendeeData.isPartner ? "Partner Details" : "Your Details"}
+              </h3>
+            </div>
+            <div className="flex-1 overflow-y-auto p-2 sm:p-4 transform-origin-top scale-[0.95] sm:scale-100 min-h-0">
+              {renderAttendeeForm()}
+            </div>
           </CardContent>
 
-          <CardFooter className="p-6 flex justify-end space-x-3 bg-gray-50 border-t border-masonic-lightgold">
+          <CardFooter className="p-4 sm:p-6 flex justify-end space-x-3 bg-gray-50 border-t border-masonic-lightgold flex-shrink-0">
             <Button 
               variant="outline" 
               onClick={handleDiscardChanges}
-              className="bg-white text-masonic-navy border-masonic-navy hover:bg-masonic-navy/5 w-40"
+              className="bg-white text-masonic-navy border-masonic-navy hover:bg-masonic-navy/5 w-28 sm:w-40 text-sm"
             >
-              Discard Changes
+              Discard
             </Button>
             <Button 
               variant="default" 
               onClick={handleSaveChanges} 
-              className="bg-masonic-navy text-white hover:bg-masonic-navy/90 w-40"
+              className="bg-masonic-navy text-white hover:bg-masonic-navy/90 w-28 sm:w-40 text-sm"
             >
               Save & Close
             </Button>

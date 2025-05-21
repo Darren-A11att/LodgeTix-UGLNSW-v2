@@ -20,14 +20,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { useRegistrationStore } from "@/lib/registrationStore";
+import { useCallback } from "react";
 
 interface BillingDetailsFormProps {
   form: UseFormReturn<BillingDetails>;
   primaryAttendee?: {
     firstName?: string;
     lastName?: string;
-    mobile?: string;
-    email?: string;
+    primaryPhone?: string;
+    primaryEmail?: string;
   } | null;
   setBillingFormDetailsInStore?: (details: BillingDetails) => void;
 }
@@ -81,7 +83,49 @@ export const BillingDetailsForm: React.FC<BillingDetailsFormProps> = ({
     id: c.id
   }));
 
-  // Handle "Bill to Primary" checkbox changes
+  // Add direct access to the Zustand store for immediate updates
+  const updateStoreBillingDetails = useRegistrationStore(state => state.updateBillingDetails);
+  
+  // Add a field watcher to update store when form values change
+  useEffect(() => {
+    const subscription = form.watch((value, { name, type }) => {
+      // Only update store when values actually change (not on first render)
+      if (type === 'change') {
+        console.log('Billing field changed:', name, value);
+        
+        // Get all current form values
+        const currentValues = form.getValues();
+        
+        // Update Zustand store with billing details
+        const billingDataForStore = {
+          firstName: currentValues.firstName || '',
+          lastName: currentValues.lastName || '',
+          email: currentValues.emailAddress || '',
+          phone: currentValues.mobileNumber || '',
+          addressLine1: currentValues.addressLine1 || '',
+          city: currentValues.suburb || '', 
+          stateProvince: currentValues.stateTerritory?.name || '',
+          postalCode: currentValues.postcode || '',
+          country: currentValues.country?.isoCode || '',
+          businessName: currentValues.businessName || '',
+        };
+        
+        // Update the store
+        console.log('Updating billing details in Zustand store:', billingDataForStore);
+        updateStoreBillingDetails(billingDataForStore);
+        
+        // Also call the prop callback if provided
+        if (setBillingFormDetailsInStore) {
+          setBillingFormDetailsInStore(currentValues);
+        }
+      }
+    });
+    
+    // Cleanup subscription
+    return () => subscription.unsubscribe();
+  }, [form, updateStoreBillingDetails, setBillingFormDetailsInStore]);
+
+  // Handle "Bill to Primary" checkbox changes with immediate store update
   useEffect(() => {
     const currentFormValues = form.getValues();
     let detailsToSet: BillingDetails;
@@ -93,10 +137,18 @@ export const BillingDetailsForm: React.FC<BillingDetailsFormProps> = ({
         billToPrimary: true,
         firstName: primaryAttendee.firstName || '',
         lastName: primaryAttendee.lastName || '',
-        mobileNumber: primaryAttendee.mobile || '',
-        emailAddress: primaryAttendee.email || '',
+        mobileNumber: primaryAttendee.primaryPhone || '',
+        emailAddress: primaryAttendee.primaryEmail || '',
         // Address fields are preserved from currentFormValues
       };
+      
+      // Log to verify the data being set
+      console.log('Setting billing details from primary:', { 
+        firstName: primaryAttendee.firstName,
+        lastName: primaryAttendee.lastName,
+        mobileNumber: primaryAttendee.primaryPhone, // Log the phone specifically
+        emailAddress: primaryAttendee.primaryEmail 
+      });
     } else if (!billToPrimaryWatched) {
       // When checkbox is unchecked - clear personal data but preserve any existing address info
       detailsToSet = {
@@ -121,11 +173,48 @@ export const BillingDetailsForm: React.FC<BillingDetailsFormProps> = ({
       };
     }
 
-    form.reset(detailsToSet); // Reset local RHF state
-    if (setBillingFormDetailsInStore) {
-      setBillingFormDetailsInStore(detailsToSet); // Update Zustand store
+    // Set fields one by one with individual setValue calls to ensure proper updates
+    form.setValue('billToPrimary', detailsToSet.billToPrimary);
+    form.setValue('firstName', detailsToSet.firstName || '');
+    form.setValue('lastName', detailsToSet.lastName || '');
+    
+    // Force a synchronous update for the phone number to ensure it updates correctly
+    if (billToPrimaryWatched && primaryAttendee && primaryAttendee.primaryPhone) {
+      console.log('Explicitly setting mobileNumber to:', primaryAttendee.primaryPhone);
+      // Use setTimeout to ensure the value updates after the current execution cycle
+      setTimeout(() => {
+        form.setValue('mobileNumber', primaryAttendee.primaryPhone || '', {shouldDirty: true, shouldTouch: true, shouldValidate: true});
+      }, 10);
+    } else {
+      form.setValue('mobileNumber', detailsToSet.mobileNumber || '');
     }
-  }, [billToPrimaryWatched, primaryAttendee, form, setBillingFormDetailsInStore]);
+    
+    form.setValue('emailAddress', detailsToSet.emailAddress || '');
+    
+    // Also update the store with these values
+    const billingDataForStore = {
+      firstName: detailsToSet.firstName || '',
+      lastName: detailsToSet.lastName || '',
+      email: detailsToSet.emailAddress || '',
+      phone: detailsToSet.mobileNumber || '',
+      addressLine1: detailsToSet.addressLine1 || '',
+      city: detailsToSet.suburb || '', 
+      stateProvince: detailsToSet.stateTerritory?.name || '',
+      postalCode: detailsToSet.postcode || '',
+      country: detailsToSet.country?.isoCode || '',
+      businessName: detailsToSet.businessName || '',
+    };
+    
+    // Update the store
+    console.log('Updating billing details from "Bill to Primary" change:', billingDataForStore);
+    updateStoreBillingDetails(billingDataForStore);
+    
+    // Call prop callback if provided
+    if (setBillingFormDetailsInStore) {
+      setBillingFormDetailsInStore(detailsToSet);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [billToPrimaryWatched, primaryAttendee]);
 
   // Fetch countries on mount
   useEffect(() => {
@@ -156,7 +245,8 @@ export const BillingDetailsForm: React.FC<BillingDetailsFormProps> = ({
       }
       setHasAttemptedGeoCountryPreselection(true);
     }
-  }, [countries, ipCountryIsoCode, hasAttemptedGeoCountryPreselection, form]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [countries, ipCountryIsoCode, hasAttemptedGeoCountryPreselection]);
 
   // Fetch states when selected country changes
   useEffect(() => {
@@ -187,11 +277,17 @@ export const BillingDetailsForm: React.FC<BillingDetailsFormProps> = ({
   useEffect(() => {
     if (states.length > 0 && 
         selectedCountry?.isoCode === ipCountryIsoCode && 
-        typeof ipStateName === 'string' && // More robust type guard
+        typeof ipStateName === 'string' && 
         ipStateName && 
         !hasAttemptedGeoStatePreselection && 
         !form.getValues('stateTerritory')) {
-      const geoState = states.find(s => s.name.toLowerCase() === ipStateName.toLowerCase()); // Now ipStateName is confirmed string
+      
+      // Only proceed if ipStateName is a string (already checked above)
+      const stateName = ipStateName as string;
+      const geoState = states.find(s => 
+        s.name.toLowerCase() === stateName.toLowerCase()
+      );
+      
       if (geoState) {
         const stateToSet: StateTerritoryType = { 
           id: geoState.id, 
@@ -206,7 +302,8 @@ export const BillingDetailsForm: React.FC<BillingDetailsFormProps> = ({
     if (selectedCountry?.isoCode !== ipCountryIsoCode) {
       setHasAttemptedGeoStatePreselection(false);
     }
-  }, [states, selectedCountry, ipCountryIsoCode, ipStateName, hasAttemptedGeoStatePreselection, form]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [states, selectedCountry, ipCountryIsoCode, ipStateName, hasAttemptedGeoStatePreselection]);
 
   // Clear state selection when country changes
   useEffect(() => {
@@ -214,7 +311,8 @@ export const BillingDetailsForm: React.FC<BillingDetailsFormProps> = ({
     if (form.getValues('stateTerritory')?.countryCode !== selectedCountry?.isoCode) {
       form.setValue('stateTerritory', undefined, { shouldValidate: true });
     }
-  }, [selectedCountry, form]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedCountry]);
 
   return (
     <Card className="border-masonic-navy shadow-md">
@@ -310,21 +408,45 @@ export const BillingDetailsForm: React.FC<BillingDetailsFormProps> = ({
               name="mobileNumber"
               render={({ field }) => {
                 const phoneRef = useRef<string>(field.value || '');
+                
+                // Special effect to handle bill to primary changes specifically for phone
+                useEffect(() => {
+                  console.log("Phone field effect triggered:", { 
+                    billToPrimaryWatched, 
+                    primaryPhone: primaryAttendee?.primaryPhone,
+                    currentValue: field.value
+                  });
+                  
+                  if (billToPrimaryWatched && primaryAttendee?.primaryPhone) {
+                    // Need to update the field value directly and through react-hook-form
+                    field.onChange(primaryAttendee.primaryPhone);
+                    phoneRef.current = primaryAttendee.primaryPhone;
+                    console.log("Setting phone value to:", primaryAttendee.primaryPhone);
+                    
+                    // Force a re-render of the PhoneInput
+                    setTimeout(() => {
+                      field.onChange(primaryAttendee.primaryPhone);
+                    }, 0);
+                  }
+                }, [billToPrimaryWatched, primaryAttendee?.primaryPhone, field]);
+                
                 const handlePhoneChange = (value: string) => {
                   if (value !== phoneRef.current) {
                     phoneRef.current = value;
                     field.onChange(value);
                   }
                 };
+                
                 return (
                   <FormItem>
                     <FormLabel>Mobile Number *</FormLabel>
                     <FormControl>
                       <PhoneInput 
                         name="mobileNumber" 
-                        value={field.value} 
+                        value={field.value || ''} 
                         onChange={handlePhoneChange}
                         onBlur={field.onBlur}
+                        key={`phone-input-${billToPrimaryWatched ? 'primary' : 'custom'}`}
                       />
                     </FormControl>
                     <FormMessage />

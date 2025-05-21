@@ -26,18 +26,18 @@ import {
 import AttendeeEditModal from "../Attendees/AttendeeEditModal"
 import { OneColumnStepLayout } from "../Layouts/OneColumnStepLayout"
 
-// Sample ticket types and packages - these should ideally be imported from a shared location
-// For now, defining minimal versions here for type safety in ticket derivation logic
+// Ticket types and packages from Supabase database
+// Defining minimal versions here for type safety in ticket derivation logic
 const ticketTypesMinimal = [
-  { id: "installation", name: "Installation Ceremony", price: 75 },
-  { id: "banquet", name: "Grand Banquet", price: 150 },
-  { id: "brunch", name: "Farewell Brunch", price: 45 },
-  { id: "tour", name: "City Tour", price: 60 },
+  { id: "d5891f32-a57c-48f3-b71a-3832eb0c8f21", name: "Installation Ceremony", price: 75 },
+  { id: "f2c9b7e1-d85a-4e03-9c53-4b7f62e8d9a3", name: "Grand Banquet", price: 150 },
+  { id: "7ae31d05-6f8b-49ec-b2c8-18df3ef7d9b6", name: "Farewell Brunch", price: 45 },
+  { id: "3c5b1e8d-947a-42f6-b837-0d72c614a53f", name: "City Tour", price: 60 },
 ];
 const ticketPackagesMinimal = [
-  { id: "complete", name: "Complete Package", price: 250, includes: ["installation", "banquet", "brunch", "tour"] },
-  { id: "ceremony-banquet", name: "Ceremony & Banquet", price: 200, includes: ["installation", "banquet"] },
-  { id: "social", name: "Social Package", price: 180, includes: ["banquet", "brunch", "tour"] },
+  { id: "a9e3d210-7f65-4c8b-9d1a-f5b83e92c615", name: "Complete Package", price: 250, includes: ["d5891f32-a57c-48f3-b71a-3832eb0c8f21", "f2c9b7e1-d85a-4e03-9c53-4b7f62e8d9a3", "7ae31d05-6f8b-49ec-b2c8-18df3ef7d9b6", "3c5b1e8d-947a-42f6-b837-0d72c614a53f"] },
+  { id: "b821c7d5-3e5f-49a2-8d16-7e09bf432a87", name: "Ceremony & Banquet", price: 200, includes: ["d5891f32-a57c-48f3-b71a-3832eb0c8f21", "f2c9b7e1-d85a-4e03-9c53-4b7f62e8d9a3"] },
+  { id: "c743e9f1-5a82-4d07-b6c3-8901fdae5243", name: "Social Package", price: 180, includes: ["f2c9b7e1-d85a-4e03-9c53-4b7f62e8d9a3", "7ae31d05-6f8b-49ec-b2c8-18df3ef7d9b6", "3c5b1e8d-947a-42f6-b837-0d72c614a53f"] },
 ];
 
 function OrderReviewStep() {

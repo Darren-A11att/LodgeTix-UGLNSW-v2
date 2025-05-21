@@ -82,7 +82,7 @@ export default {
 ```
 
 ### 1.2 Create Global CSS Classes
-**File:** `app/globals.css`
+**File:** `style/styles/globals.css`
 
 ```css
 @layer components {

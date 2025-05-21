@@ -3,7 +3,7 @@ import { cn } from "@/lib/utils"
 import Link from "next/link"
 import { useParams } from "next/navigation"
 import { useIsMobile } from "@/hooks/use-mobile"
-import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet"
+import { Sheet, SheetContent, SheetTrigger, SheetTitle, SheetDescription } from "@/components/ui/sheet"
 import { Menu } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
@@ -106,8 +106,9 @@ export function RegistrationStepIndicator({ currentStep }: RegistrationStepIndic
             </Button>
           </SheetTrigger>
           <SheetContent side="left" className="w-72">
+            <SheetTitle>Registration Steps</SheetTitle>
+            <SheetDescription>Navigate between registration steps</SheetDescription>
             <div className="py-4">
-              <h3 className="text-lg font-semibold mb-4">Registration Steps</h3>
               <ol role="list" className="space-y-4">
                 {steps.map(renderStepContent)}
               </ol>

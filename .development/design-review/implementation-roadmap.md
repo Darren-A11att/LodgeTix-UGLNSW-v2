@@ -8,7 +8,7 @@ Based on the design review and existing elements analysis, this roadmap outlines
 ### 1.1 Color System Unification
 **Existing Assets to Leverage:**
 - Tailwind masonic colors in `tailwind.config.ts`
-- CSS variables in `/app/globals.css`
+- CSS variables in `/style/styles/globals.css`
 
 **Tasks:**
 1. Create unified color palette file:

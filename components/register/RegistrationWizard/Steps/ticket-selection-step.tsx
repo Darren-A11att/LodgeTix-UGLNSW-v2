@@ -4,24 +4,26 @@ import { useState } from "react"
 import { useRegistrationStore } from '../../../../lib/registrationStore'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card"
+import { cn } from "@/lib/utils"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
-import { Package, Check, User, UserPlus, ShoppingCart, XCircle } from "lucide-react"
+import { Package, Check, User, UserPlus, ShoppingCart, XCircle, ChevronLeft, ChevronRight } from "lucide-react"
 import type { Attendee, Ticket, MasonAttendee, GuestAttendee, PartnerAttendee } from "@/lib/registration-types"
-import { v4 as uuidv4 } from "uuid"
+import { v7 as uuidv7 } from "uuid"
 import { SectionHeader } from "../Shared/SectionHeader"
 import { AlertModal } from "@/components/ui/alert-modal"
 import { TwoColumnStepLayout } from "../Layouts/TwoColumnStepLayout"
+import { SimpleTicketSummary } from "../Summary/SimpleTicketSummary"
 
 // Define AttendeeType for eligibility checking, leveraging existing types
 export type AttendeeType = Attendee['type'];
 
-// Sample ticket types
+// Ticket types from Supabase database
 const ticketTypes = [
   {
-    id: "installation",
+    id: "d5891f32-a57c-48f3-b71a-3832eb0c8f21",
     name: "Installation Ceremony",
     price: 75,
     description: "Admission to the Grand Installation Ceremony",
@@ -29,7 +31,7 @@ const ticketTypes = [
     eligibleAttendeeTypes: ["mason"] as AttendeeType[],
   },
   {
-    id: "banquet",
+    id: "f2c9b7e1-d85a-4e03-9c53-4b7f62e8d9a3",
     name: "Grand Banquet",
     price: 150,
     description: "Formal dinner with wine at the venue",
@@ -37,7 +39,7 @@ const ticketTypes = [
     eligibleAttendeeTypes: ["mason", "guest"] as AttendeeType[],
   },
   {
-    id: "brunch",
+    id: "7ae31d05-6f8b-49ec-b2c8-18df3ef7d9b6",
     name: "Farewell Brunch",
     price: 45,
     description: "Sunday morning brunch",
@@ -45,7 +47,7 @@ const ticketTypes = [
     eligibleAttendeeTypes: ["mason", "guest"] as AttendeeType[],
   },
   {
-    id: "tour",
+    id: "3c5b1e8d-947a-42f6-b837-0d72c614a53f",
     name: "City Tour",
     price: 60,
     description: "Guided tour of local landmarks",
@@ -54,30 +56,30 @@ const ticketTypes = [
   },
 ]
 
-// Ticket packages
+// Ticket packages from Supabase database
 const ticketPackages = [
   {
-    id: "complete",
+    id: "a9e3d210-7f65-4c8b-9d1a-f5b83e92c615",
     name: "Complete Package",
     price: 250,
     description: "Includes all events (save $80)",
-    includes: ["installation", "banquet", "brunch", "tour"],
+    includes: ["d5891f32-a57c-48f3-b71a-3832eb0c8f21", "f2c9b7e1-d85a-4e03-9c53-4b7f62e8d9a3", "7ae31d05-6f8b-49ec-b2c8-18df3ef7d9b6", "3c5b1e8d-947a-42f6-b837-0d72c614a53f"],
     eligibleAttendeeTypes: ["mason"] as AttendeeType[],
   },
   {
-    id: "ceremony-banquet",
+    id: "b821c7d5-3e5f-49a2-8d16-7e09bf432a87",
     name: "Ceremony & Banquet",
     price: 200,
     description: "Installation ceremony and formal dinner (save $25)",
-    includes: ["installation", "banquet"],
+    includes: ["d5891f32-a57c-48f3-b71a-3832eb0c8f21", "f2c9b7e1-d85a-4e03-9c53-4b7f62e8d9a3"],
     eligibleAttendeeTypes: ["mason"] as AttendeeType[],
   },
   {
-    id: "social",
+    id: "c743e9f1-5a82-4d07-b6c3-8901fdae5243",
     name: "Social Package",
     price: 180,
     description: "All social events without the ceremony (save $75)",
-    includes: ["banquet", "brunch", "tour"],
+    includes: ["f2c9b7e1-d85a-4e03-9c53-4b7f62e8d9a3", "7ae31d05-6f8b-49ec-b2c8-18df3ef7d9b6", "3c5b1e8d-947a-42f6-b837-0d72c614a53f"],
     eligibleAttendeeTypes: ["mason", "guest"] as AttendeeType[],
   },
 ]
@@ -360,61 +362,12 @@ function TicketSelectionStep() {
   // Calculate the total order amount
   const orderTotalAmount = currentTickets.reduce((sum, ticket) => sum + ticket.price, 0);
 
-  // Render summary content for right column
+  // Render summary content for right column - using simplified component
   const renderSummaryContent = () => (
-    <Card className="border-masonic-gold">
-      <CardHeader className="bg-masonic-gold/10">
-        <CardTitle>Order Summary</CardTitle>
-        <CardDescription>
-          {currentTickets.length} ticket{currentTickets.length !== 1 ? "s" : ""} for {eligibleAttendees.length}{" "}
-          attendee{eligibleAttendees.length !== 1 ? "s" : ""}
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4 py-4">
-        {/* Ticket summary by attendee */}
-        {eligibleAttendees.length > 0 ? (
-          <div className="space-y-4">
-            {eligibleAttendees.map((attendee: any) => {
-              const attendeeTickets = getAttendeeTickets(attendee.attendeeId);
-              const attendeeTotal = getAttendeeTicketTotal(attendee.attendeeId);
-              
-              if (attendeeTickets.length === 0) return null;
-              
-              return (
-                <div key={attendee.attendeeId} className="border-b pb-2 last:border-b-0">
-                  <h3 className="font-medium text-sm">
-                    {attendee.title} {attendee.firstName} {attendee.lastName}
-                  </h3>
-                  {attendeeTickets.map(ticket => (
-                    <div key={ticket.id} className="flex justify-between items-center text-sm py-1">
-                      <span>{ticket.name}</span>
-                      <span>${ticket.price}</span>
-                    </div>
-                  ))}
-                  <div className="flex justify-between items-center text-sm font-bold pt-1">
-                    <span>Subtotal</span>
-                    <span>${attendeeTotal}</span>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        ) : (
-          <p className="text-sm text-gray-500 italic">No tickets selected yet</p>
-        )}
-        
-        {/* Order total */}
-        <div className="border-t pt-3 mt-2">
-          <div className="flex justify-between items-center font-bold">
-            <span>Order Total</span>
-            <span>${orderTotalAmount}</span>
-          </div>
-        </div>
-      </CardContent>
-      <CardFooter className="bg-gray-50 p-4 text-sm text-gray-600">
-        <p>Select tickets for each attendee before proceeding to the next step.</p>
-      </CardFooter>
-    </Card>
+    <SimpleTicketSummary 
+      currentTickets={currentTickets}
+      orderTotalAmount={orderTotalAmount}
+    />
   );
 
   return (
@@ -425,7 +378,9 @@ function TicketSelectionStep() {
       <div className="space-y-6">
         <div className="space-y-4">
           {eligibleAttendees.map((attendee: any) => (
-            <Card key={attendee.attendeeId} className="border-masonic-navy overflow-hidden">
+            <Card key={attendee.attendeeId} className={cn(
+              "rounded-lg border bg-card text-card-foreground shadow-sm border-masonic-navy overflow-hidden"
+            )}>
               <CardHeader 
                 className={`bg-masonic-lightblue py-3 px-4 cursor-pointer ${expandedAttendee === attendee.attendeeId ? "" : "hover:bg-masonic-lightblue/90"}`}
                 onClick={() => setExpandedAttendee(expandedAttendee === attendee.attendeeId ? null : attendee.attendeeId)}
@@ -677,16 +632,18 @@ function TicketSelectionStep() {
           <Button
             variant="outline"
             onClick={handlePrevious}
-            className="border-masonic-navy text-masonic-navy hover:bg-masonic-lightblue"
+            className="gap-2 border-masonic-navy text-masonic-navy hover:bg-masonic-lightblue"
           >
-            Previous
+            <ChevronLeft className="w-4 h-4" />
+            Back
           </Button>
           <Button
             onClick={handleContinue}
             disabled={!ensureAllAttendeesHaveTickets() || currentTickets.length === 0}
-            className="bg-masonic-navy hover:bg-masonic-blue"
+            className="gap-2 bg-masonic-navy hover:bg-masonic-blue"
           >
-            Review Order
+            Continue
+            <ChevronRight className="w-4 h-4" />
           </Button>
         </div>
 

@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { useRegistrationStore } from '@/lib/registrationStore';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -32,7 +32,7 @@ interface RegistrationType {
 const REGISTRATION_TYPES: RegistrationType[] = [
   {
     id: 'individual',
-    title: 'Individual Registration',
+    title: 'Myself & Others',
     description: 'Register yourself and optional additional attendees',
     icon: User,
     minAttendees: 1,
@@ -84,15 +84,30 @@ export function RegistrationTypeStep() {
     updateAttendee,
   } = useRegistrationStore();
 
-  // Map 'myself-others' to 'individual' for backwards compatibility
-  const initialType = storeRegistrationType === 'individual' ? 'individual' : storeRegistrationType;
-  const [selectedType, setSelectedType] = useState<RegistrationType['id'] | null>(initialType);
+  // Ensure we properly initialize the selected type from the store
+  // This is important for recognizing existing drafts, especially for 'individual' type
+  const [selectedType, setSelectedType] = useState<RegistrationType['id'] | null>(storeRegistrationType);
   const [showDraftModal, setShowDraftModal] = useState(false);
   const [pendingRegistrationType, setPendingRegistrationType] = useState<RegistrationType['id'] | null>(null);
 
   // Check for existing draft on mount
   const draftTypeInStore = useRegistrationStore.getState().registrationType;
   const draftStepInStore = useRegistrationStore.getState().currentStep;
+  const storedAttendees = useRegistrationStore.getState().attendees;
+  
+  // Debug - log the current state of the registration store
+  useEffect(() => {
+    // Check localStorage directly to see if data is being saved
+    const localStorageData = localStorage.getItem('lodgetix-registration-storage');
+    console.log('Registration storage from localStorage:', localStorageData ? JSON.parse(localStorageData) : 'No data');
+    
+    console.log('Current registration store state:', {
+      registrationType: draftTypeInStore,
+      currentStep: draftStepInStore,
+      attendeesCount: storedAttendees.length,
+      attendees: storedAttendees
+    });
+  }, [draftTypeInStore, draftStepInStore, storedAttendees]);
 
   const initializeAttendees = useCallback((typeId: RegistrationType['id']) => {
     // Clear existing attendees when changing type
@@ -124,13 +139,40 @@ export function RegistrationTypeStep() {
     const currentState = useRegistrationStore.getState();
     const currentDraftType = currentState.registrationType;
     const hasExistingAttendees = currentState.attendees && currentState.attendees.length > 0;
-    const hasExistingData = hasExistingAttendees && currentState.currentStep > 1;
+    
+    // Check if any of the attendees have data filled in
+    const hasFilledData = currentState.attendees.some(attendee => 
+      attendee.firstName || attendee.lastName || attendee.primaryEmail || attendee.lodgeNameNumber);
+    
+    // New enhanced condition for determining if there's meaningful data
+    const hasExistingData = hasExistingAttendees && (currentState.currentStep > 1 || hasFilledData);
     
     // Show draft modal if:
     // 1. There's an existing registration with a different type, OR
     // 2. There's an existing registration with the same type but with attendee data already filled
-    if ((currentDraftType !== null && currentDraftType !== type) || 
-        (currentDraftType !== null && currentDraftType === type && hasExistingData)) {
+    const isDifferentType = currentDraftType !== null && currentDraftType !== type;
+    const isSameTypeWithData = currentDraftType !== null && currentDraftType === type && hasExistingData;
+    
+    console.log("Registration type check (enhanced):", { 
+      currentDraftType, 
+      newType: type, 
+      hasExistingAttendees, 
+      hasFilledData,
+      hasExistingData,
+      isDifferentType,
+      isSameTypeWithData,
+      attendees: currentState.attendees.length
+    });
+    
+    // Also check localStorage directly to debug persistence issues
+    try {
+      const storageData = localStorage.getItem('lodgetix-registration-storage');
+      console.log('localStorage registration data available:', !!storageData);
+    } catch (e) {
+      console.error('Error checking localStorage:', e);
+    }
+    
+    if (isDifferentType || isSameTypeWithData) {
       console.log("Showing draft modal - existing data detected");
       setPendingRegistrationType(type);
       setShowDraftModal(true);
@@ -138,7 +180,17 @@ export function RegistrationTypeStep() {
       console.log("No existing data or same type - proceeding with selection");
       setSelectedType(type);
       storeSetRegistrationType(type);
-      initializeAttendees(type);
+      
+      // Check if attendees exist for this type already before initializing
+      const existingMatchingTypeAttendees = 
+        currentDraftType === type && hasExistingAttendees;
+        
+      if (!existingMatchingTypeAttendees) {
+        console.log("Initializing new attendees for type:", type);
+        initializeAttendees(type);
+      } else {
+        console.log("Keeping existing attendees for type:", type);
+      }
       
       // Explicitly move to the next step when a registration type is selected
       const goToNextStep = useRegistrationStore.getState().goToNextStep;
@@ -149,23 +201,34 @@ export function RegistrationTypeStep() {
   const handleContinueDraft = () => {
     setShowDraftModal(false);
     
-    // When continuing with a draft, go to the current step in the store
-    // or step 2 (attendee details) if we're not sure
+    // When continuing with a draft, always go to step 2 (attendee details)
     const currentState = useRegistrationStore.getState();
-    const currentStepInStore = currentState.currentStep;
+    const registrationType = currentState.registrationType;
+    const hasAttendees = currentState.attendees && currentState.attendees.length > 0;
     
-    console.log("Continuing with existing draft - registration type:", currentState.registrationType);
-    console.log("Current step in store:", currentStepInStore);
+    console.log("Continuing with existing draft - detailed info:", {
+      registrationType,
+      attendeesCount: currentState.attendees.length,
+      attendees: currentState.attendees
+    });
     
-    if (currentStepInStore > 1) {
-      // Stay on the current step of the draft
-      console.log("Keeping user at existing step:", currentStepInStore);
-    } else {
-      // If we're on step 1, move to step 2 (attendee details)
-      const goToNextStep = useRegistrationStore.getState().goToNextStep;
-      goToNextStep();
-      console.log("Moving to attendee details for existing draft");
+    // Make sure the registration type is properly set in the UI state
+    setSelectedType(registrationType);
+    
+    // Extra verification step - check if we need to reinitialize attendees
+    if (!hasAttendees && registrationType) {
+      console.log("No attendees found for draft, reinitializing");
+      initializeAttendees(registrationType);
     }
+    
+    // Always move to step 2 (attendee details) when continuing a draft
+    const setCurrentStep = useRegistrationStore.getState().setCurrentStep;
+    setCurrentStep(2);
+    console.log("Moving to attendee details for existing draft");
+    
+    // Ensure the store has the current state before proceeding
+    // This helps fix race conditions with localStorage rehydration
+    useRegistrationStore.persist.rehydrate();
     
     setPendingRegistrationType(null);
   };
@@ -181,9 +244,9 @@ export function RegistrationTypeStep() {
       storeSetRegistrationType(pendingRegistrationType);
       initializeAttendees(pendingRegistrationType);
       
-      // Explicitly move to the next step
-      const goToNextStep = useRegistrationStore.getState().goToNextStep;
-      goToNextStep();
+      // Explicitly go to step 2 (attendee details)
+      const setCurrentStep = useRegistrationStore.getState().setCurrentStep;
+      setCurrentStep(2);
     }
     setPendingRegistrationType(null);
   };
@@ -191,13 +254,15 @@ export function RegistrationTypeStep() {
   return (
     <OneColumnStepLayout>
       <RadioGroup
-        value={selectedType || ''}
+        value={storeRegistrationType || selectedType || ''}
         onValueChange={handleSelectType}
       >
         <div className="grid gap-6 md:grid-cols-3 items-stretch">
           {REGISTRATION_TYPES.map((type) => {
             const Icon = type.icon;
-            const isSelected = selectedType === type.id;
+            // Enhanced selection check - verify against both local state and store state
+            const storeType = useRegistrationStore.getState().registrationType;
+            const isSelected = (storeType === type.id) || (selectedType === type.id);
 
             return (
               <label
@@ -269,23 +334,31 @@ export function RegistrationTypeStep() {
 
       {showDraftModal && (
         <AlertDialog open={showDraftModal} onOpenChange={setShowDraftModal}>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Draft Registration Found</AlertDialogTitle>
-              <AlertDialogDescription>
+          <AlertDialogContent className="w-[90%] max-w-md sm:w-full rounded-lg">
+            <AlertDialogHeader className="space-y-3">
+              <AlertDialogTitle className="text-xl text-center">Draft Registration Found</AlertDialogTitle>
+              <AlertDialogDescription className="text-center text-base">
                 You have a registration in progress. Would you like to continue with your current draft or start a new registration?
               </AlertDialogDescription>
             </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel onClick={() => setPendingRegistrationType(null)}>Cancel</AlertDialogCancel>
-              <AlertDialogAction onClick={handleContinueDraft} className="bg-masonic-navy hover:bg-masonic-blue">
-                Continue Draft
-              </AlertDialogAction>
+            <AlertDialogFooter className="flex-col sm:flex-row gap-3 pt-4">
+              <AlertDialogCancel 
+                onClick={() => setPendingRegistrationType(null)}
+                className="w-full text-base font-normal"
+              >
+                Cancel
+              </AlertDialogCancel>
               <AlertDialogAction
                 onClick={handleStartNew}
-                className="bg-red-600 hover:bg-red-700 text-white"
+                className="w-full bg-red-600 hover:bg-red-700 text-white p-3 text-base font-medium"
               >
                 Start New
+              </AlertDialogAction>
+              <AlertDialogAction
+                onClick={handleContinueDraft}
+                className="w-full bg-masonic-navy hover:bg-masonic-blue text-white p-3 text-base font-medium"
+              >
+                Continue Draft
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>

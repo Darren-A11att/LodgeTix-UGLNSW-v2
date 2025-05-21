@@ -374,7 +374,7 @@ export function MobileAlert({
 
 ### 6. Add Required CSS Animations
 
-Location: `/app/globals.css`
+Location: `/style/styles/globals.css`
 
 ```css
 /* Modal animations */

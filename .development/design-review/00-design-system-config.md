@@ -121,7 +121,7 @@ export default config
 ```
 
 ### 2. Create CSS Custom Properties
-Location: `/app/globals.css`
+Location: `/style/styles/globals.css`
 
 ```css
 @layer base {

@@ -1,6 +1,6 @@
 # Consolidated globals.css
 
-This file demonstrates what the consolidated `styles/globals.css` should look like after migration. 
+This file demonstrates what the consolidated `style/styles/globals.css` should look like after migration. 
 It combines all variables into a single file using the HSL format for consistency.
 
 ```css
@@ -207,6 +207,6 @@ It combines all variables into a single file using the HSL format for consistenc
 
 ## Next Steps
 
-1. Use this consolidated CSS in `styles/globals.css`
+1. Use this consolidated CSS in `style/styles/globals.css`
 2. Update the Tailwind config to reference these variables
 3. Update component references to use the new variable names

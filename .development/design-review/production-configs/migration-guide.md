@@ -7,7 +7,7 @@ This guide walks through implementing the global design system in your LodgeTix 
 Before making any changes, backup your current configuration files:
 ```bash
 cp tailwind.config.ts tailwind.config.ts.backup
-cp app/globals.css app/globals.css.backup
+cp style/styles/globals.css style/styles/globals.css.backup
 ```
 
 ## Step 2: Update Tailwind Configuration
@@ -21,7 +21,7 @@ Key additions:
 - Form-specific utilities
 
 ## Step 3: Update Global CSS
-Add the new design system classes to your `app/globals.css` file. The new classes are added in the `@layer components` section and won't conflict with existing styles.
+Add the new design system classes to your `style/styles/globals.css` file. The new classes are added in the `@layer components` section and won't conflict with existing styles.
 
 New classes include:
 - `.form-grid` - Responsive grid layouts

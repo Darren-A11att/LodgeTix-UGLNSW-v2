@@ -35,7 +35,7 @@
 
     --radius: 0.5rem;
 
-    /* Additional colors from styles/globals.css */
+    /* Additional colors from style/styles/globals.css */
     --color-primary: 25 59 103; /* Navy Blue */
     --color-secondary: 180 159 95; /* Gold */
     --color-accent: 130 20 30; /* Deep Red */
@@ -83,7 +83,7 @@
     --input: 217.2 32.6% 17.5%;
     --ring: 212.7 26.8% 83.9%;
 
-    /* Additional colors from styles/globals.css for dark mode */
+    /* Additional colors from style/styles/globals.css for dark mode */
     --chart-1: 220 70% 50%;
     --chart-2: 160 60% 45%;
     --chart-3: 30 80% 55%;
@@ -248,7 +248,7 @@
   padding-left: 0rem !important; /* Increased from 0.5rem. Default is often pl-8 (2rem) or pl-6. */
 }
 
-/* Button component styles and other components from styles/globals.css */
+/* Button component styles and other components from style/styles/globals.css */
 @layer components {
   .btn-primary {
     @apply bg-primary text-white px-6 py-3 rounded-md font-medium hover:bg-primary/90 transition-colors;

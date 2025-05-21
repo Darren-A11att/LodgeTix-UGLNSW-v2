@@ -5,6 +5,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { User, UserCheck, Users } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
+import { cn } from "@/lib/utils"
 
 interface AttendeeCardProps {
   attendee: Attendee
@@ -46,7 +47,9 @@ export function AttendeeCard({ attendee, onRemove }: AttendeeCardProps) {
   }
 
   return (
-    <Card className="border-masonic-lightgold">
+    <Card className={cn(
+      "rounded-lg border bg-card text-card-foreground shadow-sm border-masonic-lightgold"
+    )}>
       <CardContent className="pt-6 relative">
         <Button
           variant="ghost"

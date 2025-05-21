@@ -1,4 +1,6 @@
 // Type definitions for the new forms architecture
+import { UnifiedAttendeeData } from '@/lib/registrationStore';
+
 export interface AttendeeData {
   // Identity
   attendeeId: string;
@@ -35,6 +37,7 @@ export interface AttendeeData {
   grandLodgeId?: string;
   lodgeId?: string;
   lodgeNameNumber?: string;
+  useSameLodge?: boolean;
 }
 
 // Props for form components
@@ -44,8 +47,8 @@ export interface FormProps {
   isPrimary?: boolean;
 }
 
-// Props for section components
-export interface SectionProps<T = AttendeeData> {
+// Props for section components - now accepts either AttendeeData or UnifiedAttendeeData
+export interface SectionProps<T = AttendeeData | UnifiedAttendeeData> {
   data: T;
   type?: 'Mason' | 'Guest';
   isPrimary?: boolean;
@@ -53,11 +56,11 @@ export interface SectionProps<T = AttendeeData> {
 }
 
 // Type guards and utility types
-export const isMason = (attendee: AttendeeData): boolean => 
+export const isMason = (attendee: AttendeeData | UnifiedAttendeeData): boolean => 
   attendee.attendeeType === 'Mason';
 
-export const isGuest = (attendee: AttendeeData): boolean => 
+export const isGuest = (attendee: AttendeeData | UnifiedAttendeeData): boolean => 
   attendee.attendeeType === 'Guest';
 
-export const hasPartner = (attendee: AttendeeData): boolean => 
+export const hasPartner = (attendee: AttendeeData | UnifiedAttendeeData): boolean => 
   !!attendee.partner;

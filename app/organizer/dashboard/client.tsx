@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { BarChart3, Calendar, CreditCard, LayoutDashboard, LogOut, Plus, Settings, Ticket, Users } from "lucide-react"
+import { BarChart3, Calendar, CreditCard, FileText, LayoutDashboard, LogOut, Plus, Settings, Ticket, Users } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -76,6 +76,13 @@ export default function OrganizerDashboardClient({ events }: OrganizerDashboardC
             >
               <CreditCard className="mr-3 h-5 w-5" />
               Payments
+            </Link>
+            <Link
+              href="/organizer/content"
+              className="flex items-center rounded-md px-3 py-2 text-sm font-medium text-gray-600 hover:bg-gray-50"
+            >
+              <FileText className="mr-3 h-5 w-5" />
+              Content
             </Link>
             <Link
               href="/organizer/settings"

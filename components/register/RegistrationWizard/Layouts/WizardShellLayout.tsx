@@ -1,4 +1,6 @@
-import React from 'react';
+"use client"
+
+import React, { useState, useEffect } from 'react';
 import { cn } from "@/lib/utils";
 
 interface WizardShellLayoutProps {
@@ -14,9 +16,33 @@ export const WizardShellLayout: React.FC<WizardShellLayoutProps> = ({
   footer,
   className,
 }) => {
+  const [isMounted, setIsMounted] = useState(false);
+  
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  if (!isMounted) {
+    return (
+      <div className={cn(
+        "w-full sm:container sm:mx-auto sm:max-w-6xl px-0 sm:px-4 md:py-5 flex flex-col h-full",
+        className
+      )}>
+        <main className="flex-1 overflow-y-auto py-2 sm:py-4 min-h-0">
+          {/* Loading skeleton */}
+          <div className="w-full py-8 animate-pulse">
+            <div className="h-8 bg-slate-200 rounded w-1/3 mx-auto mb-4"></div>
+            <div className="h-4 bg-slate-200 rounded w-1/2 mx-auto mb-3"></div>
+            <div className="h-4 bg-slate-200 rounded w-2/3 mx-auto mb-3"></div>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
   return (
     <div className={cn(
-      "container mx-auto max-w-6xl px-4 md:py-5 flex flex-col h-full",
+      "w-full sm:container sm:mx-auto sm:max-w-6xl px-0 sm:px-4 md:py-5 flex flex-col h-full",
       className
     )}>
       {/* Header section */}
@@ -27,7 +53,7 @@ export const WizardShellLayout: React.FC<WizardShellLayoutProps> = ({
       )}
 
       {/* Main scrollable body section */}
-      <main className="flex-1 overflow-y-auto py-4 min-h-0">
+      <main className="flex-1 overflow-y-auto py-2 sm:py-4 min-h-0">
         {children}
       </main>
       

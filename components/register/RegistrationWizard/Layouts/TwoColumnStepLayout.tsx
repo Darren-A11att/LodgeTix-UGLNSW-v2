@@ -1,4 +1,6 @@
-import React, { useState } from 'react';
+"use client"
+
+import React, { useState, useEffect } from 'react';
 import { cn } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ChevronDown, ChevronUp } from 'lucide-react';
@@ -26,38 +28,12 @@ export const TwoColumnStepLayout: React.FC<TwoColumnStepLayoutProps> = ({
   mainColumnClassName,
   summaryColumnClassName,
 }) => {
-  // State for mobile summary collapse/expand
-  const [isSummaryExpanded, setIsSummaryExpanded] = useState(false);
-
   return (
-    <div className={cn("w-full md:py-5", className)}>
-      {/* Mobile Summary Toggle - Only visible on small screens */}
-      <div className="lg:hidden mb-5">
-        <Card>
-          <CardHeader className="py-3 cursor-pointer" onClick={() => setIsSummaryExpanded(!isSummaryExpanded)}>
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-lg">{summaryTitle}</CardTitle>
-              <Button variant="ghost" size="sm">
-                {isSummaryExpanded ? (
-                  <ChevronUp className="h-5 w-5" />
-                ) : (
-                  <ChevronDown className="h-5 w-5" />
-                )}
-              </Button>
-            </div>
-          </CardHeader>
-          {isSummaryExpanded && (
-            <CardContent>
-              {summaryContent}
-            </CardContent>
-          )}
-        </Card>
-      </div>
-
+    <div className={cn("w-full px-0 md:py-5", className)}>
       {/* Two-column desktop layout */}
       <div className="grid grid-cols-1 lg:grid-cols-10 gap-5">
-        {/* Main Content - 70% width on desktop */}
-        <div className={cn("lg:col-span-7", mainColumnClassName)}>
+        {/* Main Content - full width on mobile, 70% width on desktop */}
+        <div className={cn("px-2 sm:px-0 lg:col-span-7", mainColumnClassName)}>
           {children}
         </div>
         

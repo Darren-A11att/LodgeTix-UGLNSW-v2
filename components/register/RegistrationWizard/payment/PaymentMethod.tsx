@@ -1,13 +1,14 @@
 "use client"
 
-import { Elements, StripeElementsOptions } from "@stripe/react-stripe-js";
-import { loadStripe } from "@stripe/stripe-js";
+import { Elements } from "@stripe/react-stripe-js";
+import { loadStripe, StripeElementsOptions } from "@stripe/stripe-js";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { CreditCard, Info, Loader2 } from "lucide-react";
 import { BillingDetails } from "@/lib/billing-details-schema";
 import { CheckoutForm } from "./CheckoutForm";
 import { StripeBillingDetailsForClient } from "./types";
+import { useEffect, useState, useRef } from "react";
 
 // Initialize Stripe with publishable key from environment variables
 // Using a hardcoded publishable test key for development to avoid environment variable issues
@@ -37,15 +38,26 @@ export const PaymentMethod: React.FC<PaymentMethodProps> = ({
   setIsProcessingPayment,
   billingDetails
 }) => {
-  const elementsOptions: StripeElementsOptions = clientSecret
-    ? {
-        clientSecret,
-        appearance: { theme: 'stripe' },
-        loader: 'auto', // Use auto loader
-        // Disable features that might cause cross-origin issues
-        allowedPresentationMethods: [], // Disable Apple Pay, Google Pay, etc.
-      }
-    : {};
+  // State to control whether to show the Elements component
+  const [showElements, setShowElements] = useState(false);
+  const [elementKey, setElementKey] = useState('initial');
+  
+  // Reset and show Elements when clientSecret changes
+  useEffect(() => {
+    if (clientSecret) {
+      // First hide the Elements component
+      setShowElements(false);
+      
+      // Generate a new key
+      const newKey = `stripe-elements-${Date.now()}`;
+      
+      // Use setTimeout to ensure complete unmount before remounting
+      setTimeout(() => {
+        setElementKey(newKey);
+        setShowElements(true);
+      }, 50);
+    }
+  }, [clientSecret]);
   
   // No payment needed for free events
   if (totalAmount <= 0) {
@@ -84,16 +96,32 @@ export const PaymentMethod: React.FC<PaymentMethodProps> = ({
           <CardDescription>Complete your registration by providing your payment details below.</CardDescription>
         </CardHeader>
         <CardContent className="pt-6">
-          <Elements stripe={stripePromise} options={elementsOptions}>
-            <CheckoutForm
-              clientSecret={clientSecret}
-              totalAmount={totalAmount}
-              onPaymentSuccess={onPaymentSuccess}
-              onPaymentError={onPaymentError}
-              setIsProcessingPayment={setIsProcessingPayment}
-              billingDetails={billingDetails}
-            />
-          </Elements>
+          {showElements && clientSecret && (
+            <Elements 
+              key={elementKey} 
+              stripe={stripePromise} 
+              options={{
+                clientSecret,
+                appearance: { theme: 'stripe' },
+                loader: 'auto'
+              }}
+            >
+              <CheckoutForm
+                clientSecret={clientSecret}
+                totalAmount={totalAmount}
+                onPaymentSuccess={onPaymentSuccess}
+                onPaymentError={onPaymentError}
+                setIsProcessingPayment={setIsProcessingPayment}
+                billingDetails={billingDetails}
+              />
+            </Elements>
+          )}
+          {!showElements && (
+            <div className="flex flex-col items-center justify-center space-y-3 py-8">
+              <Loader2 className="h-10 w-10 animate-spin text-masonic-navy" />
+              <p>Preparing payment form...</p>
+            </div>
+          )}
         </CardContent>
       </Card>
     );

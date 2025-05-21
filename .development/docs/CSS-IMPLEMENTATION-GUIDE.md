@@ -2,9 +2,9 @@
 
 This guide provides detailed steps for implementing the CSS consolidation plan.
 
-## Step 1: Update `styles/globals.css`
+## Step 1: Update `style/styles/globals.css`
 
-Replace the contents of `styles/globals.css` with the consolidated CSS from `CONSOLIDATED-GLOBALS-CSS.md`. This file will become the single source of truth for all CSS variables.
+Replace the contents of `style/styles/globals.css` with the consolidated CSS from `CONSOLIDATED-GLOBALS-CSS.md`. This file will become the single source of truth for all CSS variables.
 
 ## Step 2: Update `tailwind.config.ts`
 
@@ -42,18 +42,18 @@ colors: {
 
 ## Step 3: Update Component Imports
 
-1. Find all components that import CSS from `app/globals.css` or `shared/theme/index.css`
-2. Update imports to reference `styles/globals.css` instead
+1. Find all components that import CSS from `style/styles/globals.css` or `shared/theme/index.css`
+2. Update imports to reference `style/styles/globals.css` instead
 
 Example:
 ```tsx
 // Before
-import '../../../app/globals.css';
+import '../../../style/styles/globals.css';
 // or
 import '../../../shared/theme/index.css';
 
 // After
-import '../../../styles/globals.css';
+import '../../../style/styles/globals.css';
 ```
 
 ## Step 4: Update Direct Color References
@@ -93,7 +93,7 @@ For components with special styling needs:
 
 After successful migration:
 
-1. Remove `app/globals.css`
+1. Remove `style/styles/globals.css`
 2. Remove `shared/theme/index.css` (after moving phone input styles to a dedicated file)
 3. Update imports in all files
 

@@ -13,6 +13,8 @@
  * 5. Enum Types - Define valid values for categorical fields
  */
 
+import { generateUUID } from '@/lib/uuid-slug-utils';
+
 // ============================================================================
 // Enum Types - Define valid values for categorical fields
 // ============================================================================
@@ -358,7 +360,7 @@ export function masonToDbEntities(mason: MasonData, registrationId: string): {
 } {
   // Create contact entity
   const contact: ContactData = {
-    contactId: mason.contactId || crypto.randomUUID(),
+    contactId: mason.contactId || generateUUID(),
     firstName: mason.firstName,
     lastName: mason.lastName,
     title: mason.title,
@@ -371,7 +373,7 @@ export function masonToDbEntities(mason: MasonData, registrationId: string): {
 
   // Create masonic profile entity
   const masonicProfile: MasonicProfileData = {
-    masonicProfileId: mason.masonicProfileId || crypto.randomUUID(),
+    masonicProfileId: mason.masonicProfileId || generateUUID(),
     contactId: contact.contactId,
     masonicTitle: mason.title,
     rank: mason.rank,
@@ -386,7 +388,7 @@ export function masonToDbEntities(mason: MasonData, registrationId: string): {
 
   // Create attendee entity
   const attendee: AttendeeData = {
-    attendeeId: mason.attendeeId || crypto.randomUUID(),
+    attendeeId: mason.attendeeId || generateUUID(),
     registrationId: registrationId,
     contactId: contact.contactId,
     attendeeType: AttendeeType.Mason,
@@ -416,7 +418,7 @@ export function ladyPartnerToDbEntities(
 } {
   // Create contact entity
   const contact: ContactData = {
-    contactId: ladyPartner.contactId || crypto.randomUUID(),
+    contactId: ladyPartner.contactId || generateUUID(),
     firstName: ladyPartner.firstName,
     lastName: ladyPartner.lastName,
     title: ladyPartner.title,
@@ -429,7 +431,7 @@ export function ladyPartnerToDbEntities(
 
   // Create attendee entity
   const attendee: AttendeeData = {
-    attendeeId: ladyPartner.attendeeId || crypto.randomUUID(),
+    attendeeId: ladyPartner.attendeeId || generateUUID(),
     registrationId: registrationId,
     contactId: contact.contactId,
     attendeeType: AttendeeType.LadyPartner,
@@ -459,7 +461,7 @@ export function guestToDbEntities(
 } {
   // Create contact entity
   const contact: ContactData = {
-    contactId: guest.contactId || crypto.randomUUID(),
+    contactId: guest.contactId || generateUUID(),
     firstName: guest.firstName,
     lastName: guest.lastName,
     title: guest.title,
@@ -472,7 +474,7 @@ export function guestToDbEntities(
 
   // Create attendee entity
   const attendee: AttendeeData = {
-    attendeeId: guest.attendeeId || crypto.randomUUID(),
+    attendeeId: guest.attendeeId || generateUUID(),
     registrationId: registrationId,
     contactId: contact.contactId,
     attendeeType: AttendeeType.Guest,
@@ -502,7 +504,7 @@ export function guestPartnerToDbEntities(
 } {
   // Create contact entity
   const contact: ContactData = {
-    contactId: guestPartner.contactId || crypto.randomUUID(),
+    contactId: guestPartner.contactId || generateUUID(),
     firstName: guestPartner.firstName,
     lastName: guestPartner.lastName,
     title: guestPartner.title,
@@ -515,7 +517,7 @@ export function guestPartnerToDbEntities(
 
   // Create attendee entity
   const attendee: AttendeeData = {
-    attendeeId: guestPartner.attendeeId || crypto.randomUUID(),
+    attendeeId: guestPartner.attendeeId || generateUUID(),
     registrationId: registrationId,
     contactId: contact.contactId,
     attendeeType: AttendeeType.GuestPartner,
@@ -732,7 +734,7 @@ export function formStateToDbEntities(formState: FormState): {
   tickets: TicketData[];
 } {
   // Generate a registration ID if not already set
-  const registrationId = formState.registrationId || crypto.randomUUID();
+  const registrationId = formState.registrationId || generateUUID();
   
   // Arrays to store all entities
   const contacts: ContactData[] = [];
@@ -756,7 +758,7 @@ export function formStateToDbEntities(formState: FormState): {
     if (primaryMason.ticket) {
       primaryMason.ticket.events.forEach(eventId => {
         tickets.push({
-          ticketId: crypto.randomUUID(),
+          ticketId: generateUUID(),
           attendeeId: attendee.attendeeId,
           eventId,
           ticketDefinitionId: primaryMason.ticket?.ticketId,
@@ -779,7 +781,7 @@ export function formStateToDbEntities(formState: FormState): {
       if (mason.ticket) {
         mason.ticket.events.forEach(eventId => {
           tickets.push({
-            ticketId: crypto.randomUUID(),
+            ticketId: generateUUID(),
             attendeeId: attendee.attendeeId,
             eventId,
             ticketDefinitionId: mason.ticket?.ticketId,
@@ -802,7 +804,7 @@ export function formStateToDbEntities(formState: FormState): {
     if (guest.ticket) {
       guest.ticket.events.forEach(eventId => {
         tickets.push({
-          ticketId: crypto.randomUUID(),
+          ticketId: generateUUID(),
           attendeeId: attendee.attendeeId,
           eventId,
           ticketDefinitionId: guest.ticket?.ticketId,
@@ -845,7 +847,7 @@ export function formStateToDbEntities(formState: FormState): {
     if (ladyPartner.ticket) {
       ladyPartner.ticket.events.forEach(eventId => {
         tickets.push({
-          ticketId: crypto.randomUUID(),
+          ticketId: generateUUID(),
           attendeeId: attendee.attendeeId,
           eventId,
           ticketDefinitionId: ladyPartner.ticket?.ticketId,
@@ -888,7 +890,7 @@ export function formStateToDbEntities(formState: FormState): {
     if (guestPartner.ticket) {
       guestPartner.ticket.events.forEach(eventId => {
         tickets.push({
-          ticketId: crypto.randomUUID(),
+          ticketId: generateUUID(),
           attendeeId: attendee.attendeeId,
           eventId,
           ticketDefinitionId: guestPartner.ticket?.ticketId,
@@ -902,7 +904,7 @@ export function formStateToDbEntities(formState: FormState): {
   // Create registration
   const registration: RegistrationData = {
     registrationId,
-    customerId: formState.customerId || crypto.randomUUID(),
+    customerId: formState.customerId || generateUUID(),
     parent_event_id: formState.selectedEventId || '',
     registration_type: formState.registrationType,
     payment_status: 'pending',

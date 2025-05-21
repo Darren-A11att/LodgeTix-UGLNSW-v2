@@ -17,7 +17,10 @@ export const ContactConfirmationMessage: React.FC<ContactConfirmationMessageProp
   if (!message) return null;
 
   return (
-    <Alert className="bg-blue-50 border-blue-200">
+    <Alert 
+      className="bg-blue-50 border-blue-200 contact-confirmation-message" 
+      data-preference={contactPreference}
+    >
       <InfoIcon className="h-4 w-4 text-blue-600" />
       <AlertDescription className="text-blue-900">
         {message}

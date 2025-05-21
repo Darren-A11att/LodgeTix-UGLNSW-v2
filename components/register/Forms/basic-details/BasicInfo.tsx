@@ -114,95 +114,128 @@ export const BasicInfo = React.memo<SectionProps>(({
     label: rank.label 
   }));
 
-  return (
-    <div className="space-y-6">
-      <h3 className="text-lg font-semibold">
-        {isPrimary ? 'Your Details' : 'Attendee Details'}
-      </h3>
-
-      <div className="form-grid">
-        {/* Title */}
-        <SelectField
-          label="Title"
-          name="title"
-          value={data.title || ''}
-          onChange={handleTitleChangeWithLogic}
-          options={titleOptions}
-          required={true}
-          className="field-sm"
-        />
-
-        {/* First Name */}
-        <TextField
-          label="First Name"
-          name="firstName"
-          value={data.firstName || ''}
-          onChange={(value) => onChange('firstName', value)}
-          required={true}
-          className="field-md"
-        />
-
-        {/* Last Name */}
-        <TextField
-          label="Last Name"
-          name="lastName"
-          value={data.lastName || ''}
-          onChange={(value) => onChange('lastName', value)}
-          required={true}
-          className="field-md"
-        />
-      </div>
-
-      {/* Mason-specific fields */}
-      {type === 'Mason' && (
-        <div className="form-grid">
-          <SelectField
-            label="Rank"
-            name="rank"
-            value={data.rank || ''}
-            onChange={handleRankChangeWithLogic}
-            options={rankOptions}
-            required={true}
-            className="field-md"
-          />
+  // Render Mason-specific layout
+  if (type === 'Mason') {
+    return (
+      <div className="space-y-6">
+        <div className="grid grid-cols-12 gap-4">
+          {/* Title - 2 columns */}
+          <div className="col-span-2">
+            <SelectField
+              label="Masonic Title"
+              name="title"
+              value={data.title || ''}
+              onChange={handleTitleChangeWithLogic}
+              options={titleOptions}
+              required={true}
+            />
+          </div>
           
-          {/* Suffix field could go here if needed */}
-          <TextField
-            label="Suffix"
-            name="suffix"
-            value={data.suffix || ''}
-            onChange={(value) => onChange('suffix', value)}
-            placeholder="Jr., Sr., III, etc."
-            className="field-md"
-          />
+          {/* First Name - 4 columns */}
+          <div className="col-span-5">
+            <TextField
+              label="First Name"
+              name="firstName"
+              value={data.firstName || ''}
+              onChange={(value) => onChange('firstName', value)}
+              required={true}
+            />
+          </div>
           
-          {/* Warning for title/rank mismatches */}
-          {titleRankMismatch && (
-            <div className="field-full mt-2">
-              <Alert variant="warning" className="cursor-pointer" onClick={titleRankMismatch.fix}>
-                <InfoIcon className="h-4 w-4" />
-                <AlertDescription>
-                  {titleRankMismatch.message}
-                </AlertDescription>
-              </Alert>
+          {/* Last Name - 5 columns */}
+          <div className="col-span-5">
+            <TextField
+              label="Last Name"
+              name="lastName"
+              value={data.lastName || ''}
+              onChange={(value) => onChange('lastName', value)}
+              required={true}
+            />
+          </div>
+        </div>
+        
+        <div className="grid grid-cols-12 gap-4">
+          {/* Rank - 2 columns */}
+          <div className="col-span-2">
+            <SelectField
+              label="Rank"
+              name="rank"
+              value={data.rank || ''}
+              onChange={handleRankChangeWithLogic}
+              options={rankOptions}
+              required={true}
+            />
+          </div>
+          
+          {/* Only show Suffix/Grand Rank when rank is 'GL' */}
+          {data.rank === 'GL' && (
+            <div className="col-span-5">
+              <TextField
+                label="Grand Rank"
+                name="suffix"
+                value={data.suffix || ''}
+                onChange={(value) => onChange('suffix', value)}
+                placeholder="PGRNK"
+                required={isPrimary}
+                maxLength={6}
+              />
             </div>
           )}
         </div>
-      )}
-
-      {/* Guest-specific fields */}
-      {type === 'Guest' && (
-        <div className="form-grid">
-          <TextField
-            label="Suffix"
-            name="suffix"
-            value={data.suffix || ''}
-            onChange={(value) => onChange('suffix', value)}
-            placeholder="Jr., Sr., III, etc."
-            className="field-md"
+        
+        {/* Warning for title/rank mismatches */}
+        {titleRankMismatch && (
+          <div className="col-span-12">
+            <Alert variant="destructive" className="cursor-pointer" onClick={titleRankMismatch.fix}>
+              <InfoIcon className="h-4 w-4" />
+              <AlertDescription>
+                {titleRankMismatch.message}
+              </AlertDescription>
+            </Alert>
+          </div>
+        )}
+      </div>
+    );
+  }
+  
+  // Render Guest-specific layout
+  return (
+    <div className="space-y-6">
+      <div className="grid grid-cols-12 gap-4">
+        {/* Title - 2 columns */}
+        <div className="col-span-2">
+          <SelectField
+            label="Title"
+            name="title"
+            value={data.title || ''}
+            onChange={handleTitleChangeWithLogic}
+            options={titleOptions}
+            required={true}
           />
         </div>
-      )}
+        
+        {/* First Name - 4 columns */}
+        <div className="col-span-4">
+          <TextField
+            label="First Name"
+            name="firstName"
+            value={data.firstName || ''}
+            onChange={(value) => onChange('firstName', value)}
+            required={true}
+          />
+        </div>
+        
+        {/* Last Name - 4 columns */}
+        <div className="col-span-4">
+          <TextField
+            label="Last Name"
+            name="lastName"
+            value={data.lastName || ''}
+            onChange={(value) => onChange('lastName', value)}
+            required={true}
+          />
+        </div>
+      </div>
     </div>
   );
 }, (prevProps, nextProps) => {

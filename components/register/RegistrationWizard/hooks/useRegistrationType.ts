@@ -15,7 +15,7 @@ interface RegistrationType {
 const REGISTRATION_TYPES: RegistrationType[] = [
   {
     id: 'individual',
-    title: 'Individual Registration',
+    title: 'Myself & Others',
     description: 'Register yourself and optional additional attendees',
     icon: User,
     minAttendees: 1,

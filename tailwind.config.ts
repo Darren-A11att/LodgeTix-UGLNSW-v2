@@ -18,6 +18,15 @@ const config = {
         "2xl": "1400px",
       },
     },
+    fontSize: {
+      'xs': '0.75rem',     // 12px
+      'lb': '0.625rem',    // 10px (custom size for labels)
+      'sm': '0.875rem',    // 14px
+      'base': '1rem',      // 16px
+      'lg': '1.125rem',    // 18px
+      'xl': '1.25rem',     // 20px
+      '2xl': '1.5rem',     // 24px
+    },
     extend: {
       /**
        * Form field sizing utilities
@@ -34,10 +43,10 @@ const config = {
        * <TextField className="field-full" /> - Full-width field (12 columns)
        */
       gridColumn: {
-        'field-sm': 'span 1 / span 1',  // Base size for small fields (expanded in globals.css)
-        'field-md': 'span 2 / span 2',  // Base size for medium fields (expanded in globals.css)
-        'field-lg': 'span 3 / span 3',  // Base size for large fields (expanded in globals.css)
-        'field-full': 'span 12 / span 12', // Always full width regardless of screen size
+        'field-sm': 'span 2 / span 2',  // Base size for small fields (expanded in globals.css)
+        'field-md': 'span 1 / span 2',  // Base size for medium fields (expanded in globals.css)
+        'field-lg': 'span 1 / span 3',  // Base size for large fields (expanded in globals.css)
+        'field-full': 'span 4 / span 4', // Always full width regardless of screen size
       },
       colors: {
         border: "hsl(var(--border))",
@@ -73,7 +82,7 @@ const config = {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
-        // Freemasons Victoria colors
+        // Freemasons NSW & ACT colors
         masonic: {
           navy: "#0A2240",
           gold: "#C8A870",

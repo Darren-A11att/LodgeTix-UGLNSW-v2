@@ -1,5 +1,6 @@
 import { supabase } from './supabase';
 import { User, RealtimeChannel } from '@supabase/supabase-js';
+import { generateUUID } from './uuid-slug-utils';
 
 // Ticket interface matching the database schema
 export interface TicketRecord {
@@ -60,7 +61,7 @@ interface ClientPresence {
 export class ReservationService {
   private static presenceChannel: RealtimeChannel | null = null;
   private static systemChannel: RealtimeChannel | null = null;
-  private static clientId: string = crypto.randomUUID();
+  private static clientId: string = generateUUID();
   private static activeChannels: Map<string, RealtimeChannel> = new Map();
   
   // Constants for localStorage
