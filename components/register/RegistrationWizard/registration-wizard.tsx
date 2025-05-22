@@ -240,12 +240,8 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ eventId 
       const hasExistingIncompleteRegistration = storeState.registrationType !== null && 
                                                storeState.confirmationNumber === null;
       
-      // Always start a new registration when the user clicks register
-      console.log(`Setting up event: ${eventId}, ${hasExistingIncompleteRegistration ? 'has existing draft but ignoring' : 'no draft'}`);
-      
-      // Start fresh regardless of existing registrations
-      console.log(`Starting new registration with eventId: ${eventId}`);
-      startNewRegistration('individual');
+      // Always go to registration type selection first - draft recovery happens when user selects a type
+      console.log(`Setting up event: ${eventId}, ${hasExistingIncompleteRegistration ? 'has existing draft' : 'no draft'}`);
       
       // Always set current step to 1 (Registration Type) on initial load
       setCurrentStep(1);
@@ -253,15 +249,16 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ eventId 
       setEventId(eventId);
       // Set initializing to false to proceed to the registration type step
       setIsInitializing(false);
-      // Never show modal on initial load
+      // Never show modal on initial load - it's handled in registration type step
       setShowDraftRecoveryModal(false);
     }
-  }, [eventId, setEventId, startNewRegistration, setCurrentStep]);
+  }, [eventId, setEventId, setCurrentStep]);
   
   // Handler for continuing existing draft
   const handleContinueDraft = () => {
     console.log("Continuing with existing draft registration");
     setShowDraftRecoveryModal(false);
+    setDraftRecoveryHandled(true);
     
     // Set the event ID for the existing registration if needed
     if (eventId) {
@@ -291,6 +288,7 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ eventId 
     setCurrentStep(1);
     
     setShowDraftRecoveryModal(false);
+    setDraftRecoveryHandled(true);
     
     // Initialization is complete after user makes their choice
     setIsInitializing(false);
@@ -307,6 +305,8 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ eventId 
     if (eventId) {
       setEventId(eventId);
     }
+    setCurrentStep(1);
+    setDraftRecoveryHandled(true);
     
     // Initialization is complete even if user cancels
     setIsInitializing(false);
@@ -680,9 +680,9 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ eventId 
 
   return (
     <>
-      {/* Draft Recovery Modal - always disabled in this component */}
+      {/* Draft Recovery Modal - handled by registration type step */}
       <DraftRecoveryModal 
-        isOpen={false} // Always disabled in the main wizard
+        isOpen={false}
         onClose={handleCancelRecovery}
         onContinue={handleContinueDraft}
         onStartNew={handleStartNew}

@@ -82,6 +82,7 @@ export function RegistrationTypeStep() {
     clearAllAttendees,
     addAttendee,
     updateAttendee,
+    setDraftRecoveryHandled,
   } = useRegistrationStore();
 
   // Ensure we properly initialize the selected type from the store
@@ -139,6 +140,9 @@ export function RegistrationTypeStep() {
     const currentState = useRegistrationStore.getState();
     const currentDraftType = currentState.registrationType;
     const hasExistingAttendees = currentState.attendees && currentState.attendees.length > 0;
+    const currentStep = currentState.currentStep;
+    const confirmationNumber = currentState.confirmationNumber;
+    const draftRecoveryHandled = currentState.draftRecoveryHandled;
     
     // Check if any of the attendees have data filled in
     const hasFilledData = currentState.attendees.some(attendee => 
@@ -147,53 +151,37 @@ export function RegistrationTypeStep() {
       (attendee.primaryEmail && attendee.primaryEmail.trim()) || 
       (attendee.lodgeNameNumber && attendee.lodgeNameNumber.trim()));
     
-    // New enhanced condition for determining if there's meaningful data
-    const hasExistingData = hasExistingAttendees && (currentState.currentStep > 1 || hasFilledData);
+    // Simplified draft detection:
+    // Show modal if there's an incomplete registration (draft) that hasn't been handled yet
+    const hasIncompleteDraft = currentDraftType !== null && 
+                               confirmationNumber === null && 
+                               !draftRecoveryHandled &&
+                               (hasExistingAttendees || currentStep > 1 || hasFilledData);
     
-    // Show draft modal if:
-    // 1. There's an existing registration with a different type, OR
-    // 2. There's an existing registration with the same type but with attendee data already filled
-    const isDifferentType = currentDraftType !== null && currentDraftType !== type;
-    const isSameTypeWithData = currentDraftType !== null && currentDraftType === type && hasExistingData;
-    
-    console.log("Registration type check (enhanced):", { 
+    console.log("Registration type selection check:", { 
       currentDraftType, 
       newType: type, 
       hasExistingAttendees, 
       hasFilledData,
-      hasExistingData,
-      isDifferentType,
-      isSameTypeWithData,
+      currentStep,
+      confirmationNumber,
+      draftRecoveryHandled,
+      hasIncompleteDraft,
       attendees: currentState.attendees.length
     });
     
-    // Also check localStorage directly to debug persistence issues
-    try {
-      const storageData = localStorage.getItem('lodgetix-registration-storage');
-      console.log('localStorage registration data available:', !!storageData);
-    } catch (e) {
-      console.error('Error checking localStorage:', e);
-    }
-    
-    if (isDifferentType || isSameTypeWithData) {
-      console.log("Showing draft modal - existing data detected");
+    if (hasIncompleteDraft) {
+      console.log("Showing draft modal - incomplete registration detected");
       setPendingRegistrationType(type);
       setShowDraftModal(true);
     } else {
-      console.log("No existing data or same type - proceeding with selection");
+      console.log("No incomplete draft - proceeding with selection");
       setSelectedType(type);
       storeSetRegistrationType(type);
       
-      // Check if attendees exist for this type already before initializing
-      const existingMatchingTypeAttendees = 
-        currentDraftType === type && hasExistingAttendees;
-        
-      if (!existingMatchingTypeAttendees) {
-        console.log("Initializing new attendees for type:", type);
-        initializeAttendees(type);
-      } else {
-        console.log("Keeping existing attendees for type:", type);
-      }
+      // Initialize attendees for the new type
+      console.log("Initializing new attendees for type:", type);
+      initializeAttendees(type);
       
       // Explicitly move to the next step when a registration type is selected
       const goToNextStep = useRegistrationStore.getState().goToNextStep;
@@ -203,6 +191,7 @@ export function RegistrationTypeStep() {
 
   const handleContinueDraft = () => {
     setShowDraftModal(false);
+    setDraftRecoveryHandled(true);
     
     // When continuing with a draft, always go to step 2 (attendee details)
     const currentState = useRegistrationStore.getState();
@@ -240,6 +229,7 @@ export function RegistrationTypeStep() {
 
   const handleStartNew = () => {
     setShowDraftModal(false);
+    setDraftRecoveryHandled(true);
     console.log("Starting new registration - clearing existing data");
     storeClearRegistration();
     
