@@ -8,7 +8,7 @@ interface RegistrationType {
   description: string;
   icon: React.ElementType;
   minAttendees: number;
-  defaultAttendeeType: 'Mason' | 'Guest';
+  defaultAttendeeType: "mason" | "guest";
   features: string[];
 }
 
@@ -19,7 +19,7 @@ const REGISTRATION_TYPES: RegistrationType[] = [
     description: 'Register yourself and optional additional attendees',
     icon: User,
     minAttendees: 1,
-    defaultAttendeeType: 'Mason',
+    defaultAttendeeType: "mason",
     features: [
       'Register yourself as primary attendee',
       'Add additional attendees if needed',
@@ -33,7 +33,7 @@ const REGISTRATION_TYPES: RegistrationType[] = [
     description: 'Register multiple members from the same lodge',
     icon: Building,
     minAttendees: 3,
-    defaultAttendeeType: 'Mason',
+    defaultAttendeeType: "mason",
     features: [
       'Minimum 3 lodge members required',
       'Shared lodge details for all members',
@@ -47,7 +47,7 @@ const REGISTRATION_TYPES: RegistrationType[] = [
     description: 'Register a Grand Lodge or official delegation',
     icon: Shield,
     minAttendees: 1,
-    defaultAttendeeType: 'Mason',
+    defaultAttendeeType: "mason",
     features: [
       'Structured delegation roles',
       'Grand Officer designations',
@@ -71,7 +71,7 @@ export const useRegistrationType = () => {
 
   const getDefaultAttendeeType = useCallback(() => {
     const config = getTypeConfig();
-    return config?.defaultAttendeeType || 'Guest';
+    return config?.defaultAttendeeType || "guest";
   }, [getTypeConfig]);
 
   const getTypeFeatures = useCallback(() => {

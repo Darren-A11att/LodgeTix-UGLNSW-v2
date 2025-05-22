@@ -15,7 +15,7 @@ export interface Event extends Partial<EventType> {
   eventEnd?: string;         // ISO date string
   
   location: string;          // Event location (required)
-  imageUrl: string;          // Image URL (required)
+  image_url: string;          // Image URL (required)
   price: string;             // Formatted price with currency symbol
   
   // Optional fields
@@ -104,8 +104,8 @@ export const getEvents = (): Event[] => {
       // Date and time fields (both formats for compatibility)
       date: "October 10, 2023",
       time: "19:00",
-      eventStart: "2023-10-10T19:00:00.000Z",
-      eventEnd: "2023-10-10T21:30:00.000Z",
+      event_start: "2023-10-10T19:00:00.000Z",
+      event_end: "2023-10-10T21:30:00.000Z",
       
       // Location
       location: "Harmony Lodge No. 123, Manchester",
@@ -121,7 +121,7 @@ export const getEvents = (): Event[] => {
       longitude: -2.2426,
       
       // Image and pricing
-      imageUrl: "/placeholder.svg?height=200&width=400",
+      image_url: "/placeholder.svg?height=200&width=400",
       imageSrc: "/placeholder.svg?height=200&width=400",
       price: "£20",
       
@@ -147,11 +147,11 @@ export const getEvents = (): Event[] => {
       revenue: "£640",
       
       // Metadata
-      createdAt: "2023-06-01T12:00:00.000Z",
-      updatedAt: "2023-06-10T14:30:00.000Z",
-      isMultiDay: false,
-      isPurchasableIndividually: true,
-      maxAttendees: 100,
+      created_at: "2023-06-01T12:00:00.000Z",
+      updated_at: "2023-06-10T14:30:00.000Z",
+      is_multi_day: false,
+      is_purchasable_individually: true,
+      max_attendees: 100,
       
       // Additional information
       organizer: "Harmony Lodge No. 123",
@@ -162,12 +162,12 @@ export const getEvents = (): Event[] => {
       },
       
       // Content arrays
-      importantInformation: [
+      important_information: [
         "Candidates must arrive 1 hour early",
         "Dark suit is mandatory",
         "Bring valid Masonic ID"
       ],
-      eventIncludes: [
+      event_includes: [
         "Ceremony attendance",
         "Festive board dinner",
         "Ritual book"
@@ -206,8 +206,8 @@ export const getEvents = (): Event[] => {
       // Date and time fields
       date: "September 25, 2023",
       time: "18:30",
-      eventStart: "2023-09-25T18:30:00.000Z",
-      eventEnd: "2023-09-25T21:00:00.000Z",
+      event_start: "2023-09-25T18:30:00.000Z",
+      event_end: "2023-09-25T21:00:00.000Z",
       
       // Location
       location: "Wisdom Lodge No. 456, Birmingham",
@@ -223,7 +223,7 @@ export const getEvents = (): Event[] => {
       longitude: -1.8904,
       
       // Image and pricing
-      imageUrl: "/placeholder.svg?height=200&width=400",
+      image_url: "/placeholder.svg?height=200&width=400",
       imageSrc: "/placeholder.svg?height=200&width=400",
       price: "£15",
       
@@ -241,11 +241,11 @@ export const getEvents = (): Event[] => {
       revenue: "£675",
       
       // Metadata
-      createdAt: "2023-06-15T10:20:00.000Z",
-      updatedAt: "2023-07-05T16:15:00.000Z",
-      isMultiDay: false,
-      isPurchasableIndividually: true,
-      maxAttendees: 75,
+      created_at: "2023-06-15T10:20:00.000Z",
+      updated_at: "2023-07-05T16:15:00.000Z",
+      is_multi_day: false,
+      is_purchasable_individually: true,
+      max_attendees: 75,
       
       // Additional information
       organizer: "Research Lodge of Birmingham",
@@ -256,12 +256,12 @@ export const getEvents = (): Event[] => {
       },
       
       // Content arrays
-      importantInformation: [
+      important_information: [
         "Open to Master Masons only",
         "Bring a notebook",
         "Questions encouraged"
       ],
-      eventIncludes: [
+      event_includes: [
         "Three lectures",
         "Q&A session",
         "Refreshments",
@@ -303,8 +303,8 @@ export const getEvents = (): Event[] => {
       // Date and time fields
       date: "October 5, 2023",
       time: "19:00",
-      eventStart: "2023-10-05T19:00:00.000Z",
-      eventEnd: "2023-10-05T23:30:00.000Z",
+      event_start: "2023-10-05T19:00:00.000Z",
+      event_end: "2023-10-05T23:30:00.000Z",
       
       // Location
       location: "Grand Hotel, Edinburgh",
@@ -320,7 +320,7 @@ export const getEvents = (): Event[] => {
       longitude: -3.1883,
       
       // Image and pricing
-      imageUrl: "/placeholder.svg?height=200&width=400",
+      image_url: "/placeholder.svg?height=200&width=400",
       imageSrc: "/placeholder.svg?height=200&width=400",
       price: "£75",
       
@@ -342,11 +342,11 @@ export const getEvents = (): Event[] => {
       revenue: "£0",
       
       // Metadata
-      createdAt: "2023-07-10T09:30:00.000Z",
-      updatedAt: "2023-07-10T09:30:00.000Z",
-      isMultiDay: false,
-      isPurchasableIndividually: true,
-      maxAttendees: 200,
+      created_at: "2023-07-10T09:30:00.000Z",
+      updated_at: "2023-07-10T09:30:00.000Z",
+      is_multi_day: false,
+      is_purchasable_individually: true,
+      max_attendees: 200,
       
       // Additional information
       organizer: "Edinburgh Provincial Grand Lodge",
@@ -357,12 +357,12 @@ export const getEvents = (): Event[] => {
       },
       
       // Content arrays
-      importantInformation: [
+      important_information: [
         "Pre-booking required by September 20th",
         "Dietary requirements must be specified in advance",
         "Photography allowed"
       ],
-      eventIncludes: [
+      event_includes: [
         "Welcome drinks reception",
         "3-course dinner",
         "Live band entertainment",
@@ -402,8 +402,8 @@ export const getEvents = (): Event[] => {
       // Date and time fields
       date: "November 15, 2023",
       time: "17:30",
-      eventStart: "2023-11-15T17:30:00.000Z",
-      eventEnd: "2023-11-15T22:00:00.000Z",
+      event_start: "2023-11-15T17:30:00.000Z",
+      event_end: "2023-11-15T22:00:00.000Z",
       
       // Location
       location: "Masonic Hall, Manchester",
@@ -419,7 +419,7 @@ export const getEvents = (): Event[] => {
       longitude: -2.2426,
       
       // Image and pricing
-      imageUrl: "/placeholder.svg?height=400&width=800",
+      image_url: "/placeholder.svg?height=400&width=800",
       imageSrc: "/placeholder.svg?height=400&width=800",
       price: "£30",
       
@@ -443,11 +443,11 @@ export const getEvents = (): Event[] => {
       revenue: "£1,350",
       
       // Metadata
-      createdAt: "2023-08-01T11:00:00.000Z",
-      updatedAt: "2023-09-10T15:45:00.000Z",
-      isMultiDay: false,
-      isPurchasableIndividually: true,
-      maxAttendees: 100,
+      created_at: "2023-08-01T11:00:00.000Z",
+      updated_at: "2023-09-10T15:45:00.000Z",
+      is_multi_day: false,
+      is_purchasable_individually: true,
+      max_attendees: 100,
       
       // Additional information
       organizer: "Harmony Lodge No. 123",
@@ -458,12 +458,12 @@ export const getEvents = (): Event[] => {
       },
       
       // Content arrays
-      importantInformation: [
+      important_information: [
         "Tyling at 17:30 sharp",
         "Visiting brethren must have valid Masonic ID",
         "Festive board includes wine"
       ],
-      eventIncludes: [
+      event_includes: [
         "Installation ceremony",
         "Festive board dinner",
         "Commemorative program"
@@ -500,8 +500,8 @@ export const getEvents = (): Event[] => {
       // Date and time fields
       date: "May 15-17, 2025",
       time: "10:00",
-      eventStart: "2025-05-15T10:00:00.000Z",
-      eventEnd: "2025-05-17T14:00:00.000Z",
+      event_start: "2025-05-15T10:00:00.000Z",
+      event_end: "2025-05-17T14:00:00.000Z",
       
       // Location
       location: "Sydney Masonic Centre, Sydney",
@@ -517,7 +517,7 @@ export const getEvents = (): Event[] => {
       longitude: 151.2091,
       
       // Image and pricing
-      imageUrl: "/placeholder.svg?height=400&width=800",
+      image_url: "/placeholder.svg?height=400&width=800",
       imageSrc: "/placeholder.svg?height=400&width=800",
       price: "£75",
       
@@ -541,11 +541,11 @@ export const getEvents = (): Event[] => {
       revenue: "£0",
       
       // Metadata
-      createdAt: "2024-01-15T09:00:00.000Z",
-      updatedAt: "2024-02-20T14:30:00.000Z",
-      isMultiDay: true,
-      isPurchasableIndividually: true,
-      maxAttendees: 500,
+      created_at: "2024-01-15T09:00:00.000Z",
+      updated_at: "2024-02-20T14:30:00.000Z",
+      is_multi_day: true,
+      is_purchasable_individually: true,
+      max_attendees: 500,
       
       // Additional information
       organizer: "United Grand Lodge of NSW & ACT",
@@ -557,12 +557,12 @@ export const getEvents = (): Event[] => {
       },
       
       // Content arrays
-      importantInformation: [
+      important_information: [
         "Registration required by April 30, 2025",
         "Delegations must be registered together",
         "International visitors should contact the Grand Secretary's office"
       ],
-      eventIncludes: [
+      event_includes: [
         "Installation ceremony attendance",
         "Official program and commemorative gift",
         "Access to live streaming for international Brethren unable to attend"
@@ -601,7 +601,7 @@ export const getEvents = (): Event[] => {
       
       // Related events
       related_events: ["d290f1ee-6c54-4b01-90e6-d701748f0854"],
-      parentEventId: null,
+      parent_event_id: null,
       
       // Tickets
       tickets: [

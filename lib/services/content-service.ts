@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase';
+import { getBrowserClient } from '@/lib/supabase-singleton';
 
 export type AboutContent = {
   id: string;
@@ -33,6 +33,7 @@ export async function getAboutContent(): Promise<AboutContent[]> {
   // This function assumes a 'content' table exists
   // If it doesn't exist, you would need to create it first
   try {
+    const supabase = getBrowserClient();
     const { data, error } = await supabase
       .from('content')
       .select('*')
@@ -56,6 +57,7 @@ export async function getAboutContent(): Promise<AboutContent[]> {
  */
 export async function getAboutFeatures(): Promise<AboutFeature[]> {
   try {
+    const supabase = getBrowserClient();
     const { data, error } = await supabase
       .from('content_features')
       .select('*')
@@ -79,6 +81,7 @@ export async function getAboutFeatures(): Promise<AboutFeature[]> {
  */
 export async function getAboutValues(): Promise<AboutValue[]> {
   try {
+    const supabase = getBrowserClient();
     const { data, error } = await supabase
       .from('content_values')
       .select('*')

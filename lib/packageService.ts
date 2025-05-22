@@ -4,10 +4,10 @@ import { generateUUID } from './uuid-slug-utils';
 
 // Package reservation interface
 export interface PackageReservation {
-  packageId: string;
-  reservationId: string;
+  package_id: string;
+  reservation_id: string;
   expiresAt: string;
-  parentEventId: string;
+  parent_event_id: string;
 }
 
 export interface PackageReservationResult {
@@ -30,7 +30,7 @@ export class PackageService {
    * Uses the atomic reservation functions to ensure capacity integrity
    */
   static async reservePackage(
-    packageId: string
+    package_id: string
   ): Promise<PackageReservationResult> {
     try {
       if (!packageId || packageId.trim() === '') {
@@ -99,7 +99,7 @@ export class PackageService {
         packageId,
         reservationId,
         expiresAt,
-        parentEventId: packageData.parent_event_id
+        parent_event_id: packageData.parent_event_id
       };
       
       // Store the reservation for persistence
@@ -122,8 +122,8 @@ export class PackageService {
    * Complete package reservation after payment
    */
   static async completePackageReservation(
-    packageId: string,
-    reservationId: string
+    package_id: string,
+    reservation_id: string
   ): Promise<PackageReservationResult> {
     try {
       // Call the confirm_package_purchase function
@@ -157,7 +157,7 @@ export class PackageService {
    * Cancel a package reservation
    */
   static async cancelPackageReservation(
-    packageId: string
+    package_id: string
   ): Promise<boolean> {
     try {
       // Call the release_package_reservation function
@@ -183,7 +183,7 @@ export class PackageService {
    * Get package availability
    */
   static async getPackageAvailability(
-    packageId: string
+    package_id: string
   ): Promise<{ available: number; reserved: number; sold: number; max: number }> {
     try {
       if (!packageId) {
@@ -221,7 +221,7 @@ export class PackageService {
    * Subscribe to package availability changes
    */
   static subscribeToPackageAvailabilityChanges(
-    packageId: string,
+    package_id: string,
     callback: (counts: { available: number; reserved: number; sold: number; max: number }) => void
   ): { unsubscribe: () => void } {
     if (!packageId) {

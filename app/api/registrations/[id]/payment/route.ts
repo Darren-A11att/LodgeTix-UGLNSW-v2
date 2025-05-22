@@ -54,16 +54,16 @@ export async function PUT(
     
     // Log the exact database query we're about to perform for debugging
     console.log("DB Operation: Looking up registration with exact query:");
-    console.log(`table("Registrations").select("*").eq("registrationId", "${registrationId}").single()`);
+    console.log(`from("Registrations").select("*").eq("registration_id", "${registrationId}").single()`);
     
     // Check if registration exists - query with tracing
     console.log("Looking up registration with ID:", registrationId);
     console.log("Executing Supabase query using actual schema names: supabase.from(\"Registrations\").select(\"*\").eq(\"registrationId\", registrationId).single()");
     
     const { data: existingRegistration, error: findError } = await supabase
-      .from("Registrations")
+      .from("registrations")
       .select("*")
-      .eq("registrationId", registrationId)
+      .eq("registration_id", registrationId)
       .single();
     
     if (findError) {
@@ -91,10 +91,10 @@ export async function PUT(
     // Prepare update data with actual schema column names
     const updateData = {
       status: status,
-      paymentStatus: paymentStatus,
-      totalAmountPaid: totalAmount,
-      stripePaymentIntentId: paymentIntentId,
-      updatedAt: new Date().toISOString()
+      payment_status: paymentStatus,
+      total_amount_paid: totalAmount,
+      stripe_payment_intent_id: paymentIntentId,
+      updated_at: new Date().toISOString()
     };
     
     console.log("Update data:", JSON.stringify(updateData, null, 2));
@@ -102,9 +102,9 @@ export async function PUT(
     // Update registration record
     console.log("Executing update query using actual schema names: supabase.from(\"Registrations\").update(updateData).eq(\"registrationId\", registrationId)");
     const { data: updatedRegistration, error: updateError } = await supabase
-      .from("Registrations")
+      .from("registrations")
       .update(updateData)
-      .eq("registrationId", registrationId)
+      .eq("registration_id", registrationId)
       .select()
       .single();
     
@@ -119,22 +119,31 @@ export async function PUT(
     }
     
     // Also update related tickets to 'confirmed' status
+    // TODO: This section needs review. The link between registrations and tickets is unclear.
+    // The previous .eq("registration_id", registrationId) or .eq("registration_id", registrationId) on "Tickets" table is likely incorrect
+    // as "Tickets" table does not have a direct registrationId FK according to Tickets.sql.
+    // Commenting out this block to prevent errors until the correct linking logic is implemented.
+    /*
     console.log("Updating tickets for registration:", registrationId);
     const { error: ticketUpdateError } = await supabase
-      .from("Tickets")
+      .from("tickets") 
       .update({ 
-        status: "confirmed", 
-        updatedat: new Date().toISOString() 
+        status: "confirmed", // 'status' is lowercase in Tickets.sql
+        updatedat: new Date().toISOString() // 'updatedat' is lowercase in Tickets.sql
       })
-      .eq("registrationId", registrationId);
+      // This .eq() clause needs to use the correct column(s) from "Tickets" that link to a registration
+      // For example, if linked via eventid and a specific attendee tied to the registration:
+      // .eq("eventid", existingRegistration.event_id) 
+      // .eq("attendeeid", existingRegistration.primary_attendee_id) // Assuming primaryAttendeeId is the link
+      .eq("some_linking_column_placeholder", registrationId); // Replace with actual logic
     
     if (ticketUpdateError) {
-      console.warn("Error updating tickets:", ticketUpdateError);
-      console.log("Error details:", JSON.stringify(ticketUpdateError, null, 2));
-      // Continue despite ticket update error
+      console.warn("Error updating tickets (logic needs review):", ticketUpdateError);
+      console.log("Error details (ticket update):", JSON.stringify(ticketUpdateError, null, 2));
     } else {
-      console.log("Tickets updated successfully");
+      console.log("Tickets update attempted (review logic)");
     }
+    */
     
     // Also verify payment status using the Stripe FDW
     try {
@@ -168,7 +177,7 @@ export async function PUT(
       success: true,
       registrationId,
       confirmationNumber,
-      registrationData: updatedRegistration
+      registration_data: updatedRegistration
     });
   } catch (error: any) {
     console.error("Error updating registration payment:", error);
@@ -192,76 +201,73 @@ export async function GET(
     console.log("Registration ID:", registrationId);
     
     // First, check if registration exists
-    const { data: existingRegistration, error: findError } = await supabase
-      .from("Registrations")
+    const { data: existingRegistrationData, error: findError } = await supabase
+      .from("registrations")
       .select("*")
-      .eq("registrationId", registrationId)
+      .eq("registration_id", registrationId)
       .single();
     
     if (findError) {
-      console.error("Database error when checking registration:", findError);
+      console.error("Database error when looking for registration (GET):", findError);
       console.groupEnd();
       return NextResponse.json(
         { error: `Registration not found: ${findError.message}` },
         { status: 404 }
       );
     }
-    
-    if (!existingRegistration) {
-      console.error("Registration not found - no error but empty result");
+
+    if (!existingRegistrationData) {
+      console.error("Registration not found in database (GET) - no error but empty result");
       console.groupEnd();
       return NextResponse.json(
-        { error: "Registration not found - record does not exist" },
+        { error: "Registration not found - record does not exist (GET)" },
         { status: 404 }
       );
     }
     
-    console.log("Found registration:", JSON.stringify(existingRegistration, null, 2));
-    
-    // Use the Stripe FDW to get real-time payment status from Stripe
+    console.log("Found registration (GET):", JSON.stringify(existingRegistrationData, null, 2));
+
+    // Store the fetched registration data to use its fields
+    const currentRegistration = existingRegistrationData;
+
+    // Verify payment through Stripe FDW
     let stripePaymentData = null;
-    
-    if (existingRegistration.stripePaymentIntentId) {
-      try {
-        console.log("Checking real-time payment status from Stripe FDW...");
-        const { data: fdwData, error: fdwError } = await supabase
-          .rpc('check_payment_intent_status', { 
-            payment_intent_id: existingRegistration.stripePaymentIntentId 
-          });
-          
-        if (fdwError) {
-          console.warn("Warning: Unable to check Stripe payment status:", fdwError);
-        } else {
-          stripePaymentData = fdwData;
-          console.log("Real-time Stripe payment data:", stripePaymentData);
-          
-          // If there's a mismatch between our DB and Stripe, log it
-          if (stripePaymentData && 
-              ((stripePaymentData.status === 'succeeded' && existingRegistration.paymentStatus !== 'completed') ||
-               (stripePaymentData.status !== 'succeeded' && existingRegistration.paymentStatus === 'completed'))) {
-            console.warn("Warning: Payment status mismatch between database and Stripe!");
-            console.warn(`Database: ${existingRegistration.paymentStatus}, Stripe: ${stripePaymentData.status}`);
-          }
+    if (currentRegistration && currentRegistration.stripe_payment_intent_id) {
+      console.log("Verifying payment through Stripe FDW for intent:", currentRegistration.stripe_payment_intent_id);
+      const { data: fdwData, error: fdwError } = await supabase
+        .rpc('check_payment_intent_status', { payment_intent_id: currentRegistration.stripe_payment_intent_id });
+
+      if (fdwError) {
+        console.warn("Warning: Unable to verify payment through Stripe FDW (GET):", fdwError);
+      } else {
+        stripePaymentData = fdwData;
+        console.log("Stripe payment verification result (GET):", stripePaymentData);
+        
+        // If there's a mismatch between our DB and Stripe, log it
+        if (stripePaymentData && 
+           ((stripePaymentData.status === 'succeeded' && currentRegistration.payment_status !== 'completed') ||
+            (stripePaymentData.status !== 'succeeded' && currentRegistration.payment_status === 'completed'))) {
+          console.warn("Warning: Payment status mismatch between database and Stripe! (GET)");
+          console.warn(`Database: ${currentRegistration.payment_status}, Stripe: ${stripePaymentData.status}`);
         }
-      } catch (stripeCheckError) {
-        console.warn("Error checking Stripe payment status:", stripeCheckError);
       }
+    } else {
+      console.log("No Stripe payment intent ID found on registration or registration not found (GET). Skipping Stripe FDW check.");
     }
     
+    console.log("Registration status check complete (GET)");
     console.groupEnd();
     
     return NextResponse.json({
       success: true,
       registrationId,
-      paymentStatus: existingRegistration.paymentStatus,
-      status: existingRegistration.status,
-      stripePaymentIntentId: existingRegistration.stripePaymentIntentId,
-      // Include the live Stripe payment data if available
+      payment_status: currentRegistration.payment_status,
+      status: currentRegistration.status,
+      stripe_payment_intent_id: currentRegistration.stripe_payment_intent_id,
       stripePaymentData: stripePaymentData
     });
-    
   } catch (error: any) {
-    console.error("Error checking registration:", error);
+    console.error("Error checking registration payment status (GET):", error);
     console.groupEnd();
     return NextResponse.json(
       { error: `Failed to check registration: ${error.message}` },

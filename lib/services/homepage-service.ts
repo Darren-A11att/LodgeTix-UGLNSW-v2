@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase';
+import { getBrowserClient } from '@/lib/supabase-singleton';
 import { api } from '@/lib/api-logger';
 import { formatEventDate, formatEventTime } from '@/lib/event-facade';
 
@@ -10,8 +10,9 @@ const GRAND_INSTALLATION_ID = '307c2d85-72d5-48cf-ac94-082ca2a5d23d';
  */
 export async function getGrandInstallationEvent() {
   try {
+    const supabase = getBrowserClient();
     const { data, error } = await supabase
-      .from('Events')
+      .from("events")
       .select('*')
       .eq('id', GRAND_INSTALLATION_ID)
       .single();
@@ -33,12 +34,13 @@ export async function getGrandInstallationEvent() {
  */
 export async function getEventTimeline() {
   try {
+    const supabase = getBrowserClient();
     const { data, error } = await supabase
-      .from('Events')
+      .from("events")
       .select('*')
-      .eq('parentEventId', GRAND_INSTALLATION_ID)
+      .eq("parent_event_id", GRAND_INSTALLATION_ID)
       .eq('featured', true)
-      .order('eventStart', { ascending: true })
+      .order("event_start", { ascending: true })
       .limit(3);
 
     if (error) {
@@ -58,11 +60,12 @@ export async function getEventTimeline() {
  */
 export async function getFeaturedEvents() {
   try {
+    const supabase = getBrowserClient();
     const { data, error } = await supabase
-      .from('Events')
+      .from("events")
       .select('*')
       .eq('featured', true)
-      .order('eventStart', { ascending: true })
+      .order("event_start", { ascending: true })
       .limit(3);
 
     if (error) {
@@ -84,12 +87,12 @@ function transformEventData(data: any) {
   if (!data) return null;
 
   const formattedDate = formatEventDate({
-    eventStart: data.eventStart,
+    event_start: data.event_start,
     date: data.date
   });
 
   const formattedTime = formatEventTime({
-    eventStart: data.eventStart,
+    event_start: data.event_start,
     time: data.time
   });
 
@@ -101,7 +104,7 @@ function transformEventData(data: any) {
     description: data.description,
     organiser: data.organiser || data.organizer_name,
     location: data.location,
-    imageUrl: data.imageUrl,
+    image_url: data.image_url,
     date: formattedDate,
     time: formattedTime,
     price: data.price ? `$${data.price}` : "$0"

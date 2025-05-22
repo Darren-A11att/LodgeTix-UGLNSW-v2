@@ -1,74 +1,141 @@
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { Database } from '@/supabase/types';
 
-// Use environment variables for configuration
+// Client-side configuration (publicly available)
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+// Server-side configuration (should be kept secret)
+const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 // Map of DB table names for consistent access after the snake_case migration
 // The tables have been renamed from PascalCase to snake_case
 export const DB_TABLE_NAMES = {
   // Old PascalCase/camelCase names mapping to new snake_case names
   Events: 'events',
-  DisplayScopes: 'display_scopes',
-  EventDays: 'event_days',
+  DisplayScopes: 'displayscopes',
   Customers: 'customers',
-  Masons: 'masons',
-  Guests: 'guests',
-  Contacts: 'contacts',
   Registrations: 'registrations',
   Tickets: 'tickets',
-  MasonicProfiles: 'masonic_profiles',
-  TicketDefinitions: 'ticket_definitions',
+  Attendees: 'attendees',
+  AttendeeEvents: 'attendeeevents',
+  EventTickets: 'eventtickets',
+  EventPackages: 'eventpackages',
+  EventPackageTickets: 'eventpackagetickets',
+  MasonicProfiles: 'masonicprofiles',
+  OrganisationMemberships: 'organisationmemberships',
   
   // Also include the snake_case versions mapping to themselves for consistency
   events: 'events',
-  display_scopes: 'display_scopes',
-  event_days: 'event_days',
+  displayscopes: 'displayscopes',
   customers: 'customers',
-  masons: 'masons',
-  guests: 'guests',
-  contacts: 'contacts',
   registrations: 'registrations',
   tickets: 'tickets',
-  masonic_profiles: 'masonic_profiles',
-  ticket_definitions: 'ticket_definitions'
+  attendees: 'attendees',
+  attendeeevents: 'attendeeevents',
+  eventtickets: 'eventtickets',
+  eventpackages: 'eventpackages',
+  eventpackagetickets: 'eventpackagetickets',
+  masonicprofiles: 'masonicprofiles',
+  organisationmemberships: 'organisationmemberships'
 };
 
 // Verify that environment variables are correctly loaded
 if (!supabaseUrl || !supabaseAnonKey) {
-  console.error('Missing Supabase environment variables. Check your .env file.');
+  console.error('Missing Supabase public environment variables. Check your .env file (NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY).');
   // Consider throwing an error or handling this case more robustly
   // depending on your application's needs.
 }
 
-// Create and export the Supabase client
-// Add a type assertion or check to satisfy TypeScript if needed, 
-// especially if strict null checks are enabled.
-export const supabase = createClient(
-  supabaseUrl!, 
-  supabaseAnonKey!,
-  {
-    auth: {
-      autoRefreshToken: true,
-      persistSession: true,
-      detectSessionInUrl: true,
+// Client-side Supabase client (uses ANON key)
+
+// Ensure a single instance of Supabase client in development (HMR)
+let supabaseSingleton: SupabaseClient | null = null;
+
+if (typeof window !== 'undefined') { // Ensure this only runs on the client-side
+  if (process.env.NODE_ENV === 'development') {
+    // @ts-ignore
+    if (!global._supabaseClient) {
+      // @ts-ignore
+      global._supabaseClient = createClient<Database>(
+        supabaseUrl!,
+        supabaseAnonKey!,
+        {
+          auth: {
+            autoRefreshToken: true,
+            persistSession: true,
+            detectSessionInUrl: true,
+          }
+        }
+      );
+      console.log("New Supabase client created and attached to global for HMR.");
     }
-    // Important: Supabase API uses the actual table names as defined in the database
-    // Our tables are now in snake_case, and column names have also been migrated to snake_case
+    // @ts-ignore
+    supabaseSingleton = global._supabaseClient;
+  } else {
+    // In production, or if not in development, just create it normally if not already done
+    if (!supabaseSingleton) {
+      supabaseSingleton = createClient<Database>(
+        supabaseUrl!,
+        supabaseAnonKey!,
+        {
+          auth: {
+            autoRefreshToken: true,
+            persistSession: true,
+            detectSessionInUrl: true,
+          }
+        }
+      );
+    }
   }
-);
+}
+
+export const supabase = supabaseSingleton!;
+
+// Server-side Supabase client (uses SERVICE_ROLE key for admin operations)
+// This client should ONLY be used in server-side code (e.g., API routes)
+let supabaseAdminSingleton: SupabaseClient | null = null;
+
+export const getSupabaseAdmin = () => {
+  if (supabaseAdminSingleton) {
+    return supabaseAdminSingleton;
+  }
+
+  if (!supabaseUrl) {
+    console.error('CRITICAL: Missing Supabase URL for admin client.');
+    throw new Error('Supabase URL is not configured for admin client.');
+  }
+  if (!supabaseServiceRoleKey) {
+    console.error('CRITICAL: Missing Supabase Service Role Key for admin client. Ensure SUPABASE_SERVICE_ROLE_KEY is set in your server environment.');
+    // In a production environment, you might want to throw an error or have a more robust fallback.
+    // For now, we'll log the error and the app might not function correctly regarding admin DB operations.
+    throw new Error('Supabase Service Role Key is not configured.'); 
+  }
+
+  supabaseAdminSingleton = createClient<Database>(supabaseUrl, supabaseServiceRoleKey, {
+    auth: {
+      autoRefreshToken: false, // Not needed for service role
+      persistSession: false    // Not needed for service role
+    }
+  });
+  console.log("Supabase Admin client initialized.");
+  return supabaseAdminSingleton;
+};
 
 /**
  * Helper function to get a Supabase query with the correct table name casing
  * This provides a consistent interface after the DB migration to snake_case tables
+ * 
+ * IMPORTANT: This function uses the CLIENT-SIDE (anon key) Supabase instance.
+ * For server-side admin operations, use `getSupabaseAdmin().from(...)` directly.
  * 
  * IMPORTANT: Our database tables have been migrated from PascalCase to snake_case.
  * When using this function:
  * 1. Table names will be normalized to their proper snake_case version
  *    (e.g., "Registrations" or "registrations" -> "registrations")
  * 2. Column names have also been migrated to snake_case and must match the schema
- *    - Old: "registrationId" -> New: "registration_id"
- *    - Old: "firstName" -> New: "first_name"
+ *    - Old: "registration_id" -> New: "registration_id"
+ *    - Old: "first_name" -> New: "first_name"
  * 
  * Example:
  *   // Correct (uses snake_case for both table and column names)

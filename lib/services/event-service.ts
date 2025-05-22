@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
-import { DB_TABLE_NAMES } from '@/lib/supabase'
+import { DB_TABLE_NAMES } from '@/lib/supabase-singleton'
+import { Database } from '@/supabase/types'
 import { notFound } from 'next/navigation'
 
 // Server-side Supabase client - uses service role key
@@ -11,7 +12,7 @@ const getServerSupabase = () => {
     throw new Error('Missing Supabase environment variables')
   }
 
-  return createClient(supabaseUrl, supabaseServiceRoleKey, {
+  return createClient<Database>(supabaseUrl, supabaseServiceRoleKey, {
     auth: {
       autoRefreshToken: false,
       persistSession: false,
@@ -63,10 +64,10 @@ export async function getEventByIdOrSlug(idOrSlug: string): Promise<Event | null
   const supabase = getServerSupabase()
   
   let query = supabase
-    .from(DB_TABLE_NAMES.events)
+    .from('events')
     .select(`
       *,
-      tickets:${DB_TABLE_NAMES.tickets}(*)
+      tickets:Tickets(*)
     `)
   
   // Check if it's a UUID
@@ -89,21 +90,21 @@ export async function getEventByIdOrSlug(idOrSlug: string): Promise<Event | null
     slug: data.slug,
     title: data.title,
     description: data.description,
-    date: data.date,
-    location: data.location,
+    date: data.event_start ? new Date(data.event_start).toISOString().split('T')[0] : '',
+    location: data.location || '',
     imageUrl: data.image_url || '/placeholder.svg',
-    price: data.price || '$0',
-    organizer: data.organizer,
-    category: data.category,
-    status: data.status,
-    ticketsSold: data.tickets_sold,
-    revenue: data.revenue,
+    price: data.price ? `$${data.price}` : '$0',
+    organizer: data.organizer_name,
+    category: data.type,
+    status: data.is_published ? "Published" : "Draft",
+    ticketsSold: 0, // Not available in current schema
+    revenue: '$0', // Not available in current schema
     dressCode: data.dress_code,
     regalia: data.regalia,
     degreeType: data.degree_type,
     tickets: data.tickets,
-    longDescription: data.long_description,
-    time: data.time
+    longDescription: data.description,
+    time: data.event_start ? new Date(data.event_start).toLocaleTimeString() : ''
   }
 }
 
@@ -111,10 +112,10 @@ export async function getEventTickets(eventId: string): Promise<Ticket[]> {
   const supabase = getServerSupabase()
   
   const { data, error } = await supabase
-    .from(DB_TABLE_NAMES.tickets)
+    .from('Tickets')
     .select('*')
-    .eq('event_id', eventId)
-    .order('price', { ascending: true })
+    .eq('eventid', eventId)
+    .order('pricepaid', { ascending: true })
   
   if (error) {
     console.error('Error fetching tickets:', error)
@@ -128,10 +129,10 @@ export async function getPublishedEvents(): Promise<Event[]> {
   const supabase = getServerSupabase()
   
   const { data, error } = await supabase
-    .from(DB_TABLE_NAMES.events)
+    .from('events')
     .select('*')
-    .eq('status', 'Published')
-    .order('date', { ascending: true })
+    .eq('is_published', true)
+    .order('event_start', { ascending: true })
   
   if (error) {
     console.error('Error fetching events:', error)
@@ -143,19 +144,19 @@ export async function getPublishedEvents(): Promise<Event[]> {
     slug: event.slug,
     title: event.title,
     description: event.description,
-    date: event.date,
-    location: event.location,
+    date: event.event_start ? new Date(event.event_start).toISOString().split('T')[0] : '',
+    location: event.location || '',
     imageUrl: event.image_url || '/placeholder.svg',
-    price: event.price || '$0',
-    organizer: event.organizer,
-    category: event.category,
-    status: event.status,
-    ticketsSold: event.tickets_sold,
-    revenue: event.revenue,
+    price: event.price ? `$${event.price}` : '$0',
+    organizer: event.organizer_name,
+    category: event.type,
+    status: event.is_published ? "Published" : "Draft",
+    ticketsSold: 0, // Not available in current schema
+    revenue: '$0', // Not available in current schema
     dressCode: event.dress_code,
     regalia: event.regalia,
     degreeType: event.degree_type,
-    longDescription: event.long_description,
-    time: event.time
+    longDescription: event.description,
+    time: event.event_start ? new Date(event.event_start).toLocaleTimeString() : ''
   }))
 }

@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useEffect, Suspense, lazy } from 'react'
+import React, { useState, useEffect, useCallback, Suspense, lazy } from 'react'
 import { useRegistrationStore, selectCurrentStep, selectRegistrationType, selectConfirmationNumber, selectAttendees, selectLastSaved, selectDraftId, selectDraftRecoveryHandled } from '../../../lib/registrationStore'
 import { RegistrationStepIndicator } from "./Shared/registration-step-indicator"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -456,6 +456,70 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ eventId 
     goToPrevStep()
   }
 
+  // Function to save registration data
+  const saveRegistrationData = useCallback(async () => {
+    try {
+      console.log("📝 Saving registration data to server...")
+      
+      // Get the current state from the store
+      const storeState = useRegistrationStore.getState()
+      
+      const registrationData = {
+        registrationType: storeState.registrationType,
+        primaryAttendee: storeState.attendees.find(att => att.isPrimary),
+        additionalAttendees: storeState.attendees.filter(att => !att.isPrimary),
+        tickets: storeState.attendees.flatMap(attendee => {
+          if (!attendee.ticket) return []
+          const { ticketDefinitionId, selectedEvents } = attendee.ticket
+          
+          if (ticketDefinitionId) {
+            return [{
+              id: `${attendee.attendeeId}-${ticketDefinitionId}`,
+              attendeeId: attendee.attendeeId,
+              ticketDefinitionId,
+              isPackage: true,
+              price: 0 // Will be calculated server-side
+            }]
+          } else if (selectedEvents) {
+            return selectedEvents.map(eventId => ({
+              id: `${attendee.attendeeId}-${eventId}`,
+              attendeeId: attendee.attendeeId,
+              eventTicketId: eventId,
+              isPackage: false,
+              price: 0 // Will be calculated server-side
+            }))
+          }
+          return []
+        }),
+        totalAmount: 0, // Will be calculated server-side
+        eventId: eventId,
+        billingDetails: storeState.billingDetails
+      }
+      
+      console.log("📤 Sending registration data:", registrationData)
+      
+      const response = await fetch('/api/registrations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(registrationData)
+      })
+      
+      const result = await response.json()
+      
+      if (!response.ok) {
+        console.error("❌ Registration save failed:", result)
+        throw new Error(result.error || 'Failed to save registration')
+      }
+      
+      console.log("✅ Registration saved successfully:", result)
+      return result
+      
+    } catch (error: any) {
+      console.error("❌ Error saving registration:", error)
+      throw error
+    }
+  }, [eventId])
+
   // useEffect to reset agreeToTerms if user goes back from a step after AttendeeDetails
   // This is just an example of managing shared state across steps.
   // useEffect(() => {
@@ -554,7 +618,7 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ eventId 
       case 5:
         return (
           <Suspense fallback={<StepLoadingFallback />}>
-            <PaymentStep />
+            <PaymentStep onSaveData={saveRegistrationData} />
           </Suspense>
         )
       case 6:

@@ -8,6 +8,7 @@
 
 import { PostgrestFilterBuilder } from '@supabase/postgrest-js';
 import { createClient } from '@supabase/supabase-js';
+import { Database } from '@/supabase/types';
 
 // Table name mapping (PascalCase to snake_case)
 export const tableNameMap: Record<string, string> = {
@@ -158,7 +159,7 @@ export function getTableName(pascalCaseTableName: string): string {
  * @returns A Supabase client adapter
  */
 export function createAdaptedClient(supabaseUrl: string, supabaseKey: string) {
-  const supabase = createClient(supabaseUrl, supabaseKey);
+  const supabase = createClient<Database>(supabaseUrl, supabaseKey);
   
   // Override the from method to use snake_case table names
   const originalFrom = supabase.from;

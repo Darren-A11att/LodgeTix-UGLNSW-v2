@@ -394,12 +394,12 @@ function filterUpcomingEvents(events: Event[], limit: number): Event[] {
   
   return events
     .filter(event => {
-      const eventDate = new Date(event.date || event.eventStart)
+      const eventDate = new Date(event.date || event.event_start)
       return eventDate > now
     })
     .sort((a, b) => {
-      const dateA = new Date(a.date || a.eventStart)
-      const dateB = new Date(b.date || b.eventStart)
+      const dateA = new Date(a.date || a.event_start)
+      const dateB = new Date(b.date || b.event_start)
       return dateA.getTime() - dateB.getTime()
     })
     .slice(0, limit)
@@ -443,7 +443,7 @@ export function getEventUrl(event: Event): string {
  * Helper to format event date
  */
 export function formatEventDate(event: Event): string {
-  const date = event.date || event.eventStart
+  const date = event.date || event.event_start
   if (!date) return 'Date TBD'
   
   try {
@@ -464,7 +464,7 @@ export function formatEventDate(event: Event): string {
  * Helper to format event time
  */
 export function formatEventTime(event: Event): string {
-  const time = event.time || event.eventStart
+  const time = event.time || event.event_start
   if (!time) return 'Time TBD'
   
   if (event.time && typeof event.time === 'string' && !event.time.includes('T')) {
@@ -491,49 +491,49 @@ export function formatEventTime(event: Event): string {
  * @param parentEventId UUID of the parent event
  * @param bypassCache Force a fresh fetch, bypassing cache
  */
-export async function getRelatedEvents(parentEventId: string, bypassCache: boolean = false): Promise<Event[]> {
+export async function getRelatedEvents(parent_event_id: string, bypassCache: boolean = false): Promise<Event[]> {
   // Sanitize input
-  if (!parentEventId) {
-    api.warn('getRelatedEvents called with empty parentEventId');
+  if (!parent_event_id) {
+    api.warn('getRelatedEvents called with empty parent_event_id');
     return [];
   }
   
-  const cacheKey = `related_${parentEventId}`;
+  const cacheKey = `related_${parent_event_id}`;
   
   // Check cache first unless bypass is requested
   if (!bypassCache && cache.eventsByCategory[cacheKey] && isCacheValid(cache.eventsByCategory[cacheKey])) {
-    api.debug(`Returning cached related events for parentEventId: ${parentEventId}`);
+    api.debug(`Returning cached related events for parent_event_id: ${parent_event_id}`);
     return cache.eventsByCategory[cacheKey].data;
   }
 
   if (USE_EVENTS_SCHEMA) {
     try {
-      api.debug(`Fetching related events for parentEventId: ${parentEventId} from Supabase`);
+      api.debug(`Fetching related events for parent_event_id: ${parent_event_id} from Supabase`);
       const eventService = getNewEventService()
-      const events = await eventService.getRelatedEvents(parentEventId)
+      const events = await eventService.getRelatedEvents(parent_event_id)
       
       // Update cache
       cache.eventsByCategory[cacheKey] = setCacheItem(cache.eventsByCategory[cacheKey], events);
       
       return events;
     } catch (error) {
-      api.error(`Error fetching related events for parentEventId: ${parentEventId} from events schema:`, error);
+      api.error(`Error fetching related events for parent_event_id: ${parent_event_id} from events schema:`, error);
       api.info('Falling back to hard-coded related events');
       
       // Fallback implementation for related events if DB lookup fails
       // For hard-coded events, we don't have a proper related_events implementation
       // so we just return events with the same category as a best-effort approach
       const allEvents = getHardCodedEvents();
-      const parentEvent = allEvents.find(event => event.id === parentEventId);
+      const parentEvent = allEvents.find(event => event.id === parent_event_id);
       
       if (!parentEvent) {
-        api.warn(`Parent event not found for ID: ${parentEventId}`);
+        api.warn(`Parent event not found for ID: ${parent_event_id}`);
         return [];
       }
       
       const filtered = allEvents.filter(event => 
-        event.id !== parentEventId && // Not the parent itself
-        (event.category === parentEvent.category || event.parentEventId === parentEventId)
+        event.id !== parent_event_id && // Not the parent itself
+        (event.category === parentEvent.category || event.parent_event_id === parent_event_id)
       );
       
       // Cache the fallback result too
@@ -543,19 +543,19 @@ export async function getRelatedEvents(parentEventId: string, bypassCache: boole
     }
   }
   
-  api.debug(`Using hard-coded related events for parentEventId: ${parentEventId} (feature flag off)`);
+  api.debug(`Using hard-coded related events for parent_event_id: ${parent_event_id} (feature flag off)`);
   // Hard-coded implementation similar to fallback
   const allEvents = getHardCodedEvents();
-  const parentEvent = allEvents.find(event => event.id === parentEventId);
+  const parentEvent = allEvents.find(event => event.id === parent_event_id);
   
   if (!parentEvent) {
-    api.warn(`Parent event not found for ID: ${parentEventId}`);
+    api.warn(`Parent event not found for ID: ${parent_event_id}`);
     return [];
   }
   
   const filtered = allEvents.filter(event => 
-    event.id !== parentEventId && // Not the parent itself
-    (event.category === parentEvent.category || event.parentEventId === parentEventId)
+    event.id !== parent_event_id && // Not the parent itself
+    (event.category === parentEvent.category || event.parent_event_id === parent_event_id)
   );
   
   // Update cache

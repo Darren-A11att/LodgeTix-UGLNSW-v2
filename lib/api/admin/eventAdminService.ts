@@ -23,8 +23,8 @@ export interface EventCreateRequest {
   title: string;
   slug: string;
   description?: string;
-  eventStart: string; // ISO date string
-  eventEnd: string;   // ISO date string
+  event_start: string; // ISO date string
+  event_end: string;   // ISO date string
   location?: string;
   latitude?: number;
   longitude?: number;
@@ -82,7 +82,7 @@ export class EventAdminService extends AdminApiService {
       const { data: childEvents } = await this.client
         .from(supabaseTables.events)
         .select('*')
-        .eq('parentEventId', id);
+        .eq("parent_event_id", id);
       
       // Combine into detailed response
       const eventDetails: AdminEventDetails = {
@@ -132,7 +132,7 @@ export class EventAdminService extends AdminApiService {
       const { data: childEvents } = await this.client
         .from(supabaseTables.events)
         .select('id')
-        .eq('parentEventId', id);
+        .eq("parent_event_id", id);
       
       if (childEvents && childEvents.length > 0) {
         return { 
@@ -165,7 +165,7 @@ export class EventAdminService extends AdminApiService {
   /**
    * Get event capacity details
    */
-  async getEventCapacity(eventId: string): Promise<AdminApiResponse<DbEventCapacity>> {
+  async getEventCapacity(event_id: string): Promise<AdminApiResponse<DbEventCapacity>> {
     try {
       const { data, error } = await this.client
         .from('event_capacity')
@@ -193,7 +193,7 @@ export class EventAdminService extends AdminApiService {
    * Create event capacity record
    */
   private async createEventCapacity(
-    eventId: string, 
+    event_id: string, 
     capacityData: EventCapacityUpdate
   ): Promise<AdminApiResponse<DbEventCapacity>> {
     try {
@@ -223,7 +223,7 @@ export class EventAdminService extends AdminApiService {
    * Update event capacity
    */
   async updateEventCapacity(
-    eventId: string, 
+    event_id: string, 
     capacityData: EventCapacityUpdate
   ): Promise<AdminApiResponse<DbEventCapacity>> {
     try {
@@ -257,7 +257,7 @@ export class EventAdminService extends AdminApiService {
   /**
    * Get ticket definitions for an event
    */
-  async getEventTicketDefinitions(eventId: string): Promise<AdminApiResponse<TicketTypes.TicketDefinitionType[]>> {
+  async getEventTicketDefinitions(event_id: string): Promise<AdminApiResponse<TicketTypes.TicketDefinitionType[]>> {
     try {
       const { data, error } = await this.client
         .from(supabaseTables.ticketDefinitions)

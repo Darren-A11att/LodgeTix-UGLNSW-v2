@@ -142,7 +142,10 @@ export function RegistrationTypeStep() {
     
     // Check if any of the attendees have data filled in
     const hasFilledData = currentState.attendees.some(attendee => 
-      attendee.firstName || attendee.lastName || attendee.primaryEmail || attendee.lodgeNameNumber);
+      (attendee.firstName && attendee.firstName.trim()) || 
+      (attendee.lastName && attendee.lastName.trim()) || 
+      (attendee.primaryEmail && attendee.primaryEmail.trim()) || 
+      (attendee.lodgeNameNumber && attendee.lodgeNameNumber.trim()));
     
     // New enhanced condition for determining if there's meaningful data
     const hasExistingData = hasExistingAttendees && (currentState.currentStep > 1 || hasFilledData);
@@ -221,10 +224,12 @@ export function RegistrationTypeStep() {
       initializeAttendees(registrationType);
     }
     
-    // Always move to step 2 (attendee details) when continuing a draft
+    // Resume at the saved step or move to step 2 (attendee details) when continuing a draft
     const setCurrentStep = useRegistrationStore.getState().setCurrentStep;
-    setCurrentStep(2);
-    console.log("Moving to attendee details for existing draft");
+    const savedStep = currentState.currentStep;
+    const targetStep = savedStep > 1 ? savedStep : 2;
+    setCurrentStep(targetStep);
+    console.log(`Moving to step ${targetStep} for existing draft (was at step ${savedStep})`);
     
     // Ensure the store has the current state before proceeding
     // This helps fix race conditions with localStorage rehydration

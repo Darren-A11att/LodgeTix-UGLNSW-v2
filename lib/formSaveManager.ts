@@ -65,7 +65,7 @@ export const formSaveManager = {
           // Only process if it's a real field and we have an update function
           if (store && store.updateAttendee) {
             // Skip empty-to-empty updates to reduce noise
-            const attendee = store.attendees.find(a => a.attendeeId === attendeeId);
+            const attendee = store.attendees.find(a => a.attendee_id === attendeeId);
             
             // Only update if value actually changed
             if (attendee && (attendee[fieldName as keyof typeof attendee] !== fieldValue)) {
@@ -182,12 +182,12 @@ function saveContactPreferences() {
       const preferenceValue = element.value;
       
       // Check if this is different from the store
-      const attendee = store.attendees.find(a => a.attendeeId === attendeeId);
+      const attendee = store.attendees.find(a => a.attendee_id === attendeeId);
       if (attendee && attendee.contactPreference !== preferenceValue) {
         console.log(`[FormSaveManager] Updating contact preference for ${attendeeId} to ${preferenceValue}`);
         
-        // Clear email/phone if not 'Directly'
-        if (preferenceValue !== 'Directly') {
+        // Clear email/phone if not "directly"
+        if (preferenceValue !== "directly") {
           store.updateAttendee(attendeeId, { 
             contactPreference: preferenceValue,
             primaryEmail: '',

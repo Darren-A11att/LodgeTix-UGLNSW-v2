@@ -12,7 +12,7 @@ export async function GET(
     console.log("Registration ID:", registrationId);
     
     // Get registration data
-    const { data: registration, error: registrationError } = await table("Registrations")
+    const { data: registration, error: registrationError } = await table("registrations")
       .select("*")
       .eq("registration_id", registrationId)
       .single();
@@ -27,7 +27,7 @@ export async function GET(
     }
     
     // Get attendees
-    const { data: attendees, error: attendeesError } = await table("Attendees")
+    const { data: attendees, error: attendeesError } = await table("attendees")
       .select("*")
       .eq("registration_id", registrationId);
     
@@ -36,7 +36,7 @@ export async function GET(
     }
     
     // Get tickets
-    const { data: tickets, error: ticketsError } = await table("Tickets")
+    const { data: tickets, error: ticketsError } = await table("tickets")
       .select("*")
       .in("attendee_id", attendees?.map(a => a.attendee_id) || []);
     

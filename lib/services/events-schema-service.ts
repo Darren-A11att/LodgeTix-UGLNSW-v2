@@ -13,7 +13,7 @@ interface EventsSchemaRow {
   eventStart: string // Using existing camelCase column names
   eventEnd?: string
   location: string
-  location_json?: any // Structured location data
+  locationid?: string // Reference to location record
   type?: string
   category?: string
   degree_type?: string
@@ -139,7 +139,7 @@ export class EventsSchemaService {
       api.debug(`Fetching event by ${isUUID ? 'UUID' : 'slug'}: ${idOrSlug}`);
       
       let query = this.supabase
-        .from('Events') // Use existing Events table with Pascal case
+        .from("events") // Use snake_case table name
         .select('*')
         .single();
       
@@ -188,10 +188,10 @@ export class EventsSchemaService {
       // Old schema used 'featured' or 'status' to determine published state
       // New schema uses is_published column
       const { data, error } = await this.supabase
-        .from('Events') // Use existing Events table with Pascal case
+        .from("events") // Use snake_case table name
         .select('*')
         .or('is_published.eq.true, featured.eq.true')
-        .order('eventStart', { ascending: true });
+        .order("event_start", { ascending: true });
       
       if (error) {
         api.error('Error fetching published events:', error);
@@ -227,10 +227,10 @@ export class EventsSchemaService {
       api.debug('Fetching featured events');
       
       const { data, error } = await this.supabase
-        .from('Events') // Use existing Events table with Pascal case
+        .from("events") // Use snake_case table name
         .select('*')
         .eq('featured', true)
-        .order('eventStart', { ascending: true })
+        .order("event_start", { ascending: true })
         .limit(3);
       
       if (error) {
@@ -273,10 +273,10 @@ export class EventsSchemaService {
       api.debug(`Fetching events for category: ${category}`);
       
       const { data, error } = await this.supabase
-        .from('Events') // Use existing Events table with Pascal case
+        .from("events") // Use snake_case table name
         .select('*')
-        .eq('category', category)
-        .order('eventStart', { ascending: true });
+        .eq('type', category)
+        .order("event_start", { ascending: true });
       
       if (error) {
         api.error(`Error fetching events for category ${category}:`, error);
@@ -319,10 +319,10 @@ export class EventsSchemaService {
       api.debug(`Fetching upcoming events from ${now}, limit: ${limit}`);
       
       const { data, error } = await this.supabase
-        .from('Events') // Use existing Events table with Pascal case
+        .from("events") // Use snake_case table name
         .select('*')
-        .gte('eventStart', now)
-        .order('eventStart', { ascending: true })
+        .gte("event_start", now)
+        .order("event_start", { ascending: true })
         .limit(limit);
       
       if (error) {
@@ -348,10 +348,10 @@ export class EventsSchemaService {
   /**
    * Get related events
    */
-  async getRelatedEvents(eventId: string): Promise<EventType[]> {
+  async getRelatedEvents(event_id: string): Promise<EventType[]> {
     // Validate input
-    if (!eventId) {
-      api.warn('getRelatedEvents called with empty eventId');
+    if (!event_id) {
+      api.warn('getRelatedEvents called with empty event_id');
       return [];
     }
     
@@ -362,48 +362,48 @@ export class EventsSchemaService {
     }
     
     try {
-      api.debug(`Fetching related events for eventId: ${eventId}`);
+      api.debug(`Fetching related events for event_id: ${event_id}`);
       
       // First get the event and its related events array
       const { data: event, error: eventError } = await this.supabase
-        .from('Events') // Use existing Events table with Pascal case
+        .from("events") // Use snake_case table name
         .select('related_events')
-        .eq('id', eventId)
+        .eq('id', event_id)
         .single();
       
       if (eventError) {
-        api.error(`Error fetching event ${eventId} for related events:`, eventError);
+        api.error(`Error fetching event ${event_id} for related events:`, eventError);
         throw eventError;
       }
       
       if (!event || !event.related_events || !Array.isArray(event.related_events) || event.related_events.length === 0) {
-        api.debug(`No related events found for eventId: ${eventId}`);
+        api.debug(`No related events found for event_id: ${event_id}`);
         return [];
       }
       
       // Fetch the related events
       const { data, error } = await this.supabase
-        .from('Events') // Use existing Events table with Pascal case
+        .from("events") // Use snake_case table name
         .select('*')
         .in('id', event.related_events)
-        .order('eventStart', { ascending: true });
+        .order("event_start", { ascending: true });
       
       if (error) {
-        api.error(`Error fetching related events for eventId ${eventId}:`, error);
+        api.error(`Error fetching related events for event_id ${event_id}:`, error);
         throw error;
       }
       
       if (!data || data.length === 0) {
-        api.warn(`Related events array exists but no related events found for eventId: ${eventId}`);
+        api.warn(`Related events array exists but no related events found for event_id: ${event_id}`);
         return [];
       }
       
       const transformedEvents = data.map(e => this.transformEvent(e));
-      api.debug(`Successfully transformed ${transformedEvents.length} related events for eventId: ${eventId}`);
+      api.debug(`Successfully transformed ${transformedEvents.length} related events for event_id: ${event_id}`);
       
       return transformedEvents;
     } catch (error) {
-      api.error(`Error in getRelatedEvents for eventId ${eventId}:`, error);
+      api.error(`Error in getRelatedEvents for event_id ${event_id}:`, error);
       throw error;
     }
   }
@@ -436,10 +436,10 @@ export class EventsSchemaService {
       api.debug(`Searching events for query: ${sanitizedQuery}`);
       
       const { data, error } = await this.supabase
-        .from('Events') // Use existing Events table with Pascal case
+        .from("events") // Use snake_case table name
         .select('*')
         .or(`title.ilike.%${sanitizedQuery}%,description.ilike.%${sanitizedQuery}%,location.ilike.%${sanitizedQuery}%`)
-        .order('eventStart', { ascending: true });
+        .order("event_start", { ascending: true });
       
       if (error) {
         api.error(`Error searching events for query "${sanitizedQuery}":`, error);
@@ -473,9 +473,8 @@ export class EventsSchemaService {
         throw new Error('Invalid event data received');
       }
       
-      // Get location data from either location_json (new) or location (old)
+      // Get location data from location field
       const locationName = 
-        data.location_json?.name || 
         data.location || 
         DEFAULT_EVENT_VALUES.location;
       
@@ -509,14 +508,14 @@ export class EventsSchemaService {
         description: isValidValue(data.description) ? data.description : DEFAULT_EVENT_VALUES.description,
         
         // Date/time fields with validation
-        eventStart: data.eventStart,
-        eventEnd: data.eventEnd || null,
+        event_start: data.eventStart,
+        event_end: data.eventEnd || null,
         date: dateString,
         time: timeString,
         
         // Location handling
         location: locationName,
-        locationDetails: data.location_json,
+        locationDetails: null, // Location details would come from joined location table
         latitude: data.latitude || null,
         longitude: data.longitude || null,
         
@@ -526,20 +525,20 @@ export class EventsSchemaService {
         featured: !!data.featured, // Convert to boolean
         
         // UI-specific fields
-        imageUrl: isValidValue(data.imageUrl) ? data.imageUrl : null,
-        imageSrc: isValidValue(data.imageUrl) ? data.imageUrl : null, // Alias for compatibility
+        image_url: isValidValue(data.imageUrl) ? data.imageUrl: null,
+        imageSrc: isValidValue(data.imageUrl) ? data.imageUrl: null, // Alias for compatibility
         
         // Metadata fields
-        createdAt: data.createdAt,
-        isMultiDay: !!data.isMultiDay,
-        parentEventId: isValidValue(data.parentEventId) ? data.parentEventId : null,
+        created_at: data.createdAt,
+        is_multi_day: !!data.isMultiDay,
+        parent_event_id: isValidValue(data.parentEventId) ? data.parentEventId: null,
         
         // Content fields with array validation
-        eventIncludes: Array.isArray(data.eventIncludes) ? data.eventIncludes : null,
-        importantInformation: Array.isArray(data.importantInformation) ? data.importantInformation : null,
+        event_includes: Array.isArray(data.eventIncludes) ? data.eventIncludes: null,
+        important_information: Array.isArray(data.importantInformation) ? data.importantInformation: null,
         
         // Status and feature flags
-        isPurchasableIndividually: !!data.isPurchasableIndividually,
+        is_purchasable_individually: !!data.isPurchasableIndividually,
         isPublished: data.is_published !== undefined ? !!data.is_published : !!data.featured,
         status: data.is_published ? "Published" : "Draft",
         
@@ -580,23 +579,23 @@ export class EventsSchemaService {
         slug: data?.slug || 'error-event',
         title: DEFAULT_EVENT_VALUES.title,
         description: DEFAULT_EVENT_VALUES.description,
-        eventStart: data?.eventStart || new Date().toISOString(),
-        eventEnd: null,
+        event_start: data?.eventStart || new Date().toISOString(),
+        event_end: null,
         location: DEFAULT_EVENT_VALUES.location,
         date: DEFAULT_EVENT_VALUES.date,
         time: DEFAULT_EVENT_VALUES.time,
-        createdAt: data?.createdAt || new Date().toISOString(),
+        created_at: data?.createdAt || new Date().toISOString(),
         status: DEFAULT_EVENT_VALUES.status,
         featured: false,
-        imageUrl: null,
+        image_url: null,
         type: null,
-        isMultiDay: false,
-        parentEventId: null,
-        eventIncludes: null,
-        importantInformation: null,
+        is_multi_day: false,
+        parent_event_id: null,
+        event_includes: null,
+        important_information: null,
         latitude: null,
         longitude: null,
-        isPurchasableIndividually: false
+        is_purchasable_individually: false
       };
     }
   }

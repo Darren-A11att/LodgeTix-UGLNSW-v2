@@ -53,11 +53,11 @@ export class CustomerAdminService extends AdminApiService {
       const { data: registrations } = await this.client
         .from(supabaseTables.registrations)
         .select('*')
-        .eq('customerId', id);
+        .eq("customer_id", id);
       
       // Calculate total spent
       const totalSpent = registrations?.reduce(
-        (sum, reg) => sum + (reg.totalAmountPaid || 0), 
+        (sum, reg) => sum + (reg.total_amount_paid || 0), 
         0
       ) || 0;
       
@@ -89,13 +89,13 @@ export class CustomerAdminService extends AdminApiService {
   /**
    * Get registrations for a customer
    */
-  async getCustomerRegistrations(customerId: string): Promise<AdminApiResponse<DbRegistration[]>> {
+  async getCustomerRegistrations(customer_id: string): Promise<AdminApiResponse<DbRegistration[]>> {
     try {
       const { data, error } = await this.client
         .from(supabaseTables.registrations)
         .select('*')
-        .eq('customerId', customerId)
-        .order('createdAt', { ascending: false });
+        .eq("customer_id", customerId)
+        .order("created_at", { ascending: false });
       
       if (error) {
         return { data: null, error: new Error(error.message) };
@@ -161,13 +161,13 @@ export class CustomerAdminService extends AdminApiService {
       // Count new customers in last 30 days
       const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString();
       const newCustomersLast30Days = allCustomers?.filter(c => 
-        c.createdAt && c.createdAt >= thirtyDaysAgo
+        c.created_at && c.created_at >= thirtyDaysAgo
       ).length || 0;
       
       // Get all registrations
       const { data: registrationData, error: regError } = await this.client
         .from(supabaseTables.registrations)
-        .select('customerId, totalAmountPaid');
+        "customer_id";
       
       if (regError) {
         return { data: null, error: new Error(regError.message) };
@@ -177,12 +177,12 @@ export class CustomerAdminService extends AdminApiService {
       const customerRegistrations: Record<string, { count: number, spent: number }> = {};
       
       registrationData?.forEach(reg => {
-        const customerId = reg.customerId;
+        const customerId = reg.customer_id;
         if (!customerRegistrations[customerId]) {
           customerRegistrations[customerId] = { count: 0, spent: 0 };
         }
         customerRegistrations[customerId].count++;
-        customerRegistrations[customerId].spent += (reg.totalAmountPaid || 0);
+        customerRegistrations[customerId].spent += (reg.total_amount_paid || 0);
       });
       
       const customerCount = Object.keys(customerRegistrations).length || 1; // Avoid division by zero

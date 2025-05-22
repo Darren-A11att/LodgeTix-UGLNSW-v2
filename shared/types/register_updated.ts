@@ -21,23 +21,25 @@ import { generateUUID } from '@/lib/uuid-slug-utils';
 
 /**
  * Type of attendee in the registration system
+ * Updated to match new lowercase database enum values
  */
 export enum AttendeeType {
-  Mason = 'Mason',
-  Guest = 'Guest', 
-  LadyPartner = 'LadyPartner',
-  GuestPartner = 'GuestPartner'
+  Mason = 'mason',
+  Guest = 'guest', 
+  LadyPartner = 'ladypartner',
+  GuestPartner = 'guestpartner'
 }
 
 /**
  * Contact preference for attendees
+ * Updated to match new lowercase database enum values
  */
 export enum ContactPreference {
-  Directly = 'Directly',
-  PrimaryAttendee = 'PrimaryAttendee',
-  Mason = 'Mason', // For lady partners
-  Guest = 'Guest', // For guest partners
-  ProvideLater = 'ProvideLater'
+  Directly = 'directly',
+  PrimaryAttendee = 'primaryattendee',
+  Mason = 'mason', // For lady partners
+  Guest = 'guest', // For guest partners
+  ProvideLater = 'providelater'
 }
 
 /**

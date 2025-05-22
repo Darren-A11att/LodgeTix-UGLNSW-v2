@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRegistrationStore, UnifiedAttendeeData, BillingDetailsType } from '../../../../lib/registrationStore';
@@ -8,6 +8,8 @@ import {
   billingDetailsSchema, 
   type BillingDetails as FormBillingDetailsSchema,
 } from "@/lib/billing-details-schema";
+import { supabase } from "@/lib/supabase"; // Import Supabase client
+import TurnstileWidget from '@/components/TurnstileWidget'; // Import TurnstileWidget
 
 import { Button } from "@/components/ui/button";
 import { Form } from "@/components/ui/form";
@@ -42,7 +44,13 @@ declare global {
   }
 }
 
-function PaymentStep() {
+// Props interface for PaymentStep
+interface PaymentStepProps {
+  onSaveData?: () => Promise<{ success: boolean; registrationId?: string; error?: string }>;
+  onFormSubmit?: (data: any) => void;
+}
+
+function PaymentStep(props: PaymentStepProps = {}) {
   // Store state from Zustand
   const allStoreAttendees = useRegistrationStore((s) => s.attendees);
   const registrationType = useRegistrationStore((s) => s.registrationType);
@@ -112,7 +120,15 @@ function PaymentStep() {
   const [isPaymentIntentLoading, setIsPaymentIntentLoading] = useState(false);
   const [paymentIntentError, setPaymentIntentError] = useState<string | null>(null);
   const [isPaymentIntentReady, setIsPaymentIntentReady] = useState(false);
-  const [registrationSaved, setRegistrationSaved] = useState(false);
+  const [confirmedRegistrationId, setConfirmedRegistrationId] = useState<string | null>(null);
+
+  // New state variables for Turnstile and Anonymous Auth
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const [isVerifyingTurnstileAndAuth, setIsVerifyingTurnstileAndAuth] = useState(false);
+  const [turnstileAuthError, setTurnstileAuthError] = useState<string | null>(null);
+  const [anonymousSessionInitiated, setAnonymousSessionInitiated] = useState(false);
+  const [showTurnstile, setShowTurnstile] = useState(false); // Control when to show the widget
+  const [currentSupabaseSession, setCurrentSupabaseSession] = useState<any>(null); // To store session info
 
   // Calculate total amount from derived tickets
   const totalAmount = useMemo(() => 
@@ -180,149 +196,182 @@ function PaymentStep() {
     }
   }, [totalAmount]);
 
-  // Effect to fetch payment intent when totalAmount changes
+  // Check for existing Supabase session on mount
   useEffect(() => {
-    console.log("💰 Payment Intent Effect - totalAmount:", totalAmount);
-    console.log("💰 Current client secret status:", clientSecret ? "exists" : "null");
-    
-    if (totalAmount > 0) {
-      setIsPaymentIntentLoading(true);
-      setIsPaymentIntentReady(false);
-      setPaymentIntentError(null);
-      setClientSecret(null);
-
-      // Schedule creation with small delay to avoid duplicate requests from fast re-renders
-      const timeoutId = setTimeout(() => {
-        createPaymentIntent();
-      }, 300);
-      
-      return () => clearTimeout(timeoutId);
-    } else {
-      console.log("💰 Total amount is zero or negative, not creating payment intent");
-      setClientSecret(null);
-      setIsPaymentIntentLoading(false);
-      setPaymentIntentError(null);
-      setIsPaymentIntentReady(false);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [totalAmount]); // Only depend on totalAmount changes
-
-  // Handle successful payment
-  const handleSuccessfulPayment = async (paymentIntentId: string, stripeBillingDetailsUsed: StripeBillingDetailsForClient) => {
-    setIsProcessingPayment(false);
-    setIsSubmittingOrder(true);
-    setSubmissionError(null);
-
-    const currentFormValues = form.getValues();
-    const billingDataForStore: BillingDetailsType = {
-      firstName: currentFormValues.firstName,
-      lastName: currentFormValues.lastName,
-      email: currentFormValues.emailAddress,
-      phone: currentFormValues.mobileNumber,
-      addressLine1: currentFormValues.addressLine1,
-      city: currentFormValues.suburb, 
-      stateProvince: currentFormValues.stateTerritory?.name || '',
-      postalCode: currentFormValues.postcode,
-      country: currentFormValues.country?.isoCode || '',
+    const checkSession = async () => {
+      const { data: { session }, error } = await supabase.auth.getSession();
+      if (error) {
+        console.error("Error fetching Supabase session:", error);
+        setTurnstileAuthError("Could not check user session.");
+      } else if (session) {
+        console.log("Existing Supabase session found:", session.user.id, "Is anonymous:", session.user.is_anonymous);
+        setCurrentSupabaseSession(session);
+        setAnonymousSessionInitiated(true); // Treat existing session as initiated
+        setShowTurnstile(false); // No need for Turnstile if already session
+      } else {
+        console.log("No existing Supabase session. Turnstile might be needed.");
+        setShowTurnstile(true); // Show Turnstile if no session
+      }
     };
-    updateStoreBillingDetails(billingDataForStore);
-    
+    checkSession();
+  }, []);
+
+  const handleTurnstileToken = async (token: string) => {
+    setTurnstileToken(token);
+    setIsVerifyingTurnstileAndAuth(true);
+    setTurnstileAuthError(null);
+
     try {
-      console.group("📝 Payment Success - Updating Registration");
-      console.log("Payment Intent ID:", paymentIntentId);
-      
-      // Try to get registration ID from multiple possible sources for resilience
-      let registrationId;
-      let source = "unknown";
-      
-      // Define UUID validation regex
-      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-      
-      // Check which IDs we have available
-      if (window.__registrationResult?.registrationId) {
-        console.log(`Validating window.__registrationResult.registrationId: ${window.__registrationResult.registrationId}`);
-        const isValidUuid = uuidRegex.test(window.__registrationResult.registrationId);
-        console.log(`Valid UUID format? ${isValidUuid}`);
-        
-        if (isValidUuid) {
-          registrationId = window.__registrationResult.registrationId;
-          source = "window.__registrationResult (UUID validated)";
-        } else {
-          console.warn("Registration ID from window.__registrationResult is not a valid UUID");
-        }
-      }
-      
-      // If we don't have a valid UUID yet, try the dedicated ID property
-      if (!registrationId && window.__registrationId) {
-        console.log(`Validating window.__registrationId: ${window.__registrationId}`);
-        const isValidUuid = uuidRegex.test(window.__registrationId);
-        console.log(`Valid UUID format? ${isValidUuid}`);
-        
-        if (isValidUuid) {
-          registrationId = window.__registrationId;
-          source = "window.__registrationId (UUID validated)";
-        } else {
-          console.warn("Registration ID from window.__registrationId is not a valid UUID");
-        }
-      }
-      
-      // Still no valid UUID - this is likely an error case
-      if (!registrationId) {
-        throw new Error("No valid UUID registration ID found. Registration may not have been saved properly.");
-      }
-      
-      console.log(`Registration ID (from ${source}):`, registrationId);
-      
-      // Prepare payment update data
-      const paymentUpdateData = {
-        paymentIntentId,
-        totalAmount,
-        status: 'paid',
-        paymentStatus: 'completed',
-      };
-      console.log("Payment Update Data:", JSON.stringify(paymentUpdateData, null, 2));
-      
-      // Calculate the API URL
-      const updateUrl = `/api/registrations/${registrationId}/payment`;
-      console.log("PUT URL:", updateUrl);
-      
-      // Update the registration in Supabase with payment information
-      const response = await fetch(updateUrl, {
-        method: 'PUT',
+      const response = await fetch('/api/verify-turnstile-and-anon-auth', {
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(paymentUpdateData),
+        body: JSON.stringify({ token }),
       });
 
-      console.log("Response Status:", response.status);
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        console.error("API Error Response:", errorData);
-        throw new Error(errorData.error || `Failed to update registration: ${response.statusText}`);
+      const result = await response.json();
+
+      if (result.success && result.anonymousAuthUser) {
+        console.log('Turnstile verified and anonymous Supabase session initiated:', result.anonymousAuthUser.id);
+        setAnonymousSessionInitiated(true);
+        setShowTurnstile(false); // Hide Turnstile after success
+        // Re-check session to ensure Supabase client picks it up
+        const { data: { session } } = await supabase.auth.getSession();
+        setCurrentSupabaseSession(session);
+      } else {
+        console.error('Turnstile/Auth API call failed:', result.error, result.errorCodes);
+        setTurnstileAuthError(result.error || 'Turnstile verification or anonymous sign-in failed.');
+        // Potentially reset Turnstile widget here if needed, or allow user to retry
+        window.turnstile?.reset?.('turnstile-widget-container');
+        setTurnstileToken(null); // Reset token so user can try again
+      }
+    } catch (error: any) {
+      console.error('Error calling verify-turnstile-and-anon-auth:', error);
+      setTurnstileAuthError('An unexpected error occurred during verification.');
+      window.turnstile?.reset?.('turnstile-widget-container');
+      setTurnstileToken(null);
+    } finally {
+      setIsVerifyingTurnstileAndAuth(false);
+    }
+  };
+
+  // Modify the payment intent creation effect
+  useEffect(() => {
+    console.log("EFFECT: Payment Intent Creation Logic RUNNING");
+    console.log("EFFECT: totalAmount:", totalAmount);
+    console.log("EFFECT: clientSecret:", clientSecret ? "exists" : "null");
+    console.log("EFFECT: anonymousSessionInitiated:", anonymousSessionInitiated);
+    console.log("EFFECT: currentSupabaseSession:", currentSupabaseSession ? "exists" : "null");
+    console.log("EFFECT: isVerifyingTurnstileAndAuth:", isVerifyingTurnstileAndAuth);
+
+    if (totalAmount > 0) {
+      if (anonymousSessionInitiated) {
+        console.log("EFFECT: CONDITION MET - Attempting to create payment intent.");
+        setIsPaymentIntentLoading(true);
+        setIsPaymentIntentReady(false);
+        setPaymentIntentError(null);
+        setClientSecret(null); // Reset client secret before creating a new one
+
+        const timeoutId = setTimeout(() => {
+          console.log("EFFECT: Timeout triggered, calling createPaymentIntent()");
+          createPaymentIntent();
+        }, 300);
+        
+        return () => {
+          console.log("EFFECT: Cleanup function for payment intent timeout.");
+          clearTimeout(timeoutId);
+        };
+      } else {
+        console.log("EFFECT: CONDITION NOT MET (anonymousSessionInitiated is false) - Waiting for anonymous session.");
+        if (!currentSupabaseSession && !isVerifyingTurnstileAndAuth && !showTurnstile) {
+          console.log("EFFECT: Triggering Turnstile display because no session, not verifying, and not already shown.");
+          setShowTurnstile(true);
+        } else if (showTurnstile) {
+            console.log("EFFECT: Turnstile is already set to be shown or is showing.");
+        } else if (currentSupabaseSession) {
+            console.log("EFFECT: Has currentSupabaseSession, but anonymousSessionInitiated is still false. This is odd.");
+        } else if (isVerifyingTurnstileAndAuth) {
+            console.log("EFFECT: Currently verifying Turnstile/Auth. Waiting.");
+        }
+      }
+    } else {
+      console.log("EFFECT: totalAmount is 0 or less. Not creating payment intent.");
+    }
+  }, [
+    totalAmount, 
+    createPaymentIntent,
+    anonymousSessionInitiated, 
+    currentSupabaseSession,
+    isVerifyingTurnstileAndAuth
+  ]);
+
+  const handleSuccessfulPayment = async (paymentIntentId: string, stripeBillingDetailsUsed: StripeBillingDetailsForClient, regId: string) => {
+    if (!regId) {
+      console.error("❌ Critical Error: handleSuccessfulPayment called without a valid registrationId.");
+      setLocalPaymentProcessingError("Failed to update registration: Missing critical registration ID after payment.");
+      setIsProcessingPayment(false);
+      return;
+    }
+    console.log("📝 Payment Success - Updating Registration");
+    console.log("Payment Intent ID:", paymentIntentId);
+    console.log("Registration ID for update:", regId);
+
+    // Clear any previous errors
+    setLocalPaymentProcessingError(null);
+    setIsProcessingPayment(true); // Should already be true, but ensure
+
+    try {
+      // Validate UUID format for safety, though it should be server-generated
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (!uuidRegex.test(regId)) {
+        console.error(`Invalid registration ID format for update: ${regId}`);
+        setLocalPaymentProcessingError(`Invalid registration ID format: ${regId}. Cannot update payment status.`);
+        setIsProcessingPayment(false);
+        return;
       }
 
-      const updateResult = await response.json();
-      console.log("Update Response:", JSON.stringify(updateResult, null, 2));
-      
-      setStoreConfirmationNumber(updateResult.confirmationNumber || `CONF-${registrationId.substring(0, 8).toUpperCase()}`);
+      console.log("Payment Update Data:", {
+        paymentIntentId,
+        totalAmount,
+        status: "paid", // Or derive dynamically if needed
+        paymentStatus: "completed", // Or derive dynamically if needed
+      });
 
-      console.log("✅ Registration Updated");
-      console.log("Successfully updated registration payment status");
-      console.log("Confirmation Number:", updateResult.confirmationNumber);
-      console.groupEnd();
+      const updateResponse = await fetch(`/api/registrations/${regId}/payment`, {
+        method: 'PUT',
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          paymentIntentId,
+          totalAmount,
+          status: "paid", // Example status, adjust as needed
+          paymentStatus: "completed", // Example status, adjust as needed
+        }),
+      });
 
-      goToNextStep();
+      console.log("Response Status:", updateResponse.status);
+      const updateResult = await updateResponse.json();
+
+      if (!updateResponse.ok) {
+        console.error("API Error Response:", updateResult);
+        throw new Error(
+          updateResult.error || "Failed to update registration payment status"
+        );
+      }
+
+      console.log("✅ Registration payment status updated:", updateResult);
+      setStoreConfirmationNumber(updateResult.confirmationNumber || regId); // Use server's confirmation or fallback
+      // Clear sensitive data from store if necessary, or mark registration as complete
+      // e.g., useRegistrationStore.getState().clearSensitiveData();
+      goToNextStep(); // Proceed to confirmation/thank you page
+
     } catch (error: any) {
-      console.group("❌ Registration Update Error");
-      console.error("Error updating registration payment status:", error);
-      console.log("Stack Trace:", error.stack);
-      console.groupEnd();
-      setSubmissionError(error.message || "Failed to update your registration after payment. Please contact support.");
+      console.error("❌ Registration Update Error");
+      console.error("Error updating registration payment status:", error.message);
+      console.error("Stack Trace:", error.stack);
+      setLocalPaymentProcessingError(`Payment succeeded, but failed to update registration: ${error.message}. Please contact support with your payment ID: ${paymentIntentId}.`);
     } finally {
-      setIsSubmittingOrder(false);
-      console.groupEnd();
+      setIsProcessingPayment(false);
     }
   };
 
@@ -331,178 +380,110 @@ function PaymentStep() {
     setIsProcessingPayment(false);
   };
 
+  const {reset: resetBillingForm, formState: {isDirty: billingFormIsDirty, isValid: billingFormIsValid, errors: billingFormErrors}} = form;
+
+  // Reference to payment element for event dispatch
+  const paymentElementRef = React.useRef<HTMLDivElement>(null);
+
+  // Passed as a prop to CheckoutForm
+  // This function will be called by CheckoutForm AFTER Stripe payment is successful
+  const onPaymentSuccessWrapper = (paymentIntentId: string, stripeBillingDetailsUsed: StripeBillingDetailsForClient) => {
+    if (!confirmedRegistrationId) {
+        console.error("CRITICAL: onPaymentSuccessWrapper called without confirmedRegistrationId. This should not happen.");
+        setLocalPaymentProcessingError("A critical error occurred. Payment was made but registration update failed. Please contact support.");
+        return;
+    }
+    handleSuccessfulPayment(paymentIntentId, stripeBillingDetailsUsed, confirmedRegistrationId);
+  };
+
   const onBillingSubmit = async (data: FormBillingDetailsSchema) => {
-    setLocalPaymentProcessingError(null);
-    
-    // For paid orders, ensure payment intent is ready before proceeding
-    if (totalAmount > 0) {
-      if (!isPaymentIntentReady || !clientSecret) {
-        setLocalPaymentProcessingError("Payment gateway is not ready. Please wait or try refreshing.");
-        return null;
-      }
+    console.log("🔶 Billing Form Submit (onBillingSubmit)");
+    if (!anonymousSessionInitiated) {
+      setSubmissionError("Please complete the security check before proceeding.");
+      console.error("Attempted to submit billing without anonymous session.");
+      setShowTurnstile(true); // Ensure Turnstile is visible if not completed
+      return;
     }
+    console.log("🅿️ Billing details submitted:", data);
+    updateStoreBillingDetails(data);
+    setLocalPaymentProcessingError(null); // Clear previous errors
+    setIsSubmittingOrder(true); // Indicate that the order submission process has started
+    setSubmissionError(null);
+
+    // Step 1: Save Registration Data via onSaveData prop or fallback to direct API call
+    let saveDataFunction = props.onSaveData;
     
-    try {
-      setIsSubmittingOrder(true);
-      setSubmissionError(null);
-
-      const currentFormValues = form.getValues();
-      const billingDataForStore: BillingDetailsType = {
-        firstName: currentFormValues.firstName,
-        lastName: currentFormValues.lastName,
-        email: currentFormValues.emailAddress,
-        phone: currentFormValues.mobileNumber,
-        addressLine1: currentFormValues.addressLine1,
-        city: currentFormValues.suburb, 
-        stateProvince: currentFormValues.stateTerritory?.name || '',
-        postalCode: currentFormValues.postcode,
-        country: currentFormValues.country?.isoCode || '',
-      };
-      updateStoreBillingDetails(billingDataForStore);
-
-      // Log the primary attendee and ticket data to confirm it's being included
-      console.log("Primary Attendee:", primaryAttendee);
-      console.log("Ticket Summary:", currentTicketsForSummary);
-
-      const registrationData = {
-        registrationId: storeDraftId,
-        registrationType,
-        primaryAttendee, 
-        additionalAttendees: otherAttendees, 
-        tickets: currentTicketsForSummary,
-        totalAmount,
-        eventId: primaryAttendee?.eventId,
-        billingDetails: {
-          ...currentFormValues,
-          country: currentFormValues.country?.isoCode,
-          stateTerritory: currentFormValues.stateTerritory?.name,
-        },
-        paymentStatus: totalAmount > 0 ? 'pending' : 'not_required',
-      };
-
-      // First, save registration to Supabase
-      console.group("📝 Initial Registration Submission");
-      console.log("Registration Data:", JSON.stringify(registrationData, null, 2));
-      console.log("POST URL:", '/api/registrations');
-      
-      // Clone the registration data for debugging
-      const debugData = JSON.parse(JSON.stringify(registrationData));
-      console.log("Debug - Data being POSTed:", debugData);
-      
-      let fetchResponse;
-      try {
-        console.log("🔄 Starting fetch call to /api/registrations");
-        fetchResponse = await fetch('/api/registrations', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(registrationData),
-        });
-        console.log("✅ Fetch call completed with status:", fetchResponse.status);
-      } catch (fetchError) {
-        console.error("❌ Fetch call failed with error:", fetchError);
-        throw fetchError;
-      }
-
-      const response = fetchResponse;
-      console.log("Response Status:", response.status);
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        console.error("API Error Response:", errorData);
-        throw new Error(errorData.error || `Failed to save registration: ${response.statusText}`);
-      }
-
-      let parsedResult;
-      try {
-        const responseText = await response.text();
-        console.log("Raw response text:", responseText);
-        parsedResult = JSON.parse(responseText);
-        console.log("Successfully parsed response JSON");
-      } catch (parseError) {
-        console.error("❌ Failed to parse response as JSON:", parseError);
-        throw new Error("Invalid response format from server");
-      }
-
-      const registrationResult = parsedResult;
-      console.log("Registration saved:", JSON.stringify(registrationResult, null, 2));
-      
-      // Manual debugging of result
-      if (registrationResult) {
-        console.group("📊 Registration Result Debug");
-        console.log("Result Type:", typeof registrationResult);
-        console.log("Has registrationId:", !!registrationResult.registrationId);
-        if (registrationResult.registrationId) {
-          console.log("Registration ID:", registrationResult.registrationId);
-          console.log("Registration ID Type:", typeof registrationResult.registrationId);
-          console.log("Registration ID Length:", registrationResult.registrationId.length);
-        }
-        console.log("Full Result:", registrationResult);
-        console.groupEnd();
-      } else {
-        console.error("❌ registrationResult is null or undefined after parsing");
-      }
-      
-      // Verify the server returned a valid UUID for registrationId
-      if (!registrationResult.registrationId) {
-        throw new Error("Server did not return a valid registration ID");
-      }
-      
-      console.log("Server generated UUID:", registrationResult.registrationId);
-      
-      // IMPORTANT: Explicitly set this in the window object before proceeding
-      // Set it before any other operations to ensure it's available
-      window.__registrationResult = registrationResult;
-      
-      // Double-check it was set correctly - using a more explicit variable name for clarity
-      const checkResult = window.__registrationResult;
-      console.log("Verification: window.__registrationResult set to:", checkResult);
-      
-      if (!checkResult || !checkResult.registrationId) {
-        console.error("CRITICAL: Failed to set window.__registrationResult properly");
-        
-        // Try setting it again with a direct object assignment
-        window.__registrationResult = {
-          ...registrationResult,
-          registrationId: registrationResult.registrationId
+    // If no onSaveData prop is provided, create a fallback function
+    if (!saveDataFunction) {
+        console.warn("⚠️ onSaveData prop not provided, using fallback registration save function");
+        saveDataFunction = async () => {
+            // Fallback: directly call the registration API
+            const registrationData = {
+                registrationType,
+                primaryAttendee,
+                additionalAttendees: otherAttendees,
+                tickets: currentTicketsForSummary,
+                totalAmount,
+                billingDetails: data,
+                eventId: primaryAttendee?.eventId
+            };
+            
+            const response = await fetch('/api/registrations', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(registrationData)
+            });
+            
+            const result = await response.json();
+            
+            if (!response.ok) {
+                throw new Error(result.error || 'Failed to save registration');
+            }
+            
+            return result;
         };
-        
-        console.log("Second verification attempt:", window.__registrationResult);
-      }
-      
-      // Also store the returned registration ID in a separate property for redundancy
-      window.__registrationId = registrationResult.registrationId;
-      console.log("Verification: window.__registrationId set to:", window.__registrationId);
-      
-      // Store the returned registration ID to use in the payment update
-      // This is crucial because the server generates a proper UUID
-      const returnedRegistrationId = registrationResult.registrationId;
-      console.log("Using registration ID for payment update:", returnedRegistrationId);
-      console.groupEnd();
-      
-      // Mark registration as saved in state
-      setRegistrationSaved(true);
-      
-      // For free orders, complete the process
-      if (totalAmount === 0 && currentTicketsForSummary.length > 0) {
-        setStoreConfirmationNumber(registrationResult.confirmationNumber);
-        console.log("Free registration completed:", registrationResult.confirmationNumber);
-        goToNextStep();
-      }
-      
-      // Return the result explicitly so it can be used by the caller
-      return registrationResult;
-      
-    } catch (error: any) {
-      console.group("❌ Registration Error");
-      console.error("Error submitting registration:", error);
-      console.groupEnd();
-      setSubmissionError(error.message || "Failed to save your registration. Please contact support.");
-      throw error; // Re-throw the error so the caller knows it failed
-    } finally {
-      setIsSubmittingOrder(false);
     }
+
+    try {
+        console.log("📨 Attempting to save registration data first...");
+        const saveResult = await saveDataFunction(); // Call the save function (prop or fallback)
+
+        console.log("📬 Registration Save API Response:", saveResult);
+
+        if (!saveResult || !saveResult.success || !saveResult.registrationId) {
+            console.error("❌ Registration save failed or returned invalid data:", saveResult);
+            const errorMessage = saveResult?.error || "Failed to save registration. Please try again.";
+            setSubmissionError(errorMessage);
+            setIsSubmittingOrder(false);
+            return;
+        }
+        
+        const serverGeneratedRegistrationId = saveResult.registrationId;
+        console.log("✅ Registration saved successfully. Server Registration ID:", serverGeneratedRegistrationId);
+        setConfirmedRegistrationId(serverGeneratedRegistrationId); // Store the TRUE ID
+
+        // Step 2: If registration save is successful, dispatch event to trigger Stripe payment in CheckoutForm
+        // This relies on CheckoutForm listening for this event and having clientSecret ready.
+        if (paymentElementRef.current) {
+            console.log("🔶 Dispatching continuePayment event to trigger Stripe payment processing.");
+            // Pass the confirmed registration details, though CheckoutForm primarily needs to know to proceed.
+            // The actual confirmedRegistrationId will be used by onPaymentSuccessWrapper.
+            const continuePaymentEvent = new CustomEvent('continuePayment', { 
+                detail: { /* No specific detail needed here anymore as CheckoutForm does not need to pass ID back */ } 
+            });
+            paymentElementRef.current.dispatchEvent(continuePaymentEvent);
+        } else {
+            console.error("❌ Payment element ref not found. Cannot dispatch continuePayment event.");
+            setSubmissionError("Payment form error. Please refresh and try again.");
+            setIsSubmittingOrder(false);
+        }
+
+    } catch (error: any) {
+        console.error("❌ Error during registration save process:", error);
+        setSubmissionError(`An error occurred while saving your registration: ${error.message}. Please try again.`);
+        setIsSubmittingOrder(false);
+    }
+    // setIsSubmittingOrder(false); // Moved to finally block or after dispatch if payment is async and blocking further UI
   };
   
   // Effect to prefill form if primary attendee data is available
@@ -529,218 +510,69 @@ function PaymentStep() {
 
   // Render the form part
   const renderFormContent = () => {
-    const onSubmitFormWithPayment = async (e: CustomEvent | null = null) => {
-      const data = form.getValues();
-      
-      try {
-        setIsSubmittingOrder(true);
-        setSubmissionError(null);
-        
-        // Call onBillingSubmit to save registration first and capture the result
-        const registrationResult = await onBillingSubmit(data);
-        
-        // Ensure global registration data is available
-        if (registrationResult && registrationResult.registrationId) {
-          // Store globally for other components to access
-          window.__registrationResult = registrationResult;
-          window.__registrationId = registrationResult.registrationId;
-          console.log("✅ Registration result from onSubmitFormWithPayment:", registrationResult);
-        } else {
-          console.error("⚠️ No registration result returned from onBillingSubmit");
-        }
-        
-        setIsSubmittingOrder(false);
-        
-        // If this was triggered by the payment form and we have an error, cancel the payment
-        if (e && submissionError) {
-          e.preventDefault();
-          return false;
-        }
-        
-        return true;
-      } catch (err) {
-        console.error("Error submitting registration before payment:", err);
-        setIsSubmittingOrder(false);
-        if (e) {
-          e.preventDefault();
-        }
-        return false;
-      }
-    };
-    
-    // Handle custom event from Stripe payment form
-    const handleSaveRegistrationEvent = (e: Event) => {
-      console.log("📣 Save Registration Event triggered");
-      e.preventDefault(); // Prevent default to control the flow
-      
-      // Use CustomEvent type for the detail
-      const customEvent = e as CustomEvent;
-      
-      // Debug current state before starting
-      console.log("📊 State Check - Before onSubmitFormWithPayment:");
-      console.log("  • Primary Attendee:", primaryAttendee);
-      console.log("  • Tickets:", currentTicketsForSummary);
-      console.log("  • Total Amount:", totalAmount);
-      console.log("  • Client Secret:", clientSecret ? "exists" : "missing");
-      console.log("  • Is Payment Intent Ready:", isPaymentIntentReady);
-      
-      // Instead of immediately returning from the promise, we need to handle the event synchronously
-      // to properly control propagation
-      onSubmitFormWithPayment(customEvent)
-        .then(success => {
-          // Debug the result of onSubmitFormWithPayment
-          console.log("📊 onSubmitFormWithPayment result:", success);
-          console.log("Current window.__registrationResult:", window.__registrationResult);
-          
-          if (success) {
-            // Verify that we have a registration result stored
-            const savedRegistrationResult = window.__registrationResult;
-            
-            if (!savedRegistrationResult || !savedRegistrationResult.registrationId) {
-              console.error("❌ Registration saved but __registrationResult is missing or invalid:", savedRegistrationResult);
-              
-              // Attempt to recover by checking the alternative storage
-              if (window.__registrationId) {
-                console.log("⚠️ Attempting recovery using __registrationId:", window.__registrationId);
-                // Create a minimal result object that can be used
-                window.__registrationResult = {
-                  registrationId: window.__registrationId,
-                  success: true,
-                  confirmationNumber: `REG-${window.__registrationId.substring(0, 8).toUpperCase()}`
-                };
-                console.log("✅ Recovery successful, created minimal registration result:", window.__registrationResult);
-              } else {
-                // Last resort - try to recover using the draft ID
-                if (storeDraftId) {
-                  console.log("⚠️ Last resort recovery: using storeDraftId:", storeDraftId);
-                  window.__registrationId = storeDraftId;
-                  window.__registrationResult = {
-                    registrationId: storeDraftId,
-                    success: true
-                  };
-                  console.log("⚠️ Created minimal result with draft ID - may not work with UUID requirements");
-                } else {
-                  console.error("❌ Recovery failed, no registration data available");
-                  return;
-                }
-              }
-            }
-            
-            console.log("✅ Registration saved with ID:", window.__registrationResult?.registrationId);
-            console.log("✅ Registration saved, continuing with payment");
-            
-            // We need to manually continue the event propagation
-            setTimeout(() => {
-              // Additional verification before dispatch
-              console.log("📊 Pre-dispatch check - Registration ID:", window.__registrationResult?.registrationId);
-              
-              // Dispatch a new event to continue the payment flow
-              const continuePaymentEvent = new CustomEvent('continuePayment', {
-                bubbles: true,
-                cancelable: true,
-                detail: { 
-                  registrationId: window.__registrationResult?.registrationId,
-                  registrationResult: window.__registrationResult
-                }
-              });
-              console.log("🔄 Dispatching continuePayment event with registration ID:", window.__registrationResult?.registrationId);
-              console.log("Event details:", continuePaymentEvent.detail);
-              
-              e.target?.dispatchEvent(continuePaymentEvent);
-            }, 750); // Increase timeout to ensure registration is fully processed
-          } else {
-            // If registration failed, stop the event propagation
-            console.log("❌ Registration failed, cancelling payment");
-            e.stopPropagation();
-          }
-        })
-        .catch(error => {
-          console.error("Error during registration save:", error);
-          console.error("Stack trace:", error.stack);
-          e.stopPropagation();
-        });
-        
-      // Always return false to prevent default and handle continuation manually
-      return false;
-    };
-    
-    // Add event listener for the custom event when component mounts
-    useEffect(() => {
-      const formEl = document.querySelector('form');
-      if (formEl) {
-        console.log("🔄 Adding saveRegistration event listener to form");
-        formEl.addEventListener('saveRegistration', handleSaveRegistrationEvent);
-      }
-      
-      return () => {
-        if (formEl) {
-          console.log("🔄 Removing saveRegistration event listener from form");
-          formEl.removeEventListener('saveRegistration', handleSaveRegistrationEvent);
-        }
-      };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []); // Simplified dependency array to prevent re-adding event listeners
-    
-    return (
-      <div className="space-y-6">
-        {submissionError && (
-          <Alert variant="destructive">
-            <AlertTitle>Submission Error</AlertTitle>
-            <AlertDescription>{submissionError}</AlertDescription>
-          </Alert>
-        )}
-        
-        <Form {...form}>
-          <form onSubmit={(e) => {
-            e.preventDefault();
-            onSubmitFormWithPayment();
-          }} className="space-y-6">
-            <BillingDetailsForm form={form} primaryAttendee={primaryAttendee}/>
-            
-            {/* Show payment component only when payment intent is ready */}
-            {totalAmount > 0 && isPaymentIntentReady && clientSecret && (
-              <PaymentMethod 
-                clientSecret={clientSecret} 
-                onPaymentSuccess={handleSuccessfulPayment}
-                onPaymentError={handlePaymentError}
-                billingDetails={form.getValues()}
-                totalAmount={totalAmount}
-                paymentIntentError={paymentIntentError}
-                isPaymentIntentLoading={isPaymentIntentLoading}
-                setIsProcessingPayment={setIsProcessingPayment}
-              />
-            )}
-            {isPaymentIntentLoading && totalAmount > 0 && (
-              <Alert>
-                <AlertDescription>Loading payment options...</AlertDescription>
-              </Alert>
-            )}
-            {paymentIntentError && totalAmount > 0 &&(
-              <Alert variant="destructive">
-                <AlertTitle>Payment Gateway Error</AlertTitle>
-                <AlertDescription>{paymentIntentError} Please try refreshing the page or contact support.</AlertDescription>
-              </Alert>
-            )}
-            {localPaymentProcessingError && (
-                <Alert variant="destructive">
-                  <AlertTitle>Payment Error</AlertTitle>
-                  <AlertDescription>{localPaymentProcessingError}</AlertDescription>
-                </Alert>
-            )}
-          </form>
-        </Form>
+    const onActualSubmit = form.handleSubmit(onBillingSubmit);
 
-        <div className="flex justify-between mt-8">
-          <Button variant="outline" onClick={goToPrevStep} disabled={isSubmittingOrder || isProcessingPayment}>
-            <ArrowLeft className="mr-2 h-4 w-4" /> Previous Step
-          </Button>
-          {(totalAmount === 0 && currentTicketsForSummary.length > 0) && (
-              <Button onClick={() => form.handleSubmit(onBillingSubmit)()} disabled={isSubmittingOrder} className="bg-masonic-gold text-masonic-navy hover:bg-masonic-lightgold">
-                Complete Registration
-              </Button>
+    // Check if we should be showing the Turnstile widget or payment form
+    if (showTurnstile && !anonymousSessionInitiated && !currentSupabaseSession) {
+      return (
+        <div className="space-y-4 p-4 border rounded-md shadow-sm">
+          <h3 className="text-lg font-semibold">Security Check</h3>
+          <p className="text-sm text-muted-foreground">
+            Please complete this quick security check to proceed with your registration.
+          </p>
+          <TurnstileWidget
+            siteKey={process.env.NEXT_PUBLIC_CLOUDFLARE_TURNSTILE_SITE_KEY || ''} // Ensure this env var is set
+            onToken={handleTurnstileToken}
+            onError={() => {
+              setTurnstileAuthError('Failed to load or process security check. Please refresh or try again.');
+            }}
+          />
+          {isVerifyingTurnstileAndAuth && <p className="text-sm">Verifying...</p>}
+          {turnstileAuthError && (
+            <Alert variant="destructive">
+              <AlertTitle>Verification Error</AlertTitle>
+              <AlertDescription>{turnstileAuthError}</AlertDescription>
+            </Alert>
           )}
         </div>
-      </div>
+      );
+    }
+
+    // If anonymous session is initiated or already existed, show the payment form
+    return (
+      <Form {...form}>
+        <form 
+          id="payment-step-form" // Make sure this ID matches what CheckoutForm expects if dispatching from there
+          onSubmit={onActualSubmit} 
+          className="space-y-8"
+        >
+          <BillingDetailsForm formControl={form.control} primaryAttendee={primaryAttendee} />
+          <PaymentMethod 
+            clientSecret={clientSecret}
+            isPaymentIntentReady={isPaymentIntentReady}
+            isProcessingPayment={isProcessingPayment}
+            paymentIntentError={paymentIntentError}
+            onPaymentSuccess={onPaymentSuccessWrapper}
+            onPaymentError={handlePaymentError}
+          />
+          
+          {localPaymentProcessingError && (
+            <Alert variant="destructive">
+              <AlertTitle>Payment Processing Error</AlertTitle>
+              <AlertDescription>{localPaymentProcessingError}</AlertDescription>
+            </Alert>
+          )}
+
+          <Button 
+            type="submit" 
+            disabled={isProcessingPayment || isSubmittingOrder || !isPaymentIntentReady || !anonymousSessionInitiated}
+            className="w-full"
+            size="lg"
+          >
+            {isSubmittingOrder ? "Processing Order..." : (isProcessingPayment ? "Processing Payment..." : `Pay $${totalAmount.toFixed(2)}`)}
+          </Button>
+        </form>
+      </Form>
     );
   };
 
@@ -761,11 +593,21 @@ function PaymentStep() {
 
   return (
     <TwoColumnStepLayout
-      summaryContent={renderSummaryContent()}
-      summaryTitle="Order Summary"
-    >
-      {renderFormContent()}
-    </TwoColumnStepLayout>
+      renderLeftContent={renderFormContent}
+      renderRightContent={renderSummaryContent}
+      leftColumnTitle="Payment Details"
+      rightColumnTitle="Order Summary"
+      footerActions={(
+        <>
+          <Button variant="outline" onClick={goToPrevStep} disabled={isSubmittingOrder || isProcessingPayment}>
+            <ArrowLeft className="mr-2 h-4 w-4" /> Previous Step
+          </Button>
+          {/* The main submit button is now inside renderFormContent */}
+          {/* Or, if you have a global submit button that triggers the form, ensure it checks anonymousSessionInitiated */}
+        </>
+      )}
+      currentStepId="payment"
+    />
   );
 }
 

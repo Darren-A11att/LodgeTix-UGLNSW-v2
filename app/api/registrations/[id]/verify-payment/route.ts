@@ -72,9 +72,9 @@ export async function GET(
     
     // Get the payment intent ID for this registration
     const { data: registrationData, error: registrationError } = await supabase
-      .from("Registrations")
-      .select("registrationId, status, paymentStatus, stripePaymentIntentId")
-      .eq("registrationId", registrationId)
+      .from("registrations")
+      "payment_status"
+      .eq("registration_id", registrationId)
       .single();
     
     if (registrationError) {
@@ -86,7 +86,7 @@ export async function GET(
       );
     }
     
-    if (!registrationData.stripePaymentIntentId) {
+    if (!registrationData.stripe_payment_intent_id) {
       console.log("No payment intent ID associated with this registration");
       console.groupEnd();
       return NextResponse.json({
@@ -99,7 +99,7 @@ export async function GET(
     // Get payment status directly from Stripe via FDW
     const { data: stripeData, error: stripeError } = await supabase
       .rpc('check_payment_intent_status', { 
-        payment_intent_id: registrationData.stripePaymentIntentId 
+        payment_intent_id: registrationData.stripe_payment_intent_id 
       });
     
     if (stripeError) {
@@ -113,10 +113,10 @@ export async function GET(
     
     // Check for status mismatch 
     let statusMismatch = false;
-    if (stripeData.status === 'succeeded' && registrationData.paymentStatus !== 'completed') {
+    if (stripeData.status === 'succeeded' && registrationData.payment_status !== 'completed') {
       statusMismatch = true;
       console.warn("Warning: Payment is successful in Stripe but not marked complete in database");
-    } else if (stripeData.status !== 'succeeded' && registrationData.paymentStatus === 'completed') {
+    } else if (stripeData.status !== 'succeeded' && registrationData.payment_status === 'completed') {
       statusMismatch = true;
       console.warn("Warning: Payment is marked complete in database but not successful in Stripe");
     }
@@ -128,8 +128,8 @@ export async function GET(
       success: true,
       registrationId,
       registrationStatus: registrationData.status,
-      paymentStatus: registrationData.paymentStatus, 
-      stripePaymentIntentId: registrationData.stripePaymentIntentId,
+      payment_status: registrationData.payment_status, 
+      stripe_payment_intent_id: registrationData.stripe_payment_intent_id,
       stripeStatus: stripeData.status,
       stripeData: stripeData,
       statusMismatch,

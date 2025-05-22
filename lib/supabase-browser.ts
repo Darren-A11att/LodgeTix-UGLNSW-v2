@@ -13,6 +13,7 @@ import {
   supabaseSchemas,
   table
 } from './supabase-singleton';
+import { Database } from '@/supabase/types';
 
 export {
   supabase,

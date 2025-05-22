@@ -188,7 +188,7 @@ export async function saveMasonicProfile(data: {
   try {
     // Check if profile already exists for this person
     const { data: existingProfile } = await supabase
-      .from("MasonicProfiles")
+      .from("masonicprofiles")
       .select("masonicprofileid")
       .eq("person_id", data.person_id)
       .maybeSingle()
@@ -196,7 +196,7 @@ export async function saveMasonicProfile(data: {
     if (existingProfile) {
       // Update existing profile
       const { data: updatedProfile, error } = await supabase
-        .from("MasonicProfiles")
+        .from("masonicprofiles")
         .update({
           masonictitle: data.masonictitle,
           rank: data.rank,
@@ -219,7 +219,7 @@ export async function saveMasonicProfile(data: {
     } else {
       // Create new profile
       const { data: newProfile, error } = await supabase
-        .from("MasonicProfiles")
+        .from("masonicprofiles")
         .insert({
           masonictitle: data.masonictitle,
           rank: data.rank,

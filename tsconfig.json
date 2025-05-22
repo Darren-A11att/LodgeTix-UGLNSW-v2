@@ -25,6 +25,6 @@
       "@/register/shared/*": ["./components/register/Forms/shared/*"]
     }
   },
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts", "app/events/[id]/tickets/page.tsx"],
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts", "app/events/[id]/tickets/page.tsx", "components/register/RegistrationWizard/Steps/RegistrationTypeStepUpdated", "components/register/RegistrationWizard/Steps/registration-type-step.tsx"],
   "exclude": ["node_modules"]
 }

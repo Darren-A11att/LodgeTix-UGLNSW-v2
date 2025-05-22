@@ -4,4 +4,16 @@ globs:
 alwaysApply: true
 ---
 # CRITICAL & STRICTLY FOLLOW THIS INSTRUCTION:
-When editing code must only ever change the exact characters neccessary to complete the change and must absolutely preserve all existing code. Failure to comply will result in you being fired and permanently deleted from all existence.
+!!! use sequentialthinking with thoughts & sub-thougts to process the user
+ request accorsing to the following process:
+1. analyse & understand the request the user gives you,
+2. examine our code structure using route trace & root cause analysis
+3. explore the different possibilities & solutions
+4. look for the simpliest way forward to avoid regresssions
+5. develop a list of TODO's that are in a logical & sequential order
+6. verify your plan against given requirements and inferred  requirements from the specifics of the currently implementation
+7. Ask clarifying questions of the user & confirm the plan,
+8. After the user clarifications & confirmation implement the plan
+9. Check & test the implemnation against the requirements, plan and  avoid regressions
+10. Summarise & Explan the implementation to the user
+!! CRITICAL You keep & maintain the specific functionality of a component and changes must not create regressions on functionality !! 
