@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { table, supabase } from "@/lib/supabase";
+import { table, getServerClient } from "@/lib/supabase-unified";
 
 export async function PUT(
   request: Request,
@@ -60,7 +60,7 @@ export async function PUT(
     console.log("Looking up registration with ID:", registrationId);
     console.log("Executing Supabase query using actual schema names: supabase.from(\"Registrations\").select(\"*\").eq(\"registrationId\", registrationId).single()");
     
-    const { data: existingRegistration, error: findError } = await supabase
+    const { data: existingRegistration, error: findError } = await getServerClient()
       .from("registrations")
       .select("*")
       .eq("registration_id", registrationId)
@@ -101,7 +101,7 @@ export async function PUT(
     
     // Update registration record
     console.log("Executing update query using actual schema names: supabase.from(\"Registrations\").update(updateData).eq(\"registrationId\", registrationId)");
-    const { data: updatedRegistration, error: updateError } = await supabase
+    const { data: updatedRegistration, error: updateError } = await getServerClient()
       .from("registrations")
       .update(updateData)
       .eq("registration_id", registrationId)
@@ -148,7 +148,7 @@ export async function PUT(
     // Also verify payment status using the Stripe FDW
     try {
       console.log("Verifying payment through Stripe FDW...");
-      const { data: stripeVerificationData, error: stripeVerificationError } = await supabase
+      const { data: stripeVerificationData, error: stripeVerificationError } = await getServerClient()
         .rpc('check_payment_intent_status', { payment_intent_id: paymentIntentId });
 
       if (stripeVerificationError) {
@@ -201,7 +201,7 @@ export async function GET(
     console.log("Registration ID:", registrationId);
     
     // First, check if registration exists
-    const { data: existingRegistrationData, error: findError } = await supabase
+    const { data: existingRegistrationData, error: findError } = await getServerClient()
       .from("registrations")
       .select("*")
       .eq("registration_id", registrationId)
@@ -234,7 +234,7 @@ export async function GET(
     let stripePaymentData = null;
     if (currentRegistration && currentRegistration.stripe_payment_intent_id) {
       console.log("Verifying payment through Stripe FDW for intent:", currentRegistration.stripe_payment_intent_id);
-      const { data: fdwData, error: fdwError } = await supabase
+      const { data: fdwData, error: fdwError } = await getServerClient()
         .rpc('check_payment_intent_status', { payment_intent_id: currentRegistration.stripe_payment_intent_id });
 
       if (fdwError) {

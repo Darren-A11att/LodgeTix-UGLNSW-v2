@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { v4 as uuidv4 } from "uuid";
-import { supabase, table } from "@/lib/supabase";
+import { getServerClient, table } from '@/lib/supabase-unified';
 import { UnifiedAttendeeData } from "@/shared/types/supabase";
 import { generateUUID } from "@/lib/uuid-slug-utils";
 import { Tables, TablesInsert, Database } from "@/supabase/types";
@@ -47,12 +47,12 @@ export async function POST(request: Request) {
     const newRegistrationId = uuidv4();
     console.log(`[Server] Generating new UUID for registration: ${newRegistrationId}`);
     
-    // Determine finalRegistrationType (using snake_case for enum consistency if needed)
-    const validRegistrationTypes: Database["public"]["Enums"]["registration_type"][] = ['individual', 'lodge', 'delegation', 'groups', 'individuals', 'officials']; // Expanded based on migration log
-    let finalRegistrationType: Database["public"]["Enums"]["registration_type"] = "individual"; 
+    // Corrected validRegistrationTypes to match enum and default value from supabase/types.ts
+    const validRegistrationTypes: Database["public"]["Enums"]["registration_type"][] = ['individuals', 'groups', 'officials', 'lodge', 'delegation'];
+    let finalRegistrationType: Database["public"]["Enums"]["registration_type"] = "individuals"; // Default to a valid enum member
 
     if (clientRegistrationType && typeof clientRegistrationType === 'string' && clientRegistrationType.trim() !== '') {
-        const lowerCaseClientType = clientRegistrationType.toLowerCase() as any;
+        const lowerCaseClientType = clientRegistrationType.toLowerCase() as any; 
         if (validRegistrationTypes.includes(lowerCaseClientType)) {
             finalRegistrationType = lowerCaseClientType;
             console.log(`Using client provided registration_type: ${finalRegistrationType}`);
@@ -76,20 +76,20 @@ export async function POST(request: Request) {
       agree_to_terms: data.agreeToTerms || true,
       stripe_payment_intent_id: paymentIntentId,
       primary_attendee_id: null, // Will be updated after primary attendee is created
-      registration_type: finalRegistrationType as Tables<'registrations'>['Row']['registration_type'], // Cast to ensure type compatibility
+      registration_type: finalRegistrationType, // Already correctly typed
       registration_data: data.registrationData || null,
     };
     
     console.log("Registration record to insert:", registrationRecord);
     
-    const supabaseClient = supabase; 
+    const supabaseClient = getServerClient(); 
 
     // Insert registration record
     const { data: savedRegistration, error: registrationError } = await supabaseClient
       .from("registrations")
       .insert(registrationRecord)
       .select()
-      .single<Tables<'registrations'>['Row']>(); // Specify Row type for returned data
+      .single<Tables<'registrations'>>(); // Corrected Row type usage
     
     if (registrationError) {
       console.error("Error saving registration:", registrationError);
@@ -104,20 +104,20 @@ export async function POST(request: Request) {
     
     // Process attendees
     const allAttendeesToProcess = [primaryAttendee, ...additionalAttendees].filter(Boolean);
-    const savedAttendeeRecords: Tables<'attendees'>['Row'][] = []; // Type the array
+    const savedAttendeeRecords: Tables<'attendees'>[] = []; // Corrected Row type usage
     
     for (const attendee of allAttendeesToProcess) {
       const newAttendeeId = attendee.attendee_id || attendee.attendeeId || uuidv4();
-      // Ensure attendeetype is one of the valid enum values.
-      // Assuming your enum in types.ts for attendeetype is named 'attendee_type_enum' or similar.
-      // And its values are 'mason', 'guest', 'partner', 'official', 'staff'.
-      // Adjust the enum name and values if they differ.
-      let attendeeTypeForDb: Database["public"]["Enums"]["attendee_type"] = 'guest'; // Default
+      
+      let attendeeTypeForDb: Database["public"]["Enums"]["attendee_type"] = 'guest'; 
       const clientAttendeeType = attendee.attendeeType?.toLowerCase();
-      if (clientAttendeeType === 'mason' || clientAttendeeType === 'partner' || clientAttendeeType === 'official' || clientAttendeeType === 'staff') {
+      if (clientAttendeeType === 'mason' || clientAttendeeType === 'guest' || clientAttendeeType === 'ladypartner' || clientAttendeeType === 'guestpartner') {
         attendeeTypeForDb = clientAttendeeType;
-      } else if (attendee.isPrimary) {
+      } else if (attendee.isPrimary && clientAttendeeType !== 'ladypartner' && clientAttendeeType !== 'guestpartner') {
         attendeeTypeForDb = 'mason';
+      } else if (attendee.isPrimary) {
+        attendeeTypeForDb = 'mason'; 
+        console.warn(`Primary attendee ${newAttendeeId} had type ${clientAttendeeType}, defaulting to 'mason'.`);
       }
 
       let contactPreferenceForDb: Database["public"]["Enums"]["attendee_contact_preference"] = 'directly';
@@ -130,15 +130,13 @@ export async function POST(request: Request) {
         attendeeid: newAttendeeId,
         registrationid: newRegistrationId, 
         attendeetype: attendeeTypeForDb,
-        eventtitle: data.eventTitle || undefined, // Match type (string | null)
+        eventtitle: data.eventTitle || undefined, 
         dietaryrequirements: attendee.dietaryRequirements || null,
         specialneeds: attendee.specialNeeds || null,
         contactpreference: contactPreferenceForDb,
         relationship: attendee.relationship || null,
         relatedattendeeid: attendee.partnerOf || attendee.related_attendee_id || null,
-        // person_id is in the types.ts Insert type, should be null if not provided
         person_id: attendee.person_id || attendee.personId || null, 
-        // createdat, updatedat are optional in Insert and handled by DB
       };
       
       console.log("Attendee record to insert:", attendeeRecord);
@@ -147,7 +145,7 @@ export async function POST(request: Request) {
         .from("attendees")
         .insert(attendeeRecord)
         .select()
-        .single<Tables<'attendees'>['Row']>(); // Specify Row type
+        .single<Tables<'attendees'>>(); // Corrected Row type usage
       
       if (attendeeError) {
         console.error("Error saving attendee:", attendeeError);
@@ -157,7 +155,7 @@ export async function POST(request: Request) {
           { status: 500 }
         );
       }
-      savedAttendeeRecords.push(savedAttendee!); // Add non-null assertion if confident
+      savedAttendeeRecords.push(savedAttendee!); 
       
       if (attendee.isPrimary && savedAttendee) {
         const { error: updateRegError } = await supabaseClient
@@ -173,7 +171,7 @@ export async function POST(request: Request) {
     
     // Process tickets if available
     if (tickets.length > 0) {
-      const savedTicketRecords: Tables<'tickets'>['Row'][] = []; // Type the array
+      const savedTicketRecords: Tables<'tickets'>[] = []; // Corrected Row type usage
       for (const ticket of tickets) {
         const attendeeForTicket = savedAttendeeRecords.find(a => a.attendeeid === (ticket.attendeeId || ticket.attendee_id));
         
@@ -182,38 +180,37 @@ export async function POST(request: Request) {
           continue;
         }
         
-        // Assuming ticket status enum in types.ts. Adjust if needed.
-        let ticketStatusForDb: Database["public"]["Enums"]["payment_status"] = 'pending'; // Tickets.status uses payment_status enum
+        // tickets.ticket_status column uses 'payment_status' enum from Database["public"]["Enums"]["payment_status"]
+        let ticketStatusForDb: Database["public"]["Enums"]["payment_status"] = 'pending'; 
         const clientTicketStatus = ticket.status?.toLowerCase();
         if (clientTicketStatus === 'pending' || clientTicketStatus === 'completed' || clientTicketStatus === 'failed' || clientTicketStatus === 'refunded' || clientTicketStatus === 'partially_refunded' || clientTicketStatus === 'cancelled' || clientTicketStatus === 'expired') {
-            ticketStatusForDb = clientTicketStatus;
+            ticketStatusForDb = clientTicketStatus as Database["public"]["Enums"]["payment_status"];
         }
 
         const ticketRecord: TablesInsert<'tickets'> = {
-          // ticketid is optional in Insert, created by DB default (uuid)
-          attendeeid: attendeeForTicket.attendeeid!, 
-          eventid: eventId || (primaryAttendee?.event_id || primaryAttendee?.eventId || null),
-          pricepaid: ticket.price || 0,
-          status: ticketStatusForDb, // This was 'payment_status' in types.ts for tickets table but used as 'status' here previously
-          seatinfo: ticket.description || ticket.name || 'Event ticket',
+          // id is the primary key for tickets, and is auto-generated (optional in Insert)
+          attendee_id: attendeeForTicket.attendeeid!, 
+          event_id: eventId || (primaryAttendee?.event_id || primaryAttendee?.eventId || null),
+          ticket_price: ticket.price || 0, 
+          ticket_status: ticketStatusForDb, 
           package_id: ticket.isPackage ? (ticket.id.split('-')[1] || ticket.package_id) : null,
           event_ticket_id: ticket.eventTicketId || ticket.event_ticket_id || null,
-          // createdat, updatedat by DB. currency, original_price, payment_status (actual one), purchased_at, reservation_expires_at, reservation_id, ticketdefinitionid are optional
+          // Other optional fields from TablesInsert<'tickets'> like 'currency', 'original_price', 'purchased_at' etc. can be added if needed.
         };
         
         console.log("Ticket record to insert:", ticketRecord);
         
         const { data: savedTicket, error: ticketError } = await supabaseClient
-          .from("tickets") // Table name is 'tickets'
+          .from("tickets") 
           .insert(ticketRecord)
           .select()
-          .single<Tables<'tickets'>['Row']>(); // Specify Row type
+          .single<Tables<'tickets'>>(); // Corrected Row type usage
         
         if (ticketError) {
           console.error("Error saving ticket:", ticketError);
           continue;
         }
-        savedTicketRecords.push(savedTicket!); // Add non-null assertion
+        savedTicketRecords.push(savedTicket!); 
       }
       console.log(`Saved ${savedTicketRecords.length} tickets`);
     }
@@ -226,7 +223,7 @@ export async function POST(request: Request) {
       success: true,
       registrationId: newRegistrationId,
       confirmationNumber: `REG-${newRegistrationId.substring(0, 8).toUpperCase()}`,
-      registrationData: savedRegistration,
+      registrationData: savedRegistration, 
     });
   } catch (error: any) {
     console.error("Error in registration API:", error);

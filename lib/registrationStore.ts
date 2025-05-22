@@ -52,6 +52,7 @@ export interface RegistrationState {
   currentStep: number; // Add currentStep for navigation
   confirmationNumber: string | null; // Add confirmationNumber for completion
   draftRecoveryHandled: boolean; // Flag to track if draft recovery has been handled
+  anonymousSessionEstablished: boolean; // Track if Turnstile verification and anonymous session is complete
 
   // --- Actions ---
   startNewRegistration: (type: RegistrationType) => string; // Returns new draftId
@@ -81,10 +82,13 @@ export interface RegistrationState {
   
   // Draft recovery methods
   setDraftRecoveryHandled: (handled: boolean) => void; // Set if draft recovery has been handled
+  
+  // Anonymous session methods
+  setAnonymousSessionEstablished: (established: boolean) => void; // Set if anonymous session is established
 }
 
 // --- Initial State ---
-const initialRegistrationState: Omit<RegistrationState, 'startNewRegistration' | 'addPrimaryAttendee' | 'loadDraft' | 'clearRegistration' | 'clearAllAttendees' | 'setRegistrationType' | 'addAttendee' | 'addMasonAttendee' | 'addGuestAttendee' | 'addPartnerAttendee' | 'updateAttendee' | 'removeAttendee' | 'updatePackageSelection' | 'updateBillingDetails' | 'setAgreeToTerms' | '_updateStatus' | 'setCurrentStep' | 'goToNextStep' | 'goToPrevStep' | 'setConfirmationNumber' | 'setEventId' | 'setDraftRecoveryHandled'> = {
+const initialRegistrationState: Omit<RegistrationState, 'startNewRegistration' | 'addPrimaryAttendee' | 'loadDraft' | 'clearRegistration' | 'clearAllAttendees' | 'setRegistrationType' | 'addAttendee' | 'addMasonAttendee' | 'addGuestAttendee' | 'addPartnerAttendee' | 'updateAttendee' | 'removeAttendee' | 'updatePackageSelection' | 'updateBillingDetails' | 'setAgreeToTerms' | '_updateStatus' | 'setCurrentStep' | 'goToNextStep' | 'goToPrevStep' | 'setConfirmationNumber' | 'setEventId' | 'setDraftRecoveryHandled' | 'setAnonymousSessionEstablished'> = {
     draftId: null,
     eventId: null, // Initialize eventId as null
     registrationType: null,
@@ -99,6 +103,7 @@ const initialRegistrationState: Omit<RegistrationState, 'startNewRegistration' |
     currentStep: 1, // Start at step 1
     confirmationNumber: null, // No confirmation until complete
     draftRecoveryHandled: false, // Initialize draft recovery flag
+    anonymousSessionEstablished: false, // Initialize anonymous session flag
 };
 
 type RegistrationStateCreator = StateCreator<RegistrationState>;
@@ -155,6 +160,56 @@ const createDefaultAttendee = (
     createdAt: undefined,
     updatedAt: undefined,
   };
+};
+
+// Development-only: Preserve state through hot reloads
+const preserveStateInDevelopment = (storeName: string) => {
+  if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
+    // Store reference to prevent loss during hot reload
+    const globalKey = `__${storeName}_dev_backup__`;
+    
+    // Save state before potential hot reload
+    const saveState = () => {
+      try {
+        const currentState = localStorage.getItem('lodgetix-registration-storage');
+        if (currentState) {
+          (window as any)[globalKey] = currentState;
+          console.log('🔄 Dev: Backed up registration state for hot reload recovery');
+        }
+      } catch (error) {
+        console.warn('Failed to backup state for hot reload:', error);
+      }
+    };
+    
+    // Restore state after hot reload if localStorage is empty but backup exists
+    const restoreState = () => {
+      try {
+        const currentState = localStorage.getItem('lodgetix-registration-storage');
+        const backupState = (window as any)[globalKey];
+        
+        if (!currentState && backupState) {
+          localStorage.setItem('lodgetix-registration-storage', backupState);
+          console.log('🔄 Dev: Restored registration state after hot reload');
+          return true;
+        }
+      } catch (error) {
+        console.warn('Failed to restore state after hot reload:', error);
+      }
+      return false;
+    };
+    
+    // Save state periodically and on page events
+    const interval = setInterval(saveState, 2000);
+    window.addEventListener('beforeunload', saveState);
+    
+    // Try to restore immediately
+    const restored = restoreState();
+    
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('beforeunload', saveState);
+    };
+  }
 };
 
 // --- Store Implementation ---
@@ -423,7 +478,10 @@ export const useRegistrationStore = create<RegistrationState>(
       setEventId: (id) => set({ eventId: id }),
       
       // Draft recovery actions
-      setDraftRecoveryHandled: (handled) => set({ draftRecoveryHandled: handled })
+      setDraftRecoveryHandled: (handled) => set({ draftRecoveryHandled: handled }),
+      
+      // Anonymous session actions
+      setAnonymousSessionEstablished: (established) => set({ anonymousSessionEstablished: established })
 
     }),
     {
@@ -436,12 +494,29 @@ export const useRegistrationStore = create<RegistrationState>(
         billingDetails: state.billingDetails,
         agreeToTerms: state.agreeToTerms, // Persist agreeToTerms
         draftRecoveryHandled: state.draftRecoveryHandled, // Persist draftRecoveryHandled flag
+        anonymousSessionEstablished: state.anonymousSessionEstablished, // Persist anonymous session state
         lastSaved: Date.now(),
       }),
       onRehydrateStorage: () => {
-        // We can't reliably use set/get here. Status logic needs to be handled
-        // externally after hydration, e.g., in a component effect.
-        console.log('Registration store hydration finished.');
+        return (state, error) => {
+          if (error) {
+            console.error('Registration store hydration failed:', error);
+            console.error('This may cause loss of draft registration data');
+          } else {
+            console.log('Registration store hydration finished successfully.');
+            if (state) {
+              console.log('Hydrated state contains:', {
+                draftId: state.draftId,
+                registrationType: state.registrationType,
+                attendeesCount: state.attendees?.length || 0,
+                currentStep: state.currentStep,
+                hasData: !!(state.draftId || state.registrationType || (state.attendees && state.attendees.length > 0))
+              });
+            } else {
+              console.log('No previous registration data found in storage');
+            }
+          }
+        };
       },
        // Optional: Add migration logic if state structure changes later
        // version: 1, 
@@ -449,6 +524,11 @@ export const useRegistrationStore = create<RegistrationState>(
     }
   ) as RegistrationStateCreator
 );
+
+// Initialize development state preservation
+if (typeof window !== 'undefined') {
+  preserveStateInDevelopment('lodgetix-registration');
+}
 
 // --- Basic Selectors ---
 export const selectRegistrationType = (state: RegistrationState) => state.registrationType;
@@ -461,4 +541,5 @@ export const selectDraftId = (state: RegistrationState) => state.draftId;
 export const selectLastSaved = (state: RegistrationState) => state.lastSaved;
 export const selectConfirmationNumber = (state: RegistrationState) => state.confirmationNumber;
 export const selectEventId = (state: RegistrationState) => state.eventId;
-export const selectDraftRecoveryHandled = (state: RegistrationState) => state.draftRecoveryHandled; 
+export const selectDraftRecoveryHandled = (state: RegistrationState) => state.draftRecoveryHandled;
+export const selectAnonymousSessionEstablished = (state: RegistrationState) => state.anonymousSessionEstablished; 

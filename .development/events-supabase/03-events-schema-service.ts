@@ -1,6 +1,8 @@
 // Event Service for the new events.events table
-import { createClient } from '@supabase/supabase-js'
+import { getSupabaseClient } from '@/lib/supabase-singleton'
 import type { EventType } from '@/shared/types/event'
+import { SupabaseClient } from '@supabase/supabase-js'
+import { Database } from '@/supabase/types'
 
 // Define the structure of events in the new schema
 interface EventsSchemaRow {
@@ -34,37 +36,15 @@ interface EventsSchemaRow {
 }
 
 export class EventsSchemaService {
-  private supabase
+  private supabase: SupabaseClient<Database>
+  private targetSchema = 'events'
   
   constructor(isServer: boolean = false) {
-    if (isServer) {
-      // Server-side with service role key
-      this.supabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.SUPABASE_SERVICE_ROLE_KEY!,
-        {
-          auth: {
-            autoRefreshToken: false,
-            persistSession: false,
-            detectSessionInUrl: false,
-          },
-          db: {
-            schema: 'events' // Use the events schema
-          }
-        }
-      )
-    } else {
-      // Client-side with anon key
-      this.supabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-        {
-          db: {
-            schema: 'events' // Use the events schema
-          }
-        }
-      )
+    const client = getSupabaseClient(isServer)
+    if (!client) {
+      throw new Error(`Supabase client could not be initialized. isServer: ${isServer}`)
     }
+    this.supabase = client
   }
   
   /**
@@ -74,7 +54,7 @@ export class EventsSchemaService {
     const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(idOrSlug)
     
     let query = this.supabase
-      .from('events')
+      .from('events', { schema: this.targetSchema })
       .select('*')
       .single()
     
@@ -99,7 +79,7 @@ export class EventsSchemaService {
    */
   async getPublishedEvents(): Promise<EventType[]> {
     const { data, error } = await this.supabase
-      .from('events')
+      .from('events', { schema: this.targetSchema })
       .select('*')
       .eq('is_published', true)
       .order('event_start', { ascending: true })
@@ -117,7 +97,7 @@ export class EventsSchemaService {
    */
   async getFeaturedEvents(): Promise<EventType[]> {
     const { data, error } = await this.supabase
-      .from('events')
+      .from('events', { schema: this.targetSchema })
       .select('*')
       .eq('featured', true)
       .eq('is_published', true)
@@ -137,7 +117,7 @@ export class EventsSchemaService {
    */
   async getEventsByCategory(category: string): Promise<EventType[]> {
     const { data, error } = await this.supabase
-      .from('events')
+      .from('events', { schema: this.targetSchema })
       .select('*')
       .eq('category', category)
       .eq('is_published', true)
@@ -158,7 +138,7 @@ export class EventsSchemaService {
     const now = new Date().toISOString()
     
     const { data, error } = await this.supabase
-      .from('events')
+      .from('events', { schema: this.targetSchema })
       .select('*')
       .gte('event_start', now)
       .eq('is_published', true)
@@ -179,7 +159,7 @@ export class EventsSchemaService {
   async getRelatedEvents(eventId: string): Promise<EventType[]> {
     // First get the event and its related events array
     const { data: event, error: eventError } = await this.supabase
-      .from('events')
+      .from('events', { schema: this.targetSchema })
       .select('related_events')
       .eq('id', eventId)
       .single()
@@ -190,7 +170,7 @@ export class EventsSchemaService {
     
     // Fetch the related events
     const { data, error } = await this.supabase
-      .from('events')
+      .from('events', { schema: this.targetSchema })
       .select('*')
       .in('id', event.related_events)
       .eq('is_published', true)
@@ -209,7 +189,7 @@ export class EventsSchemaService {
    */
   async searchEvents(query: string): Promise<EventType[]> {
     const { data, error } = await this.supabase
-      .from('events')
+      .from('events', { schema: this.targetSchema })
       .select('*')
       .eq('is_published', true)
       .or(`title.ilike.%${query}%,description.ilike.%${query}%,location->>'name'.ilike.%${query}%`)

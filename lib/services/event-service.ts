@@ -1,25 +1,6 @@
-import { createClient } from '@supabase/supabase-js'
-import { DB_TABLE_NAMES } from '@/lib/supabase-singleton'
+import { getServerClient, DB_TABLE_NAMES } from '@/lib/supabase-singleton'
 import { Database } from '@/supabase/types'
 import { notFound } from 'next/navigation'
-
-// Server-side Supabase client - uses service role key
-const getServerSupabase = () => {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-
-  if (!supabaseUrl || !supabaseServiceRoleKey) {
-    throw new Error('Missing Supabase environment variables')
-  }
-
-  return createClient<Database>(supabaseUrl, supabaseServiceRoleKey, {
-    auth: {
-      autoRefreshToken: false,
-      persistSession: false,
-      detectSessionInUrl: false,
-    }
-  })
-}
 
 export interface Event {
   id: string
@@ -61,7 +42,7 @@ function isUUID(str: string): boolean {
 }
 
 export async function getEventByIdOrSlug(idOrSlug: string): Promise<Event | null> {
-  const supabase = getServerSupabase()
+  const supabase = getServerClient()
   
   let query = supabase
     .from('events')
@@ -109,7 +90,7 @@ export async function getEventByIdOrSlug(idOrSlug: string): Promise<Event | null
 }
 
 export async function getEventTickets(eventId: string): Promise<Ticket[]> {
-  const supabase = getServerSupabase()
+  const supabase = getServerClient()
   
   const { data, error } = await supabase
     .from('Tickets')
@@ -126,7 +107,7 @@ export async function getEventTickets(eventId: string): Promise<Ticket[]> {
 }
 
 export async function getPublishedEvents(): Promise<Event[]> {
-  const supabase = getServerSupabase()
+  const supabase = getServerClient()
   
   const { data, error } = await supabase
     .from('events')

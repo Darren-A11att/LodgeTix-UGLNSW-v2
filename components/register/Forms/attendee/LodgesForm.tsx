@@ -19,6 +19,9 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import formSaveManager from '@/lib/formSaveManager';
 import { TextField, SelectField, EmailField, PhoneField } from '../shared/FieldComponents';
 import { useDebouncedCallback } from 'use-debounce';
+import { GrandOfficerFields } from '../mason/utils/GrandOfficerFields';
+import { UnifiedAttendeeData } from '@/lib/registrationStore';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 // Constants for form behavior
 const DEBOUNCE_DELAY = 300; // 300ms debounce delay for field updates
@@ -66,7 +69,7 @@ function LodgeMemberRow({
 
   return (
     <TableRow className={isPartner ? 'bg-gray-50' : ''}>
-      <TableCell>
+      <TableCell className="pl-6">
         {isPartner && <span className="text-xs text-gray-500 mr-2">└─</span>}
         {attendee.title || 'Select title'}
       </TableCell>
@@ -92,7 +95,7 @@ function LodgeMemberRow({
       <TableCell>
         {attendee.primaryPhone || 'Mobile'}
       </TableCell>
-      <TableCell>
+      <TableCell className="pr-6">
         <div className="flex items-center gap-2">
           <Button
             size="sm"
@@ -187,6 +190,11 @@ export const LodgesForm: React.FC<LodgesFormProps> = ({
     
     return isMember || isPartnerOfMember;
   });
+
+  // Get the primary attendee
+  const primaryAttendee = attendees.find(a => 
+    lodgeMembers.some(m => m.attendeeId === a.attendeeId && m.isPrimary)
+  );
 
   const editingAttendee = attendees.find(a => a.attendeeId === editingAttendeeId);
 
@@ -333,17 +341,12 @@ export const LodgesForm: React.FC<LodgesFormProps> = ({
               
               <div className="space-y-2">
                 <div className="relative">
-                  {selectedGrandLodge ? (
-                    <LodgeSelection 
-                      grandLodgeId={selectedGrandLodge}
-                      value={selectedLodge}
-                      onChange={(lodgeId, lodgeName) => handleLodgeChange(lodgeId, lodgeName ?? '')}
-                    />
-                  ) : (
-                    <div className="border rounded-md h-10 px-3 py-2 bg-gray-50 text-gray-400 flex items-center">
-                      Select a Grand Lodge first
-                    </div>
-                  )}
+                  <LodgeSelection 
+                    grandLodgeId={selectedGrandLodge}
+                    value={selectedLodge}
+                    onChange={(lodgeId, lodgeName) => handleLodgeChange(lodgeId, lodgeName ?? '')}
+                    disabled={!selectedGrandLodge}
+                  />
                   {selectedGrandLodge && !selectedLodge && (
                     <p className="text-amber-600 text-xs mt-1 flex items-center gap-1">
                       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
@@ -371,8 +374,12 @@ export const LodgesForm: React.FC<LodgesFormProps> = ({
                     <SelectField
                       label="Masonic Title"
                       name="primary-title"
-                      value=""
-                      onChange={() => {}}
+                      value={primaryAttendee?.title || ""}
+                      onChange={(value) => {
+                        if (primaryAttendee) {
+                          debouncedUpdateAttendee(primaryAttendee.attendeeId, { title: value });
+                        }
+                      }}
                       options={[
                         { value: "Bro", label: "Bro" },
                         { value: "W Bro", label: "W Bro" },
@@ -388,8 +395,12 @@ export const LodgesForm: React.FC<LodgesFormProps> = ({
                     <TextField
                       label="First Name"
                       name="primary-firstname"
-                      value=""
-                      onChange={() => {}}
+                      value={primaryAttendee?.firstName || ""}
+                      onChange={(value) => {
+                        if (primaryAttendee) {
+                          debouncedUpdateAttendee(primaryAttendee.attendeeId, { firstName: value });
+                        }
+                      }}
                       disabled={!selectedLodge}
                       updateOnBlur={true}
                     />
@@ -399,8 +410,12 @@ export const LodgesForm: React.FC<LodgesFormProps> = ({
                     <TextField
                       label="Last Name"
                       name="primary-lastname"
-                      value=""
-                      onChange={() => {}}
+                      value={primaryAttendee?.lastName || ""}
+                      onChange={(value) => {
+                        if (primaryAttendee) {
+                          debouncedUpdateAttendee(primaryAttendee.attendeeId, { lastName: value });
+                        }
+                      }}
                       disabled={!selectedLodge}
                       updateOnBlur={true}
                     />
@@ -410,8 +425,12 @@ export const LodgesForm: React.FC<LodgesFormProps> = ({
                     <SelectField
                       label="Rank"
                       name="primary-rank"
-                      value=""
-                      onChange={() => {}}
+                      value={primaryAttendee?.rank || ""}
+                      onChange={(value) => {
+                        if (primaryAttendee) {
+                          debouncedUpdateAttendee(primaryAttendee.attendeeId, { rank: value });
+                        }
+                      }}
                       options={[
                         { value: "EA", label: "EA" },
                         { value: "FC", label: "FC" },
@@ -425,14 +444,31 @@ export const LodgesForm: React.FC<LodgesFormProps> = ({
                   </div>
                 </div>
                 
-                {/* Row 2: Email, Phone */}
+                {/* Row 2: Grand Officer Fields - Only when rank is GL */}
+                {primaryAttendee && primaryAttendee.rank === 'GL' && (
+                  <GrandOfficerFields
+                    data={primaryAttendee as AttendeeData}
+                    onChange={(field, value) => {
+                      if (primaryAttendee) {
+                        debouncedUpdateAttendee(primaryAttendee.attendeeId, { [field]: value });
+                      }
+                    }}
+                    required={false}
+                  />
+                )}
+                
+                {/* Row 3: Email, Phone */}
                 <div className="grid grid-cols-12 gap-4">
                   <div className="col-span-6">
                     <EmailField
                       label="Email Address"
                       name="primary-email"
-                      value=""
-                      onChange={() => {}}
+                      value={primaryAttendee?.primaryEmail || ""}
+                      onChange={(value) => {
+                        if (primaryAttendee) {
+                          debouncedUpdateAttendee(primaryAttendee.attendeeId, { primaryEmail: value });
+                        }
+                      }}
                       disabled={!selectedLodge}
                       updateOnBlur={true}
                     />
@@ -441,18 +477,16 @@ export const LodgesForm: React.FC<LodgesFormProps> = ({
                     <PhoneField
                       label="Phone Number"
                       name="primary-phone"
-                      value=""
-                      onChange={() => {}}
+                      value={primaryAttendee?.primaryPhone || ""}
+                      onChange={(value) => {
+                        if (primaryAttendee) {
+                          debouncedUpdateAttendee(primaryAttendee.attendeeId, { primaryPhone: value });
+                        }
+                      }}
                       disabled={!selectedLodge}
                       updateOnBlur={true}
                     />
                   </div>
-                </div>
-                
-                {/* Row 3: Primary Contact Badge */}
-                <div className="flex items-center">
-                  <Badge className="bg-blue-50 hover:bg-blue-50 text-blue-700 border border-blue-200">Primary Contact</Badge>
-                  <Badge className="ml-2 bg-gray-50 hover:bg-gray-50 text-gray-700 border border-gray-200">Mason</Badge>
                 </div>
               </div>
             </div>
@@ -460,28 +494,27 @@ export const LodgesForm: React.FC<LodgesFormProps> = ({
         </Card>
       </div>
 
-      {/* Members Table */}
+      {/* Members Table with Tabs */}
       <Card className={cn(
-        "border transition-opacity duration-300",
+        "border-2 border-primary/20 transition-opacity duration-300",
         !selectedLodge && "opacity-70"
       )}>
-        <CardHeader className="border-b">
+        <CardHeader className="py-4 px-6 border-b border-gray-200">
           <div className="flex items-center justify-between">
-            <CardTitle className="flex items-center gap-2">
+            <CardTitle className="flex items-center gap-2 text-primary font-medium text-lg">
               <Users className="w-5 h-5" />
               Lodge Members ({memberAttendees.filter(a => !a.isPartner).length})
             </CardTitle>
             <div className="flex items-center gap-2">
               {memberAttendees.filter(a => !a.isPartner).length < minMembers && (
-                <Badge variant="destructive" className="animate-pulse">
+                <Badge variant="destructive" className="animate-pulse rounded-full px-4 py-1 bg-red-100 text-red-600 border-0">
                   Need {minMembers - memberAttendees.filter(a => !a.isPartner).length} more
                 </Badge>
               )}
               <Button
                 onClick={handleAddMember}
                 disabled={memberAttendees.filter(a => !a.isPartner).length >= maxMembers || !selectedLodge}
-                size="sm"
-                className="gap-2"
+                className="gap-1 bg-[#0a2059] hover:bg-[#0c2669]"
               >
                 <Plus className="w-4 h-4" />
                 Add Member
@@ -489,132 +522,237 @@ export const LodgesForm: React.FC<LodgesFormProps> = ({
             </div>
           </div>
         </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow className="bg-gray-50 hover:bg-gray-50">
-                <TableHead className="font-medium">Title</TableHead>
-                <TableHead className="font-medium">First Name</TableHead>
-                <TableHead className="font-medium">Last Name</TableHead>
-                <TableHead className="font-medium">Rank</TableHead>
-                <TableHead className="font-medium">Type</TableHead>
-                <TableHead className="font-medium">Email</TableHead>
-                <TableHead className="font-medium">Mobile</TableHead>
-                <TableHead className="font-medium">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {memberAttendees.length === 0 && (
-                <TableRow>
-                  <TableCell colSpan={8} className="text-center py-8 text-gray-500">
-                    <div className="flex flex-col items-center justify-center gap-2">
-                      <Users className="w-10 h-10 text-gray-300" />
-                      <p>No lodge members yet</p>
-                      <p className="text-sm text-gray-400">Select a lodge and add members to continue</p>
+        <CardContent className="p-0">
+          <Tabs defaultValue="have-details" className="w-full">
+            <div className="grid grid-cols-2 gap-0 mb-6 bg-gray-100">
+              <TabsTrigger 
+                value="have-details" 
+                className="py-4 px-6 data-[state=active]:bg-white data-[state=active]:border-b-0 data-[state=active]:shadow-none rounded-none border-b-2 data-[state=active]:border-b-transparent data-[state=active]:font-medium"
+              >
+                Have Attendee Details
+              </TabsTrigger>
+              <TabsTrigger 
+                value="provide-later" 
+                className="py-4 px-6 data-[state=active]:bg-white data-[state=active]:border-b-0 data-[state=active]:shadow-none rounded-none border-b-2 data-[state=active]:border-b-transparent data-[state=active]:font-medium"
+              >
+                Provide Attendees Later
+              </TabsTrigger>
+            </div>
+            
+            {/* Tab: Have Attendee Details */}
+            <TabsContent value="have-details" className="mt-0 px-0">
+              <Table className="w-full">
+                <TableHeader>
+                  <TableRow className="border-b border-gray-100">
+                    <TableHead className="text-gray-600 font-medium pl-6">Title</TableHead>
+                    <TableHead className="text-gray-600 font-medium">First Name</TableHead>
+                    <TableHead className="text-gray-600 font-medium">Last Name</TableHead>
+                    <TableHead className="text-gray-600 font-medium">Rank</TableHead>
+                    <TableHead className="text-gray-600 font-medium">Type</TableHead>
+                    <TableHead className="text-gray-600 font-medium">Email</TableHead>
+                    <TableHead className="text-gray-600 font-medium">Mobile</TableHead>
+                    <TableHead className="text-gray-600 font-medium pr-6">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {memberAttendees.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={8} className="text-center py-8 text-gray-500 px-6">
+                        <div className="flex flex-col items-center justify-center gap-2">
+                          <Users className="w-10 h-10 text-gray-300" />
+                          <p>No lodge members yet</p>
+                          <p className="text-sm text-gray-400">Select a lodge and add members to continue</p>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  )}
+                  {memberAttendees.map((attendee) => {
+                    const member = lodgeMembers.find(m => m.attendeeId === attendee.attendeeId);
+                    const isMember = !!member;
+                    const hasPartner = !!attendee.partner;
+                    const parentAttendee = attendee.isPartner ? 
+                      attendees.find(a => a.attendeeId === attendee.isPartner) : 
+                      undefined;
+                    
+                    return (
+                      <LodgeMemberRow
+                        key={attendee.attendeeId}
+                        attendeeId={attendee.attendeeId}
+                        attendee={attendee} 
+                        isMember={isMember}
+                        isPrimary={member?.isPrimary || false}
+                        onSetPrimary={() => {
+                          // Set primary logic
+                          const updatedMembers = lodgeMembers.map(m => ({
+                            ...m,
+                            isPrimary: m.attendeeId === attendee.attendeeId
+                          }));
+                          setLodgeMembers(updatedMembers);
+                          
+                          // Update isPrimary in store
+                          memberAttendees.forEach(a => {
+                            if (!a.isPartner) {
+                              debouncedUpdateAttendee(a.attendeeId, { 
+                                isPrimary: a.attendeeId === attendee.attendeeId 
+                              });
+                            }
+                          });
+                        }}
+                        onRemove={() => {
+                          // Remove member logic
+                          if (attendee.partner) {
+                            removeAttendee(attendee.partner);
+                          }
+                          removeAttendee(attendee.attendeeId);
+                          setLodgeMembers(prev => prev.filter(m => m.attendeeId !== attendee.attendeeId));
+                        }}
+                        onTogglePartner={() => {
+                          if (attendee.partner) {
+                            // Remove partner
+                            removeAttendee(attendee.partner);
+                            updateAttendeeImmediate(attendee.attendeeId, { partner: null });
+                          } else {
+                            // Add partner
+                            const newPartnerId = addMasonAttendee();
+                            if (newPartnerId) {
+                              updateAttendeeImmediate(attendee.attendeeId, { partner: newPartnerId });
+                              updateAttendeeImmediate(newPartnerId, {
+                                isPartner: attendee.attendeeId,
+                                attendeeType: 'Guest',
+                                grandLodgeId: selectedGrandLodge ? Number(selectedGrandLodge) : 0,
+                                lodgeId: selectedLodge ? Number(selectedLodge) : 0,
+                                lodgeNameNumber: lodgeName,
+                              });
+                            }
+                          }
+                        }}
+                        hasPartner={hasPartner}
+                        parentName={parentAttendee?.firstName || ''}
+                        onEdit={() => setEditingAttendeeId(attendee.attendeeId)}
+                      />
+                    );
+                  })}
+                </TableBody>
+              </Table>
+              
+              {/* Empty State Guidance */}
+              {selectedLodge && memberAttendees.filter(a => !a.isPartner).length < minMembers && (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 mx-6 mb-6 mt-4">
+                  <div className="flex gap-3">
+                    <div className="flex-shrink-0 text-amber-500 mt-0.5">
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5">
+                        <path fillRule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
+                      </svg>
                     </div>
-                  </TableCell>
-                </TableRow>
-              )}
-              {memberAttendees.map((attendee) => {
-                const member = lodgeMembers.find(m => m.attendeeId === attendee.attendeeId);
-                const isMember = !!member;
-                const hasPartner = !!attendee.partner;
-                const parentAttendee = attendee.isPartner ? 
-                  attendees.find(a => a.attendeeId === attendee.isPartner) : 
-                  undefined;
-                
-                return (
-                  <LodgeMemberRow
-                    key={attendee.attendeeId}
-                    attendeeId={attendee.attendeeId}
-                    attendee={attendee} 
-                    isMember={isMember}
-                    isPrimary={member?.isPrimary || false}
-                    onSetPrimary={() => {
-                      // Set primary logic
-                      const updatedMembers = lodgeMembers.map(m => ({
-                        ...m,
-                        isPrimary: m.attendeeId === attendee.attendeeId
-                      }));
-                      setLodgeMembers(updatedMembers);
-                      
-                      // Update isPrimary in store
-                      memberAttendees.forEach(a => {
-                        if (!a.isPartner) {
-                          debouncedUpdateAttendee(a.attendeeId, { 
-                            isPrimary: a.attendeeId === attendee.attendeeId 
-                          });
-                        }
-                      });
-                    }}
-                    onRemove={() => {
-                      // Remove member logic
-                      if (attendee.partner) {
-                        removeAttendee(attendee.partner);
-                      }
-                      removeAttendee(attendee.attendeeId);
-                      setLodgeMembers(prev => prev.filter(m => m.attendeeId !== attendee.attendeeId));
-                    }}
-                    onTogglePartner={() => {
-                      if (attendee.partner) {
-                        // Remove partner
-                        removeAttendee(attendee.partner);
-                        updateAttendeeImmediate(attendee.attendeeId, { partner: null });
-                      } else {
-                        // Add partner
-                        const newPartnerId = addMasonAttendee();
-                        if (newPartnerId) {
-                          updateAttendeeImmediate(attendee.attendeeId, { partner: newPartnerId });
-                          updateAttendeeImmediate(newPartnerId, {
-                            isPartner: attendee.attendeeId,
-                            attendeeType: 'Guest',
-                            grandLodgeId: selectedGrandLodge ? Number(selectedGrandLodge) : 0,
-                            lodgeId: selectedLodge ? Number(selectedLodge) : 0,
-                            lodgeNameNumber: lodgeName,
-                          });
-                        }
-                      }
-                    }}
-                    hasPartner={hasPartner}
-                    parentName={parentAttendee?.firstName || ''}
-                    onEdit={() => setEditingAttendeeId(attendee.attendeeId)}
-                  />
-                );
-              })}
-            </TableBody>
-          </Table>
-          
-          {/* Empty State Guidance */}
-          {selectedLodge && memberAttendees.filter(a => !a.isPartner).length < minMembers && (
-            <div className="mt-6 rounded-lg border border-amber-200 bg-amber-50 p-4">
-              <div className="flex gap-3">
-                <div className="flex-shrink-0 text-amber-500">
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5">
-                    <path fillRule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
-                  </svg>
+                    <div className="flex-1">
+                      <h3 className="text-base font-medium text-amber-800">Minimum Members Required</h3>
+                      <p className="mt-1 text-sm text-amber-700">
+                        Lodge registrations require at least {minMembers} members to proceed. Click "Add Member" to add {minMembers - memberAttendees.filter(a => !a.isPartner).length} more member{minMembers - memberAttendees.filter(a => !a.isPartner).length > 1 ? 's' : ''}.
+                      </p>
+                      <div className="mt-3">
+                        <Button
+                          onClick={handleAddMember}
+                          disabled={memberAttendees.filter(a => !a.isPartner).length >= maxMembers || !selectedLodge}
+                          variant="secondary"
+                          className="gap-2 bg-amber-100 hover:bg-amber-200 text-amber-800 border-amber-300"
+                        >
+                          <Plus className="w-4 h-4" />
+                          Add Member
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
                 </div>
-                <div className="flex-1">
-                  <h3 className="text-sm font-medium text-amber-800">Minimum Members Required</h3>
-                  <p className="mt-1 text-sm text-amber-700">
-                    Lodge registrations require at least {minMembers} members to proceed.
-                    Click "Add Member" to add {minMembers - memberAttendees.filter(a => !a.isPartner).length} more member{minMembers - memberAttendees.filter(a => !a.isPartner).length > 1 ? 's' : ''}.
-                  </p>
-                  <div className="mt-2">
-                    <Button
-                      onClick={handleAddMember}
-                      disabled={memberAttendees.filter(a => !a.isPartner).length >= maxMembers || !selectedLodge}
-                      size="sm"
-                      variant="secondary"
-                      className="gap-2"
-                    >
-                      <Plus className="w-4 h-4" />
-                      Add Member
+              )}
+            </TabsContent>
+            
+            {/* Tab: Provide Attendees Later */}
+            <TabsContent value="provide-later" className="p-6">
+              <div className="bg-gray-50 rounded-lg p-6 border border-gray-200">
+                <h3 className="text-lg font-medium mb-3">Provide Attendee Count</h3>
+                <p className="text-gray-600 mb-6">
+                  If you don't have all attendee details yet, you can specify how many members will be attending.
+                  You can provide their details later.
+                </p>
+                
+                <div className="space-y-6 max-w-md mx-auto">
+                  {/* Mason Count */}
+                  <div className="space-y-2">
+                    <Label htmlFor="mason-count" className="text-gray-700">Number of Masons</Label>
+                    <div className="flex items-center">
+                      <Button 
+                        variant="outline" 
+                        size="icon"
+                        className="rounded-r-none h-10 w-10 border-gray-300"
+                        onClick={() => {
+                          // Decrease count logic
+                        }}
+                      >
+                        <span className="text-xl font-medium">−</span>
+                      </Button>
+                      <Input 
+                        id="mason-count"
+                        type="number" 
+                        min="1" 
+                        value="1"
+                        className="h-10 text-center rounded-none border-x-0 w-20 border-gray-300" 
+                      />
+                      <Button 
+                        variant="outline" 
+                        size="icon"
+                        className="rounded-l-none h-10 w-10 border-gray-300"
+                        onClick={() => {
+                          // Increase count logic
+                        }}
+                      >
+                        <span className="text-xl font-medium">+</span>
+                      </Button>
+                    </div>
+                  </div>
+                  
+                  {/* Partner Count */}
+                  <div className="space-y-2">
+                    <Label htmlFor="partner-count" className="text-gray-700">Number of Partners</Label>
+                    <div className="flex items-center">
+                      <Button 
+                        variant="outline" 
+                        size="icon"
+                        className="rounded-r-none h-10 w-10 border-gray-300"
+                        onClick={() => {
+                          // Decrease count logic
+                        }}
+                      >
+                        <span className="text-xl font-medium">−</span>
+                      </Button>
+                      <Input 
+                        id="partner-count"
+                        type="number" 
+                        min="0" 
+                        value="0"
+                        className="h-10 text-center rounded-none border-x-0 w-20 border-gray-300" 
+                      />
+                      <Button 
+                        variant="outline" 
+                        size="icon"
+                        className="rounded-l-none h-10 w-10 border-gray-300"
+                        onClick={() => {
+                          // Increase count logic
+                        }}
+                      >
+                        <span className="text-xl font-medium">+</span>
+                      </Button>
+                    </div>
+                  </div>
+                  
+                  <div className="pt-4">
+                    <Button className="w-full bg-[#0a2059] hover:bg-[#0c2669]">
+                      Confirm Attendee Count
                     </Button>
                   </div>
                 </div>
               </div>
-            </div>
-          )}
+            </TabsContent>
+          </Tabs>
         </CardContent>
       </Card>
 
@@ -639,11 +777,6 @@ export const LodgesForm: React.FC<LodgesFormProps> = ({
                 <Badge variant={editingAttendee.isPartner ? "secondary" : "default"}>
                   {editingAttendee.isPartner ? "Guest Partner" : "Mason"}
                 </Badge>
-                {lodgeMembers.find(m => m.attendeeId === editingAttendee.attendeeId)?.isPrimary && (
-                  <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">
-                    Primary Contact
-                  </Badge>
-                )}
                 <span className="text-sm text-gray-500">
                   {editingAttendee.attendeeType === 'Mason' ? 
                     `From ${lodgeName || 'selected lodge'}` : 

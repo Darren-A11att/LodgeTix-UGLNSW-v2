@@ -1,6 +1,8 @@
 // Updated EventsSchemaService to use public.Events instead of public.events_new
-import { createClient } from '@supabase/supabase-js'
+import { getSupabaseClient } from '@/lib/supabase-singleton'
 import type { EventType } from '@/shared/types/event'
+import { SupabaseClient } from '@supabase/supabase-js'
+import { Database } from '@/supabase/types'
 
 // Define the structure of events in the existing schema
 interface EventsSchemaRow {
@@ -34,29 +36,14 @@ interface EventsSchemaRow {
 }
 
 export class EventsSchemaService {
-  private supabase
+  private supabase: SupabaseClient<Database>
   
   constructor(isServer: boolean = false) {
-    if (isServer) {
-      // Server-side with service role key
-      this.supabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.SUPABASE_SERVICE_ROLE_KEY!,
-        {
-          auth: {
-            autoRefreshToken: false,
-            persistSession: false,
-            detectSessionInUrl: false,
-          }
-        }
-      )
-    } else {
-      // Client-side with anon key
-      this.supabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-      )
+    const client = getSupabaseClient(isServer)
+    if (!client) {
+      throw new Error(`Supabase client could not be initialized. isServer: ${isServer}`)
     }
+    this.supabase = client
   }
   
   /**

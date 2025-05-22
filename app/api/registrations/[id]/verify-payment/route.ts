@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { supabase } from "@/lib/supabase";
+import { getServerClient } from "@/lib/supabase-unified";
 
 /**
  * Endpoint to verify a registration payment status directly with Stripe via FDW
@@ -26,7 +26,7 @@ export async function POST(
     }
 
     // Call the verify_registration_payment function which accesses Stripe FDW
-    const { data: verificationResult, error: verificationError } = await supabase
+    const { data: verificationResult, error: verificationError } = await getServerClient()
       .rpc('verify_registration_payment', { reg_id: registrationId });
     
     if (verificationError) {
@@ -71,9 +71,9 @@ export async function GET(
     console.log("Registration ID:", registrationId);
     
     // Get the payment intent ID for this registration
-    const { data: registrationData, error: registrationError } = await supabase
+    const { data: registrationData, error: registrationError } = await getServerClient()
       .from("registrations")
-      "payment_status"
+      .select("status, payment_status, stripe_payment_intent_id")
       .eq("registration_id", registrationId)
       .single();
     
@@ -97,7 +97,7 @@ export async function GET(
     }
     
     // Get payment status directly from Stripe via FDW
-    const { data: stripeData, error: stripeError } = await supabase
+    const { data: stripeData, error: stripeError } = await getServerClient()
       .rpc('check_payment_intent_status', { 
         payment_intent_id: registrationData.stripe_payment_intent_id 
       });

@@ -1,6 +1,5 @@
 import type { Metadata } from 'next'
 import React from 'react'
-import Script from 'next/script'
 import '@/styles/globals.css'
 import './disableFastRefreshLogs'
 import { LocationInitializer } from '@/components/location-initializer'
@@ -20,11 +19,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        <Script 
-          src="https://challenges.cloudflare.com/turnstile/v0/api.js" 
-          async 
-          defer 
-        />
+        <script 
+          src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit">
+        </script>
       </head>
       <body>
         <AuthProvider>

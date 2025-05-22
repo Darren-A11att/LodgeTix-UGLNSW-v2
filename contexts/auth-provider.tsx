@@ -1,6 +1,6 @@
 'use client'
 
-import { supabase } from '@/lib/supabase-browser'
+import { getBrowserClient } from '@/lib/supabase-unified'
 import { User, Session, SupabaseClient } from '@supabase/supabase-js'
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react'
 
@@ -26,7 +26,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Function to refresh user session
   const refreshSession = async () => {
     try {
-      const { data, error } = await supabase.auth.getSession()
+      const { data, error } = await getBrowserClient().auth.getSession()
       if (error) {
         console.error('Error refreshing session:', error)
         return
@@ -46,7 +46,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     refreshSession()
 
     // Set up auth state change listener
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+    const { data: { subscription } } = getBrowserClient().auth.onAuthStateChange(
       async (event, session) => {
         console.log('Auth state changed:', event)
         setUser(session?.user ?? null)
@@ -65,7 +65,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signIn = async (email: string, password: string) => {
     try {
       setIsLoading(true)
-      const { error } = await supabase.auth.signInWithPassword({
+      const { error } = await getBrowserClient().auth.signInWithPassword({
         email,
         password,
       })
@@ -87,7 +87,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = async () => {
     try {
       setIsLoading(true)
-      await supabase.auth.signOut()
+      await getBrowserClient().auth.signOut()
       setUser(null)
       setSession(null)
     } catch (error) {

@@ -18,6 +18,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { getBrowserClient } from '@/lib/supabase-unified';
 
 interface RegistrationType {
   id: 'individual' | 'lodge' | 'delegation';
@@ -83,6 +84,8 @@ export function RegistrationTypeStep() {
     addAttendee,
     updateAttendee,
     setDraftRecoveryHandled,
+    anonymousSessionEstablished,
+    setAnonymousSessionEstablished,
   } = useRegistrationStore();
 
   // Ensure we properly initialize the selected type from the store
@@ -90,6 +93,12 @@ export function RegistrationTypeStep() {
   const [selectedType, setSelectedType] = useState<RegistrationType['id'] | null>(storeRegistrationType);
   const [showDraftModal, setShowDraftModal] = useState(false);
   const [pendingRegistrationType, setPendingRegistrationType] = useState<RegistrationType['id'] | null>(null);
+  
+  // Turnstile and anonymous session state
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const [isVerifyingTurnstileAndAuth, setIsVerifyingTurnstileAndAuth] = useState(false);
+  const [turnstileAuthError, setTurnstileAuthError] = useState<string | null>(null);
+  const [showTurnstile, setShowTurnstile] = useState(true); // Always show initially
 
   // Check for existing draft on mount
   const draftTypeInStore = useRegistrationStore.getState().registrationType;
@@ -98,17 +107,224 @@ export function RegistrationTypeStep() {
   
   // Debug - log the current state of the registration store
   useEffect(() => {
-    // Check localStorage directly to see if data is being saved
-    const localStorageData = localStorage.getItem('lodgetix-registration-storage');
-    console.log('Registration storage from localStorage:', localStorageData ? JSON.parse(localStorageData) : 'No data');
+    // Test localStorage functionality
+    try {
+      const testKey = 'lodgetix-test';
+      const testValue = 'test-data';
+      localStorage.setItem(testKey, testValue);
+      const retrievedValue = localStorage.getItem(testKey);
+      localStorage.removeItem(testKey);
+      
+      if (retrievedValue !== testValue) {
+        console.error('⚠️ localStorage is not functioning properly!');
+      } else {
+        console.log('✅ localStorage is working correctly');
+      }
+    } catch (error) {
+      console.error('❌ localStorage access failed:', error);
+    }
     
-    console.log('Current registration store state:', {
+    // Check registration storage directly
+    try {
+      const localStorageData = localStorage.getItem('lodgetix-registration-storage');
+      const parsedData = localStorageData ? JSON.parse(localStorageData) : null;
+      console.log('📦 Registration storage from localStorage:', parsedData);
+      
+      if (parsedData && parsedData.state) {
+        console.log('📦 Anonymous session in storage:', parsedData.state.anonymousSessionEstablished);
+      }
+    } catch (error) {
+      console.error('❌ Failed to read registration storage:', error);
+    }
+    
+    console.log('🏪 Current registration store state:', {
       registrationType: draftTypeInStore,
       currentStep: draftStepInStore,
       attendeesCount: storedAttendees.length,
-      attendees: storedAttendees
+      attendees: storedAttendees,
+      draftId: useRegistrationStore.getState().draftId,
+      draftRecoveryHandled: useRegistrationStore.getState().draftRecoveryHandled
     });
   }, [draftTypeInStore, draftStepInStore, storedAttendees]);
+
+  // Check for existing anonymous session on mount
+  useEffect(() => {
+    const checkExistingSession = async () => {
+      try {
+        const { data: { session }, error } = await getBrowserClient().auth.getSession();
+        if (error) {
+          console.error("Error checking existing session:", error);
+        } else if (session && session.user.is_anonymous) {
+          console.log("✅ Existing anonymous session found, hiding Turnstile");
+          setAnonymousSessionEstablished(true);
+          setShowTurnstile(false);
+        } else {
+          console.log("⚠️ No anonymous session found, Turnstile required");
+          setAnonymousSessionEstablished(false);
+          setShowTurnstile(true);
+        }
+      } catch (error) {
+        console.error("Error checking session:", error);
+        setShowTurnstile(true); // Show Turnstile on error
+      }
+    };
+    
+    checkExistingSession();
+  }, [setAnonymousSessionEstablished]);
+
+  // Get site key from environment, with localhost override
+  const getSiteKey = () => {
+    const isLocalhost = typeof window !== 'undefined' && 
+      (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
+    
+    if (isLocalhost) {
+      // Use demo key for localhost that's guaranteed to work
+      return '1x00000000000000000000AA';
+    }
+    
+    return process.env.NEXT_PUBLIC_CLOUDFLARE_TURNSTILE_SITE_KEY;
+  };
+
+  // Set up global callback for managed widget
+  useEffect(() => {
+    const siteKey = getSiteKey();
+    console.log("🔐 Setting up Turnstile managed widget callback");
+    console.log("🔐 Anonymous session established:", anonymousSessionEstablished);
+    console.log("🔐 Environment:", typeof window !== 'undefined' ? window.location.hostname : 'server');
+    console.log("🔐 Site key:", siteKey);
+    
+    // Check if Cloudflare Turnstile script is loaded
+    console.log("🔐 Turnstile object exists:", !!(window as any).turnstile);
+    console.log("🔐 DOM container exists:", !!document.querySelector('.cf-turnstile'));
+    
+    // Set up global callback for the managed widget
+    (window as any).onTurnstileCallback = (token: string) => {
+      console.log("🔐 Managed widget callback triggered with token:", token);
+      handleTurnstileToken(token);
+    };
+
+    // Add error callback for debugging
+    (window as any).onTurnstileError = (errorCode: string) => {
+      console.error("🔐 Managed widget error callback:", errorCode);
+      setTurnstileAuthError(`Security verification failed: ${errorCode}`);
+    };
+
+    // Check if managed widget rendered after a delay
+    if (!anonymousSessionEstablished && (window as any).turnstile) {
+      const timeoutId = setTimeout(() => {
+        const container = document.querySelector('.cf-turnstile');
+        if (container) {
+          const hasContent = container.innerHTML.trim();
+          const hasHiddenInput = container.querySelector('input[type="hidden"]');
+          
+          console.log("🔐 Widget check - hasContent:", !!hasContent, "hasHiddenInput:", !!hasHiddenInput);
+          
+          // Only render if container is truly empty (no hidden inputs from managed widget)
+          if (!hasContent || !hasHiddenInput) {
+            console.log("🔐 Managed widget appears empty, trying explicit render as fallback");
+            
+            // Clear container first to avoid conflicts
+            container.innerHTML = '';
+            
+            try {
+              const widgetId = (window as any).turnstile.render(container, {
+                sitekey: siteKey,
+                callback: (token: string) => {
+                  console.log("🔐 Explicit render callback triggered");
+                  handleTurnstileToken(token);
+                },
+                'error-callback': (errorCode: string) => {
+                  console.error("🔐 Explicit render error:", errorCode);
+                  setTurnstileAuthError(`Security verification failed: ${errorCode}`);
+                }
+              });
+              console.log("🔐 Explicit render attempted, widget ID:", widgetId);
+            } catch (error) {
+              console.error("🔐 Explicit render failed:", error);
+            }
+          } else {
+            console.log("🔐 Managed widget has rendered successfully");
+          }
+        }
+      }, 2000); // Longer delay to let managed widget fully load
+      
+      return () => clearTimeout(timeoutId);
+    }
+
+    return () => {
+      // Cleanup
+      delete (window as any).onTurnstileCallback;
+      delete (window as any).onTurnstileError;
+    };
+  }, [anonymousSessionEstablished]);
+
+
+  const handleTurnstileToken = async (token: string) => {
+    setTurnstileToken(token);
+    setIsVerifyingTurnstileAndAuth(true);
+    setTurnstileAuthError(null);
+
+    try {
+      console.log("🔐 Verifying Turnstile token and creating anonymous session...");
+      const response = await fetch('/api/verify-turnstile-and-anon-auth', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ token }),
+      });
+
+      // Check if response is ok before parsing
+      if (!response.ok) {
+        console.error(`❌ API response error: ${response.status} ${response.statusText}`);
+        setTurnstileAuthError(`Server error: ${response.status}. Please try again.`);
+        return;
+      }
+
+      const result = await response.json();
+
+      // Check if result exists before accessing properties
+      if (!result) {
+        console.error('❌ Empty response from verification API');
+        setTurnstileAuthError('Invalid server response. Please try again.');
+        return;
+      }
+
+      if (result.success && result.anonymousAuthUser) {
+        console.log('✅ Turnstile verified and anonymous session created:', result.anonymousAuthUser.id);
+        setAnonymousSessionEstablished(true);
+        setTurnstileAuthError(null);
+        
+        // Re-check session to ensure client picks it up
+        const { data: { session } } = await getBrowserClient().auth.getSession();
+        if (session) {
+          console.log('✅ Anonymous session confirmed on client');
+          console.log('🔍 Session details:', {
+            userId: session.user.id,
+            isAnonymous: session.user.is_anonymous,
+            expiresAt: session.expires_at
+          });
+          
+          // Test localStorage immediately after session creation
+          setTimeout(() => {
+            const storageData = localStorage.getItem('lodgetix-registration-storage');
+            const parsed = storageData ? JSON.parse(storageData) : null;
+            console.log('🔬 Storage check 2 seconds after session:', parsed?.state?.anonymousSessionEstablished);
+          }, 2000);
+        }
+      } else {
+        console.error('❌ Turnstile/Auth verification failed:', result.error, result.errorCodes);
+        setTurnstileAuthError(result.error || 'Security verification failed. Please try again.');
+        setTurnstileToken(null);
+      }
+    } catch (error: any) {
+      console.error('❌ Error during Turnstile verification:', error);
+      setTurnstileAuthError('An unexpected error occurred during verification. Please try again.');
+      setTurnstileToken(null);
+    } finally {
+      setIsVerifyingTurnstileAndAuth(false);
+    }
+  };
 
   const initializeAttendees = useCallback((typeId: RegistrationType['id']) => {
     // Clear existing attendees when changing type
@@ -325,7 +541,38 @@ export function RegistrationTypeStep() {
             );
           })}
         </div>
+        
+        {/* Turnstile Widget - Matches card layout */}
+        {!anonymousSessionEstablished && (
+          <div className="mt-6 grid gap-6 md:grid-cols-3">
+            <div className="md:col-start-2">
+              <div>
+                <div
+                  className="cf-turnstile"
+                  data-sitekey={getSiteKey()}
+                  data-size="flexible"
+                  data-callback="onTurnstileCallback"
+                  data-error-callback="onTurnstileError"
+                ></div>
+              </div>
+            </div>
+          </div>
+        )}
       </RadioGroup>
+
+      
+      {isVerifyingTurnstileAndAuth && (
+        <div className="mt-4 text-center">
+          <p className="text-sm">Verifying...</p>
+        </div>
+      )}
+      
+      {turnstileAuthError && (
+        <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded">
+          <p className="text-red-800 text-sm">{turnstileAuthError}</p>
+        </div>
+      )}
+      
 
       {showDraftModal && (
         <AlertDialog open={showDraftModal} onOpenChange={setShowDraftModal}>

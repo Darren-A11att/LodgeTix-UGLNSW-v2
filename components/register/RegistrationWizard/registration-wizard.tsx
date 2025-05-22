@@ -1,7 +1,7 @@
 "use client"
 
 import React, { useState, useEffect, useCallback, Suspense, lazy } from 'react'
-import { useRegistrationStore, selectCurrentStep, selectRegistrationType, selectConfirmationNumber, selectAttendees, selectLastSaved, selectDraftId, selectDraftRecoveryHandled } from '../../../lib/registrationStore'
+import { useRegistrationStore, selectCurrentStep, selectRegistrationType, selectConfirmationNumber, selectAttendees, selectLastSaved, selectDraftId, selectDraftRecoveryHandled, selectAnonymousSessionEstablished } from '../../../lib/registrationStore'
 import { RegistrationStepIndicator } from "./Shared/registration-step-indicator"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { User } from "lucide-react"
@@ -219,6 +219,7 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ eventId 
   const lastSaved = useRegistrationStore(selectLastSaved)
   const allAttendees = useRegistrationStore(selectAttendees); // Get all attendees
   const draftRecoveryHandled = useRegistrationStore(selectDraftRecoveryHandled); // Get draft recovery flag
+  const anonymousSessionEstablished = useRegistrationStore(selectAnonymousSessionEstablished); // Get session status
   const goToNextStep = useRegistrationStore(state => state.goToNextStep)
   const goToPrevStep = useRegistrationStore(state => state.goToPrevStep)
   const setCurrentStep = useRegistrationStore(state => state.setCurrentStep) // Direct step setting
@@ -226,6 +227,7 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ eventId 
   const startNewRegistration = useRegistrationStore(state => state.startNewRegistration)
   const clearRegistration = useRegistrationStore(state => state.clearRegistration)
   const setDraftRecoveryHandled = useRegistrationStore(state => state.setDraftRecoveryHandled)
+  const setAnonymousSessionEstablished = useRegistrationStore(state => state.setAnonymousSessionEstablished)
   
   // State for Draft Recovery Modal
   const [showDraftRecoveryModal, setShowDraftRecoveryModal] = useState(false)
@@ -235,6 +237,30 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ eventId 
   
   // Effect to handle event ID and registration initialization
   useEffect(() => {
+    // Development: Check for hot reload recovery first
+    if (process.env.NODE_ENV === 'development') {
+      const checkHotReloadRecovery = () => {
+        try {
+          const backupState = (window as any).__lodgetix_registration_dev_backup__;
+          const currentState = localStorage.getItem('lodgetix-registration-storage');
+          
+          if (!currentState && backupState) {
+            console.log('🔄 Dev: Detected potential hot reload data loss, attempting recovery...');
+            localStorage.setItem('lodgetix-registration-storage', backupState);
+            
+            // Force store rehydration
+            if (useRegistrationStore.persist?.rehydrate) {
+              useRegistrationStore.persist.rehydrate();
+            }
+          }
+        } catch (error) {
+          console.warn('Failed hot reload recovery check:', error);
+        }
+      };
+      
+      checkHotReloadRecovery();
+    }
+    
     if (eventId) {
       const storeState = useRegistrationStore.getState();
       const hasExistingIncompleteRegistration = storeState.registrationType !== null && 
@@ -278,6 +304,9 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ eventId 
     // Completely clear the existing registration
     clearRegistration();
     
+    // Clear session state - user will need to re-verify on registration type page
+    setAnonymousSessionEstablished(false);
+    
     // Start fresh with the current event ID
     startNewRegistration('individual');
     if (eventId) {
@@ -299,6 +328,9 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ eventId 
     // Just close the modal without changing anything
     console.log("Recovery modal canceled, maintaining current state");
     setShowDraftRecoveryModal(false);
+    
+    // Clear session state for fresh start
+    setAnonymousSessionEstablished(false);
     
     // No existing draft, so start a new one anyway (just don't show another modal)
     startNewRegistration('individual');

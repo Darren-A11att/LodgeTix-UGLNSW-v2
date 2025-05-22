@@ -3,13 +3,12 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useRegistrationStore, UnifiedAttendeeData, BillingDetailsType } from '../../../../lib/registrationStore';
+import { useRegistrationStore, UnifiedAttendeeData, BillingDetailsType, selectAnonymousSessionEstablished } from '../../../../lib/registrationStore';
 import { 
   billingDetailsSchema, 
   type BillingDetails as FormBillingDetailsSchema,
 } from "@/lib/billing-details-schema";
-import { supabase } from "@/lib/supabase"; // Import Supabase client
-import TurnstileWidget from '@/components/TurnstileWidget'; // Import TurnstileWidget
+import { getBrowserClient } from '@/lib/supabase-unified';
 
 import { Button } from "@/components/ui/button";
 import { Form } from "@/components/ui/form";
@@ -60,6 +59,8 @@ function PaymentStep(props: PaymentStepProps = {}) {
   const storeDraftId = useRegistrationStore((s) => s.draftId);
   const goToNextStep = useRegistrationStore((s) => s.goToNextStep);
   const goToPrevStep = useRegistrationStore((s) => s.goToPrevStep);
+  const anonymousSessionEstablished = useRegistrationStore(selectAnonymousSessionEstablished);
+  const setAnonymousSessionEstablished = useRegistrationStore((s) => s.setAnonymousSessionEstablished);
 
   // Derive attendee data
   const primaryAttendee = useMemo(() => 
@@ -122,13 +123,12 @@ function PaymentStep(props: PaymentStepProps = {}) {
   const [isPaymentIntentReady, setIsPaymentIntentReady] = useState(false);
   const [confirmedRegistrationId, setConfirmedRegistrationId] = useState<string | null>(null);
 
-  // New state variables for Turnstile and Anonymous Auth
-  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
-  const [isVerifyingTurnstileAndAuth, setIsVerifyingTurnstileAndAuth] = useState(false);
-  const [turnstileAuthError, setTurnstileAuthError] = useState<string | null>(null);
-  const [anonymousSessionInitiated, setAnonymousSessionInitiated] = useState(false);
-  const [showTurnstile, setShowTurnstile] = useState(false); // Control when to show the widget
-  const [currentSupabaseSession, setCurrentSupabaseSession] = useState<any>(null); // To store session info
+  // Fallback Turnstile state (only used if session lost)
+  const [fallbackTurnstileToken, setFallbackTurnstileToken] = useState<string | null>(null);
+  const [isFallbackVerifying, setIsFallbackVerifying] = useState(false);
+  const [fallbackTurnstileError, setFallbackTurnstileError] = useState<string | null>(null);
+  const [showFallbackTurnstile, setShowFallbackTurnstile] = useState(false);
+  const [sessionCheckComplete, setSessionCheckComplete] = useState(false);
 
   // Calculate total amount from derived tickets
   const totalAmount = useMemo(() => 
@@ -196,32 +196,102 @@ function PaymentStep(props: PaymentStepProps = {}) {
     }
   }, [totalAmount]);
 
-  // Check for existing Supabase session on mount
+  // Check session status on mount - simpler approach
   useEffect(() => {
     const checkSession = async () => {
-      const { data: { session }, error } = await supabase.auth.getSession();
-      if (error) {
-        console.error("Error fetching Supabase session:", error);
-        setTurnstileAuthError("Could not check user session.");
-      } else if (session) {
-        console.log("Existing Supabase session found:", session.user.id, "Is anonymous:", session.user.is_anonymous);
-        setCurrentSupabaseSession(session);
-        setAnonymousSessionInitiated(true); // Treat existing session as initiated
-        setShowTurnstile(false); // No need for Turnstile if already session
-      } else {
-        console.log("No existing Supabase session. Turnstile might be needed.");
-        setShowTurnstile(true); // Show Turnstile if no session
+      try {
+        console.log("🔍 Payment Step: Checking session status...");
+        console.log("📊 Store anonymousSessionEstablished:", anonymousSessionEstablished);
+        
+        const { data: { session }, error } = await getBrowserClient().auth.getSession();
+        if (error) {
+          console.error("❌ Error checking session:", error);
+          setShowFallbackTurnstile(true);
+        } else if (session && session.user.is_anonymous) {
+          console.log("✅ Valid anonymous session found");
+          setAnonymousSessionEstablished(true);
+          setShowFallbackTurnstile(false);
+        } else {
+          console.log("⚠️ No session found, but store indicates session was established");
+          console.log("🔄 Attempting to refresh session...");
+          
+          // Try to refresh the session first
+          try {
+            const { data: { session: refreshedSession }, error: refreshError } = await getBrowserClient().auth.refreshSession();
+            if (refreshedSession && refreshedSession.user.is_anonymous) {
+              console.log("✅ Session refreshed successfully");
+              setAnonymousSessionEstablished(true);
+              setShowFallbackTurnstile(false);
+            } else {
+              console.log("❌ Session refresh failed - session truly lost");
+              setAnonymousSessionEstablished(false);
+              setShowFallbackTurnstile(true);
+            }
+          } catch (refreshError) {
+            console.error("❌ Error refreshing session:", refreshError);
+            setAnonymousSessionEstablished(false);
+            setShowFallbackTurnstile(true);
+          }
+        }
+      } catch (error) {
+        console.error("❌ Unexpected error checking session:", error);
+        setShowFallbackTurnstile(true);
+      } finally {
+        setSessionCheckComplete(true);
       }
     };
+    
     checkSession();
-  }, []);
+  }, [anonymousSessionEstablished, setAnonymousSessionEstablished]);
 
-  const handleTurnstileToken = async (token: string) => {
-    setTurnstileToken(token);
-    setIsVerifyingTurnstileAndAuth(true);
-    setTurnstileAuthError(null);
+  // Explicit Turnstile rendering for payment fallback
+  useEffect(() => {
+    if (!showFallbackTurnstile) return;
+
+    const renderFallbackTurnstile = () => {
+      const container = document.getElementById('payment-turnstile-container');
+      if (!container) return;
+
+      // Clear any existing widget
+      container.innerHTML = '';
+
+      if ((window as any).turnstile) {
+        console.log("🔐 Payment Fallback: Explicitly rendering Turnstile widget");
+        const widgetId = (window as any).turnstile.render('#payment-turnstile-container', {
+          sitekey: process.env.NEXT_PUBLIC_CLOUDFLARE_TURNSTILE_SITE_KEY,
+          callback: (token: string) => {
+            console.log("🔐 Payment Fallback: Turnstile success callback triggered");
+            handleFallbackTurnstileToken(token);
+          },
+          'error-callback': () => {
+            console.error("🔐 Payment Fallback: Turnstile error callback triggered");
+            setFallbackTurnstileError('Failed to load security verification. Please refresh and try again.');
+          }
+        });
+        
+        if (widgetId) {
+          console.log("✅ Payment Fallback: Turnstile widget rendered with ID:", widgetId);
+        } else {
+          console.error("❌ Payment Fallback: Turnstile render failed");
+          setFallbackTurnstileError('Failed to render security verification widget.');
+        }
+      } else {
+        console.log("⏳ Payment Fallback: Turnstile not ready, waiting...");
+        setTimeout(renderFallbackTurnstile, 500);
+      }
+    };
+
+    // Simple polling approach - more reliable than turnstile.ready()
+    renderFallbackTurnstile();
+  }, [showFallbackTurnstile]);
+
+  const handleFallbackTurnstileToken = async (token: string) => {
+    setFallbackTurnstileToken(token);
+    setIsFallbackVerifying(true);
+    setFallbackTurnstileError(null);
 
     try {
+      console.log("🔐 Fallback: Verifying Turnstile token and creating anonymous session...");
       const response = await fetch('/api/verify-turnstile-and-anon-auth', {
         method: 'POST',
         headers: {
@@ -233,77 +303,73 @@ function PaymentStep(props: PaymentStepProps = {}) {
       const result = await response.json();
 
       if (result.success && result.anonymousAuthUser) {
-        console.log('Turnstile verified and anonymous Supabase session initiated:', result.anonymousAuthUser.id);
-        setAnonymousSessionInitiated(true);
-        setShowTurnstile(false); // Hide Turnstile after success
-        // Re-check session to ensure Supabase client picks it up
-        const { data: { session } } = await supabase.auth.getSession();
-        setCurrentSupabaseSession(session);
+        console.log('✅ Fallback: Turnstile verified and anonymous session created:', result.anonymousAuthUser.id);
+        setAnonymousSessionEstablished(true);
+        setShowFallbackTurnstile(false);
+        setFallbackTurnstileError(null);
+        
+        // Re-check session to ensure client picks it up
+        const { data: { session } } = await getBrowserClient().auth.getSession();
+        if (session) {
+          console.log('✅ Fallback: Anonymous session confirmed on client');
+        }
       } else {
-        console.error('Turnstile/Auth API call failed:', result.error, result.errorCodes);
-        setTurnstileAuthError(result.error || 'Turnstile verification or anonymous sign-in failed.');
-        // Potentially reset Turnstile widget here if needed, or allow user to retry
-        window.turnstile?.reset?.('turnstile-widget-container');
-        setTurnstileToken(null); // Reset token so user can try again
+        console.error('❌ Fallback: Turnstile/Auth verification failed:', result.error, result.errorCodes);
+        setFallbackTurnstileError(result.error || 'Security verification failed. Please try again.');
+        if (window.turnstile) {
+          window.turnstile.reset?.('turnstile-widget-container');
+        }
+        setFallbackTurnstileToken(null);
       }
     } catch (error: any) {
-      console.error('Error calling verify-turnstile-and-anon-auth:', error);
-      setTurnstileAuthError('An unexpected error occurred during verification.');
-      window.turnstile?.reset?.('turnstile-widget-container');
-      setTurnstileToken(null);
+      console.error('❌ Fallback: Error during Turnstile verification:', error);
+      setFallbackTurnstileError('An unexpected error occurred during verification. Please try again.');
+      if (window.turnstile) {
+        window.turnstile.reset?.('turnstile-widget-container');
+      }
+      setFallbackTurnstileToken(null);
     } finally {
-      setIsVerifyingTurnstileAndAuth(false);
+      setIsFallbackVerifying(false);
     }
   };
 
-  // Modify the payment intent creation effect
+  // Simplified payment intent creation effect
   useEffect(() => {
-    console.log("EFFECT: Payment Intent Creation Logic RUNNING");
-    console.log("EFFECT: totalAmount:", totalAmount);
-    console.log("EFFECT: clientSecret:", clientSecret ? "exists" : "null");
-    console.log("EFFECT: anonymousSessionInitiated:", anonymousSessionInitiated);
-    console.log("EFFECT: currentSupabaseSession:", currentSupabaseSession ? "exists" : "null");
-    console.log("EFFECT: isVerifyingTurnstileAndAuth:", isVerifyingTurnstileAndAuth);
+    console.log("💰 Payment Intent Creation Logic");
+    console.log("💰 totalAmount:", totalAmount);
+    console.log("💰 anonymousSessionEstablished:", anonymousSessionEstablished);
+    console.log("💰 sessionCheckComplete:", sessionCheckComplete);
+    console.log("💰 clientSecret exists:", !!clientSecret);
 
-    if (totalAmount > 0) {
-      if (anonymousSessionInitiated) {
-        console.log("EFFECT: CONDITION MET - Attempting to create payment intent.");
-        setIsPaymentIntentLoading(true);
-        setIsPaymentIntentReady(false);
-        setPaymentIntentError(null);
-        setClientSecret(null); // Reset client secret before creating a new one
+    // Only create payment intent if session is established and we haven't created one yet
+    if (totalAmount > 0 && anonymousSessionEstablished && sessionCheckComplete && !clientSecret && !isPaymentIntentLoading) {
+      console.log("💰 Creating payment intent...");
+      setIsPaymentIntentLoading(true);
+      setIsPaymentIntentReady(false);
+      setPaymentIntentError(null);
 
-        const timeoutId = setTimeout(() => {
-          console.log("EFFECT: Timeout triggered, calling createPaymentIntent()");
-          createPaymentIntent();
-        }, 300);
-        
-        return () => {
-          console.log("EFFECT: Cleanup function for payment intent timeout.");
-          clearTimeout(timeoutId);
-        };
-      } else {
-        console.log("EFFECT: CONDITION NOT MET (anonymousSessionInitiated is false) - Waiting for anonymous session.");
-        if (!currentSupabaseSession && !isVerifyingTurnstileAndAuth && !showTurnstile) {
-          console.log("EFFECT: Triggering Turnstile display because no session, not verifying, and not already shown.");
-          setShowTurnstile(true);
-        } else if (showTurnstile) {
-            console.log("EFFECT: Turnstile is already set to be shown or is showing.");
-        } else if (currentSupabaseSession) {
-            console.log("EFFECT: Has currentSupabaseSession, but anonymousSessionInitiated is still false. This is odd.");
-        } else if (isVerifyingTurnstileAndAuth) {
-            console.log("EFFECT: Currently verifying Turnstile/Auth. Waiting.");
-        }
-      }
+      // Small delay to ensure session is fully established
+      const timeoutId = setTimeout(() => {
+        createPaymentIntent();
+      }, 300);
+      
+      return () => clearTimeout(timeoutId);
     } else {
-      console.log("EFFECT: totalAmount is 0 or less. Not creating payment intent.");
+      console.log("💰 Payment intent creation blocked:", {
+        totalAmount: totalAmount > 0,
+        sessionEstablished: anonymousSessionEstablished,
+        sessionCheckComplete,
+        hasClientSecret: !!clientSecret,
+        isLoading: isPaymentIntentLoading
+      });
     }
   }, [
     totalAmount, 
     createPaymentIntent,
-    anonymousSessionInitiated, 
-    currentSupabaseSession,
-    isVerifyingTurnstileAndAuth
+    anonymousSessionEstablished,
+    sessionCheckComplete,
+    clientSecret,
+    isPaymentIntentLoading
   ]);
 
   const handleSuccessfulPayment = async (paymentIntentId: string, stripeBillingDetailsUsed: StripeBillingDetailsForClient, regId: string) => {
@@ -398,10 +464,10 @@ function PaymentStep(props: PaymentStepProps = {}) {
 
   const onBillingSubmit = async (data: FormBillingDetailsSchema) => {
     console.log("🔶 Billing Form Submit (onBillingSubmit)");
-    if (!anonymousSessionInitiated) {
-      setSubmissionError("Please complete the security check before proceeding.");
+    if (!anonymousSessionEstablished) {
+      setSubmissionError("Session expired. Please complete the security verification below before proceeding.");
       console.error("Attempted to submit billing without anonymous session.");
-      setShowTurnstile(true); // Ensure Turnstile is visible if not completed
+      setShowFallbackTurnstile(true); // Show fallback Turnstile
       return;
     }
     console.log("🅿️ Billing details submitted:", data);
@@ -512,33 +578,39 @@ function PaymentStep(props: PaymentStepProps = {}) {
   const renderFormContent = () => {
     const onActualSubmit = form.handleSubmit(onBillingSubmit);
 
-    // Check if we should be showing the Turnstile widget or payment form
-    if (showTurnstile && !anonymousSessionInitiated && !currentSupabaseSession) {
+    // Show loading state while checking session
+    if (!sessionCheckComplete) {
       return (
-        <div className="space-y-4 p-4 border rounded-md shadow-sm">
-          <h3 className="text-lg font-semibold">Security Check</h3>
-          <p className="text-sm text-muted-foreground">
-            Please complete this quick security check to proceed with your registration.
-          </p>
-          <TurnstileWidget
-            siteKey={process.env.NEXT_PUBLIC_CLOUDFLARE_TURNSTILE_SITE_KEY || ''} // Ensure this env var is set
-            onToken={handleTurnstileToken}
-            onError={() => {
-              setTurnstileAuthError('Failed to load or process security check. Please refresh or try again.');
-            }}
-          />
-          {isVerifyingTurnstileAndAuth && <p className="text-sm">Verifying...</p>}
-          {turnstileAuthError && (
-            <Alert variant="destructive">
-              <AlertTitle>Verification Error</AlertTitle>
-              <AlertDescription>{turnstileAuthError}</AlertDescription>
-            </Alert>
-          )}
+        <div className="flex items-center justify-center p-8">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-masonic-navy"></div>
+          <p className="ml-3 text-masonic-navy">Verifying session...</p>
         </div>
       );
     }
 
-    // If anonymous session is initiated or already existed, show the payment form
+    // Show session error if no session and no fallback showing
+    if (!anonymousSessionEstablished && !showFallbackTurnstile) {
+      return (
+        <div className="space-y-4 p-6 border rounded-md bg-yellow-50 border-yellow-200">
+          <h3 className="text-lg font-semibold text-yellow-800">Session Required</h3>
+          <p className="text-sm text-yellow-700">
+            Your security verification session has expired. Please return to the registration type page to complete verification.
+          </p>
+          <Button
+            onClick={() => {
+              const setCurrentStep = useRegistrationStore.getState().setCurrentStep;
+              setCurrentStep(1);
+            }}
+            variant="outline"
+            className="border-yellow-300 text-yellow-700 hover:bg-yellow-100"
+          >
+            Return to Registration Type
+          </Button>
+        </div>
+      );
+    }
+
+    // Show payment form if session is established
     return (
       <Form {...form}>
         <form 
@@ -565,7 +637,7 @@ function PaymentStep(props: PaymentStepProps = {}) {
 
           <Button 
             type="submit" 
-            disabled={isProcessingPayment || isSubmittingOrder || !isPaymentIntentReady || !anonymousSessionInitiated}
+            disabled={isProcessingPayment || isSubmittingOrder || !isPaymentIntentReady || !anonymousSessionEstablished}
             className="w-full"
             size="lg"
           >
@@ -578,17 +650,31 @@ function PaymentStep(props: PaymentStepProps = {}) {
 
   // Render the summary part
   const renderSummaryContent = () => (
-    <OrderSummary
-      primaryAttendee={primaryAttendee}
-      additionalAttendees={otherAttendees}
-      currentTickets={currentTicketsForSummary}
-      totalAmount={totalAmount}
-      isProcessingPayment={isProcessingPayment}
-      isSubmittingOrder={isSubmittingOrder}
-      isPaymentIntentLoading={isPaymentIntentLoading}
-      localPaymentProcessingError={localPaymentProcessingError}
-      submissionError={submissionError}
-    />
+    <div className="space-y-6">
+      <OrderSummary
+        primaryAttendee={primaryAttendee}
+        additionalAttendees={otherAttendees}
+        currentTickets={currentTicketsForSummary}
+        totalAmount={totalAmount}
+        isProcessingPayment={isProcessingPayment}
+        isSubmittingOrder={isSubmittingOrder}
+        isPaymentIntentLoading={isPaymentIntentLoading}
+        localPaymentProcessingError={localPaymentProcessingError}
+        submissionError={submissionError}
+      />
+      
+      {/* Fallback Turnstile Widget */}
+      {showFallbackTurnstile && (
+        <div className="mt-4 p-4 border rounded bg-yellow-50">
+          <p className="text-sm mb-2">Session expired. Please verify:</p>
+          <div id="payment-turnstile-container"></div>
+          {isFallbackVerifying && <p className="text-sm mt-2">Verifying...</p>}
+          {fallbackTurnstileError && (
+            <p className="text-red-600 text-sm mt-2">{fallbackTurnstileError}</p>
+          )}
+        </div>
+      )}
+    </div>
   );
 
   return (

@@ -1,15 +1,15 @@
-import { supabase } from '@/lib/supabase';
+import { getServerClient } from '@/lib/supabase-unified';
 import { NextResponse } from 'next/server';
 
 export async function GET() {
   try {
     // Get list of all tables in the database
-    const { data: tableData, error: tableError } = await supabase
+    const { data: tableData, error: tableError } = await getServerClient()
       .rpc('get_tables');
     
     if (tableError) {
       // If RPC function doesn't exist, try an alternative approach
-      const { data, error } = await supabase
+      const { data, error } = await getServerClient()
         .from('pg_tables')
         .select('tablename')
         .eq('schemaname', 'public');
@@ -51,14 +51,14 @@ export async function POST(request: Request) {
     }
     
     // Execute the provided SQL query
-    const { data, error, status } = await supabase.rpc('execute_sql', { sql_query: query });
+    const { data, error, status } = await getServerClient().rpc('execute_sql', { sql_query: query });
     
     if (error) {
       // If the RPC method doesn't exist, try a different approach
       // Check if the table exists using information_schema
       if (body.tableName) {
         const tableName = body.tableName;
-        const { data: tableCheck, error: tableError } = await supabase
+        const { data: tableCheck, error: tableError } = await getServerClient()
           .from('information_schema.tables')
           .select('table_name')
           .eq('table_schema', 'public')
@@ -105,7 +105,7 @@ export async function POST(request: Request) {
 
 async function checkTable(tableName: string) {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await getServerClient()
       .from(tableName)
       .select('*')
       .limit(1);
