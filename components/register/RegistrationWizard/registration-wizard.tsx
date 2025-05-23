@@ -506,8 +506,16 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ eventId 
       const storeState = useRegistrationStore.getState()
       
       // Get the current user session (anonymous or authenticated)
-      const { getBrowserClient } = await import('@/lib/supabase-singleton')
-      const { data: { user } } = await getBrowserClient().auth.getUser()
+      const { createClient } = await import('@/utils/supabase/client')
+      const supabase = createClient()
+      
+      // First check the session
+      const { data: { session } } = await supabase.auth.getSession()
+      console.log("📱 Current session:", session ? `Found session for user ${session.user.id}` : "No session")
+      
+      // Then get the user
+      const { data: { user }, error: userError } = await supabase.auth.getUser()
+      console.log("👤 Current user:", user ? `Found user ${user.id}` : "No user", userError ? `Error: ${userError.message}` : "")
       
       if (!user) {
         console.error("❌ No authenticated user found")
@@ -551,9 +559,19 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ eventId 
       
       console.log("📤 Sending registration data with customerId:", registrationData.customerId)
       
+      // Use the session we already have from above
+      const headers: HeadersInit = {
+        'Content-Type': 'application/json'
+      }
+      
+      // Include auth token if available
+      if (session?.access_token) {
+        headers['Authorization'] = `Bearer ${session.access_token}`
+      }
+      
       const response = await fetch('/api/registrations', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify(registrationData)
       })
       

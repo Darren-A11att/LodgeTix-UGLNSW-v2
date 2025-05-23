@@ -1,103 +1,23 @@
-import { type CookieOptions, createServerClient } from '@supabase/ssr'
-import { NextResponse, type NextRequest } from 'next/server'
+import { type NextRequest } from 'next/server'
+import { updateSession } from '@/utils/supabase/middleware'
 
 export async function middleware(request: NextRequest) {
-  let response = NextResponse.next({
-    request: {
-      headers: request.headers,
-    },
-  })
-
-  const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-    {
-      cookies: {
-        get(name: string) {
-          return request.cookies.get(name)?.value
-        },
-        set(name: string, value: string, options: CookieOptions) {
-          // This is required for the cookie to work in an iframe
-          request.cookies.set({
-            name,
-            value,
-            ...options,
-          })
-          
-          response = NextResponse.next({
-            request: {
-              headers: request.headers,
-            },
-          })
-          
-          response.cookies.set({
-            name,
-            value,
-            ...options,
-          })
-        },
-        remove(name: string, options: CookieOptions) {
-          request.cookies.set({
-            name,
-            value: '',
-            ...options,
-          })
-          
-          response = NextResponse.next({
-            request: {
-              headers: request.headers,
-            },
-          })
-          
-          response.cookies.set({
-            name,
-            value: '',
-            ...options,
-            maxAge: 0,
-          })
-        },
-      },
-    }
-  )
-
-  const {
-    data: { session },
-  } = await supabase.auth.getSession()
-
-  // Routes that require authentication
-  const authRequiredRoutes = [
-    '/organizer/dashboard',
-    '/account/tickets',
-  ]
-
-  // Check if we're on a protected route and redirect if not authenticated
-  const isAuthRoute = authRequiredRoutes.some(route => 
-    request.nextUrl.pathname.startsWith(route)
-  )
-
-  if (isAuthRoute && !session) {
-    // Redirect to login if accessing protected route without session
-    const redirectUrl = new URL('/organizer/login', request.url)
-    redirectUrl.searchParams.set('redirect', request.nextUrl.pathname)
-    return NextResponse.redirect(redirectUrl)
-  }
-
-  // Prevent authenticated users from accessing login/signup pages
-  const isLoginPage = request.nextUrl.pathname === '/organizer/login' || 
-                      request.nextUrl.pathname === '/organizer/signup'
-  
-  if (isLoginPage && session) {
-    // Redirect to dashboard if already logged in
-    return NextResponse.redirect(new URL('/organizer/dashboard', request.url))
-  }
-
-  return response
+  // Update the session for all requests
+  // This will refresh tokens if needed and ensure cookies are set properly
+  return await updateSession(request)
 }
 
-// Apply middleware to specific routes only
+// Apply middleware to all routes except static assets
 export const config = {
   matcher: [
-    '/organizer/:path*',
-    '/account/:path*',
+    /*
+     * Match all request paths except:
+     * - _next/static (static files)
+     * - _next/image (image optimization files)
+     * - favicon.ico (favicon file)
+     * - public folder
+     * - api routes (we handle auth differently there)
+     */
+    '/((?!_next/static|_next/image|favicon.ico|api|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 }

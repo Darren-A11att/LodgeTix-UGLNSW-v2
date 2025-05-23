@@ -2,6 +2,7 @@ import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Plus, Minus, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useDebouncedCallback } from 'use-debounce';
 
 interface AddRemoveControlProps {
   count: number;
@@ -35,6 +36,11 @@ export const AddRemoveControl: React.FC<AddRemoveControlProps> = ({
   const canAdd = count < maxCount && !disabled;
   const canRemove = count > minCount && !disabled;
 
+  // Debounce the add and remove callbacks to prevent rapid clicks
+  // 300ms delay should be sufficient to prevent accidental double-clicks
+  const debouncedAdd = useDebouncedCallback(onAdd, 300);
+  const debouncedRemove = useDebouncedCallback(onRemove, 300);
+
   if (variant === 'compact') {
     return (
       <div className={cn("flex items-center gap-2", className)}>
@@ -42,7 +48,7 @@ export const AddRemoveControl: React.FC<AddRemoveControlProps> = ({
           type="button"
           size="icon"
           variant="outline"
-          onClick={onRemove}
+          onClick={debouncedRemove}
           disabled={!canRemove}
           className="h-8 w-8"
         >
@@ -59,7 +65,7 @@ export const AddRemoveControl: React.FC<AddRemoveControlProps> = ({
           type="button"
           size="icon"
           variant="outline"
-          onClick={onAdd}
+          onClick={debouncedAdd}
           disabled={!canAdd}
           className="h-8 w-8"
         >
@@ -83,7 +89,7 @@ export const AddRemoveControl: React.FC<AddRemoveControlProps> = ({
             type="button"
             size="sm"
             variant="ghost"
-            onClick={onAdd}
+            onClick={debouncedAdd}
             disabled={!canAdd}
           >
             <Plus className="h-4 w-4 mr-1" />
@@ -95,7 +101,7 @@ export const AddRemoveControl: React.FC<AddRemoveControlProps> = ({
               type="button"
               size="sm"
               variant="ghost"
-              onClick={onRemove}
+              onClick={debouncedRemove}
               disabled={!canRemove}
               className="text-destructive hover:text-destructive"
             >
@@ -122,7 +128,7 @@ export const AddRemoveControl: React.FC<AddRemoveControlProps> = ({
           type="button"
           size="sm"
           variant="outline"
-          onClick={onAdd}
+          onClick={debouncedAdd}
           disabled={!canAdd}
         >
           <Plus className="h-4 w-4 mr-2" />
@@ -133,7 +139,7 @@ export const AddRemoveControl: React.FC<AddRemoveControlProps> = ({
           type="button"
           size="sm"
           variant="outline"
-          onClick={onRemove}
+          onClick={debouncedRemove}
           disabled={!canRemove}
           className={cn(
             canRemove && "text-destructive hover:bg-destructive hover:text-destructive-foreground"
@@ -202,12 +208,16 @@ export const LegacyAddRemoveControl: React.FC<{
 }> = ({ label, count, onAdd, onRemove, min = 0, max = Infinity, removeDisabled = false }) => {
   const canRemove = count > min && !removeDisabled;
   const canAdd = count < max;
+  
+  // Debounce the callbacks for legacy component as well
+  const debouncedAdd = useDebouncedCallback(onAdd, 300);
+  const debouncedRemove = useDebouncedCallback(onRemove, 300);
 
   return (
     <div className="flex items-center w-full">
       <button
         type="button"
-        onClick={onRemove}
+        onClick={debouncedRemove}
         disabled={!canRemove}
         className={`w-10 h-10 flex items-center justify-center bg-white border border-slate-300 text-slate-700 rounded-l-md transition-colors hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:ring-offset-1 ${!canRemove ? 'opacity-50 cursor-not-allowed hover:bg-white' : ''}`}
         aria-label={`Remove last ${label}`}
@@ -219,7 +229,7 @@ export const LegacyAddRemoveControl: React.FC<{
       </div>
       <button
         type="button"
-        onClick={onAdd}
+        onClick={debouncedAdd}
         disabled={!canAdd}
         className={`w-10 h-10 flex items-center justify-center bg-white border border-slate-300 text-slate-700 rounded-r-md transition-colors hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:ring-offset-1 ${!canAdd ? 'opacity-50 cursor-not-allowed hover:bg-white' : ''}`}
         aria-label={`Add ${label}`}

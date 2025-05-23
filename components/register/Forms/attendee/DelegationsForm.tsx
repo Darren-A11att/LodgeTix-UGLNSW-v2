@@ -14,6 +14,7 @@ import { Input } from '@/components/ui/input';
 import { GrandLodgeSelection } from '../mason/lib/GrandLodgeSelection';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import formSaveManager from '@/lib/formSaveManager';
+import { useDebouncedCallback } from 'use-debounce';
 
 interface DelegationsFormProps {
   delegationType?: 'GrandLodge' | 'MasonicGoverningBody';
@@ -152,6 +153,11 @@ export const DelegationsForm: React.FC<DelegationsFormProps> = ({
   }, []);
 
   const [showDelegateTypeDialog, setShowDelegateTypeDialog] = useState(false);
+  
+  // Debounce the add delegate button to prevent rapid clicks
+  const debouncedShowDialog = useDebouncedCallback(() => {
+    setShowDelegateTypeDialog(true);
+  }, 300);
 
   // Handle delegate type selection
   const handleDelegateTypeSelection = useCallback((type: 'Mason' | 'Guest') => {
@@ -232,7 +238,7 @@ export const DelegationsForm: React.FC<DelegationsFormProps> = ({
                 {delegateAttendees.length} delegate{delegateAttendees.length !== 1 ? 's' : ''}
               </Badge>
               <Button
-                onClick={() => setShowDelegateTypeDialog(true)}
+                onClick={debouncedShowDialog}
                 disabled={delegateAttendees.length >= maxDelegates}
                 size="sm"
               >

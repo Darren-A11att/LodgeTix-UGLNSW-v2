@@ -157,17 +157,14 @@ export const CheckoutForm = memo(function CheckoutForm({
       }
     };
     
-    // Add event listener to the payment element div
-    const element = paymentElementRef.current;
-    if (element) {
-      element.addEventListener('continuePayment', handleContinuePayment);
-    }
+    // Add event listener to window for global event dispatch
+    window.addEventListener('continuePayment', handleContinuePayment);
+    console.log("🎯 CheckoutForm: Added continuePayment event listener to window");
     
     // Cleanup function
     return () => {
-      if (element) {
-        element.removeEventListener('continuePayment', handleContinuePayment);
-      }
+      window.removeEventListener('continuePayment', handleContinuePayment);
+      console.log("🎯 CheckoutForm: Removed continuePayment event listener from window");
     };
   }, [stripe, elements, clientSecret, billingDetails, onPaymentSuccess, onPaymentError, setIsProcessingPayment]);
 
@@ -204,27 +201,16 @@ export const CheckoutForm = memo(function CheckoutForm({
     console.log("  • window.__registrationId:", window.__registrationId);
 
     // First, trigger the parent form submission to save registration data
-    // This uses a custom event to bubble up to the parent form
-    console.log("🔶 Dispatching saveRegistration event to save data first");
+    // This uses a custom event dispatched to the window
+    console.log("🔶 Dispatching saveRegistration event to window to save data first");
     const formSubmitEvent = new CustomEvent('saveRegistration', {
       bubbles: true,
       cancelable: true,
       detail: { isPaymentFormSubmit: true }
     });
     
-    // Use the ref to get the element and dispatch the event
-    if (paymentElementRef.current) {
-      paymentElementRef.current.dispatchEvent(formSubmitEvent);
-    } else {
-      // Fallback to find a parent form if ref isn't available
-      const parentForm = document.querySelector('form');
-      if (parentForm) {
-        parentForm.dispatchEvent(formSubmitEvent);
-      } else {
-        console.error("No form element found to dispatch event to");
-        onPaymentError("Technical error: couldn't connect to payment system. Please contact support.");
-      }
-    }
+    // Dispatch to window for consistent global event handling
+    window.dispatchEvent(formSubmitEvent);
     
     // The actual payment processing is now handled by the continuePayment event listener
   };

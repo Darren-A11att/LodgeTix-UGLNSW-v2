@@ -18,6 +18,7 @@ interface TwoColumnStepLayoutProps {
   // Step information
   currentStep?: number;
   totalSteps?: number;
+  stepName?: string;
   
   // Optional props
   className?: string;
@@ -31,6 +32,7 @@ export const TwoColumnStepLayout: React.FC<TwoColumnStepLayoutProps> = ({
   summaryTitle = "Step Summary",
   currentStep = 1,
   totalSteps = 6,
+  stepName,
   className,
   mainColumnClassName,
   summaryColumnClassName,
@@ -52,7 +54,7 @@ export const TwoColumnStepLayout: React.FC<TwoColumnStepLayoutProps> = ({
                 <CardTitle>{summaryTitle}</CardTitle>
               </CardHeader>
               <CardContent>
-                <StepSummary currentStep={currentStep} totalSteps={totalSteps}>
+                <StepSummary currentStep={currentStep} totalSteps={totalSteps} stepName={stepName}>
                   {summaryContent}
                 </StepSummary>
               </CardContent>

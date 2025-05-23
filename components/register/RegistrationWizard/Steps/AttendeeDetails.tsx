@@ -10,7 +10,8 @@ import TermsAndConditions from '../../Functions/TermsAndConditions';
 import { TwoColumnStepLayout } from '../Layouts/TwoColumnStepLayout';
 import { OneColumnStepLayout } from '../Layouts/OneColumnStepLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { SimpleAttendeeSummaryV2 } from '../Summary/SimpleAttendeeSummaryV2';
+import { getAttendeeSummaryData } from '../Summary/summary-data/attendee-summary-data';
+import { SummaryRenderer } from '../Summary/SummaryRenderer';
 import formSaveManager from '@/lib/formSaveManager';
 
 interface AttendeeDetailsProps {
@@ -28,7 +29,7 @@ const AttendeeDetails: React.FC<AttendeeDetailsProps> = ({
   prevStep,
   validationErrors,
 }) => {
-  const { registrationType } = useRegistrationStore();
+  const { registrationType, attendees } = useRegistrationStore();
   const [showErrors, setShowErrors] = useState(false);
   
   // Local validation function since it doesn't exist in the store
@@ -167,7 +168,12 @@ const AttendeeDetails: React.FC<AttendeeDetailsProps> = ({
 
   // Use the simple attendee summary without header (StepSummary handles progress)
   const renderSummaryContent = () => {
-    return <SimpleAttendeeSummaryV2 showHeader={false} />;
+    const summaryData = getAttendeeSummaryData({
+      attendees,
+      registrationType
+    });
+    
+    return <SummaryRenderer {...summaryData} />;
   };
 
   // Render Lodge registration with OneColumnStepLayout
@@ -196,6 +202,7 @@ const AttendeeDetails: React.FC<AttendeeDetailsProps> = ({
       summaryTitle="Step Summary"
       currentStep={2}
       totalSteps={6}
+      stepName="Attendee Details"
     >
       <div className="space-y-8 pb-20 sm:pb-10">
         {/* Form content */}

@@ -18,7 +18,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { getBrowserClient } from '@/lib/supabase-singleton';
+import { createClient } from '@/utils/supabase/client';
 
 interface RegistrationType {
   id: 'individual' | 'lodge' | 'delegation';
@@ -151,7 +151,8 @@ export function RegistrationTypeStep() {
   useEffect(() => {
     const checkExistingSession = async () => {
       try {
-        const { data: { session }, error } = await getBrowserClient().auth.getSession();
+        const supabase = createClient();
+        const { data: { session }, error } = await supabase.auth.getSession();
         if (error) {
           console.error("Error checking existing session:", error);
         } else if (session && session.user.is_anonymous) {
@@ -295,7 +296,8 @@ export function RegistrationTypeStep() {
         
         // Now create anonymous session client-side
         console.log('🔐 Creating anonymous session...');
-        const { data: authData, error: authError } = await getBrowserClient().auth.signInAnonymously();
+        const supabase = createClient();
+        const { data: authData, error: authError } = await supabase.auth.signInAnonymously();
         
         if (authError) {
           console.error('❌ Failed to create anonymous session:', authError);

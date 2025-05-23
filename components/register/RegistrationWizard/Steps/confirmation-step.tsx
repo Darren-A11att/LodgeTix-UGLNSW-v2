@@ -8,7 +8,6 @@ import {
   AlertCircle,
   Calendar,
   Check,
-  CheckCircle,
   Clock,
   Download,
   ExternalLink,
@@ -28,9 +27,9 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { SectionHeader } from "../Shared/SectionHeader"
-import type { UnifiedAttendeeData } from '../../../../lib/registrationStore'
-import { OneColumnStepLayout } from "../Layouts/OneColumnStepLayout"
+import { TwoColumnStepLayout } from "../Layouts/TwoColumnStepLayout"
+import { getConfirmationSummaryData } from '../Summary/summary-data/confirmation-summary-data';
+import { SummaryRenderer } from '../Summary/SummaryRenderer';
 import { useState, useEffect, useMemo } from 'react'
 
 // Placeholder ticket definitions (should be imported from a shared source eventually)
@@ -61,7 +60,6 @@ function ConfirmationStep() {
     clearRegistration,
     confirmationNumber: storeConfirmationNumber,
     attendees: allStoreAttendees,
-    billingDetails,
     draftId,
   } = store
 
@@ -187,7 +185,25 @@ function ConfirmationStep() {
     return currentTickets.reduce((sum, ticket) => sum + (ticket.price || 0), 0);
   }, [registrationData, currentTickets]);
 
+  // Create alias for consistency with renderSummaryContent
+  const totalAmountDerived = totalAmount;
+
   const totalTickets = currentTickets.length;
+
+  // Create attendeesForDisplay array for summary rendering
+  const attendeesForDisplay = useMemo(() => {
+    const result: any[] = [];
+    
+    // Add primary attendee first
+    if (primaryAttendee) {
+      result.push(primaryAttendee);
+    }
+    
+    // Add additional attendees
+    result.push(...additionalAttendees);
+    
+    return result;
+  }, [primaryAttendee, additionalAttendees]);
 
   // Use confirmation number from Supabase if available, otherwise from store
   const confirmationNumber = useMemo(() => {
@@ -226,20 +242,47 @@ function ConfirmationStep() {
     return att.attendeeType === 'Mason' ? att.rank : att.title;
   };
 
+  // Prepare summary content
+  const renderSummaryContent = () => {
+    const summaryData = getConfirmationSummaryData({
+      registrationId: draftId || '',
+      paymentStatus: 'completed',
+      totalAmount: totalAmountDerived,
+      attendeeCount: attendeesForDisplay.length,
+      ticketCount: currentTickets.length,
+      confirmationNumber: draftId?.slice(0, 8).toUpperCase() || '',
+      email: primaryAttendee?.email || primaryAttendee?.primaryEmail
+    });
+    
+    return <SummaryRenderer {...summaryData} />;
+  };
+
   // Loading state
   if (isLoading) {
     return (
-      <OneColumnStepLayout>
+      <TwoColumnStepLayout
+        summaryContent={<div className="text-sm text-muted-foreground">Loading...</div>}
+        summaryTitle="Step Summary"
+        currentStep={6}
+        totalSteps={6}
+        stepName="Confirmation"
+      >
         <div className="flex flex-col items-center justify-center p-12">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-masonic-navy mb-4"></div>
           <p className="text-masonic-navy font-medium">Loading your registration details...</p>
         </div>
-      </OneColumnStepLayout>
+      </TwoColumnStepLayout>
     );
   }
 
   return (
-    <OneColumnStepLayout>
+    <TwoColumnStepLayout
+      summaryContent={renderSummaryContent()}
+      summaryTitle="Step Summary"
+      currentStep={6}
+      totalSteps={6}
+      stepName="Confirmation"
+    >
       <div className="space-y-8">
         {error && (
           <Alert variant="destructive" className="mb-4">
@@ -556,7 +599,7 @@ function ConfirmationStep() {
           </Button>
         </div>
       </div>
-    </OneColumnStepLayout>
+    </TwoColumnStepLayout>
   )
 }
 

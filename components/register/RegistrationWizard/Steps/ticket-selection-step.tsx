@@ -15,7 +15,8 @@ import { v7 as uuidv7 } from "uuid"
 import { SectionHeader } from "../Shared/SectionHeader"
 import { AlertModal } from "@/components/ui/alert-modal"
 import { TwoColumnStepLayout } from "../Layouts/TwoColumnStepLayout"
-import { SimpleTicketSummary } from "../Summary/SimpleTicketSummary"
+import { getTicketSummaryData } from '../Summary/summary-data/ticket-summary-data';
+import { SummaryRenderer } from '../Summary/SummaryRenderer';
 
 // Define AttendeeType for eligibility checking, leveraging existing types
 export type AttendeeType = Attendee['type'];
@@ -363,12 +364,15 @@ function TicketSelectionStep() {
   const orderTotalAmount = currentTickets.reduce((sum, ticket) => sum + ticket.price, 0);
 
   // Render summary content for right column - using simplified component
-  const renderSummaryContent = () => (
-    <SimpleTicketSummary 
-      currentTickets={currentTickets}
-      orderTotalAmount={orderTotalAmount}
-    />
-  );
+  const renderSummaryContent = () => {
+    const summaryData = getTicketSummaryData({
+      currentTickets,
+      orderTotalAmount,
+      attendees: allStoreAttendees
+    });
+    
+    return <SummaryRenderer {...summaryData} />;
+  };
 
   return (
     <TwoColumnStepLayout
@@ -376,6 +380,7 @@ function TicketSelectionStep() {
       summaryTitle="Step Summary"
       currentStep={3}
       totalSteps={6}
+      stepName="Ticket Selection"
     >
       <div className="space-y-6">
         <div className="space-y-4">

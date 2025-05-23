@@ -24,7 +24,9 @@ import {
   AlertDialogTitle 
 } from "@/components/ui/alert-dialog"
 import AttendeeEditModal from "../Attendees/AttendeeEditModal"
-import { OneColumnStepLayout } from "../Layouts/OneColumnStepLayout"
+import { TwoColumnStepLayout } from "../Layouts/TwoColumnStepLayout"
+import { getOrderReviewSummaryData } from '../Summary/summary-data/order-review-summary-data';
+import { SummaryRenderer } from '../Summary/SummaryRenderer';
 
 // Ticket types and packages from Supabase database
 // Defining minimal versions here for type safety in ticket derivation logic
@@ -203,8 +205,39 @@ function OrderReviewStep() {
     setEditingAttendee(null);
   }
 
+  // Group tickets by attendee for summary
+  const allTicketsByAttendee = useMemo(() => {
+    const grouped: Record<string, any[]> = {};
+    currentTickets.forEach(ticket => {
+      if (!grouped[ticket.attendeeId]) {
+        grouped[ticket.attendeeId] = [];
+      }
+      grouped[ticket.attendeeId].push(ticket);
+    });
+    return grouped;
+  }, [currentTickets]);
+
+  // Prepare summary content
+  const renderSummaryContent = () => {
+    const summaryData = getOrderReviewSummaryData({
+      attendees: attendeesForDisplay,
+      registrationType,
+      ticketCount: totalTickets,
+      totalAmount,
+      ticketsByAttendee: allTicketsByAttendee
+    });
+    
+    return <SummaryRenderer {...summaryData} />;
+  };
+
   return (
-    <OneColumnStepLayout>
+    <TwoColumnStepLayout
+      summaryContent={renderSummaryContent()}
+      summaryTitle="Step Summary"
+      currentStep={4}
+      totalSteps={6}
+      stepName="Order Review"
+    >
       <div className="space-y-6">
         <Card className="border-masonic-navy">
           <CardHeader className="bg-masonic-navy text-white">
@@ -393,7 +426,7 @@ function OrderReviewStep() {
         </AlertDialog>
 
       </div>
-    </OneColumnStepLayout>
+    </TwoColumnStepLayout>
   )
 }
 

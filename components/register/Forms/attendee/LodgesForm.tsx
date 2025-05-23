@@ -233,6 +233,9 @@ export const LodgesForm: React.FC<LodgesFormProps> = ({
     setLodgeMembers(prev => [...prev, { attendeeId: newId, isPrimary: false }]);
     setEditingAttendeeId(newId);
   }, [addMasonAttendee, updateAttendeeImmediate, selectedGrandLodge, selectedLodge, lodgeName, memberAttendees, maxMembers]);
+  
+  // Debounced version of handleAddMember to prevent rapid clicks
+  const debouncedAddMember = useDebouncedCallback(handleAddMember, 300);
 
   // Update lodge details for all members
   const handleLodgeChange = useCallback((lodgeId: string, lodgeName: string) => {
@@ -512,7 +515,7 @@ export const LodgesForm: React.FC<LodgesFormProps> = ({
                 </Badge>
               )}
               <Button
-                onClick={handleAddMember}
+                onClick={debouncedAddMember}
                 disabled={memberAttendees.filter(a => !a.isPartner).length >= maxMembers || !selectedLodge}
                 className="gap-1 bg-[#0a2059] hover:bg-[#0c2669]"
               >
