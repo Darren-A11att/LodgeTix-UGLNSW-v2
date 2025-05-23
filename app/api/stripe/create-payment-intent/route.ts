@@ -4,25 +4,23 @@ import Stripe from 'stripe';
 // Validate environment variable exists at the module scope
 if (!process.env.STRIPE_SECRET_KEY) {
   // This error will be thrown when the serverless function initializes if the key is missing
-  // It's better to catch this early.
   console.error("FATAL ERROR: STRIPE_SECRET_KEY is not set in environment variables.");
-  // Depending on deployment, you might want the function to not even deploy or start.
-  // For a running server, this check will prevent Stripe from being initialized without a key.
 }
 
 // Initialize Stripe with your secret key
-// The console.log for debugging the key can be removed once the issue is resolved.
-console.log("STRIPE_SECRET_KEY from env in API route:", process.env.STRIPE_SECRET_KEY);
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, { // The '!' asserts it's non-null after the check above
+const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
+
+if (!stripeSecretKey) {
+  throw new Error("STRIPE_SECRET_KEY environment variable is required");
+}
+
+console.log("STRIPE_SECRET_KEY (first 10 chars):", stripeSecretKey.substring(0, 10) + "...");
+
+const stripe = new Stripe(stripeSecretKey, {
   apiVersion: '2025-04-30.basil', // Using the version suggested by the linter for stripe@18.1.0
 });
 
 export async function POST(request: Request) {
-  // Re-check here as well, or rely on Stripe SDK to throw if key was truly undefined at init
-  if (!process.env.STRIPE_SECRET_KEY) {
-    console.error("STRIPE_SECRET_KEY is missing during POST request processing.");
-    return NextResponse.json({ error: 'Server configuration error: Stripe key missing.' }, { status: 500 });
-  }
   try {
     // Log request details
     console.group("🔄 Stripe Payment Intent Request");
@@ -31,7 +29,7 @@ export async function POST(request: Request) {
     const requestBody = await request.json();
     console.log("Request payload:", JSON.stringify(requestBody, null, 2));
 
-    const { amount, currency } = requestBody;
+    const { amount, currency, idempotencyKey } = requestBody;
 
     if (!amount || !currency) {
       console.log("❌ Validation Error: Missing amount or currency");
@@ -56,9 +54,9 @@ export async function POST(request: Request) {
     // Create start time for measuring performance
     const startTime = performance.now();
 
-    // Create a PaymentIntent with the order amount and currency
-    const paymentIntent = await stripe.paymentIntents.create({
-      amount: amount, // Amount in cents
+    // Prepare the options for the payment intent creation
+    const paymentIntentOptions = {
+      amount: Math.round(amount), // Amount in cents, ensure it's an integer
       currency: currency,
       automatic_payment_methods: {
         enabled: true,
@@ -68,7 +66,22 @@ export async function POST(request: Request) {
         created_at: new Date().toISOString(),
         environment: process.env.NODE_ENV || 'development'
       },
-    });
+    };
+
+    // Options for the API call
+    const apiOptions: Stripe.RequestOptions = {};
+    
+    // If idempotency key is provided, use it
+    if (idempotencyKey) {
+      console.log(`Using idempotency key: ${idempotencyKey.substring(0, 10)}...`);
+      apiOptions.idempotencyKey = idempotencyKey;
+    }
+
+    // Create a PaymentIntent with the order amount and currency
+    const paymentIntent = await stripe.paymentIntents.create(
+      paymentIntentOptions,
+      apiOptions
+    );
 
     // Calculate duration
     const duration = Math.round(performance.now() - startTime);

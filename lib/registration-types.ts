@@ -1,5 +1,5 @@
-// Registration Types
-export type RegistrationType = "myself-others" | "lodge" | "delegation"
+// Registration Types - updated to match store values
+export type RegistrationType = "individual" | "lodge" | "delegation"
 
 export type MasonicTitle = "Bro" | "W Bro" | "VW Bro" | "RW Bro" | "MW Bro"
 export type MasonicRank = "EAF" | "FCF" | "MM" | "IM" | "GL"

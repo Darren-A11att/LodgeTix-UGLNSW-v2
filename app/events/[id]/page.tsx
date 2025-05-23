@@ -5,19 +5,20 @@ import { CalendarDays, Clock, MapPin, Share2, TicketIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { getEventByIdOrSlug, getEvents } from "@/lib/event-utils"
+import { getEventByIdOrSlug, getEvents } from "@/lib/event-facade"
 
 // Static generation for known events - using slugs for routes
-export function generateStaticParams() {
-  const events = getEvents();
+export async function generateStaticParams() {
+  const events = await getEvents();
   return events.map(event => ({
     id: event.slug // Using slug for route parameter
   }));
 }
 
-export default function EventPage({ params }: { params: { id: string } }) {
+export default async function EventPage({ params }: { params: Promise<{ id: string }> }) {
   // The id param is actually the slug from the URL
-  const event = getEventByIdOrSlug(params.id)
+  const { id } = await params
+  const event = await getEventByIdOrSlug(id)
 
   if (!event) {
     return (
@@ -44,7 +45,7 @@ export default function EventPage({ params }: { params: { id: string } }) {
             <Share2 className="mr-2 h-4 w-4" /> Share
           </Button>
           <Button size="sm" asChild>
-            <Link href={`/events/${event.slug}/tickets`}>Get Tickets</Link>
+            <Link href={`/events/${event.slug}/register`}>Get Tickets</Link>
           </Button>
         </div>
       </header>
@@ -179,7 +180,7 @@ export default function EventPage({ params }: { params: { id: string } }) {
               </CardContent>
               <CardFooter>
                 <Button className="w-full" asChild>
-                  <Link href={`/events/${event.slug}/tickets`}>
+                  <Link href={`/events/${event.slug}/register`}>
                     <TicketIcon className="mr-2 h-4 w-4" /> Get Tickets
                   </Link>
                 </Button>

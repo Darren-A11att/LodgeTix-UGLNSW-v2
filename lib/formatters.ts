@@ -3,6 +3,7 @@ import * as EventTypes from '../shared/types/event.ts';
 import * as TicketTypes from '../shared/types/ticket.ts';
 import * as DayTypes from '../shared/types/day.ts';
 import * as SupabaseTypes from '../../supabase/supabase.types.ts'; // Import generated types namespace
+import { Event } from '@/lib/event-utils';
 
 // Define types for the raw database row inputs using consistent PascalCase
 // These types must match the actual database table names after standardization
@@ -162,4 +163,90 @@ export function formatEventDayForDisplay(dbEventDay: DbEventDay): DayTypes.Event
     formattedDate: formattedDate || undefined, // Add formatted field
   };
 } 
-*/ 
+*/
+
+/**
+ * Formats an event date for display from event-utils Event type
+ */
+export function formatEventDate(event: Event): string {
+  const dateStr = event.date || event.eventStart;
+  if (!dateStr) return 'Date TBD';
+  
+  try {
+    // Handle ISO date strings
+    if (typeof dateStr === 'string' && dateStr.includes('T')) {
+      const date = new Date(dateStr);
+      return date.toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
+    }
+    
+    // Return the date string as is if it's already formatted
+    return dateStr;
+  } catch (error) {
+    console.warn(`Error formatting date: ${dateStr}`, error);
+    return dateStr.toString();
+  }
+}
+
+/**
+ * Formats an event time for display from event-utils Event type
+ */
+export function formatEventTime(event: Event): string {
+  // If there's a specific time string, use it
+  if (event.time) {
+    return event.time;
+  }
+  
+  // Try to parse from eventStart/eventEnd
+  if (event.eventStart) {
+    try {
+      const startTime = new Date(event.eventStart);
+      let timeStr = startTime.toLocaleTimeString('en-US', {
+        hour: 'numeric',
+        minute: '2-digit',
+        hour12: true
+      });
+      
+      // Add end time if available
+      if (event.eventEnd) {
+        const endTime = new Date(event.eventEnd);
+        const endTimeStr = endTime.toLocaleTimeString('en-US', {
+          hour: 'numeric',
+          minute: '2-digit',
+          hour12: true
+        });
+        timeStr = `${timeStr} - ${endTimeStr}`;
+      }
+      
+      return timeStr;
+    } catch (error) {
+      console.warn(`Error formatting time from event start/end: ${event.eventStart}`, error);
+    }
+  }
+  
+  return 'Time TBD';
+}
+
+/**
+ * Formats a currency value for display
+ */
+export function formatCurrency(amount: number | string | undefined, currency: string = 'USD'): string {
+  if (amount === undefined || amount === null) return '';
+  
+  // If amount is already a formatted string (like "$20")
+  if (typeof amount === 'string' && amount.trim().startsWith('$')) {
+    return amount;
+  }
+  
+  // Convert string to number if needed
+  const numericAmount = typeof amount === 'string' ? parseFloat(amount) : amount;
+  
+  // Format the currency
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: currency,
+  }).format(numericAmount);
+}

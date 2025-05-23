@@ -45,7 +45,7 @@ function analyzeFileImports(file) {
     const content = fs.readFileSync(file, 'utf8');
     const results = {
       file,
-      importsAppGlobals: content.includes('/app/globals.css'),
+      importsAppGlobals: content.includes('/style/styles/globals.css'),
       importsSharedTheme: content.includes('/shared/theme/index.css'),
       hasColorPrimaryRgba: content.includes('rgba(var(--color-primary)'),
       hasColorSecondaryRgba: content.includes('rgba(var(--color-secondary)'),
@@ -94,7 +94,7 @@ function printSummary(results) {
   console.log(`Total files analyzed: ${results.length}`);
   console.log(`Files needing updates: ${filesToUpdateCount}`);
   console.log('\nCSS IMPORT PATTERNS:');
-  console.log(`- Files importing app/globals.css: ${appGlobalCount}`);
+  console.log(`- Files importing style/styles/globals.css: ${appGlobalCount}`);
   console.log(`- Files importing shared/theme/index.css: ${sharedThemeCount}`);
   console.log('\nCSS VARIABLE USAGE:');
   console.log(`- Files using rgba(var(--color-primary), x): ${colorPrimaryRgbaCount}`);
@@ -108,7 +108,7 @@ function printSummary(results) {
       .filter(r => r.needsUpdate)
       .forEach(r => {
         const reasons = [];
-        if (r.importsAppGlobals) reasons.push('imports app/globals.css');
+        if (r.importsAppGlobals) reasons.push('imports style/styles/globals.css');
         if (r.importsSharedTheme) reasons.push('imports shared/theme/index.css');
         if (r.hasColorPrimaryRgba) reasons.push('uses --color-primary');
         if (r.hasColorSecondaryRgba) reasons.push('uses --color-secondary');

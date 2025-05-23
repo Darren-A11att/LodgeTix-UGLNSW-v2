@@ -53,7 +53,7 @@ export interface VasInventory {
 export interface VasEligibility {
   id: string;
   vas_id: string;
-  attendee_type: 'Mason' | 'Guest' | 'LadyPartner' | 'GuestPartner';
+  attendee_type: "mason" | "guest" | "ladypartner" | "guestpartner";
   created_at: string;
 }
 
@@ -118,7 +118,7 @@ export class VasService {
    * @param eventId Event ID to filter by
    * @returns Promise resolving to array of ValueAddedService objects
    */
-  static async getEventVasOptions(eventId: string): Promise<ValueAddedService[]> {
+  static async getEventVasOptions(event_id: string): Promise<ValueAddedService[]> {
     try {
       if (!eventId) {
         throw new Error('Event ID is required');
@@ -152,7 +152,7 @@ export class VasService {
    * @param packageId Package ID to filter by
    * @returns Promise resolving to array of ValueAddedService objects
    */
-  static async getPackageVasOptions(packageId: string): Promise<ValueAddedService[]> {
+  static async getPackageVasOptions(package_id: string): Promise<ValueAddedService[]> {
     try {
       if (!packageId) {
         throw new Error('Package ID is required');
@@ -216,7 +216,7 @@ export class VasService {
    */
   static async isAttendeeTypeEligible(
     vasId: string,
-    attendeeType: 'Mason' | 'Guest' | 'LadyPartner' | 'GuestPartner'
+    attendeeType: "mason" | "guest" | "ladypartner" | "guestpartner"
   ): Promise<boolean> {
     try {
       if (!vasId || !attendeeType) {
@@ -308,7 +308,7 @@ export class VasService {
    */
   static async reserveVasInventory(
     vasId: string,
-    eventId: string | null,
+    event_id: string | null,
     quantity: number = 1
   ): Promise<boolean> {
     try {
@@ -346,7 +346,7 @@ export class VasService {
    */
   static async releaseVasReservation(
     vasId: string,
-    eventId: string | null,
+    event_id: string | null,
     quantity: number = 1
   ): Promise<boolean> {
     try {
@@ -384,7 +384,7 @@ export class VasService {
    */
   static async confirmVasPurchase(
     vasId: string,
-    eventId: string | null,
+    event_id: string | null,
     quantity: number = 1
   ): Promise<boolean> {
     try {
@@ -422,7 +422,7 @@ export class VasService {
    * @returns Promise resolving to the created registration_vas record
    */
   static async addVasToRegistration(
-    registrationId: string,
+    registration_id: string,
     vasId: string,
     quantity: number = 1,
     priceAtPurchase: number

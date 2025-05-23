@@ -2,6 +2,10 @@
  * API logging utility that provides standardized logging for API requests and responses
  */
 
+// Global log level setting
+// Levels: 0 = silent, 1 = error, 2 = warn, 3 = info, 4 = debug
+const LOG_LEVEL = process.env.NEXT_PUBLIC_LOG_LEVEL ? parseInt(process.env.NEXT_PUBLIC_LOG_LEVEL) : 3;
+
 /**
  * Pretty formats an object for console output with custom indentation
  */
@@ -35,9 +39,52 @@ interface ResponseLogOptions {
 }
 
 /**
+ * API Logger utility for consistent logging
+ */
+export const api = {
+  /**
+   * Log error messages (level 1)
+   */
+  error: (message: string, ...args: any[]): void => {
+    if (LOG_LEVEL >= 1) {
+      console.error(`❌ ERROR: ${message}`, ...args);
+    }
+  },
+  
+  /**
+   * Log warning messages (level 2)
+   */
+  warn: (message: string, ...args: any[]): void => {
+    if (LOG_LEVEL >= 2) {
+      console.warn(`⚠️ WARNING: ${message}`, ...args);
+    }
+  },
+  
+  /**
+   * Log informational messages (level 3)
+   */
+  info: (message: string, ...args: any[]): void => {
+    if (LOG_LEVEL >= 3) {
+      console.info(`ℹ️ INFO: ${message}`, ...args);
+    }
+  },
+  
+  /**
+   * Log debug messages (level 4)
+   */
+  debug: (message: string, ...args: any[]): void => {
+    if (LOG_LEVEL >= 4) {
+      console.debug(`🔍 DEBUG: ${message}`, ...args);
+    }
+  }
+};
+
+/**
  * Logs API request details
  */
 export function logApiRequest(options: RequestLogOptions): void {
+  if (LOG_LEVEL < 3) return;
+  
   const { url, method, headers, body, additionalInfo } = options;
   
   console.group(`🔼 API Request: ${method} ${url}`);
@@ -62,6 +109,8 @@ export function logApiRequest(options: RequestLogOptions): void {
  * Logs API response details
  */
 export function logApiResponse(options: ResponseLogOptions): void {
+  if (LOG_LEVEL < 3) return;
+  
   const { url, method, status, statusText, headers, body, duration, additionalInfo } = options;
   
   // Use different icons based on response status

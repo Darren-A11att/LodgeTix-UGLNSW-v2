@@ -1,0 +1,27 @@
+# App Directory Rules
+
+## Route Organization
+- Group related routes using (folder) syntax
+- Never create custom routing logic
+- Follow Next.js conventions strictly
+
+## Component Hierarchy
+```
+app/
+  (customer)/     # Public routes
+  (admin)/        # Protected routes  
+  (auth)/         # Auth routes
+  _components/    # Shared components
+```
+
+## Data Fetching Rules
+- Fetch data in page.tsx or layout.tsx
+- Pass data down as props
+- Never fetch in client components
+- Use server actions for mutations
+
+## Performance Requirements
+- Static generation by default
+- Dynamic rendering only when necessary
+- Implement proper caching strategies
+- Monitor Core Web Vitals

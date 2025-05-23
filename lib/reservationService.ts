@@ -1,32 +1,33 @@
 import { supabase } from './supabase';
 import { User, RealtimeChannel } from '@supabase/supabase-js';
+import { generateUUID } from './uuid-slug-utils';
 
 // Ticket interface matching the database schema
 export interface TicketRecord {
   ticketId: string;
-  attendeeId: string | null;
-  eventId: string;               // Required field (non-nullable)
-  ticketDefinitionId: string;    // This can be null in database but we require it in our app
+  attendee_id: string | null;
+  event_id: string;               // Required field (non-nullable)
+  ticket_definition_id: string;    // This can be null in database but we require it in our app
   pricePaid: number;             // Required field (non-nullable)
   seatInfo: string | null;
   status: 'available' | 'reserved' | 'sold' | 'used' | 'cancelled';
   checkedInAt: string | null;
-  createdAt: string;
-  updatedAt: string;
-  reservationId: string | null;
-  reservationExpiresAt: string | null;
-  originalPrice: number | null;
+  created_at: string;
+  updated_at: string;
+  reservation_id: string | null;
+  reservation_expires_at: string | null;
+  original_price: number | null;
   currency: string | null;
-  paymentStatus: string | null; // Added for the new system
-  purchasedAt: string | null;   // Added for the new system
+  payment_status: string | null; // Added for the new system
+  purchased_at: string | null;   // Added for the new system
 }
 
 export interface Reservation {
   ticketId: string;
-  reservationId: string;
+  reservation_id: string;
   expiresAt: string;
-  eventId: string;
-  ticketDefinitionId: string;
+  event_id: string;
+  ticket_definition_id: string;
 }
 
 export interface ReservationResult {
@@ -38,7 +39,7 @@ export interface ReservationResult {
 // System status broadcast message type
 interface TicketSystemStatus {
   type: 'availability_update' | 'high_demand' | 'system_maintenance';
-  eventId: string;
+  event_id: string;
   ticketDefinitionId?: string;
   message: string;
   availableCount?: number;
@@ -48,7 +49,7 @@ interface TicketSystemStatus {
 // Client presence information
 interface ClientPresence {
   clientId: string;
-  eventId: string;
+  event_id: string;
   ticketDefinitionId?: string;
   viewingSince: number;
   isReserving: boolean;
@@ -60,7 +61,7 @@ interface ClientPresence {
 export class ReservationService {
   private static presenceChannel: RealtimeChannel | null = null;
   private static systemChannel: RealtimeChannel | null = null;
-  private static clientId: string = crypto.randomUUID();
+  private static clientId: string = generateUUID();
   private static activeChannels: Map<string, RealtimeChannel> = new Map();
   
   // Constants for localStorage
@@ -75,7 +76,7 @@ export class ReservationService {
    * Initialize realtime connections
    * Call this when the ticket selection/reservation UI first loads
    */
-  static initializeRealtimeConnections(eventId: string): void {
+  static initializeRealtimeConnections(event_id: string): void {
     this.setupPresenceChannel(eventId);
     this.setupSystemChannel(eventId);
   }
@@ -97,7 +98,7 @@ export class ReservationService {
   /**
    * Set up the presence channel to track users viewing/reserving tickets
    */
-  private static setupPresenceChannel(eventId: string): void {
+  private static setupPresenceChannel(event_id: string): void {
     // Create a unique channel for presence tracking
     this.presenceChannel = supabase.channel(`presence-tickets-${eventId}`, {
       config: {
@@ -131,7 +132,7 @@ export class ReservationService {
           // Track this client's presence viewing this event
           await this.presenceChannel?.track({
             clientId: this.clientId,
-            eventId: eventId,
+            event_id: eventId,
             viewingSince: Date.now(),
             isReserving: false,
           });
@@ -147,7 +148,7 @@ export class ReservationService {
   /**
    * Set up the system channel for ticket system status broadcasts
    */
-  private static setupSystemChannel(eventId: string): void {
+  private static setupSystemChannel(event_id: string): void {
     this.systemChannel = supabase.channel(`system-tickets-${eventId}`);
 
     this.systemChannel
@@ -182,7 +183,7 @@ export class ReservationService {
   /**
    * Update presence to indicate this client is starting the reservation process
    */
-  private static async updatePresenceToReserving(eventId: string, ticketDefinitionId: string): Promise<void> {
+  private static async updatePresenceToReserving(event_id: string, ticket_definition_id: string): Promise<void> {
     if (this.presenceChannel) {
       await this.presenceChannel.track({
         clientId: this.clientId,
@@ -201,8 +202,8 @@ export class ReservationService {
    * Note: Both eventId and ticketDefinitionId are now required fields in the database schema
    */
   static async reserveTickets(
-    eventId: string,
-    ticketDefinitionId: string,
+    event_id: string,
+    ticket_definition_id: string,
     quantity: number
   ): Promise<ReservationResult> {
     try {
@@ -338,7 +339,7 @@ export class ReservationService {
       // Format the response
       const reservations = data.map(item => ({
         ticketId: item.ticket_id,
-        reservationId: item.reservation_id,
+        reservation_id: item.reservation_id,
         expiresAt: item.expires_at,
         eventId,
         ticketDefinitionId
@@ -380,15 +381,15 @@ export class ReservationService {
    * Updates both the ticket records and event capacity using atomic functions
    */
   static async completeReservation(
-    reservationId: string,
-    attendeeId: string
+    reservation_id: string,
+    attendee_id: string
   ): Promise<ReservationResult> {
     try {
       // First, fetch the tickets associated with this reservation to get the event ID
       const { data: tickets, error: ticketsError } = await supabase
-        .from('Tickets')
+        .from("tickets")
         .select('ticketid, eventid')
-        .eq('reservationId', reservationId);
+        .eq("reservation_id", reservationId);
       
       if (ticketsError || !tickets || tickets.length === 0) {
         console.error('Error fetching tickets for reservation:', ticketsError || 'No tickets found');
@@ -436,8 +437,8 @@ export class ReservationService {
           ticketId,
           reservationId,
           expiresAt: '',
-          eventId: tickets.find(t => t.ticketid === ticketId)?.eventid || '',
-          ticketDefinitionId: ''
+          event_id: tickets.find(t => t.ticketid === ticketId)?.eventid || '',
+          ticket_definition_id: ''
         }))
       };
     } catch (error) {
@@ -453,13 +454,13 @@ export class ReservationService {
    * Cancel a reservation
    * Updates both the ticket records and event capacity using atomic functions
    */
-  static async cancelReservation(reservationId: string): Promise<boolean> {
+  static async cancelReservation(reservation_id: string): Promise<boolean> {
     try {
       // First, fetch the tickets associated with this reservation to get the event IDs
       const { data: tickets, error: ticketsError } = await supabase
-        .from('Tickets')
+        .from("tickets")
         .select('ticketid, eventid')
-        .eq('reservationId', reservationId);
+        .eq("reservation_id", reservationId);
       
       if (ticketsError) {
         console.error('Error fetching tickets for reservation:', ticketsError);
@@ -638,8 +639,8 @@ export class ReservationService {
    * Note: Both eventId and ticketDefinitionId are now required fields in the database schema
    */
   static async getTicketAvailability(
-    eventId: string,
-    ticketDefinitionId: string
+    event_id: string,
+    ticket_definition_id: string
   ): Promise<{ available: number; reserved: number; sold: number }> {
     try {
       // Validate required parameters
@@ -717,7 +718,7 @@ export class ReservationService {
    * Store the registration type in localStorage
    * @param registrationType The registration type to store
    */
-  static storeRegistrationType(registrationType: string): void {
+  static storeRegistrationType(registration_type: string): void {
     try {
       localStorage.setItem(this.REGISTRATION_TYPE_KEY, registrationType);
     } catch (error) {
@@ -805,7 +806,7 @@ export class ReservationService {
    * Subscribe to ticket status changes with strong typing
    */
   static subscribeToTicketChanges(
-    reservationId: string,
+    reservation_id: string,
     callback: (ticket: TicketRecord) => void
   ): { unsubscribe: () => void } {
     // Create a unique channel key
@@ -819,7 +820,7 @@ export class ReservationService {
         {
           event: 'UPDATE',
           schema: 'public',
-          table: 'Tickets',
+          table: 'tickets',
           filter: `reservationId=eq.${reservationId}`
         },
         (payload) => {
@@ -853,8 +854,8 @@ export class ReservationService {
    * @returns Object with unsubscribe method
    */
   static subscribeToAvailabilityChanges(
-    eventId: string,
-    ticketDefinitionId: string,
+    event_id: string,
+    ticket_definition_id: string,
     callback: (counts: { available: number; reserved: number; sold: number; max: number }) => void
   ): { unsubscribe: () => void } {
     if (!eventId) {
@@ -955,8 +956,8 @@ export class ReservationService {
    * @returns Promise<boolean> True if the ticket is in high demand
    */
   static async isTicketHighDemand(
-    eventId: string,
-    ticketDefinitionId: string,
+    event_id: string,
+    ticket_definition_id: string,
     thresholdPercent: number = this.HIGH_DEMAND_THRESHOLD
   ): Promise<boolean> {
     try {
@@ -1022,7 +1023,7 @@ export class ReservationService {
    * @param eventId The event ID to check
    * @returns Promise<{max: number, available: number, percentage: number}> Capacity information
    */
-  static async getEventCapacity(eventId: string): Promise<{
+  static async getEventCapacity(event_id: string): Promise<{
     max: number;
     available: number;
     reserved: number;

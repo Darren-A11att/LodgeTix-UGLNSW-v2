@@ -1,6 +1,6 @@
 'use client'
 
-import { createBrowserClient } from '@/lib/supabase-browser'
+import { getBrowserClient } from '@/lib/supabase-singleton'
 import { User, Session, SupabaseClient } from '@supabase/supabase-js'
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react'
 
@@ -19,8 +19,6 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 // Provider component
 export function AuthProvider({ children }: { children: ReactNode }) {
-  // Create the supabase client instance using useState to ensure it's created only once on the client
-  const [supabase] = useState(() => createBrowserClient())
   const [user, setUser] = useState<User | null>(null)
   const [session, setSession] = useState<Session | null>(null)
   const [isLoading, setIsLoading] = useState(true)
@@ -28,7 +26,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Function to refresh user session
   const refreshSession = async () => {
     try {
-      const { data, error } = await supabase.auth.getSession()
+      const { data, error } = await getBrowserClient().auth.getSession()
       if (error) {
         console.error('Error refreshing session:', error)
         return
@@ -48,7 +46,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     refreshSession()
 
     // Set up auth state change listener
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+    const { data: { subscription } } = getBrowserClient().auth.onAuthStateChange(
       async (event, session) => {
         console.log('Auth state changed:', event)
         setUser(session?.user ?? null)
@@ -67,7 +65,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signIn = async (email: string, password: string) => {
     try {
       setIsLoading(true)
-      const { error } = await supabase.auth.signInWithPassword({
+      const { error } = await getBrowserClient().auth.signInWithPassword({
         email,
         password,
       })
@@ -89,7 +87,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const signOut = async () => {
     try {
       setIsLoading(true)
-      await supabase.auth.signOut()
+      await getBrowserClient().auth.signOut()
       setUser(null)
       setSession(null)
     } catch (error) {

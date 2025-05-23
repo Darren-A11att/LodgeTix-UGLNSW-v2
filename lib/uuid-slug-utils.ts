@@ -1,4 +1,4 @@
-import { v4 as uuidv4 } from 'uuid';
+import { v7 as uuidv7 } from 'uuid';
 
 /**
  * Generates a URL-friendly slug from a title or text string
@@ -13,10 +13,14 @@ export const generateSlug = (text: string): string => {
 };
 
 /**
- * Generates a new UUID
+ * Generates a new UUID using UUID v7 (time-ordered)
+ * 
+ * UUID v7 generates time-ordered UUIDs, which are better for database indexing and
+ * follow the format of RFC-compliant UUIDs 
+ * (e.g., 018e0e0e-0000-7000-b000-000000000000)
  */
 export const generateUUID = (): string => {
-  return uuidv4();
+  return uuidv7();
 };
 
 /**

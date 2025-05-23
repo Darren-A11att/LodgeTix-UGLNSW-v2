@@ -1,13 +1,14 @@
 import type { Metadata } from 'next'
-import './globals.css'
+import React from 'react'
+import '@/styles/globals.css'
 import './disableFastRefreshLogs'
 import { LocationInitializer } from '@/components/location-initializer'
 import { AuthProvider } from '@/contexts/auth-provider'
 
 export const metadata: Metadata = {
-  title: 'v0 App',
+  title: 'Grand Proclamation 2025 | United Grand Lodge of NSW & ACT',
   description: 'Created with v0',
-  generator: 'v0.dev',
+  generator: ';)',
 }
 
 export default function RootLayout({
@@ -17,6 +18,11 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
+      <head>
+        <script 
+          src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit">
+        </script>
+      </head>
       <body>
         <AuthProvider>
           <LocationInitializer />

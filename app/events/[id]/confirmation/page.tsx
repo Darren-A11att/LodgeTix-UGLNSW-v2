@@ -1,28 +1,39 @@
 import Link from "next/link"
 import { CalendarDays, Check, Download, MapPin, TicketIcon } from "lucide-react"
+import { notFound } from "next/navigation"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
+import { getEventById } from "@/lib/event-facade"
 
-// This would normally come from a database
-const getEventDetails = (id: string) => {
+// Generate mock order data (would normally come from a database)
+const getOrderDetails = (eventId: string) => {
   return {
-    id,
-    title: "Installation Ceremony",
-    date: "November 15, 2023",
-    time: "5:00 PM - 10:30 PM",
-    location: "Masonic Hall, 123 Temple Street, Manchester",
-    tickets: [{ id: "2", name: "Visiting Brother", price: 30, quantity: 1 }],
-    confirmationNumber: "HARMONY-2023-12345",
-    purchaseDate: "August 15, 2023",
+    tickets: [{ id: "2", name: "Standard Access", price: 75, quantity: 1 }],
+    confirmationNumber: `EVENT-${new Date().getFullYear()}-${Math.floor(Math.random() * 100000)}`,
+    purchaseDate: new Date().toLocaleDateString('en-US', { 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    }),
   }
 }
 
-export default function ConfirmationPage({ params }: { params: { id: string } }) {
-  const event = getEventDetails(params.id)
+export default async function ConfirmationPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
+  
+  // Fetch event from facade
+  const event = await getEventById(id)
+  
+  if (!event) {
+    notFound()
+  }
+  
+  // Get order details (mock data for now)
+  const orderDetails = getOrderDetails(id)
 
-  const totalPrice = event.tickets.reduce((sum, ticket) => {
+  const totalPrice = orderDetails.tickets.reduce((sum, ticket) => {
     return sum + ticket.price * ticket.quantity
   }, 0)
 
@@ -47,7 +58,7 @@ export default function ConfirmationPage({ params }: { params: { id: string } })
         <Card className="mb-8">
           <CardHeader>
             <CardTitle>Order Confirmation</CardTitle>
-            <CardDescription>Order #{event.confirmationNumber}</CardDescription>
+            <CardDescription>Order #{orderDetails.confirmationNumber}</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
@@ -56,7 +67,7 @@ export default function ConfirmationPage({ params }: { params: { id: string } })
                 <div className="flex items-center">
                   <CalendarDays className="mr-2 h-4 w-4" />
                   <span>
-                    {event.date}, {event.time}
+                    {event.date}, {event.time || 'Time TBD'}
                   </span>
                 </div>
                 <div className="flex items-start">
@@ -70,7 +81,7 @@ export default function ConfirmationPage({ params }: { params: { id: string } })
 
             <div>
               <h4 className="mb-2 font-medium">Ticket Details</h4>
-              {event.tickets.map((ticket) => (
+              {orderDetails.tickets.map((ticket) => (
                 <div key={ticket.id} className="flex items-center justify-between">
                   <div>
                     <p>{ticket.name}</p>
@@ -89,7 +100,7 @@ export default function ConfirmationPage({ params }: { params: { id: string } })
             </div>
 
             <div className="rounded-lg bg-gray-100 p-4 text-sm">
-              <p className="font-medium">Purchase Date: {event.purchaseDate}</p>
+              <p className="font-medium">Purchase Date: {orderDetails.purchaseDate}</p>
               <p className="text-gray-500">A receipt has been sent to your email.</p>
             </div>
           </CardContent>
@@ -98,7 +109,7 @@ export default function ConfirmationPage({ params }: { params: { id: string } })
               <Download className="mr-2 h-4 w-4" /> Download Tickets
             </Button>
             <Button variant="outline" asChild>
-              <Link href={`/events/${params.id}`}>View Event Details</Link>
+              <Link href={`/events/${event.slug || event.id}`}>View Event Details</Link>
             </Button>
           </CardFooter>
         </Card>

@@ -52,7 +52,7 @@ export class RegistrationAdminService extends AdminApiService {
       const { data: customer } = await this.client
         .from(supabaseTables.customers)
         .select('*')
-        .eq('id', registration.customerId)
+        .eq('id', registration.customer_id)
         .maybeSingle();
       
       // Get attendees for this registration
@@ -63,7 +63,7 @@ export class RegistrationAdminService extends AdminApiService {
           people(*),
           MasonicProfiles(*)
         `)
-        .eq('registrationId', id);
+        .eq("registration_id", id);
       
       // Get tickets for this registration
       const { data: tickets } = await this.client
@@ -72,7 +72,7 @@ export class RegistrationAdminService extends AdminApiService {
           *,
           ticket_definitions(*)
         `)
-        .eq('registrationId', id);
+        .eq("registration_id", id);
       
       // Get payment records (from Stripe schema)
       const { data: paymentRecords } = await this.client
@@ -109,7 +109,7 @@ export class RegistrationAdminService extends AdminApiService {
   /**
    * Get attendees for a registration
    */
-  async getRegistrationAttendees(registrationId: string): Promise<AdminApiResponse<DbAttendee[]>> {
+  async getRegistrationAttendees(registration_id: string): Promise<AdminApiResponse<DbAttendee[]>> {
     try {
       const { data, error } = await this.client
         .from(supabaseTables.attendees)
@@ -118,7 +118,7 @@ export class RegistrationAdminService extends AdminApiService {
           people(*),
           MasonicProfiles(*)
         `)
-        .eq('registrationId', registrationId);
+        .eq("registration_id", registrationId);
       
       if (error) {
         return { data: null, error: new Error(error.message) };
@@ -134,7 +134,7 @@ export class RegistrationAdminService extends AdminApiService {
   /**
    * Get tickets for a registration
    */
-  async getRegistrationTickets(registrationId: string): Promise<AdminApiResponse<DbTicket[]>> {
+  async getRegistrationTickets(registration_id: string): Promise<AdminApiResponse<DbTicket[]>> {
     try {
       const { data, error } = await this.client
         .from(supabaseTables.tickets)
@@ -142,7 +142,7 @@ export class RegistrationAdminService extends AdminApiService {
           *,
           ticket_definitions(*)
         `)
-        .eq('registrationId', registrationId);
+        .eq("registration_id", registrationId);
       
       if (error) {
         return { data: null, error: new Error(error.message) };
@@ -158,7 +158,7 @@ export class RegistrationAdminService extends AdminApiService {
   /**
    * Get payment records for a registration
    */
-  async getRegistrationPayments(registrationId: string): Promise<AdminApiResponse<any[]>> {
+  async getRegistrationPayments(registration_id: string): Promise<AdminApiResponse<any[]>> {
     try {
       const { data, error } = await this.client
         .from('stripe.payment_records')
@@ -228,7 +228,7 @@ export class RegistrationAdminService extends AdminApiService {
       const { data: registrations, error: registrationsError } = await this.client
         .from(supabaseTables.registrations)
         .select('*')
-        .gt('createdAt', new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString()); // Last 90 days
+        .gt("created_at", new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString()); // Last 90 days
       
       if (registrationsError) {
         return { data: null, error: new Error(registrationsError.message) };
@@ -248,8 +248,8 @@ export class RegistrationAdminService extends AdminApiService {
           else if (reg.status === 'cancelled') cancelled++;
           
           // Add up revenue for completed registrations
-          if (reg.paymentStatus === 'completed' && reg.totalAmountPaid) {
-            totalRevenue += reg.totalAmountPaid;
+          if (reg.payment_status === 'completed' && reg.total_amount_paid) {
+            totalRevenue += reg.total_amount_paid;
           }
         }
       }
