@@ -1,4 +1,4 @@
-import { getServerClient } from '@/lib/supabase-unified';
+import { getServerClient } from '@/lib/supabase-singleton';
 import { NextResponse } from 'next/server';
 
 export async function GET() {

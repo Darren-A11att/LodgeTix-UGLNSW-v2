@@ -2,12 +2,16 @@ import React from 'react';
 import { useRegistrationStore, UnifiedAttendeeData } from '@/lib/registrationStore';
 import { ShieldCheck, User, UserCheck, Users } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { SummaryColumn } from './SummaryColumn';
+import { SummarySection } from './SummarySection';
+import { SummaryItem } from './SummaryItem';
 
 /**
- * An improved version of the attendee summary using the Card pattern
+ * An improved version of the attendee summary using the SummaryColumn pattern
  */
-export const SimpleAttendeeSummaryV2: React.FC = () => {
+export const SimpleAttendeeSummaryV2: React.FC<{
+  showHeader?: boolean;
+}> = ({ showHeader = false }) => {
   const { attendees, registrationType } = useRegistrationStore();
   
   // Count attendees by type
@@ -27,52 +31,80 @@ export const SimpleAttendeeSummaryV2: React.FC = () => {
   };
   
   return (
-    <Card className="bg-[#faf7f2] border-[#e9e2d9]">
-      <CardContent className="space-y-4 pt-6">
-        {/* Registration Type */}
-        <div>
-          <h3 className="text-sm font-medium mb-1">Type</h3>
-          <p className="text-sm">{getFormattedRegistrationType()}</p>
-        </div>
-        
-        {/* Attendee List */}
-        <div>
-          <h3 className="text-sm font-medium mb-2">Attendee List</h3>
-          <div className="space-y-3">
-            {attendees.map(attendee => (
-              <div key={attendee.attendeeId} className="flex items-center justify-between py-2 px-3 bg-white rounded-md border border-gray-100">
-                <div className="flex items-center">
-                  {attendee.attendeeType?.toLowerCase() === 'mason' && (
-                    <ShieldCheck className="w-4 h-4 mr-2 text-masonic-navy" />
-                  )}
-                  {attendee.attendeeType?.toLowerCase() === 'guest' && (
-                    <User className="w-4 h-4 mr-2 text-gray-600" />
-                  )}
-                  {attendee.isPartner && (
-                    <UserCheck className="w-4 h-4 mr-2 text-pink-500" />
-                  )}
-                  <div>
-                    <div className="text-sm font-medium">
-                      {attendee.title} {attendee.firstName} {attendee.lastName}
-                      {attendee.rank && <span className="ml-1 text-xs text-gray-500">({attendee.rank})</span>}
-                      {attendee.grandRank && <span className="ml-1 text-xs text-gray-500">({attendee.grandRank})</span>}
-                    </div>
-                    <div className="text-xs text-gray-500">
-                      {attendee.attendeeType}
-                      {attendee.isPrimary ? ' (Primary)' : ''}
-                    </div>
+    <SummaryColumn
+      header={{
+        title: 'Attendee Summary',
+        step: 2
+      }}
+      showHeader={showHeader}
+    >
+      {/* Registration Type */}
+      <SummarySection title="Registration Type">
+        <SummaryItem
+          label="Type"
+          value={getFormattedRegistrationType()}
+          variant="default"
+        />
+      </SummarySection>
+      
+      {/* Attendee List */}
+      <SummarySection title="Attendee List">
+        <div className="space-y-2">
+          {attendees.map(attendee => (
+            <div key={attendee.attendeeId} className="flex items-center justify-between py-2 px-3 bg-muted/30 rounded-md">
+              <div className="flex items-center gap-2">
+                {attendee.attendeeType?.toLowerCase() === 'mason' && (
+                  <ShieldCheck className="w-3.5 h-3.5 text-primary" />
+                )}
+                {attendee.attendeeType?.toLowerCase() === 'guest' && (
+                  <User className="w-3.5 h-3.5 text-muted-foreground" />
+                )}
+                {attendee.isPartner && (
+                  <UserCheck className="w-3.5 h-3.5 text-pink-500" />
+                )}
+                <div>
+                  <div className="text-sm font-medium">
+                    {attendee.title} {attendee.firstName} {attendee.lastName}
+                    {attendee.rank && <span className="ml-1 text-xs text-muted-foreground">({attendee.rank})</span>}
+                    {attendee.grandRank && <span className="ml-1 text-xs text-muted-foreground">({attendee.grandRank})</span>}
+                  </div>
+                  <div className="text-xs text-muted-foreground">
+                    {attendee.attendeeType}
+                    {attendee.isPrimary ? ' (Primary)' : ''}
                   </div>
                 </div>
               </div>
-            ))}
-          </div>
-
-          <div className="flex items-center pt-3 mt-2 border-t">
-            <Users className="w-4 h-4 mr-2 text-masonic-navy" />
-            <span className="text-sm font-medium">{counts.total} Total Attendee{counts.total !== 1 ? 's' : ''}</span>
-          </div>
+            </div>
+          ))}
         </div>
-      </CardContent>
-    </Card>
+      </SummarySection>
+      
+      {/* Attendee Counts */}
+      <SummarySection title="Summary">
+        <SummaryItem
+          label="Total Attendees"
+          value={counts.total.toString()}
+          variant="highlight"
+        />
+        {counts.masons > 0 && (
+          <SummaryItem
+            label="Masons"
+            value={counts.masons.toString()}
+          />
+        )}
+        {counts.guests > 0 && (
+          <SummaryItem
+            label="Guests"
+            value={counts.guests.toString()}
+          />
+        )}
+        {counts.partners > 0 && (
+          <SummaryItem
+            label="Partners"
+            value={counts.partners.toString()}
+          />
+        )}
+      </SummarySection>
+    </SummaryColumn>
   );
 };

@@ -9,6 +9,7 @@ interface WizardBodyStructureLayoutProps {
   // Step indicator props
   currentStep: number;
   totalSteps?: number;
+  showStepIndicator?: boolean; // New prop to control step indicator visibility
   
   // Section header props
   sectionTitle: string;
@@ -26,6 +27,7 @@ interface WizardBodyStructureLayoutProps {
 export const WizardBodyStructureLayout: React.FC<WizardBodyStructureLayoutProps> = ({
   currentStep,
   totalSteps = 6,
+  showStepIndicator = true, // Default to true for backward compatibility
   sectionTitle,
   sectionDescription,
   children,
@@ -40,10 +42,12 @@ export const WizardBodyStructureLayout: React.FC<WizardBodyStructureLayoutProps>
 
   return (
     <div className={cn("flex flex-col h-full", className)}>
-      {/* Row 1: Step Indicator - hidden on small devices */}
-      <div className="mb-6 flex-shrink-0 hidden sm:block">
-        <RegistrationStepIndicator currentStep={isMounted ? currentStep : 1} />
-      </div>
+      {/* Row 1: Step Indicator - hidden on small devices and when showStepIndicator is false */}
+      {showStepIndicator && (
+        <div className="mb-6 flex-shrink-0 hidden sm:block">
+          <RegistrationStepIndicator currentStep={isMounted ? currentStep : 1} />
+        </div>
+      )}
       
       {/* Row 2: Section Header */}
       <div className="mb-6 flex-shrink-0">

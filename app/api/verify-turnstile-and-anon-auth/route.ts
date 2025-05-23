@@ -1,18 +1,16 @@
 import { NextResponse } from 'next/server';
-import { getServerClient } from '@/lib/supabase-unified';
 
 const TURNSTILE_SECRET_KEY = process.env.CLOUDFLARE_TURNSTILE_SECRET_KEY;
 const TURNSTILE_VERIFY_ENDPOINT = 'https://challenges.cloudflare.com/turnstile/v0/siteverify';
 
 export async function POST(request: Request) {
-  console.log('🔧 API: verify-turnstile-and-anon-auth called');
+  console.log('🔧 API: verify-turnstile called');
   
   if (!TURNSTILE_SECRET_KEY) {
     console.error('CRITICAL: CLOUDFLARE_TURNSTILE_SECRET_KEY is not set.');
     return NextResponse.json({ 
       success: false, 
-      error: 'Server configuration error.',
-      auth: null 
+      error: 'Server configuration error.'
     }, { status: 500 });
   }
 
@@ -28,8 +26,7 @@ export async function POST(request: Request) {
       console.log('🔧 API: No token provided');
       return NextResponse.json({ 
         success: false, 
-        error: 'Turnstile token is missing.',
-        auth: null 
+        error: 'Turnstile token is missing.'
       }, { status: 400 });
     }
 
@@ -61,58 +58,14 @@ export async function POST(request: Request) {
     }
 
     if (outcome.success) {
-      // Turnstile verification successful, now try to sign in anonymously with Supabase
-      console.log('🔧 API: Turnstile success. Attempting Supabase anonymous sign-in...');
+      // Turnstile verification successful
+      console.log('🔧 API: Turnstile verification successful');
       
-      try {
-        const { data: authData, error: authError } = await getServerClient().auth.signInAnonymously();
-        console.log('🔧 API: Supabase auth response:', { authData, authError });
-
-        if (authError) {
-          console.error('🔧 API: Supabase anonymous sign-in error after Turnstile success:', authError);
-          return NextResponse.json({ 
-            success: false, 
-            turnstileVerified: true, 
-            error: `Supabase auth error: ${authError.message}`,
-            auth: null 
-          }, { status: 500 });
-        }
-
-        if (authData.user && authData.session) {
-        console.log('Supabase anonymous sign-in successful. User:', authData.user.id);
-        return NextResponse.json({
-          success: true,
-          turnstileVerified: true,
-          anonymousAuthUser: {
-            id: authData.user.id,
-            aud: authData.user.aud,
-            is_anonymous: authData.user.is_anonymous,
-          },
-          auth: {
-            verified: true,
-            userId: authData.user.id
-          },
-          message: 'Turnstile verified and anonymous session initiated.',
-        });
-        } else {
-          console.error('🔧 API: Supabase anonymous sign-in did not return user or session.');
-          return NextResponse.json({ 
-            success: false, 
-            turnstileVerified: true, 
-            error: 'Supabase anonymous sign-in failed to return user/session.',
-            auth: null 
-          }, { status: 500 });
-        }
-      } catch (supabaseError: any) {
-        console.error('🔧 API: Exception during Supabase auth:', supabaseError);
-        return NextResponse.json({ 
-          success: false, 
-          turnstileVerified: true, 
-          error: `Auth service error: ${supabaseError.message}`,
-          auth: null 
-        }, { status: 500 });
-      }
-
+      return NextResponse.json({
+        success: true,
+        turnstileVerified: true,
+        message: 'Turnstile verification successful. Client can now create anonymous session.',
+      });
     } else {
       console.warn('Turnstile verification failed.', outcome['error-codes']);
       return NextResponse.json(
@@ -120,8 +73,7 @@ export async function POST(request: Request) {
           success: false, 
           turnstileVerified: false, 
           error: 'Turnstile verification failed.', 
-          errorCodes: outcome['error-codes'],
-          auth: null
+          errorCodes: outcome['error-codes']
         },
         { status: 403 } // Forbidden
       );
@@ -130,8 +82,7 @@ export async function POST(request: Request) {
     console.error('Error in verify-turnstile-and-anon-auth API route:', error);
     return NextResponse.json({ 
       success: false, 
-      error: error.message || 'An unexpected error occurred.',
-      auth: null
+      error: error.message || 'An unexpected error occurred.'
     }, { status: 500 });
   }
 } 

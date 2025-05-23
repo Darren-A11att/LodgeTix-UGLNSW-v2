@@ -203,5 +203,15 @@ export function table(tableName: string, isServer = false) {
   return client.from(normalizedName as keyof Database['public']['Tables']);
 }
 
-// Export default browser client for backwards compatibility
-export const supabase = getBrowserClient();
+// Export getter function for browser client to prevent multiple instances
+// This ensures the client is only created when actually needed
+export const getSupabase = () => getBrowserClient();
+
+// For backward compatibility, export the getter as 'supabase'
+// Note: Consumers should ideally use getBrowserClient() directly
+export const supabase = new Proxy({} as SupabaseClient<Database>, {
+  get: (_, prop) => {
+    const client = getBrowserClient();
+    return client[prop as keyof SupabaseClient<Database>];
+  }
+});

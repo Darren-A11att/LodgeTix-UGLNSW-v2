@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { v4 as uuidv4 } from "uuid";
-import { getServerClient, table } from '@/lib/supabase-unified';
+import { getServerClient, table } from '@/lib/supabase-singleton';
 import { UnifiedAttendeeData } from "@/shared/types/supabase";
 import { generateUUID } from "@/lib/uuid-slug-utils";
 import { Tables, TablesInsert, Database } from "@/supabase/types";

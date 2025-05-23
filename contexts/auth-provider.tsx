@@ -1,6 +1,6 @@
 'use client'
 
-import { getBrowserClient } from '@/lib/supabase-unified'
+import { getBrowserClient } from '@/lib/supabase-singleton'
 import { User, Session, SupabaseClient } from '@supabase/supabase-js'
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react'
 

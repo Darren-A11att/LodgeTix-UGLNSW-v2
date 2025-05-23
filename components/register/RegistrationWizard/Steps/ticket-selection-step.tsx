@@ -373,7 +373,9 @@ function TicketSelectionStep() {
   return (
     <TwoColumnStepLayout
       summaryContent={renderSummaryContent()}
-      summaryTitle="Your Order"
+      summaryTitle="Step Summary"
+      currentStep={3}
+      totalSteps={6}
     >
       <div className="space-y-6">
         <div className="space-y-4">

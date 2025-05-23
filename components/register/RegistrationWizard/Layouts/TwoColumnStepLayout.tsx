@@ -5,14 +5,19 @@ import { cn } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { StepSummary } from '../Summary/StepSummary';
 
 interface TwoColumnStepLayoutProps {
   // Main content area (forms, etc.)
   children: React.ReactNode;
   
   // Summary content for sidebar
-  summaryContent: React.ReactNode;
+  summaryContent?: React.ReactNode;
   summaryTitle?: string;
+  
+  // Step information
+  currentStep?: number;
+  totalSteps?: number;
   
   // Optional props
   className?: string;
@@ -23,7 +28,9 @@ interface TwoColumnStepLayoutProps {
 export const TwoColumnStepLayout: React.FC<TwoColumnStepLayoutProps> = ({
   children,
   summaryContent,
-  summaryTitle = "Summary",
+  summaryTitle = "Step Summary",
+  currentStep = 1,
+  totalSteps = 6,
   className,
   mainColumnClassName,
   summaryColumnClassName,
@@ -45,7 +52,9 @@ export const TwoColumnStepLayout: React.FC<TwoColumnStepLayoutProps> = ({
                 <CardTitle>{summaryTitle}</CardTitle>
               </CardHeader>
               <CardContent>
-                {summaryContent}
+                <StepSummary currentStep={currentStep} totalSteps={totalSteps}>
+                  {summaryContent}
+                </StepSummary>
               </CardContent>
             </Card>
           </div>
@@ -53,4 +62,4 @@ export const TwoColumnStepLayout: React.FC<TwoColumnStepLayoutProps> = ({
       </div>
     </div>
   );
-}; 
+};

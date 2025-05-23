@@ -8,7 +8,7 @@ import {
   billingDetailsSchema, 
   type BillingDetails as FormBillingDetailsSchema,
 } from "@/lib/billing-details-schema";
-import { getBrowserClient } from '@/lib/supabase-unified';
+import { getBrowserClient } from '@/lib/supabase-singleton';
 
 import { Button } from "@/components/ui/button";
 import { Form } from "@/components/ui/form";
@@ -50,6 +50,24 @@ interface PaymentStepProps {
 }
 
 function PaymentStep(props: PaymentStepProps = {}) {
+  console.log("💳 PaymentStep component rendering");
+  
+  // Debug localStorage
+  try {
+    const storedData = localStorage.getItem('lodgetix-registration-storage');
+    console.log("💳 localStorage data exists:", !!storedData);
+    if (storedData) {
+      const parsed = JSON.parse(storedData);
+      console.log("💳 localStorage contains:", {
+        hasDraftId: !!parsed?.state?.draftId,
+        attendeesCount: parsed?.state?.attendees?.length || 0,
+        registrationType: parsed?.state?.registrationType
+      });
+    }
+  } catch (e) {
+    console.error("💳 localStorage error:", e);
+  }
+  
   // Store state from Zustand
   const allStoreAttendees = useRegistrationStore((s) => s.attendees);
   const registrationType = useRegistrationStore((s) => s.registrationType);
@@ -61,6 +79,14 @@ function PaymentStep(props: PaymentStepProps = {}) {
   const goToPrevStep = useRegistrationStore((s) => s.goToPrevStep);
   const anonymousSessionEstablished = useRegistrationStore(selectAnonymousSessionEstablished);
   const setAnonymousSessionEstablished = useRegistrationStore((s) => s.setAnonymousSessionEstablished);
+  
+  console.log("💳 Store state:", {
+    attendeesCount: allStoreAttendees.length,
+    anonymousSessionEstablished,
+    registrationType,
+    hasDraftId: !!storeDraftId,
+    draftId: storeDraftId
+  });
 
   // Derive attendee data
   const primaryAttendee = useMemo(() => 
@@ -156,21 +182,28 @@ function PaymentStep(props: PaymentStepProps = {}) {
 
   // Create a debounced payment intent creation function
   const createPaymentIntent = useCallback(async () => {
-    if (totalAmount <= 0) return;
+    console.log("💰 createPaymentIntent function called, totalAmount:", totalAmount);
+    if (totalAmount <= 0) {
+      console.log("💰 Skipping payment intent creation - amount is 0");
+      return;
+    }
     
     try {
-      console.log("💰 Calling Stripe API to create payment intent...");
+      console.log("💰 Starting API call to create payment intent...");
+      
+      const requestBody = { 
+        amount: totalAmount * 100, 
+        currency: 'aud',
+        idempotencyKey: `order-${Date.now()}-${Math.random().toString(36).substring(2, 10)}` 
+      };
+      console.log("💰 Request body:", requestBody);
       
       const response = await fetch('/api/stripe/create-payment-intent', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ 
-          amount: totalAmount * 100, 
-          currency: 'aud',
-          idempotencyKey: `order-${Date.now()}-${Math.random().toString(36).substring(2, 10)}` 
-        }),
+        body: JSON.stringify(requestBody),
       });
 
       console.log("💰 Stripe API response status:", response.status);
@@ -189,9 +222,10 @@ function PaymentStep(props: PaymentStepProps = {}) {
       setIsPaymentIntentReady(true);
     } catch (error: any) {
       console.error("💰 Error creating payment intent:", error);
-      setPaymentIntentError(error.message);
+      setPaymentIntentError(error.message || "Unknown error occurred");
       setIsPaymentIntentReady(false);
     } finally {
+      console.log("💰 Finishing payment intent creation, setting loading to false");
       setIsPaymentIntentLoading(false);
     }
   }, [totalAmount]);
@@ -291,7 +325,7 @@ function PaymentStep(props: PaymentStepProps = {}) {
     setFallbackTurnstileError(null);
 
     try {
-      console.log("🔐 Fallback: Verifying Turnstile token and creating anonymous session...");
+      console.log("🔐 Fallback: Verifying Turnstile token...");
       const response = await fetch('/api/verify-turnstile-and-anon-auth', {
         method: 'POST',
         headers: {
@@ -302,19 +336,30 @@ function PaymentStep(props: PaymentStepProps = {}) {
 
       const result = await response.json();
 
-      if (result.success && result.anonymousAuthUser) {
-        console.log('✅ Fallback: Turnstile verified and anonymous session created:', result.anonymousAuthUser.id);
-        setAnonymousSessionEstablished(true);
-        setShowFallbackTurnstile(false);
-        setFallbackTurnstileError(null);
+      if (result.success && result.turnstileVerified) {
+        console.log('✅ Fallback: Turnstile verified successfully');
         
-        // Re-check session to ensure client picks it up
-        const { data: { session } } = await getBrowserClient().auth.getSession();
-        if (session) {
-          console.log('✅ Fallback: Anonymous session confirmed on client');
+        // Now create anonymous session client-side
+        console.log('🔐 Fallback: Creating anonymous session...');
+        const { data: authData, error: authError } = await getBrowserClient().auth.signInAnonymously();
+        
+        if (authError) {
+          console.error('❌ Fallback: Failed to create anonymous session:', authError);
+          setFallbackTurnstileError(`Failed to create session: ${authError.message}`);
+          return;
+        }
+        
+        if (authData.user && authData.session) {
+          console.log('✅ Fallback: Anonymous session created:', authData.user.id);
+          setAnonymousSessionEstablished(true);
+          setShowFallbackTurnstile(false);
+          setFallbackTurnstileError(null);
+        } else {
+          console.error('❌ Fallback: Anonymous session created but missing user/session data');
+          setFallbackTurnstileError('Failed to establish session. Please try again.');
         }
       } else {
-        console.error('❌ Fallback: Turnstile/Auth verification failed:', result.error, result.errorCodes);
+        console.error('❌ Fallback: Turnstile verification failed:', result.error, result.errorCodes);
         setFallbackTurnstileError(result.error || 'Security verification failed. Please try again.');
         if (window.turnstile) {
           window.turnstile.reset?.('turnstile-widget-container');
@@ -342,25 +387,35 @@ function PaymentStep(props: PaymentStepProps = {}) {
     console.log("💰 clientSecret exists:", !!clientSecret);
 
     // Only create payment intent if session is established and we haven't created one yet
-    if (totalAmount > 0 && anonymousSessionEstablished && sessionCheckComplete && !clientSecret && !isPaymentIntentLoading) {
+    if (totalAmount > 0 && anonymousSessionEstablished && sessionCheckComplete && !clientSecret) {
       console.log("💰 Creating payment intent...");
+      
+      // Use a ref to track if we've already started loading to prevent duplicate calls
+      if (isPaymentIntentLoading) {
+        console.log("💰 Payment intent already loading, skipping");
+        return;
+      }
+      
       setIsPaymentIntentLoading(true);
       setIsPaymentIntentReady(false);
       setPaymentIntentError(null);
 
       // Small delay to ensure session is fully established
       const timeoutId = setTimeout(() => {
+        console.log("💰 Timeout fired, calling createPaymentIntent");
         createPaymentIntent();
       }, 300);
       
-      return () => clearTimeout(timeoutId);
+      return () => {
+        console.log("💰 Cleaning up timeout");
+        clearTimeout(timeoutId);
+      };
     } else {
       console.log("💰 Payment intent creation blocked:", {
         totalAmount: totalAmount > 0,
         sessionEstablished: anonymousSessionEstablished,
         sessionCheckComplete,
-        hasClientSecret: !!clientSecret,
-        isLoading: isPaymentIntentLoading
+        hasClientSecret: !!clientSecret
       });
     }
   }, [
@@ -368,8 +423,8 @@ function PaymentStep(props: PaymentStepProps = {}) {
     createPaymentIntent,
     anonymousSessionEstablished,
     sessionCheckComplete,
-    clientSecret,
-    isPaymentIntentLoading
+    clientSecret
+    // Removed isPaymentIntentLoading from dependencies to prevent infinite loop
   ]);
 
   const handleSuccessfulPayment = async (paymentIntentId: string, stripeBillingDetailsUsed: StripeBillingDetailsForClient, regId: string) => {
@@ -484,6 +539,15 @@ function PaymentStep(props: PaymentStepProps = {}) {
         console.warn("⚠️ onSaveData prop not provided, using fallback registration save function");
         saveDataFunction = async () => {
             // Fallback: directly call the registration API
+            // Get the current user session (anonymous or authenticated)
+            const { getBrowserClient } = await import('@/lib/supabase-singleton');
+            const { data: { user } } = await getBrowserClient().auth.getUser();
+            
+            if (!user) {
+                console.error("❌ No authenticated user found");
+                throw new Error('User authentication required. Please refresh the page and try again.');
+            }
+            
             const registrationData = {
                 registrationType,
                 primaryAttendee,
@@ -491,7 +555,8 @@ function PaymentStep(props: PaymentStepProps = {}) {
                 tickets: currentTicketsForSummary,
                 totalAmount,
                 billingDetails: data,
-                eventId: primaryAttendee?.eventId
+                eventId: primaryAttendee?.eventId,
+                customerId: user.id // Include the authenticated user ID
             };
             
             const response = await fetch('/api/registrations', {
@@ -528,6 +593,11 @@ function PaymentStep(props: PaymentStepProps = {}) {
         console.log("✅ Registration saved successfully. Server Registration ID:", serverGeneratedRegistrationId);
         setConfirmedRegistrationId(serverGeneratedRegistrationId); // Store the TRUE ID
 
+        // Store the registration result in window for CheckoutForm to access
+        window.__registrationResult = saveResult;
+        window.__registrationId = serverGeneratedRegistrationId;
+        console.log("💾 Stored registration data in window object");
+
         // Step 2: If registration save is successful, dispatch event to trigger Stripe payment in CheckoutForm
         // This relies on CheckoutForm listening for this event and having clientSecret ready.
         if (paymentElementRef.current) {
@@ -535,7 +605,10 @@ function PaymentStep(props: PaymentStepProps = {}) {
             // Pass the confirmed registration details, though CheckoutForm primarily needs to know to proceed.
             // The actual confirmedRegistrationId will be used by onPaymentSuccessWrapper.
             const continuePaymentEvent = new CustomEvent('continuePayment', { 
-                detail: { /* No specific detail needed here anymore as CheckoutForm does not need to pass ID back */ } 
+                detail: { 
+                    registrationId: serverGeneratedRegistrationId,
+                    registrationResult: saveResult
+                } 
             });
             paymentElementRef.current.dispatchEvent(continuePaymentEvent);
         } else {
@@ -546,12 +619,43 @@ function PaymentStep(props: PaymentStepProps = {}) {
 
     } catch (error: any) {
         console.error("❌ Error during registration save process:", error);
-        setSubmissionError(`An error occurred while saving your registration: ${error.message}. Please try again.`);
+        
+        // Check if it's an authentication error
+        if (error.message && error.message.includes('authentication')) {
+            setSubmissionError('Your session has expired. Please refresh the page and try again.');
+        } else {
+            setSubmissionError(`An error occurred while saving your registration: ${error.message}. Please try again.`);
+        }
         setIsSubmittingOrder(false);
     }
     // setIsSubmittingOrder(false); // Moved to finally block or after dispatch if payment is async and blocking further UI
   };
   
+  // Effect to handle saveRegistration event from CheckoutForm
+  useEffect(() => {
+    const handleSaveRegistration = (event: Event) => {
+      console.log("📝 Received saveRegistration event from CheckoutForm");
+      const customEvent = event as CustomEvent;
+      
+      // Trigger the form submission
+      const formElement = document.getElementById('payment-step-form') as HTMLFormElement;
+      if (formElement) {
+        console.log("📝 Triggering form submission programmatically");
+        formElement.requestSubmit();
+      } else {
+        console.error("❌ Could not find form element to submit");
+      }
+    };
+
+    // Add event listener
+    document.addEventListener('saveRegistration', handleSaveRegistration);
+
+    // Cleanup
+    return () => {
+      document.removeEventListener('saveRegistration', handleSaveRegistration);
+    };
+  }, []);
+
   // Effect to prefill form if primary attendee data is available
   useEffect(() => {
     if (primaryAttendee && form.getValues('billToPrimary')) {
@@ -576,10 +680,16 @@ function PaymentStep(props: PaymentStepProps = {}) {
 
   // Render the form part
   const renderFormContent = () => {
+    console.log("🎨 renderFormContent called");
+    console.log("🎨 sessionCheckComplete:", sessionCheckComplete);
+    console.log("🎨 anonymousSessionEstablished:", anonymousSessionEstablished);
+    console.log("🎨 showFallbackTurnstile:", showFallbackTurnstile);
+    
     const onActualSubmit = form.handleSubmit(onBillingSubmit);
 
     // Show loading state while checking session
     if (!sessionCheckComplete) {
+      console.log("🎨 Showing session verification loading state");
       return (
         <div className="flex items-center justify-center p-8">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-masonic-navy"></div>
@@ -618,14 +728,16 @@ function PaymentStep(props: PaymentStepProps = {}) {
           onSubmit={onActualSubmit} 
           className="space-y-8"
         >
-          <BillingDetailsForm formControl={form.control} primaryAttendee={primaryAttendee} />
+          <BillingDetailsForm form={form} primaryAttendee={primaryAttendee} />
           <PaymentMethod 
             clientSecret={clientSecret}
-            isPaymentIntentReady={isPaymentIntentReady}
-            isProcessingPayment={isProcessingPayment}
+            totalAmount={totalAmount}
             paymentIntentError={paymentIntentError}
+            isPaymentIntentLoading={isPaymentIntentLoading}
             onPaymentSuccess={onPaymentSuccessWrapper}
             onPaymentError={handlePaymentError}
+            setIsProcessingPayment={setIsProcessingPayment}
+            billingDetails={form.getValues()}
           />
           
           {localPaymentProcessingError && (
@@ -635,14 +747,16 @@ function PaymentStep(props: PaymentStepProps = {}) {
             </Alert>
           )}
 
-          <Button 
-            type="submit" 
-            disabled={isProcessingPayment || isSubmittingOrder || !isPaymentIntentReady || !anonymousSessionEstablished}
-            className="w-full"
-            size="lg"
-          >
-            {isSubmittingOrder ? "Processing Order..." : (isProcessingPayment ? "Processing Payment..." : `Pay $${totalAmount.toFixed(2)}`)}
-          </Button>
+          <div className="flex">
+            <Button 
+              type="button"
+              variant="outline" 
+              onClick={goToPrevStep} 
+              disabled={isSubmittingOrder || isProcessingPayment}
+            >
+              <ArrowLeft className="mr-2 h-4 w-4" /> Previous Step
+            </Button>
+          </div>
         </form>
       </Form>
     );
@@ -679,21 +793,13 @@ function PaymentStep(props: PaymentStepProps = {}) {
 
   return (
     <TwoColumnStepLayout
-      renderLeftContent={renderFormContent}
-      renderRightContent={renderSummaryContent}
-      leftColumnTitle="Payment Details"
-      rightColumnTitle="Order Summary"
-      footerActions={(
-        <>
-          <Button variant="outline" onClick={goToPrevStep} disabled={isSubmittingOrder || isProcessingPayment}>
-            <ArrowLeft className="mr-2 h-4 w-4" /> Previous Step
-          </Button>
-          {/* The main submit button is now inside renderFormContent */}
-          {/* Or, if you have a global submit button that triggers the form, ensure it checks anonymousSessionInitiated */}
-        </>
-      )}
-      currentStepId="payment"
-    />
+      summaryContent={renderSummaryContent()}
+      summaryTitle="Step Summary"
+      currentStep={5}
+      totalSteps={6}
+    >
+      {renderFormContent()}
+    </TwoColumnStepLayout>
   );
 }
 

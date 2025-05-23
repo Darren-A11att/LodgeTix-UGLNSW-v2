@@ -165,9 +165,9 @@ const AttendeeDetails: React.FC<AttendeeDetailsProps> = ({
     </>
   );
 
-  // Use the simple attendee summary with Card pattern
+  // Use the simple attendee summary without header (StepSummary handles progress)
   const renderSummaryContent = () => {
-    return <SimpleAttendeeSummaryV2 />;
+    return <SimpleAttendeeSummaryV2 showHeader={false} />;
   };
 
   // Render Lodge registration with OneColumnStepLayout
@@ -193,7 +193,9 @@ const AttendeeDetails: React.FC<AttendeeDetailsProps> = ({
   return (
     <TwoColumnStepLayout
       summaryContent={renderSummaryContent()}
-      summaryTitle="Attendee Summary"
+      summaryTitle="Step Summary"
+      currentStep={2}
+      totalSteps={6}
     >
       <div className="space-y-8 pb-20 sm:pb-10">
         {/* Form content */}

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getServerClient } from "@/lib/supabase-unified";
+import { getServerClient } from "@/lib/supabase-singleton";
 
 /**
  * Endpoint to verify a registration payment status directly with Stripe via FDW

@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { table, getServerClient } from "@/lib/supabase-unified";
+import { table, getServerClient } from "@/lib/supabase-singleton";
 
 export async function PUT(
   request: Request,

@@ -1,8 +1,9 @@
 import React from 'react';
 import { useRegistrationStore } from '@/lib/registrationStore';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from '@/components/ui/card';
-import { ClipboardList, Users, CreditCard, ShoppingCart } from 'lucide-react';
-import { Button } from '@/components/ui/button';
+import { SummaryColumn } from './SummaryColumn';
+import { SummarySection } from './SummarySection';
+import { SummaryItem } from './SummaryItem';
+import { formatCurrency } from '@/lib/formatters';
 
 /**
  * A simple order review summary component that displays key information about the order
@@ -10,7 +11,8 @@ import { Button } from '@/components/ui/button';
 export const SimpleOrderReviewSummary: React.FC<{
   currentTickets: any[];
   orderTotalAmount: number;
-}> = ({ currentTickets, orderTotalAmount }) => {
+  showHeader?: boolean;
+}> = ({ currentTickets, orderTotalAmount, showHeader = false }) => {
   const { attendees, registrationType } = useRegistrationStore();
   
   // Count attendees by type
@@ -21,96 +23,84 @@ export const SimpleOrderReviewSummary: React.FC<{
     partners: attendees.filter(att => att.isPartner).length
   };
   
+  // Count tickets by type
+  const ticketCounts = currentTickets.reduce((acc, ticket) => {
+    const name = ticket.name;
+    acc[name] = (acc[name] || 0) + 1;
+    return acc;
+  }, {} as Record<string, number>);
+  
   return (
-    <Card className="border-masonic-gold">
-      <CardHeader className="bg-masonic-gold/10">
-        <CardTitle>Order Summary</CardTitle>
-        <CardDescription>
-          Please review your order details
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4 py-4">
-        {/* Registration Summary */}
-        <div className="border-b pb-3">
-          <h3 className="font-medium text-sm mb-2 flex items-center">
-            <ClipboardList className="w-4 h-4 mr-2 text-masonic-navy" />
-            Registration Summary
-          </h3>
-          <div className="text-sm space-y-1 pl-6">
-            <div className="flex justify-between">
-              <span>Registration Type:</span>
-              <span className="font-medium capitalize">{registrationType}</span>
-            </div>
-            <div className="flex justify-between">
-              <span>Total Attendees:</span>
-              <span className="font-medium">{counts.total}</span>
-            </div>
-            <div className="flex justify-between">
-              <span>Masons:</span>
-              <span>{counts.masons}</span>
-            </div>
-            <div className="flex justify-between">
-              <span>Guests:</span>
-              <span>{counts.guests}</span>
-            </div>
-            <div className="flex justify-between">
-              <span>Partners:</span>
-              <span>{counts.partners}</span>
-            </div>
-          </div>
+    <SummaryColumn
+      header={{
+        title: 'Order Review',
+        step: 4
+      }}
+      showHeader={showHeader}
+    >
+      {/* Registration Summary */}
+      <SummarySection title="Registration Details">
+        <SummaryItem
+          label="Registration Type"
+          value={registrationType || 'Individual'}
+          variant="default"
+        />
+        <SummaryItem
+          label="Total Attendees"
+          value={counts.total.toString()}
+          variant="highlight"
+        />
+        {counts.masons > 0 && (
+          <SummaryItem
+            label="Masons"
+            value={counts.masons.toString()}
+          />
+        )}
+        {counts.guests > 0 && (
+          <SummaryItem
+            label="Guests"
+            value={counts.guests.toString()}
+          />
+        )}
+        {counts.partners > 0 && (
+          <SummaryItem
+            label="Partners"
+            value={counts.partners.toString()}
+          />
+        )}
+      </SummarySection>
+      
+      {/* Ticket Summary */}
+      <SummarySection title="Ticket Details">
+        <SummaryItem
+          label="Total Tickets"
+          value={currentTickets.length.toString()}
+          variant="highlight"
+        />
+        {Object.entries(ticketCounts).map(([name, count]) => (
+          <SummaryItem
+            key={name}
+            label={name}
+            value={count.toString()}
+          />
+        ))}
+      </SummarySection>
+      
+      {/* Payment Summary */}
+      <SummarySection title="Payment Total">
+        <SummaryItem
+          label="Order Total"
+          value={formatCurrency(orderTotalAmount)}
+          variant="highlight"
+        />
+        <div className="text-xs text-muted-foreground mt-2">
+          You will be asked to provide payment details in the next step.
         </div>
-        
-        {/* Ticket Summary */}
-        <div className="border-b pb-3">
-          <h3 className="font-medium text-sm mb-2 flex items-center">
-            <ShoppingCart className="w-4 h-4 mr-2 text-masonic-navy" />
-            Ticket Summary
-          </h3>
-          <div className="text-sm space-y-1 pl-6">
-            <div className="flex justify-between">
-              <span>Total Tickets:</span>
-              <span className="font-medium">{currentTickets.length}</span>
-            </div>
-            {/* Count by ticket type */}
-            {currentTickets.reduce((acc, ticket) => {
-              const name = ticket.name;
-              acc[name] = (acc[name] || 0) + 1;
-              return acc;
-            }, {} as Record<string, number>)
-              && Object.entries(currentTickets.reduce((acc, ticket) => {
-                const name = ticket.name;
-                acc[name] = (acc[name] || 0) + 1;
-                return acc;
-              }, {} as Record<string, number>)).map(([name, count]) => (
-                <div key={name} className="flex justify-between">
-                  <span>{name}:</span>
-                  <span>{count}</span>
-                </div>
-              ))
-            }
-          </div>
-        </div>
-        
-        {/* Payment Summary */}
-        <div>
-          <h3 className="font-medium text-sm mb-2 flex items-center">
-            <CreditCard className="w-4 h-4 mr-2 text-masonic-navy" />
-            Payment Summary
-          </h3>
-          <div className="text-sm space-y-1 pl-6">
-            <div className="flex justify-between font-bold">
-              <span>Order Total:</span>
-              <span>${orderTotalAmount}</span>
-            </div>
-            <div className="text-xs text-gray-500 mt-1">
-              You will be asked to provide payment details in the next step.
-            </div>
-          </div>
-        </div>
-      </CardContent>
-      <CardFooter className="bg-gray-50 p-4 text-sm text-gray-600">
-        <p>Review all details carefully before proceeding to payment.</p>
-      </CardFooter>
-    </Card>
+      </SummarySection>
+      
+      <div className="text-xs text-muted-foreground mt-4">
+        Review all details carefully before proceeding to payment.
+      </div>
+    </SummaryColumn>
   );
 };

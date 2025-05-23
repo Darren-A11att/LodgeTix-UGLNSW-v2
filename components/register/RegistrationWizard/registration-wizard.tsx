@@ -17,7 +17,16 @@ import { RegistrationTypeStep } from "./Steps/registration-type-step"
 const AttendeeDetailsStep = lazy(() => import('./Steps/AttendeeDetails'))
 const TicketSelectionStep = lazy(() => import('./Steps/ticket-selection-step'))
 const OrderReviewStep = lazy(() => import('./Steps/order-review-step'))
-const PaymentStep = lazy(() => import('./Steps/payment-step'))
+const PaymentStep = lazy(() => {
+  console.log('🚀 Lazy loading PaymentStep...');
+  return import('./Steps/payment-step').then(module => {
+    console.log('🚀 PaymentStep module loaded:', module);
+    return module;
+  }).catch(error => {
+    console.error('🚀 Failed to load PaymentStep:', error);
+    throw error;
+  });
+})
 const ConfirmationStep = lazy(() => import('./Steps/confirmation-step'))
 
 export interface RegistrationWizardProps {
@@ -496,6 +505,17 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ eventId 
       // Get the current state from the store
       const storeState = useRegistrationStore.getState()
       
+      // Get the current user session (anonymous or authenticated)
+      const { getBrowserClient } = await import('@/lib/supabase-singleton')
+      const { data: { user } } = await getBrowserClient().auth.getUser()
+      
+      if (!user) {
+        console.error("❌ No authenticated user found")
+        throw new Error('User authentication required. Please refresh the page and try again.')
+      }
+      
+      console.log("✅ Found authenticated user:", user.id, user.is_anonymous ? '(anonymous)' : '(signed in)')
+      
       const registrationData = {
         registrationType: storeState.registrationType,
         primaryAttendee: storeState.attendees.find(att => att.isPrimary),
@@ -525,10 +545,11 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ eventId 
         }),
         totalAmount: 0, // Will be calculated server-side
         eventId: eventId,
-        billingDetails: storeState.billingDetails
+        billingDetails: storeState.billingDetails,
+        customerId: user.id // Include the authenticated user ID
       }
       
-      console.log("📤 Sending registration data:", registrationData)
+      console.log("📤 Sending registration data with customerId:", registrationData.customerId)
       
       const response = await fetch('/api/registrations', {
         method: 'POST',
@@ -620,6 +641,7 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ eventId 
 
   // Updated renderStep function - now just returns the content without wrappers
   const renderStepContent = () => {
+    console.log('🎯 renderStepContent called, currentStep:', currentStep);
     switch (currentStep) {
       case 1:
         return <RegistrationTypeStep />
@@ -648,6 +670,7 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ eventId 
           </Suspense>
         )
       case 5:
+        console.log('🎯 Rendering payment step (case 5)');
         return (
           <Suspense fallback={<StepLoadingFallback />}>
             <PaymentStep onSaveData={saveRegistrationData} />
@@ -727,6 +750,7 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ eventId 
         currentStep={currentStep}
         sectionTitle={title}
         sectionDescription={description}
+        showStepIndicator={currentStep === 1 || currentStep === 4 || currentStep === 6} // Hide for steps using TwoColumnStepLayout
       >
         {/* Use a consistent wrapper for all steps */}
         <div className="w-full">

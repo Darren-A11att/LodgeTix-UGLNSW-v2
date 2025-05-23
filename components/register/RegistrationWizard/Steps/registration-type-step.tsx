@@ -18,7 +18,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { getBrowserClient } from '@/lib/supabase-unified';
+import { getBrowserClient } from '@/lib/supabase-singleton';
 
 interface RegistrationType {
   id: 'individual' | 'lodge' | 'delegation';
@@ -265,7 +265,7 @@ export function RegistrationTypeStep() {
     setTurnstileAuthError(null);
 
     try {
-      console.log("🔐 Verifying Turnstile token and creating anonymous session...");
+      console.log("🔐 Verifying Turnstile token...");
       const response = await fetch('/api/verify-turnstile-and-anon-auth', {
         method: 'POST',
         headers: {
@@ -290,19 +290,28 @@ export function RegistrationTypeStep() {
         return;
       }
 
-      if (result.success && result.anonymousAuthUser) {
-        console.log('✅ Turnstile verified and anonymous session created:', result.anonymousAuthUser.id);
-        setAnonymousSessionEstablished(true);
-        setTurnstileAuthError(null);
+      if (result.success && result.turnstileVerified) {
+        console.log('✅ Turnstile verified successfully');
         
-        // Re-check session to ensure client picks it up
-        const { data: { session } } = await getBrowserClient().auth.getSession();
-        if (session) {
-          console.log('✅ Anonymous session confirmed on client');
+        // Now create anonymous session client-side
+        console.log('🔐 Creating anonymous session...');
+        const { data: authData, error: authError } = await getBrowserClient().auth.signInAnonymously();
+        
+        if (authError) {
+          console.error('❌ Failed to create anonymous session:', authError);
+          setTurnstileAuthError(`Failed to create session: ${authError.message}`);
+          return;
+        }
+        
+        if (authData.user && authData.session) {
+          console.log('✅ Anonymous session created:', authData.user.id);
+          setAnonymousSessionEstablished(true);
+          setTurnstileAuthError(null);
+          
           console.log('🔍 Session details:', {
-            userId: session.user.id,
-            isAnonymous: session.user.is_anonymous,
-            expiresAt: session.expires_at
+            userId: authData.user.id,
+            isAnonymous: authData.user.is_anonymous,
+            expiresAt: authData.session.expires_at
           });
           
           // Test localStorage immediately after session creation
@@ -311,9 +320,12 @@ export function RegistrationTypeStep() {
             const parsed = storageData ? JSON.parse(storageData) : null;
             console.log('🔬 Storage check 2 seconds after session:', parsed?.state?.anonymousSessionEstablished);
           }, 2000);
+        } else {
+          console.error('❌ Anonymous session created but missing user/session data');
+          setTurnstileAuthError('Failed to establish session. Please try again.');
         }
       } else {
-        console.error('❌ Turnstile/Auth verification failed:', result.error, result.errorCodes);
+        console.error('❌ Turnstile verification failed:', result.error, result.errorCodes);
         setTurnstileAuthError(result.error || 'Security verification failed. Please try again.');
         setTurnstileToken(null);
       }
