@@ -207,7 +207,7 @@ export class PackageAdminService extends AdminApiService {
   /**
    * Add an event to a package
    */
-  async addEventToPackage(packageId: string, eventData: PackageEventAddRequest): Promise<AdminApiResponse<DbPackageEvent>> {
+  async addEventToPackage(package_id: string, eventData: PackageEventAddRequest): Promise<AdminApiResponse<DbPackageEvent>> {
     try {
       const { data, error } = await this.client
         .from(supabaseTables.packageEvents)
@@ -232,7 +232,7 @@ export class PackageAdminService extends AdminApiService {
   /**
    * Remove an event from a package
    */
-  async removeEventFromPackage(packageId: string, eventId: string): Promise<AdminApiResponse<void>> {
+  async removeEventFromPackage(package_id: string, event_id: string): Promise<AdminApiResponse<void>> {
     try {
       const { error } = await this.client
         .from(supabaseTables.packageEvents)
@@ -254,7 +254,7 @@ export class PackageAdminService extends AdminApiService {
   /**
    * Get events in a package
    */
-  async getPackageEvents(packageId: string): Promise<AdminApiResponse<DbEvent[]>> {
+  async getPackageEvents(package_id: string): Promise<AdminApiResponse<DbEvent[]>> {
     try {
       // Get the package event relationships
       const { data: packageEvents, error: eventsError } = await this.client
@@ -297,7 +297,7 @@ export class PackageAdminService extends AdminApiService {
    * Update package capacity
    */
   async updatePackageCapacity(
-    packageId: string, 
+    package_id: string, 
     maxCapacity: number
   ): Promise<AdminApiResponse<any>> {
     try {
@@ -322,7 +322,7 @@ export class PackageAdminService extends AdminApiService {
   /**
    * Get package capacity
    */
-  async getPackageCapacity(packageId: string): Promise<AdminApiResponse<{
+  async getPackageCapacity(package_id: string): Promise<AdminApiResponse<{
     available: number;
     reserved: number;
     sold: number;

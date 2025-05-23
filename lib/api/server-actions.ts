@@ -1,11 +1,12 @@
-import { supabase } from '@/lib/supabase-browser'
+import { getBrowserClient } from '@/lib/supabase-singleton'
 
 /**
  * Fetches all events
  */
 export async function fetchEvents() {
+  const supabase = getBrowserClient();
   const { data, error } = await supabase
-    .from('Events')
+    .from('events')
     .select('*')
     .order('created_at', { ascending: false })
   
@@ -21,8 +22,9 @@ export async function fetchEvents() {
  * Fetches a single event by ID
  */
 export async function fetchEventById(id: string) {
+  const supabase = getBrowserClient();
   const { data, error } = await supabase
-    .from('Events')
+    .from('events')
     .select('*')
     .eq('id', id)
     .single()
@@ -39,6 +41,7 @@ export async function fetchEventById(id: string) {
  * Fetches tickets for an event
  */
 export async function fetchEventTickets(eventId: string) {
+  const supabase = getBrowserClient();
   const { data, error } = await supabase
     .from('ticket_definitions')
     .select('*')
@@ -56,6 +59,7 @@ export async function fetchEventTickets(eventId: string) {
  * Fetches user registrations (requires authentication)
  */
 export async function fetchUserRegistrations() {
+  const supabase = getBrowserClient();
   // Get current user session
   const { data: { session } } = await supabase.auth.getSession()
   
@@ -64,10 +68,10 @@ export async function fetchUserRegistrations() {
   }
   
   const { data, error } = await supabase
-    .from('Registrations')
+    .from('registrations')
     .select(`
       *,
-      Tickets(*)
+      tickets(*)
     `)
     .eq('user_id', session.user.id)
   
@@ -83,6 +87,7 @@ export async function fetchUserRegistrations() {
  * Creates a new registration
  */
 export async function createRegistration(registrationData: any) {
+  const supabase = getBrowserClient();
   // Get current user session
   const { data: { session } } = await supabase.auth.getSession()
   
@@ -92,7 +97,7 @@ export async function createRegistration(registrationData: any) {
   }
   
   const { data, error } = await supabase
-    .from('Registrations')
+    .from('registrations')
     .insert(registrationData)
     .select()
     .single()

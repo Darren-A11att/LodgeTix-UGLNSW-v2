@@ -25,7 +25,7 @@ export class AttendeeAccessService {
    * @param attendeeId UUID of the attendee
    * @returns Promise resolving to an array of AttendeeAccess records
    */
-  static async getAttendeeAccess(attendeeId: string): Promise<AttendeeAccess[]> {
+  static async getAttendeeAccess(attendee_id: string): Promise<AttendeeAccess[]> {
     try {
       if (!attendeeId) {
         throw new Error('Attendee ID is required');
@@ -53,7 +53,7 @@ export class AttendeeAccessService {
    * @param eventId UUID of the event
    * @returns Promise resolving to an array of AttendeeAccess records
    */
-  static async getEventAttendees(eventId: string): Promise<AttendeeAccess[]> {
+  static async getEventAttendees(event_id: string): Promise<AttendeeAccess[]> {
     try {
       if (!eventId) {
         throw new Error('Event ID is required');
@@ -84,8 +84,8 @@ export class AttendeeAccessService {
    * @returns Promise resolving to a boolean indicating access
    */
   static async checkAttendeeEventAccess(
-    attendeeId: string,
-    eventId: string
+    attendee_id: string,
+    event_id: string
   ): Promise<boolean> {
     try {
       if (!attendeeId || !eventId) {
@@ -118,8 +118,8 @@ export class AttendeeAccessService {
    * @returns Promise resolving to a boolean indicating success
    */
   static async addPackageAttendeeAccess(
-    attendeeId: string,
-    packageId: string,
+    attendee_id: string,
+    package_id: string,
     pricePaid: number
   ): Promise<boolean> {
     try {
@@ -154,8 +154,8 @@ export class AttendeeAccessService {
    * @returns Promise resolving to the created access record or null on failure
    */
   static async grantManualAccess(
-    attendeeId: string,
-    eventId: string,
+    attendee_id: string,
+    event_id: string,
     pricePaid: number = 0,
     source: 'manual' | 'comp' = 'manual'
   ): Promise<AttendeeAccess | null> {
@@ -198,8 +198,8 @@ export class AttendeeAccessService {
    * @returns Promise resolving to a boolean indicating success
    */
   static async revokeAccess(
-    attendeeId: string,
-    eventId: string
+    attendee_id: string,
+    event_id: string
   ): Promise<boolean> {
     try {
       if (!attendeeId || !eventId) {

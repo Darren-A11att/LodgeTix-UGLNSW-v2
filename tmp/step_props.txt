@@ -1,0 +1,1 @@
+interface RegistrationTypeStepProps { onTypeSelected: () => void; }

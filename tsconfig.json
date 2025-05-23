@@ -19,9 +19,12 @@
       }
     ],
     "paths": {
-      "@/*": ["./*"]
+      "@/*": ["./*"],
+      "@/register/Forms/*": ["./components/register/Forms/*"],
+      "@/register/attendee/*": ["./components/register/Forms/attendee/*"],
+      "@/register/shared/*": ["./components/register/Forms/shared/*"]
     }
   },
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts", "components/register/attendee/attendeedetails.bak"],
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts", "app/events/[id]/tickets/page.tsx", "components/register/RegistrationWizard/Steps/RegistrationTypeStepUpdated", "components/register/RegistrationWizard/Steps/registration-type-step.tsx"],
   "exclude": ["node_modules"]
 }

@@ -1,4 +1,4 @@
-import { supabase } from '../supabaseClient';
+import { supabase } from '../supabase-browser';
 import { Database } from '../../shared/types/supabase';
 
 // Explicitly type based on your Database schema definitions

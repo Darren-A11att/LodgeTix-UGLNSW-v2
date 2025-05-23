@@ -1,4 +1,4 @@
-import { supabase } from '../supabaseClient';
+import { supabase } from '../supabase-browser';
 import { Database } from '../../shared/types/supabase';
 
 // Explicitly type based on your Database schema definitions
@@ -137,31 +137,110 @@ export async function createLodge(lodgeData: LodgeInsert): Promise<LodgeRow | nu
 
 /**
  * Searches all lodges based on a search term across name, number, display name, and meeting place.
+ * Falls back to direct queries if the RPC method fails.
  * @param searchTerm The string to search for.
  * @param limit Optional limit for the number of results. Default 10.
+ * @param grandLodgeId Optional Grand Lodge ID to filter results.
  * @returns Promise resolving to array of LodgeRow objects.
  */
-export async function searchAllLodges(searchTerm: string, limit: number = 10): Promise<LodgeRow[]> {
+export async function searchAllLodges(
+  searchTerm: string, 
+  limit: number = 10,
+  grandLodgeId?: string
+): Promise<LodgeRow[]> {
   if (!searchTerm || !searchTerm.trim()) {
     return [];
   }
+  
+  const trimmedTerm = searchTerm.trim();
+  console.log(`[searchAllLodges] Searching for: "${trimmedTerm}"${grandLodgeId ? ` in GL: ${grandLodgeId}` : ''}`);
 
   try {
-    // Switch back to named arguments, ensuring keys match the function definition
+    // First attempt: Use the RPC function which is optimized for searching all columns
     const { data, error } = await supabase.rpc('search_all_lodges', { 
-      search_term: searchTerm.trim(), 
+      search_term: trimmedTerm, 
       result_limit: limit 
     });
 
-    if (error) {
-      console.error('[searchAllLodges] Error calling RPC function:', error);
+    // If RPC succeeds, filter by grandLodgeId if specified and return results
+    if (!error && data) {
+      const results = grandLodgeId 
+        ? data.filter(lodge => lodge.grand_lodge_id === grandLodgeId)
+        : data;
+        
+      console.log(`[searchAllLodges] RPC returned ${results.length} results`);
+      return results as LodgeRow[];
+    }
+    
+    // If RPC fails, log error and fall back to direct queries
+    console.error('[searchAllLodges] Error calling RPC function, falling back to direct queries:', error);
+    
+    // Create a query builder for direct queries
+    let query = supabase.from('lodges').select('*');
+    
+    // Apply Grand Lodge filter if specified
+    if (grandLodgeId) {
+      query = query.eq('grand_lodge_id', grandLodgeId);
+    }
+    
+    // Add text search conditions with proper OR syntax
+    const searchPattern = `%${trimmedTerm}%`;
+    query = query.or(
+      `name.ilike.${searchPattern},` +
+      `display_name.ilike.${searchPattern},` +
+      `district.ilike.${searchPattern},` +
+      `meeting_place.ilike.${searchPattern}`
+    );
+    
+    // Add ordering and limit
+    query = query
+      .order('display_name', { ascending: true })
+      .limit(limit);
+    
+    // Execute the query
+    const { data: textResults, error: textError } = await query;
+    
+    if (textError) {
+      console.error('[searchAllLodges] Error in text search fallback:', textError);
       return [];
     }
-
-    return (data || []) as LodgeRow[];
-
+    
+    // If the search term is numeric, do an additional query for exact number matches
+    let numberResults: LodgeRow[] = [];
+    if (/^\d+$/.test(trimmedTerm)) {
+      const numberQuery = supabase
+        .from('lodges')
+        .select('*');
+        
+      // Apply Grand Lodge filter if specified
+      if (grandLodgeId) {
+        numberQuery.eq('grand_lodge_id', grandLodgeId);
+      }
+      
+      // Add exact number match
+      numberQuery
+        .eq('number', parseInt(trimmedTerm, 10))
+        .limit(5);
+      
+      const { data: numResults, error: numError } = await numberQuery;
+      
+      if (!numError && numResults) {
+        numberResults = numResults as LodgeRow[];
+      } else {
+        console.error('[searchAllLodges] Error in number search fallback:', numError);
+      }
+    }
+    
+    // Combine and deduplicate results
+    const combinedResults = [...(textResults || []), ...numberResults];
+    const uniqueResults = combinedResults.filter((lodge, index, self) => 
+      index === self.findIndex(l => l.id === lodge.id)
+    );
+    
+    console.log(`[searchAllLodges] Direct queries returned ${uniqueResults.length} results`);
+    return uniqueResults as LodgeRow[];
   } catch (err) {
-    console.error('Unexpected error during global lodge search:', err);
+    console.error('[searchAllLodges] Unexpected error during global lodge search:', err);
     return [];
   }
 }

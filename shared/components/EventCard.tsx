@@ -1,6 +1,6 @@
 import React from 'react';
 import { Calendar, Clock, MapPin, Users } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import Link from 'next/link';
 import { EventType } from '../types/event';
 
 interface EventCardProps {
@@ -60,7 +60,7 @@ const EventCard: React.FC<EventCardProps> = ({ event }) => {
             <span className="text-slate-600 text-sm">See ticket options</span>
           </div>
           
-          <Link to={`/events/${event.slug}`} className="btn-outline py-2">
+          <Link href={`/events/${event.slug}`} className="btn-outline py-2">
             View Details
           </Link>
         </div>

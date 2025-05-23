@@ -18,7 +18,36 @@ const config = {
         "2xl": "1400px",
       },
     },
+    fontSize: {
+      'xs': '0.75rem',     // 12px
+      'lb': '0.625rem',    // 10px (custom size for labels)
+      'sm': '0.875rem',    // 14px
+      'base': '1rem',      // 16px
+      'lg': '1.125rem',    // 18px
+      'xl': '1.25rem',     // 20px
+      '2xl': '1.5rem',     // 24px
+    },
     extend: {
+      /**
+       * Form field sizing utilities
+       * 
+       * These custom grid column utilities define how much space a form field
+       * should occupy within a 12-column grid system. They're used in conjunction
+       * with the .field-sm, .field-md, .field-lg, and .field-full classes defined
+       * in globals.css.
+       * 
+       * Usage:
+       * <TextField className="field-sm" /> - Small field (3 columns on desktop)
+       * <TextField className="field-md" /> - Medium field (6 columns on desktop)
+       * <TextField className="field-lg" /> - Large field (9 columns on desktop)
+       * <TextField className="field-full" /> - Full-width field (12 columns)
+       */
+      gridColumn: {
+        'field-sm': 'span 2 / span 2',  // Base size for small fields (expanded in globals.css)
+        'field-md': 'span 1 / span 2',  // Base size for medium fields (expanded in globals.css)
+        'field-lg': 'span 1 / span 3',  // Base size for large fields (expanded in globals.css)
+        'field-full': 'span 4 / span 4', // Always full width regardless of screen size
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
@@ -53,7 +82,7 @@ const config = {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
-        // Freemasons Victoria colors
+        // Freemasons NSW & ACT colors
         masonic: {
           navy: "#0A2240",
           gold: "#C8A870",

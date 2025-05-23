@@ -1,13 +1,17 @@
 import { create, StateCreator } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { v4 as uuidv4 } from 'uuid';
+import { v7 as uuidv7 } from 'uuid';
 import { TicketType } from '../shared/types/register';
 import { TicketDefinitionType } from '../shared/types/ticket';
 import { UnifiedAttendeeData } from '../shared/types/supabase';
+import { RegistrationType } from './registration-types';
+import { generateUUID } from './uuid-slug-utils';
+
+// Re-export UnifiedAttendeeData for backward compatibility
+export type { UnifiedAttendeeData };
 
 // --- Placeholder Types (Defined locally) ---
-// Using RegistrationType defined here until shared types are stable
-export type RegistrationType = 'individual' | 'lodge' | 'delegation';
+// Using RegistrationType from './registration-types'
 
 // Placeholder type for package/ticket selections per attendee
 // TODO: Define the actual structure based on package data
@@ -34,6 +38,7 @@ export interface BillingDetailsType {
 // --- State Interface ---
 export interface RegistrationState {
   draftId: string | null;
+  eventId: string | null; // Add eventId field for the event being registered for
   registrationType: RegistrationType | null;
   attendees: UnifiedAttendeeData[];
   // Using Record<attendeeId, PackageSelectionType> for packages
@@ -46,17 +51,20 @@ export interface RegistrationState {
   availableTickets: (TicketType | TicketDefinitionType)[]; // Add availableTickets
   currentStep: number; // Add currentStep for navigation
   confirmationNumber: string | null; // Add confirmationNumber for completion
+  draftRecoveryHandled: boolean; // Flag to track if draft recovery has been handled
+  anonymousSessionEstablished: boolean; // Track if Turnstile verification and anonymous session is complete
 
   // --- Actions ---
   startNewRegistration: (type: RegistrationType) => string; // Returns new draftId
   addPrimaryAttendee: () => string; // Returns new attendeeId
   loadDraft: (id: string) => void; // Sets draftId, relies on middleware for loading
   clearRegistration: () => void;
+  clearAllAttendees: () => void; // Clear all attendees but keep other state
   setRegistrationType: (type: RegistrationType) => void;
+  addAttendee: (type: UnifiedAttendeeData['attendeeType']) => string; // Generic add attendee function
   addMasonAttendee: () => string; // Returns new attendeeId
   addGuestAttendee: (guestOfId?: string | null) => string; // Optional Mason ID, returns new attendeeId
-  addLadyPartnerAttendee: (masonAttendeeId: string) => string | null; // Mason ID, returns new partner ID or null if mason not found
-  addGuestPartnerAttendee: (guestAttendeeId: string) => string | null; // Guest ID, returns new partner ID or null if guest not found
+  addPartnerAttendee: (attendeeId: string) => string | null; // Parent attendee ID, returns new partner ID or null if attendee not found
   updateAttendee: (attendeeId: string, updatedData: Partial<UnifiedAttendeeData>) => void;
   removeAttendee: (attendeeId: string) => void;
   updatePackageSelection: (attendeeId: string, selection: PackageSelectionType) => void;
@@ -69,11 +77,20 @@ export interface RegistrationState {
   goToPrevStep: () => void;
   // Confirmation methods
   setConfirmationNumber: (number: string) => void;
+  // Event methods
+  setEventId: (id: string) => void; // Set the eventId for the current registration
+  
+  // Draft recovery methods
+  setDraftRecoveryHandled: (handled: boolean) => void; // Set if draft recovery has been handled
+  
+  // Anonymous session methods
+  setAnonymousSessionEstablished: (established: boolean) => void; // Set if anonymous session is established
 }
 
 // --- Initial State ---
-const initialRegistrationState: Omit<RegistrationState, 'startNewRegistration' | 'addPrimaryAttendee' | 'loadDraft' | 'clearRegistration' | 'setRegistrationType' | 'addMasonAttendee' | 'addGuestAttendee' | 'addLadyPartnerAttendee' | 'addGuestPartnerAttendee' | 'updateAttendee' | 'removeAttendee' | 'updatePackageSelection' | 'updateBillingDetails' | 'setAgreeToTerms' | '_updateStatus' | 'setCurrentStep' | 'goToNextStep' | 'goToPrevStep' | 'setConfirmationNumber'> = {
+const initialRegistrationState: Omit<RegistrationState, 'startNewRegistration' | 'addPrimaryAttendee' | 'loadDraft' | 'clearRegistration' | 'clearAllAttendees' | 'setRegistrationType' | 'addAttendee' | 'addMasonAttendee' | 'addGuestAttendee' | 'addPartnerAttendee' | 'updateAttendee' | 'removeAttendee' | 'updatePackageSelection' | 'updateBillingDetails' | 'setAgreeToTerms' | '_updateStatus' | 'setCurrentStep' | 'goToNextStep' | 'goToPrevStep' | 'setConfirmationNumber' | 'setEventId' | 'setDraftRecoveryHandled' | 'setAnonymousSessionEstablished'> = {
     draftId: null,
+    eventId: null, // Initialize eventId as null
     registrationType: null,
     attendees: [],
     packages: {},
@@ -85,6 +102,8 @@ const initialRegistrationState: Omit<RegistrationState, 'startNewRegistration' |
     availableTickets: [], // Initialize availableTickets
     currentStep: 1, // Start at step 1
     confirmationNumber: null, // No confirmation until complete
+    draftRecoveryHandled: false, // Initialize draft recovery flag
+    anonymousSessionEstablished: false, // Initialize anonymous session flag
 };
 
 type RegistrationStateCreator = StateCreator<RegistrationState>;
@@ -100,12 +119,13 @@ const createDefaultAttendee = (
     guestOfId?: string | null; // Mason attendeeId for guests
   } = {}
 ): UnifiedAttendeeData => {
-  const newAttendeeId = uuidv4();
+  // Use UUID v7 for time-ordered UUIDs - important for database efficiency and consistency
+  const newAttendeeId = generateUUID();
   return {
     attendeeId: newAttendeeId,
     attendeeType: attendeeType,
     isPrimary: options.isPrimary ?? false,
-    isPartner: options.partnerOf ? true : false, // Explicitly set isPartner based on partnerOf
+    isPartner: options.partnerOf ?? null, // Set to FK of related attendee or null
     // --- Initialize all fields based on our defaults list ---
     orderId: undefined,
     eventId: undefined, // Assuming this is set later if needed
@@ -142,6 +162,56 @@ const createDefaultAttendee = (
   };
 };
 
+// Development-only: Preserve state through hot reloads
+const preserveStateInDevelopment = (storeName: string) => {
+  if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
+    // Store reference to prevent loss during hot reload
+    const globalKey = `__${storeName}_dev_backup__`;
+    
+    // Save state before potential hot reload
+    const saveState = () => {
+      try {
+        const currentState = localStorage.getItem('lodgetix-registration-storage');
+        if (currentState) {
+          (window as any)[globalKey] = currentState;
+          console.log('🔄 Dev: Backed up registration state for hot reload recovery');
+        }
+      } catch (error) {
+        console.warn('Failed to backup state for hot reload:', error);
+      }
+    };
+    
+    // Restore state after hot reload if localStorage is empty but backup exists
+    const restoreState = () => {
+      try {
+        const currentState = localStorage.getItem('lodgetix-registration-storage');
+        const backupState = (window as any)[globalKey];
+        
+        if (!currentState && backupState) {
+          localStorage.setItem('lodgetix-registration-storage', backupState);
+          console.log('🔄 Dev: Restored registration state after hot reload');
+          return true;
+        }
+      } catch (error) {
+        console.warn('Failed to restore state after hot reload:', error);
+      }
+      return false;
+    };
+    
+    // Save state periodically and on page events
+    const interval = setInterval(saveState, 2000);
+    window.addEventListener('beforeunload', saveState);
+    
+    // Try to restore immediately
+    const restored = restoreState();
+    
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('beforeunload', saveState);
+    };
+  }
+};
+
 // --- Store Implementation ---
 export const useRegistrationStore = create<RegistrationState>(
   persist(
@@ -151,7 +221,9 @@ export const useRegistrationStore = create<RegistrationState>(
       _updateStatus: (status, error = null) => set({ status, error }),
 
       startNewRegistration: (type) => {
-        const newDraftId = `draft_${Date.now()}_${uuidv4().substring(0, 7)}`;
+        // Using a full, proper UUID v7 for the draft ID
+        // UUID v7 is already time-ordered, so we don't need to add timestamps
+        const newDraftId = generateUUID();
         console.log(`[Store] Starting new registration (Type: ${type}). Draft ID: ${newDraftId}. Clearing previous state.`); // DEBUG
         // Reset state, set new draftId and type, keep attendees empty for now
         set({
@@ -184,12 +256,12 @@ export const useRegistrationStore = create<RegistrationState>(
 
           // For now, assume primary is always mason. Refine if needed.
           const primaryAttendee = createDefaultAttendee('mason', { isPrimary: true });
-          // Set primary mason contact preference default
-          // Primary mason gets 'Directly' contact preference by default
-          primaryAttendee.contactPreference = 'Directly';
+          // IMPORTANT: No default contact preference
+          // User must explicitly select this
+          primaryAttendee.contactPreference = '';
           
           newAttendeeId = primaryAttendee.attendeeId;
-          console.log(`[Store] Adding primary attendee (Type: mason, ID: ${primaryAttendee.attendeeId})`); // DEBUG
+          console.log(`[Store] Adding primary attendee (Type: mason, ID: ${primaryAttendee.attendeeId}, ContactPref: ${primaryAttendee.contactPreference})`); // DEBUG
           return { attendees: [primaryAttendee] };
         });
         
@@ -217,8 +289,30 @@ export const useRegistrationStore = create<RegistrationState>(
         console.log('Registration state cleared.');
       },
 
+      clearAllAttendees: () => {
+        set(state => ({
+          attendees: [],
+          packages: {},
+        }));
+        console.log('[Store] Cleared all attendees and their package selections.');
+      },
+
       setRegistrationType: (type) => {
         set({ registrationType: type });
+      },
+
+      // Generic attendee addition function
+      addAttendee: (type) => {
+        const normalizedType = type.charAt(0).toUpperCase() + type.slice(1).toLowerCase();
+        const newAttendee = createDefaultAttendee(normalizedType as UnifiedAttendeeData['attendeeType']);
+        
+        // No default contact preference - user must select
+        // Ensure it's an empty string
+        newAttendee.contactPreference = '';
+        
+        set(state => ({ attendees: [...state.attendees, newAttendee] }));
+        console.log(`[Store] Added Generic Attendee (ID: ${newAttendee.attendeeId}, Type: ${newAttendee.attendeeType}, ContactPref: '${newAttendee.contactPreference}')`);
+        return newAttendee.attendeeId;
       },
 
       addMasonAttendee: () => {
@@ -236,64 +330,36 @@ export const useRegistrationStore = create<RegistrationState>(
         return newGuest.attendeeId;
       },
 
-      addLadyPartnerAttendee: (masonAttendeeId) => {
+      addPartnerAttendee: (attendeeId) => {
         const state = get();
-        const masonIndex = state.attendees.findIndex(att => att.attendeeId === masonAttendeeId && att.attendeeType.toLowerCase() === 'mason');
+        const attendeeIndex = state.attendees.findIndex(att => att.attendeeId === attendeeId);
 
-        if (masonIndex === -1) {
-          console.error(`[Store] addLadyPartnerAttendee: Mason with ID ${masonAttendeeId} not found.`);
+        if (attendeeIndex === -1) {
+          console.error(`[Store] addPartnerAttendee: Attendee with ID ${attendeeId} not found.`);
           return null;
         }
-        if (state.attendees[masonIndex].partner) {
-          console.warn(`[Store] addLadyPartnerAttendee: Mason with ID ${masonAttendeeId} already has a partner.`);
-          // Optionally remove old partner first, or just return null/existing partner ID
-          return state.attendees[masonIndex].partner; // Return existing partner ID
+        if (state.attendees[attendeeIndex].partner) {
+          console.warn(`[Store] addPartnerAttendee: Attendee with ID ${attendeeId} already has a partner.`);
+          return state.attendees[attendeeIndex].partner; // Return existing partner ID
         }
 
-        const newPartner = createDefaultAttendee('LadyPartner', { partnerOf: masonAttendeeId });
-        // Initial state is empty string which will show as "Please Select"
+        // Create a Guest with isPartner set to the parent attendee's ID
+        const newPartner = createDefaultAttendee('Guest', { partnerOf: attendeeId });
+        newPartner.isPartner = attendeeId; // Set the FK
+        
+        // No default values - let user fill them in
         
         const updatedAttendees = [...state.attendees];
-        // Update the Mason's partner field
-        updatedAttendees[masonIndex] = {
-          ...updatedAttendees[masonIndex],
+        // Update the parent attendee's partner field
+        updatedAttendees[attendeeIndex] = {
+          ...updatedAttendees[attendeeIndex],
           partner: newPartner.attendeeId,
         };
         // Add the new partner
         updatedAttendees.push(newPartner);
 
         set({ attendees: updatedAttendees });
-        console.log(`[Store] Added Lady Partner (ID: ${newPartner.attendeeId}) for Mason (ID: ${masonAttendeeId})`);
-        return newPartner.attendeeId;
-      },
-      
-      addGuestPartnerAttendee: (guestAttendeeId) => {
-         const state = get();
-        const guestIndex = state.attendees.findIndex(att => att.attendeeId === guestAttendeeId && att.attendeeType.toLowerCase() === 'guest');
-
-        if (guestIndex === -1) {
-          console.error(`[Store] addGuestPartnerAttendee: Guest with ID ${guestAttendeeId} not found.`);
-          return null;
-        }
-         if (state.attendees[guestIndex].partner) {
-          console.warn(`[Store] addGuestPartnerAttendee: Guest with ID ${guestAttendeeId} already has a partner.`);
-          return state.attendees[guestIndex].partner; // Return existing partner ID
-        }
-
-        const newPartner = createDefaultAttendee('GuestPartner', { partnerOf: guestAttendeeId });
-        // Initial state is empty string which will show as "Please Select"
-        
-        const updatedAttendees = [...state.attendees];
-        // Update the Guest's partner field
-        updatedAttendees[guestIndex] = {
-          ...updatedAttendees[guestIndex],
-          partner: newPartner.attendeeId,
-        };
-        // Add the new partner
-        updatedAttendees.push(newPartner);
-
-        set({ attendees: updatedAttendees });
-        console.log(`[Store] Added Guest Partner (ID: ${newPartner.attendeeId}) for Guest (ID: ${guestAttendeeId})`);
+        console.log(`[Store] Added Partner (ID: ${newPartner.attendeeId}) for Attendee (ID: ${attendeeId})`);
         return newPartner.attendeeId;
       },
 
@@ -319,14 +385,26 @@ export const useRegistrationStore = create<RegistrationState>(
           let updatedAttendees = [...state.attendees]; // Create a mutable copy
 
           // --- Determine linked IDs and necessary updates ---
-          if (attendeeToRemove.attendeeType.toLowerCase() === 'mason' && attendeeToRemove.partner) {
+          const isGuest = attendeeToRemove.attendeeType.toLowerCase() === 'guest';
+          const isMason = attendeeToRemove.attendeeType.toLowerCase() === 'mason';
+          
+          // Check if it's a partner being removed
+          if (isGuest && attendeeToRemove.isPartner) {
+            // This is a partner (of either Mason or Guest)
+            const relatedAttendeeId = attendeeToRemove.isPartner;
+            const relatedAttendee = state.attendees.find(att => att.attendeeId === relatedAttendeeId);
+            
+            if (relatedAttendee) {
+              if (relatedAttendee.attendeeType.toLowerCase() === 'mason') {
+                masonIdToUpdate = relatedAttendeeId;
+              } else if (relatedAttendee.attendeeType.toLowerCase() === 'guest') {
+                guestIdToUpdate = relatedAttendeeId;
+              }
+            }
+          } 
+          // Check if it's a Mason/Guest with a partner
+          else if ((isMason || isGuest) && attendeeToRemove.partner) {
             partnerIdToRemove = attendeeToRemove.partner;
-          } else if (attendeeToRemove.attendeeType.toLowerCase() === 'guest' && attendeeToRemove.partner) {
-            partnerIdToRemove = attendeeToRemove.partner;
-          } else if (attendeeToRemove.attendeeType.toLowerCase() === 'ladypartner' && attendeeToRemove.partnerOf) {
-            masonIdToUpdate = attendeeToRemove.partnerOf;
-          } else if (attendeeToRemove.attendeeType.toLowerCase() === 'guestpartner' && attendeeToRemove.partnerOf) {
-            guestIdToUpdate = attendeeToRemove.partnerOf;
           }
 
           // Filter out the primary attendee being removed
@@ -394,7 +472,16 @@ export const useRegistrationStore = create<RegistrationState>(
       goToPrevStep: () => set(state => ({ currentStep: Math.max(1, state.currentStep - 1) })),
 
       // Confirmation actions
-      setConfirmationNumber: (number) => set({ confirmationNumber: number })
+      setConfirmationNumber: (number) => set({ confirmationNumber: number }),
+      
+      // Event actions
+      setEventId: (id) => set({ eventId: id }),
+      
+      // Draft recovery actions
+      setDraftRecoveryHandled: (handled) => set({ draftRecoveryHandled: handled }),
+      
+      // Anonymous session actions
+      setAnonymousSessionEstablished: (established) => set({ anonymousSessionEstablished: established })
 
     }),
     {
@@ -406,12 +493,30 @@ export const useRegistrationStore = create<RegistrationState>(
         packages: state.packages,
         billingDetails: state.billingDetails,
         agreeToTerms: state.agreeToTerms, // Persist agreeToTerms
+        draftRecoveryHandled: state.draftRecoveryHandled, // Persist draftRecoveryHandled flag
+        anonymousSessionEstablished: state.anonymousSessionEstablished, // Persist anonymous session state
         lastSaved: Date.now(),
       }),
       onRehydrateStorage: () => {
-        // We can't reliably use set/get here. Status logic needs to be handled
-        // externally after hydration, e.g., in a component effect.
-        console.log('Registration store hydration finished.');
+        return (state, error) => {
+          if (error) {
+            console.error('Registration store hydration failed:', error);
+            console.error('This may cause loss of draft registration data');
+          } else {
+            console.log('Registration store hydration finished successfully.');
+            if (state) {
+              console.log('Hydrated state contains:', {
+                draftId: state.draftId,
+                registrationType: state.registrationType,
+                attendeesCount: state.attendees?.length || 0,
+                currentStep: state.currentStep,
+                hasData: !!(state.draftId || state.registrationType || (state.attendees && state.attendees.length > 0))
+              });
+            } else {
+              console.log('No previous registration data found in storage');
+            }
+          }
+        };
       },
        // Optional: Add migration logic if state structure changes later
        // version: 1, 
@@ -419,6 +524,11 @@ export const useRegistrationStore = create<RegistrationState>(
     }
   ) as RegistrationStateCreator
 );
+
+// Initialize development state preservation
+if (typeof window !== 'undefined') {
+  preserveStateInDevelopment('lodgetix-registration');
+}
 
 // --- Basic Selectors ---
 export const selectRegistrationType = (state: RegistrationState) => state.registrationType;
@@ -429,4 +539,7 @@ export const selectBillingDetails = (state: RegistrationState) => state.billingD
 export const selectAgreeToTerms = (state: RegistrationState) => state.agreeToTerms;
 export const selectDraftId = (state: RegistrationState) => state.draftId;
 export const selectLastSaved = (state: RegistrationState) => state.lastSaved;
-export const selectConfirmationNumber = (state: RegistrationState) => state.confirmationNumber; 
+export const selectConfirmationNumber = (state: RegistrationState) => state.confirmationNumber;
+export const selectEventId = (state: RegistrationState) => state.eventId;
+export const selectDraftRecoveryHandled = (state: RegistrationState) => state.draftRecoveryHandled;
+export const selectAnonymousSessionEstablished = (state: RegistrationState) => state.anonymousSessionEstablished; 

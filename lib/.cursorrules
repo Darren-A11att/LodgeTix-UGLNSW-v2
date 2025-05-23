@@ -1,0 +1,29 @@
+# Library Directory Rules
+
+## Server-side Utilities
+- Database queries and connections
+- Authentication utilities
+- Server-only API clients
+- Business logic and calculations
+
+## Client-safe Utilities
+- Type definitions
+- Constants and enums  
+- Pure functions
+- Formatting utilities
+
+## Organization Pattern
+```
+lib/
+  services/        # API and database services
+  utils/          # Pure utility functions
+  types/          # TypeScript types
+  constants/      # App constants
+  validators/     # Validation schemas
+```
+
+## Security Requirements
+- Never expose server secrets
+- Validate all inputs
+- Sanitize database queries
+- Implement proper auth checks

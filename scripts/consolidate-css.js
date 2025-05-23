@@ -338,23 +338,23 @@ function updateFileImports(file) {
     let content = fs.readFileSync(file, 'utf8');
     let modified = false;
     
-    // Replace app/globals.css imports with styles/globals.css
-    if (content.includes("import '../app/globals.css'") || 
-        content.includes("import '../../app/globals.css'") || 
-        content.includes("import '../../../app/globals.css'")) {
+    // Replace style/styles/globals.css imports with style/styles/globals.css
+    if (content.includes("import '../style/styles/globals.css'") || 
+        content.includes("import '../../style/styles/globals.css'") || 
+        content.includes("import '../../../style/styles/globals.css'")) {
       content = content.replace(
         /import ['"](.+?)app\/globals\.css['"]/g, 
-        "import '$1styles/globals.css'"
+        "import '$1style/styles/globals.css'"
       );
       modified = true;
     }
     
-    // Replace shared/theme/index.css imports with styles/globals.css
+    // Replace shared/theme/index.css imports with style/styles/globals.css
     // EXCLUDING phone input references
     if (content.includes("shared/theme/index.css")) {
       content = content.replace(
         /import ['"](.+?)shared\/theme\/index\.css['"]/g, 
-        "import '$1styles/globals.css'"
+        "import '$1style/styles/globals.css'"
       );
       modified = true;
     }
@@ -395,9 +395,9 @@ function main() {
   // Step 1: Write the consolidated globals.css
   try {
     fs.writeFileSync(STYLES_GLOBALS_CSS, consolidatedGlobalsCss, 'utf8');
-    console.log(`✅ Created consolidated styles/globals.css`);
+    console.log(`✅ Created consolidated style/styles/globals.css`);
   } catch (error) {
-    console.error('❌ Error creating styles/globals.css:', error);
+    console.error('❌ Error creating style/styles/globals.css:', error);
     return;
   }
   
@@ -425,7 +425,7 @@ function main() {
   console.log('\n⚠️ Important notes:');
   console.log('   1. Phone input styling was NOT touched as requested');
   console.log('   2. After testing, you may want to manually delete:');
-  console.log('      - app/globals.css');
+  console.log('      - style/styles/globals.css');
   console.log('   3. Keep shared/theme/index.css for phone input styling only');
 }
 

@@ -1,10 +1,5 @@
-import { createClient } from "@supabase/supabase-js"
+import { supabase } from "@/lib/supabase-browser"
 import type { GrandLodge, Lodge, CreateLodgeData } from "@/lib/types/masonic-types"
-
-// Initialize the Supabase client
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL as string
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY as string
-const supabase = createClient(supabaseUrl, supabaseKey)
 
 /**
  * Search for Grand Lodges with prioritization
@@ -193,7 +188,7 @@ export async function saveMasonicProfile(data: {
   try {
     // Check if profile already exists for this person
     const { data: existingProfile } = await supabase
-      .from("MasonicProfiles")
+      .from("masonicprofiles")
       .select("masonicprofileid")
       .eq("person_id", data.person_id)
       .maybeSingle()
@@ -201,7 +196,7 @@ export async function saveMasonicProfile(data: {
     if (existingProfile) {
       // Update existing profile
       const { data: updatedProfile, error } = await supabase
-        .from("MasonicProfiles")
+        .from("masonicprofiles")
         .update({
           masonictitle: data.masonictitle,
           rank: data.rank,
@@ -224,7 +219,7 @@ export async function saveMasonicProfile(data: {
     } else {
       // Create new profile
       const { data: newProfile, error } = await supabase
-        .from("MasonicProfiles")
+        .from("masonicprofiles")
         .insert({
           masonictitle: data.masonictitle,
           rank: data.rank,
