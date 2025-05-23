@@ -124,6 +124,26 @@ export function getBrowserClient() {
     return browserClientInstance;
   }
   
+  // During build time, return a dummy client that won't crash the build
+  if (typeof window === 'undefined') {
+    console.warn('getBrowserClient called during SSR/build - returning mock client');
+    // Return a more complete mock that matches Supabase client structure
+    return {
+      auth: {
+        getSession: async () => ({ data: { session: null }, error: null }),
+        onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => {} } } }),
+        signInWithPassword: async () => ({ data: null, error: new Error('Not available during build') }),
+        signOut: async () => ({ error: null }),
+      },
+      from: () => ({
+        select: () => ({ data: null, error: null }),
+        insert: () => ({ data: null, error: null }),
+        update: () => ({ data: null, error: null }),
+        delete: () => ({ data: null, error: null }),
+      }),
+    } as any as SupabaseClient<Database>;
+  }
+  
   if (!SUPABASE_URL || !SUPABASE_ANON_KEY) {
     throw new Error('Missing Supabase environment variables');
   }

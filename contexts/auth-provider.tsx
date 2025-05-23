@@ -26,6 +26,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Function to refresh user session
   const refreshSession = async () => {
     try {
+      // Skip if running on server
+      if (typeof window === 'undefined') {
+        setIsLoading(false)
+        return
+      }
+
       const { data, error } = await getBrowserClient().auth.getSession()
       if (error) {
         console.error('Error refreshing session:', error)
@@ -43,21 +49,32 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   // Initial session check
   useEffect(() => {
+    // Only run on client side
+    if (typeof window === 'undefined') {
+      setIsLoading(false)
+      return
+    }
+
     refreshSession()
 
     // Set up auth state change listener
-    const { data: { subscription } } = getBrowserClient().auth.onAuthStateChange(
-      async (event, session) => {
-        console.log('Auth state changed:', event)
-        setUser(session?.user ?? null)
-        setSession(session)
-        setIsLoading(false)
-      }
-    )
+    try {
+      const { data: { subscription } } = getBrowserClient().auth.onAuthStateChange(
+        async (event, session) => {
+          console.log('Auth state changed:', event)
+          setUser(session?.user ?? null)
+          setSession(session)
+          setIsLoading(false)
+        }
+      )
 
-    // Cleanup subscription on unmount
-    return () => {
-      subscription.unsubscribe()
+      // Cleanup subscription on unmount
+      return () => {
+        subscription.unsubscribe()
+      }
+    } catch (error) {
+      console.error('Error setting up auth listener:', error)
+      setIsLoading(false)
     }
   }, [])
 

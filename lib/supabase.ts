@@ -10,8 +10,17 @@ import {
 // Use a getter to delay initialization until runtime
 export const supabase = new Proxy({} as ReturnType<typeof getBrowserClient>, {
   get: (_, prop) => {
-    const client = getBrowserClient();
-    return client[prop as keyof ReturnType<typeof getBrowserClient>];
+    try {
+      const client = getBrowserClient();
+      return client[prop as keyof ReturnType<typeof getBrowserClient>];
+    } catch (error) {
+      // During build time, return mock methods
+      if (typeof window === 'undefined') {
+        console.warn(`Supabase.${String(prop)} called during build time`);
+        return () => Promise.resolve({ data: null, error: null });
+      }
+      throw error;
+    }
   }
 });
 
