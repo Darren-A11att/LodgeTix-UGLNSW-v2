@@ -7,7 +7,13 @@ import {
 } from './supabase-singleton';
 
 // Export the browser client as 'supabase' for backward compatibility
-export const supabase = getBrowserClient();
+// Use a getter to delay initialization until runtime
+export const supabase = new Proxy({} as ReturnType<typeof getBrowserClient>, {
+  get: (_, prop) => {
+    const client = getBrowserClient();
+    return client[prop as keyof ReturnType<typeof getBrowserClient>];
+  }
+});
 
 // Export the server client getter
 export const getSupabaseAdmin = getServerClient;
