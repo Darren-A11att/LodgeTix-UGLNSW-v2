@@ -127,7 +127,40 @@ export function getBrowserClient() {
   // During build time, return a dummy client that won't crash the build
   if (typeof window === 'undefined') {
     console.warn('getBrowserClient called during SSR/build - returning mock client');
-    // Return a more complete mock that matches Supabase client structure
+    // Return a more complete mock that matches Supabase client structure with chainable query builder
+    const mockQueryBuilder = {
+      select: () => mockQueryBuilder,
+      insert: () => mockQueryBuilder,
+      update: () => mockQueryBuilder,
+      delete: () => mockQueryBuilder,
+      upsert: () => mockQueryBuilder,
+      eq: () => mockQueryBuilder,
+      neq: () => mockQueryBuilder,
+      gt: () => mockQueryBuilder,
+      gte: () => mockQueryBuilder,
+      lt: () => mockQueryBuilder,
+      lte: () => mockQueryBuilder,
+      like: () => mockQueryBuilder,
+      ilike: () => mockQueryBuilder,
+      is: () => mockQueryBuilder,
+      in: () => mockQueryBuilder,
+      contains: () => mockQueryBuilder,
+      containedBy: () => mockQueryBuilder,
+      range: () => mockQueryBuilder,
+      overlaps: () => mockQueryBuilder,
+      match: () => mockQueryBuilder,
+      not: () => mockQueryBuilder,
+      or: () => mockQueryBuilder,
+      filter: () => mockQueryBuilder,
+      order: () => mockQueryBuilder,
+      limit: () => mockQueryBuilder,
+      single: () => Promise.resolve({ data: null, error: null }),
+      maybeSingle: () => Promise.resolve({ data: null, error: null }),
+      then: (resolve: any) => resolve({ data: [], error: null }),
+      catch: (reject: any) => mockQueryBuilder,
+      finally: (cb: any) => { cb(); return mockQueryBuilder; },
+    };
+
     return {
       auth: {
         getSession: async () => ({ data: { session: null }, error: null }),
@@ -135,12 +168,7 @@ export function getBrowserClient() {
         signInWithPassword: async () => ({ data: null, error: new Error('Not available during build') }),
         signOut: async () => ({ error: null }),
       },
-      from: () => ({
-        select: () => ({ data: null, error: null }),
-        insert: () => ({ data: null, error: null }),
-        update: () => ({ data: null, error: null }),
-        delete: () => ({ data: null, error: null }),
-      }),
+      from: () => mockQueryBuilder,
     } as any as SupabaseClient<Database>;
   }
   
