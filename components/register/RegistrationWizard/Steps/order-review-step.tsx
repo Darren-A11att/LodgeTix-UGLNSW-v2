@@ -130,7 +130,10 @@ function OrderReviewStep() {
                     price: pkgInfo.price, 
                     attendeeId, 
                     isPackage: true,
-                    description: `Package including: ${pkgInfo.includes.join(", ")}`
+                    description: `Package including: ${pkgInfo.includes.map(ticketId => {
+                        const ticket = ticketTypesMinimal.find(t => t.id === ticketId);
+                        return ticket ? ticket.name : ticketId;
+                    }).join(", ")}`
                 });
             }
         } else {
