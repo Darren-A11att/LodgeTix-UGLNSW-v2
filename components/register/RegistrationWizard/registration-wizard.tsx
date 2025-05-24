@@ -9,6 +9,7 @@ import { User } from "lucide-react"
 // WizardShellLayout is now handled by layout.tsx
 import { WizardBodyStructureLayout } from "./Layouts/WizardBodyStructureLayout"
 import DraftRecoveryModal from '../Functions/DraftRecoveryModal'
+import { SessionGuard } from './SessionGuard'
 
 // Import base component directly (it's small)
 import { RegistrationTypeStep } from "./Steps/registration-type-step"
@@ -752,7 +753,7 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ eventId 
   }
 
   return (
-    <>
+    <SessionGuard>
       {/* Draft Recovery Modal - handled by registration type step */}
       <DraftRecoveryModal 
         isOpen={false}
@@ -775,6 +776,6 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ eventId 
           {renderStepContent()}
         </div>
       </WizardBodyStructureLayout>
-    </>
+    </SessionGuard>
   )
 }
