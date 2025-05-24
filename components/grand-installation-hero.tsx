@@ -7,14 +7,28 @@ import { getGrandInstallationEvent } from "@/lib/services/homepage-service"
 export async function GrandInstallationHero() {
   const event = await getGrandInstallationEvent();
   
-  // Fallback values in case the database fetch fails
-  const title = event?.title || "Grand Installation";
-  const subtitle = event?.subtitle || "MW Bro Bernie Khristian Albano";
-  const organiser = event?.organiser || "Grand Master of the United Grand Lodge of NSW & ACT";
-  const dateLocation = event ? `${event.date} • ${event.location}` : "Saturday, 25 November 2023 • Sydney Masonic Centre";
-  const imageUrl = event?.imageUrl || "/placeholder.svg?height=800&width=1600";
-  const logoUrl = event?.logo || "/placeholder.svg?height=120&width=120";
-  const slug = event?.slug || "grand-installation";
+  // If no event found, show a generic message
+  if (!event) {
+    return (
+      <section className="relative bg-masonic-navy py-20 text-white">
+        <div className="container mx-auto px-4">
+          <div className="mx-auto max-w-5xl text-center">
+            <h1 className="mb-4 text-4xl font-bold md:text-5xl lg:text-6xl">No Upcoming Events</h1>
+            <p className="mb-8 text-lg">Please check back later for upcoming Masonic events.</p>
+          </div>
+        </div>
+      </section>
+    );
+  }
+  
+  // Use actual event data
+  const title = event.title;
+  const subtitle = event.subtitle || "";
+  const organiser = event.organiser || "United Grand Lodge of NSW & ACT";
+  const dateLocation = `${event.date} • ${event.location}`;
+  const imageUrl = event.imageUrl || "/placeholder.svg?height=800&width=1600";
+  const logoUrl = event.logo || "/placeholder.svg?height=120&width=120";
+  const slug = event.slug;
 
   return (
     <section className="relative bg-masonic-navy py-20 text-white">

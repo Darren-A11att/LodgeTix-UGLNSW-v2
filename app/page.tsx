@@ -8,7 +8,7 @@ import { getGrandInstallationEvent } from "@/lib/services/homepage-service"
 
 export default async function HomePage() {
   const grandInstallation = await getGrandInstallationEvent();
-  const slug = grandInstallation?.slug || "grand-installation";
+  const slug = grandInstallation?.slug;
 
   return (
     <div className="min-h-screen bg-white">
@@ -16,30 +16,33 @@ export default async function HomePage() {
       <GrandInstallationHero />
 
       {/* About the Grand Installation */}
-      <section className="py-16">
-        <div className="container mx-auto px-4">
-          <div className="mx-auto max-w-4xl text-center">
-            <h2 className="mb-4 text-3xl font-bold text-masonic-navy">{grandInstallation?.title || "Grand Installation 2023"}</h2>
-            <div className="masonic-divider"></div>
-            <p className="mb-8 text-lg text-gray-700">
-              {grandInstallation?.description || 
-                "Join us for the Installation of MW Bro Bernie Khristian Albano as Grand Master of the United Grand Lodge of NSW & ACT. This historic ceremony will bring together Brethren from across Australia and beyond to witness this momentous occasion in Freemasonry."}
-            </p>
-            <div className="flex flex-col justify-center gap-4 sm:flex-row">
-              <Button asChild className="bg-masonic-navy hover:bg-masonic-blue">
-                <Link href={`/events/${slug}`}>Event Details</Link>
-              </Button>
-              <Button
-                asChild
-                variant="outline"
-                className="border-masonic-navy text-masonic-navy hover:bg-masonic-lightblue"
-              >
-                <Link href={`/events/${slug}/register`}>Get Tickets</Link>
-              </Button>
+      {grandInstallation && (
+        <section className="py-16">
+          <div className="container mx-auto px-4">
+            <div className="mx-auto max-w-4xl text-center">
+              <h2 className="mb-4 text-3xl font-bold text-masonic-navy">{grandInstallation.title}</h2>
+              <div className="masonic-divider"></div>
+              <p className="mb-8 text-lg text-gray-700">
+                {grandInstallation.description}
+              </p>
+              {slug && (
+                <div className="flex flex-col justify-center gap-4 sm:flex-row">
+                  <Button asChild className="bg-masonic-navy hover:bg-masonic-blue">
+                    <Link href={`/events/${slug}`}>Event Details</Link>
+                  </Button>
+                  <Button
+                    asChild
+                    variant="outline"
+                    className="border-masonic-navy text-masonic-navy hover:bg-masonic-lightblue"
+                  >
+                    <Link href={`/events/${slug}/tickets`}>Get Tickets</Link>
+                  </Button>
+                </div>
+              )}
             </div>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* Event Timeline - Using server component with Supabase data */}
       <EventTimelineWithData />
@@ -48,30 +51,32 @@ export default async function HomePage() {
       <FeaturedEventsSection />
 
       {/* CTA Section */}
-      <section className="bg-masonic-navy py-16 text-white">
-        <div className="container mx-auto px-4">
-          <div className="mx-auto max-w-3xl text-center">
-            <h2 className="mb-4 text-3xl font-bold">Join Us for this Historic Occasion</h2>
-            <div className="masonic-divider"></div>
-            <p className="mb-8 text-lg">
-              Be part of this momentous event in the history of the United Grand Lodge of NSW & ACT. Tickets are
-              limited, so secure yours today.
-            </p>
-            <div className="flex flex-col justify-center gap-4 sm:flex-row">
-              <Button
-                asChild
-                variant="outline"
-                className="border-masonic-gold text-masonic-gold hover:bg-masonic-navy/50"
-              >
-                <Link href={`/events/${slug}`}>Learn More</Link>
-              </Button>
-              <Button asChild className="bg-masonic-gold text-masonic-navy hover:bg-masonic-lightgold">
-                <Link href={`/events/${slug}/register`}>Get Tickets</Link>
-              </Button>
+      {grandInstallation && slug && (
+        <section className="bg-masonic-navy py-16 text-white">
+          <div className="container mx-auto px-4">
+            <div className="mx-auto max-w-3xl text-center">
+              <h2 className="mb-4 text-3xl font-bold">Join Us for this Historic Occasion</h2>
+              <div className="masonic-divider"></div>
+              <p className="mb-8 text-lg">
+                Be part of this momentous event in the history of the United Grand Lodge of NSW & ACT. Tickets are
+                limited, so secure yours today.
+              </p>
+              <div className="flex flex-col justify-center gap-4 sm:flex-row">
+                <Button
+                  asChild
+                  variant="outline"
+                  className="border-masonic-gold text-masonic-gold hover:bg-masonic-navy/50"
+                >
+                  <Link href={`/events/${slug}`}>Learn More</Link>
+                </Button>
+                <Button asChild className="bg-masonic-gold text-masonic-navy hover:bg-masonic-lightgold">
+                  <Link href={`/events/${slug}/tickets`}>Get Tickets</Link>
+                </Button>
+              </div>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       {/* Footer */}
       <footer className="bg-masonic-navy py-12 text-gray-300">
