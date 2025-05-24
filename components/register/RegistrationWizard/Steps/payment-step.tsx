@@ -77,6 +77,7 @@ function PaymentStep(props: PaymentStepProps = {}) {
   const updateStoreBillingDetails = useRegistrationStore((s) => s.updateBillingDetails);
   const setStoreConfirmationNumber = useRegistrationStore((s) => s.setConfirmationNumber);
   const storeDraftId = useRegistrationStore((s) => s.draftId);
+  const eventId = useRegistrationStore((s) => s.eventId); // Get eventId from store
   const goToNextStep = useRegistrationStore((s) => s.goToNextStep);
   const goToPrevStep = useRegistrationStore((s) => s.goToPrevStep);
   const anonymousSessionEstablished = useRegistrationStore(selectAnonymousSessionEstablished);
@@ -476,7 +477,7 @@ function PaymentStep(props: PaymentStepProps = {}) {
                 tickets: currentTicketsForSummary,
                 totalAmount,
                 billingDetails: data,
-                eventId: primaryAttendee?.eventId,
+                eventId: eventId, // Use eventId from store, not from primaryAttendee
                 customerId: user.id // Include the authenticated user ID
             };
             

@@ -7,7 +7,7 @@ import { Ticket } from "@/lib/services/event-service"
 
 interface TicketSelectionWithOrderProps {
   tickets: Ticket[]
-  eventId: string
+  eventId: string // This should be the UUID
   eventSlug: string
 }
 
@@ -20,13 +20,19 @@ export function TicketSelectionWithOrder({ tickets, eventId, eventSlug }: Ticket
     // Clear any existing registration and start a new one
     startNewRegistration('individual')
     
-    // Set the event ID for this registration - this will be used by the ticket selection step
+    // Set the event ID for this registration - this should be a UUID
     if (eventId) {
-      console.log(`Setting event ID in store from TicketSelectionWithOrder: ${eventId}`)
-      setEventId(eventId)
+      // Validate that eventId looks like a UUID
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+      if (uuidRegex.test(eventId)) {
+        console.log(`Setting event UUID in store: ${eventId}`)
+        setEventId(eventId)
+      } else {
+        console.error(`Invalid event ID format - expected UUID, got: ${eventId}`)
+        console.warn('This may cause registration to fail. Event ID should be a UUID, not a slug.')
+      }
     } else {
-      console.log('No event ID provided, using default parent event ID')
-      // The RegistrationWizard will use the default parent event ID if none is provided
+      console.log('No event ID provided')
     }
   }, [eventId, startNewRegistration, setEventId])
 

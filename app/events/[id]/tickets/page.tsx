@@ -5,11 +5,11 @@ import Link from 'next/link'
 import { TicketIcon } from "lucide-react"
 import { WizardShellLayout } from "@/components/register/RegistrationWizard/Layouts/WizardShellLayout"
 import { RegistrationWizard } from "@/components/register/RegistrationWizard/registration-wizard"
-import { getEventById } from "@/lib/event-facade"
+import { getEventById, getEventByIdOrSlug } from "@/lib/event-facade"
 import { useRegistrationStore } from '@/lib/registrationStore'
 import ClientOnly from '@/components/register/RegistrationWizard/utils/ClientOnly'
 
-function RegistrationLayout({ eventId, eventSlug }: { eventId: string, eventSlug: string }) {
+function RegistrationLayout({ eventId, eventSlug, eventUUID }: { eventId: string, eventSlug: string, eventUUID: string }) {
   const currentStep = useRegistrationStore((state) => state.currentStep)
   const [mounted, setMounted] = React.useState(false)
   const [slug, setSlug] = React.useState(eventSlug)
@@ -64,7 +64,7 @@ function RegistrationLayout({ eventId, eventSlug }: { eventId: string, eventSlug
           }
         >
           <WizardShellLayout>
-            <RegistrationWizard eventId={eventId} />
+            <RegistrationWizard eventId={eventUUID} />
           </WizardShellLayout>
         </ClientOnly>
       </main>
@@ -84,8 +84,46 @@ function RegistrationLayout({ eventId, eventSlug }: { eventId: string, eventSlug
 export default function TicketsPage({ params }: { params: Promise<{ id: string }> }) {
   const resolvedParams = React.use(params)
   const id = resolvedParams.id
+  const [eventUUID, setEventUUID] = React.useState<string | null>(null)
+  const [loading, setLoading] = React.useState(true)
   
-  // For now, we'll just pass the ID and handle navigation in the component
-  // A full solution would involve setting up a special API route for server data
-  return <RegistrationLayout eventId={id} eventSlug={id} />
+  React.useEffect(() => {
+    async function fetchEventUUID() {
+      try {
+        const event = await getEventByIdOrSlug(id)
+        if (event?.id) {
+          setEventUUID(event.id)
+        } else {
+          console.error('Event not found or missing UUID')
+        }
+      } catch (error) {
+        console.error('Failed to fetch event UUID:', error)
+      } finally {
+        setLoading(false)
+      }
+    }
+    
+    fetchEventUUID()
+  }, [id])
+  
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
+      </div>
+    )
+  }
+  
+  if (!eventUUID) {
+    return (
+      <div className="container mx-auto px-4 py-12 text-center">
+        <h1 className="mb-4 text-3xl font-bold">Event Not Found</h1>
+        <p className="mb-8">The event you're looking for could not be found.</p>
+        <Link href="/" className="text-blue-600 hover:underline">Return to Home</Link>
+      </div>
+    )
+  }
+  
+  // Pass both the slug (for URL) and UUID (for database operations)
+  return <RegistrationLayout eventId={id} eventSlug={id} eventUUID={eventUUID} />
 }

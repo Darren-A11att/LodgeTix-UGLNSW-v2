@@ -71,6 +71,17 @@ export async function POST(request: Request) {
     // Handle eventId - it might be a slug or UUID
     let finalEventId = eventId || (primaryAttendee?.event_id || primaryAttendee?.eventId || null);
     
+    // Special check for known problematic values
+    if (finalEventId === 'error-event' || finalEventId === 'undefined' || finalEventId === 'null') {
+      console.error(`Received invalid event ID value: '${finalEventId}'`);
+      console.error('This typically indicates the event UUID was not properly passed from the tickets page.');
+      console.groupEnd();
+      return NextResponse.json(
+        { error: `Invalid event ID received. Please refresh the page and try again. If the problem persists, please return to the event page and click "Get Tickets" again.` },
+        { status: 400 }
+      );
+    }
+    
     // Check if eventId is a slug (not a UUID)
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     if (finalEventId && !uuidRegex.test(finalEventId)) {
