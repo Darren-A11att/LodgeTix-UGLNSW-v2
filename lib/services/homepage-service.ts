@@ -1,6 +1,25 @@
-import { getBrowserClient } from '@/lib/supabase-singleton';
+import { createClient } from '@supabase/supabase-js';
 import { api } from '@/lib/api-logger';
 import { formatEventDate, formatEventTime } from '@/lib/event-facade';
+import type { Database } from '@/supabase/types';
+
+// Create a server-side Supabase client for server components
+function getServerClient() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  
+  if (!supabaseUrl || !supabaseAnonKey) {
+    console.warn('Missing Supabase environment variables in homepage service');
+    return null;
+  }
+  
+  return createClient<Database>(supabaseUrl, supabaseAnonKey, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+    }
+  });
+}
 
 /**
  * Get the next upcoming event (parent or child)
@@ -8,7 +27,11 @@ import { formatEventDate, formatEventTime } from '@/lib/event-facade';
  */
 export async function getGrandInstallationEvent() {
   try {
-    const supabase = getBrowserClient();
+    const supabase = getServerClient();
+    if (!supabase) {
+      api.warn('Supabase client not available');
+      return null;
+    }
     const now = new Date().toISOString();
     
     // First try to get the soonest upcoming parent event
@@ -53,7 +76,11 @@ export async function getGrandInstallationEvent() {
  */
 export async function getEventTimeline() {
   try {
-    const supabase = getBrowserClient();
+    const supabase = getServerClient();
+    if (!supabase) {
+      api.warn('Supabase client not available for timeline');
+      return [];
+    }
     const mainEvent = await getGrandInstallationEvent();
     
     if (!mainEvent) {
@@ -104,7 +131,11 @@ export async function getEventTimeline() {
  */
 export async function getFeaturedEvents() {
   try {
-    const supabase = getBrowserClient();
+    const supabase = getServerClient();
+    if (!supabase) {
+      api.warn('Supabase client not available for featured events');
+      return [];
+    }
     const { data, error } = await supabase
       .from("events")
       .select('*')
