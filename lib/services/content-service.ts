@@ -1,4 +1,23 @@
-import { getBrowserClient } from '@/lib/supabase-singleton';
+import { createClient } from '@supabase/supabase-js';
+import type { Database } from '@/supabase/types';
+
+// Create a server-side Supabase client for server components
+function getServerClient() {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  
+  if (!supabaseUrl || !supabaseAnonKey) {
+    console.warn('Missing Supabase environment variables in content service');
+    return null;
+  }
+  
+  return createClient<Database>(supabaseUrl, supabaseAnonKey, {
+    auth: {
+      persistSession: false,
+      autoRefreshToken: false,
+    }
+  });
+}
 
 export type AboutContent = {
   id: string;
@@ -33,7 +52,10 @@ export async function getAboutContent(): Promise<AboutContent[]> {
   // This function assumes a 'content' table exists
   // If it doesn't exist, you would need to create it first
   try {
-    const supabase = getBrowserClient();
+    const supabase = getServerClient();
+    if (!supabase) {
+      return [];
+    }
     const { data, error } = await supabase
       .from('content')
       .select('*')
@@ -41,6 +63,11 @@ export async function getAboutContent(): Promise<AboutContent[]> {
       .order('order');
 
     if (error) {
+      // During build or when table doesn't exist, return empty array silently
+      if (error.code === '42P01') {
+        // Table doesn't exist - this is expected during build
+        return [];
+      }
       console.error('Error fetching about content:', error);
       return [];
     }
@@ -57,7 +84,10 @@ export async function getAboutContent(): Promise<AboutContent[]> {
  */
 export async function getAboutFeatures(): Promise<AboutFeature[]> {
   try {
-    const supabase = getBrowserClient();
+    const supabase = getServerClient();
+    if (!supabase) {
+      return [];
+    }
     const { data, error } = await supabase
       .from('content_features')
       .select('*')
@@ -65,6 +95,11 @@ export async function getAboutFeatures(): Promise<AboutFeature[]> {
       .order('order');
 
     if (error) {
+      // During build or when table doesn't exist, return empty array silently
+      if (error.code === '42P01') {
+        // Table doesn't exist - this is expected during build
+        return [];
+      }
       console.error('Error fetching about features:', error);
       return [];
     }
@@ -81,7 +116,10 @@ export async function getAboutFeatures(): Promise<AboutFeature[]> {
  */
 export async function getAboutValues(): Promise<AboutValue[]> {
   try {
-    const supabase = getBrowserClient();
+    const supabase = getServerClient();
+    if (!supabase) {
+      return [];
+    }
     const { data, error } = await supabase
       .from('content_values')
       .select('*')
@@ -89,6 +127,11 @@ export async function getAboutValues(): Promise<AboutValue[]> {
       .order('order');
 
     if (error) {
+      // During build or when table doesn't exist, return empty array silently
+      if (error.code === '42P01') {
+        // Table doesn't exist - this is expected during build
+        return [];
+      }
       console.error('Error fetching about values:', error);
       return [];
     }

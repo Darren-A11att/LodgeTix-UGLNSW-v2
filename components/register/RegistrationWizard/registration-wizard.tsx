@@ -9,6 +9,7 @@ import { User } from "lucide-react"
 // WizardShellLayout is now handled by layout.tsx
 import { WizardBodyStructureLayout } from "./Layouts/WizardBodyStructureLayout"
 import DraftRecoveryModal from '../Functions/DraftRecoveryModal'
+import { SessionGuard } from './SessionGuard'
 
 // Import base component directly (it's small)
 import { RegistrationTypeStep } from "./Steps/registration-type-step"
@@ -273,7 +274,11 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ eventId 
     if (eventId) {
       const storeState = useRegistrationStore.getState();
       const hasExistingIncompleteRegistration = storeState.registrationType !== null && 
-                                               storeState.confirmationNumber === null;
+                                               storeState.confirmationNumber === null &&
+                                               storeState.status !== 'completed';
+      
+      // No need to reset draftRecoveryHandled anymore since we always show the modal
+      // when there's an incomplete registration
       
       // Always go to registration type selection first - draft recovery happens when user selects a type
       console.log(`Setting up event: ${eventId}, ${hasExistingIncompleteRegistration ? 'has existing draft' : 'no draft'}`);
@@ -287,7 +292,7 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ eventId 
       // Never show modal on initial load - it's handled in registration type step
       setShowDraftRecoveryModal(false);
     }
-  }, [eventId, setEventId, setCurrentStep]);
+  }, [eventId, setEventId, setCurrentStep, setDraftRecoveryHandled]);
   
   // Handler for continuing existing draft
   const handleContinueDraft = () => {
@@ -752,7 +757,7 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ eventId 
   }
 
   return (
-    <>
+    <SessionGuard>
       {/* Draft Recovery Modal - handled by registration type step */}
       <DraftRecoveryModal 
         isOpen={false}
@@ -775,6 +780,6 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ eventId 
           {renderStepContent()}
         </div>
       </WizardBodyStructureLayout>
-    </>
+    </SessionGuard>
   )
 }

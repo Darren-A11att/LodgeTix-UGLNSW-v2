@@ -45,13 +45,13 @@ export interface RegistrationState {
   packages: Record<string, PackageSelectionType>;
   billingDetails: BillingDetailsType | null;
   agreeToTerms: boolean; // Add agreeToTerms
-  status: 'idle' | 'loading' | 'draft' | 'error' | 'saving'; // Added idle/saving
+  status: 'idle' | 'loading' | 'draft' | 'error' | 'saving' | 'completed'; // Added idle/saving/completed
   lastSaved: number | null;
   error: string | null;
   availableTickets: (TicketType | TicketDefinitionType)[]; // Add availableTickets
   currentStep: number; // Add currentStep for navigation
   confirmationNumber: string | null; // Add confirmationNumber for completion
-  draftRecoveryHandled: boolean; // Flag to track if draft recovery has been handled
+  draftRecoveryHandled: boolean; // Flag to track if draft recovery has been handled in current session
   anonymousSessionEstablished: boolean; // Track if Turnstile verification and anonymous session is complete
 
   // --- Actions ---
@@ -285,7 +285,12 @@ export const useRegistrationStore = create<RegistrationState>(
       },
 
       clearRegistration: () => {
-        set({ ...initialRegistrationState }); // Reset to initial state
+        // Preserve anonymous session when clearing registration
+        const currentAnonymousSession = get().anonymousSessionEstablished;
+        set({ 
+          ...initialRegistrationState,
+          anonymousSessionEstablished: currentAnonymousSession // Preserve session state
+        }); // Reset to initial state but keep session
         console.log('Registration state cleared.');
       },
 
@@ -472,7 +477,10 @@ export const useRegistrationStore = create<RegistrationState>(
       goToPrevStep: () => set(state => ({ currentStep: Math.max(1, state.currentStep - 1) })),
 
       // Confirmation actions
-      setConfirmationNumber: (number) => set({ confirmationNumber: number }),
+      setConfirmationNumber: (number) => set({ 
+        confirmationNumber: number,
+        status: 'completed' // Mark as completed when confirmation number is set
+      }),
       
       // Event actions
       setEventId: (id) => set({ eventId: id }),
@@ -493,7 +501,9 @@ export const useRegistrationStore = create<RegistrationState>(
         packages: state.packages,
         billingDetails: state.billingDetails,
         agreeToTerms: state.agreeToTerms, // Persist agreeToTerms
-        draftRecoveryHandled: state.draftRecoveryHandled, // Persist draftRecoveryHandled flag
+        status: state.status, // Persist status to track completed registrations
+        confirmationNumber: state.confirmationNumber, // Persist confirmation number
+        // Don't persist draftRecoveryHandled - it should reset on each session
         anonymousSessionEstablished: state.anonymousSessionEstablished, // Persist anonymous session state
         lastSaved: Date.now(),
       }),

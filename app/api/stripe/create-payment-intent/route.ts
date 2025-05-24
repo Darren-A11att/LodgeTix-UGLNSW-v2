@@ -14,7 +14,7 @@ if (!stripeSecretKey) {
   throw new Error("STRIPE_SECRET_KEY environment variable is required");
 }
 
-console.log("STRIPE_SECRET_KEY (first 10 chars):", stripeSecretKey.substring(0, 10) + "...");
+// Stripe key validation successful
 
 const stripe = new Stripe(stripeSecretKey, {
   apiVersion: '2025-04-30.basil', // Using the version suggested by the linter for stripe@18.1.0

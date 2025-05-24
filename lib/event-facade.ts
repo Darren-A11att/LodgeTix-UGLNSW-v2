@@ -133,8 +133,13 @@ export async function getEventByIdOrSlug(idOrSlug: string, bypassCache: boolean 
       cache.eventById[idOrSlug] = setCacheItem(cache.eventById[idOrSlug], event);
       
       return event;
-    } catch (error) {
-      api.error(`Error fetching event ${idOrSlug} from events schema:`, error);
+    } catch (error: any) {
+      // During build time, this is expected behavior
+      if (typeof window === 'undefined' && error?.message?.includes('Invalid event data')) {
+        api.debug(`Build-time fetch for ${idOrSlug} - using fallback data`);
+      } else {
+        api.error(`Error fetching event ${idOrSlug} from events schema:`, error);
+      }
       api.info('Falling back to hard-coded event data');
       
       const event = getHardCodedEvent(idOrSlug);

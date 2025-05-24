@@ -47,6 +47,7 @@ const ticketPackagesMinimal = [
 
 function ConfirmationStep() {
   const store = useRegistrationStore()
+  const clearRegistration = useRegistrationStore(state => state.clearRegistration)
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [registrationData, setRegistrationData] = useState<{

@@ -94,16 +94,45 @@ export function RegistrationTypeStep() {
   const [showDraftModal, setShowDraftModal] = useState(false);
   const [pendingRegistrationType, setPendingRegistrationType] = useState<RegistrationType['id'] | null>(null);
   
-  // Turnstile and anonymous session state
-  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
-  const [isVerifyingTurnstileAndAuth, setIsVerifyingTurnstileAndAuth] = useState(false);
-  const [turnstileAuthError, setTurnstileAuthError] = useState<string | null>(null);
-  const [showTurnstile, setShowTurnstile] = useState(true); // Always show initially
+  // Session state is now handled by SessionGuard wrapper
 
   // Check for existing draft on mount
   const draftTypeInStore = useRegistrationStore.getState().registrationType;
   const draftStepInStore = useRegistrationStore.getState().currentStep;
   const storedAttendees = useRegistrationStore.getState().attendees;
+  
+  // Check if we should show draft recovery modal on mount (coming back from payment failure)
+  useEffect(() => {
+    const storeState = useRegistrationStore.getState();
+    const hasCompletedRegistration = storeState.status === 'completed' && storeState.confirmationNumber !== null;
+    const hasIncompleteRegistration = storeState.registrationType !== null && 
+                                     storeState.confirmationNumber === null &&
+                                     storeState.status !== 'completed';
+    const hasFilledData = storeState.attendees.some(att => 
+      att.firstName || att.lastName || att.primaryEmail
+    );
+    const wasOnLaterStep = storeState.currentStep > 2;
+    
+    // If there's a completed registration, go directly to confirmation
+    if (hasCompletedRegistration) {
+      console.log('Detected completed registration - redirecting to confirmation');
+      // Set the step to confirmation
+      const setCurrentStep = useRegistrationStore.getState().setCurrentStep;
+      setCurrentStep(6); // Confirmation is step 6
+      return;
+    }
+    
+    // Show draft recovery modal if:
+    // 1. We have an incomplete registration
+    // 2. We have filled data
+    // 3. We were on a later step (e.g., payment)
+    if (hasIncompleteRegistration && hasFilledData && wasOnLaterStep) {
+      console.log('Showing draft recovery modal on mount - detected incomplete registration from later step');
+      setShowDraftModal(true);
+      // Set the selected type to match the draft
+      setSelectedType(storeState.registrationType);
+    }
+  }, []);
   
   // Debug - log the current state of the registration store
   useEffect(() => {
@@ -147,198 +176,14 @@ export function RegistrationTypeStep() {
     });
   }, [draftTypeInStore, draftStepInStore, storedAttendees]);
 
-  // Check for existing anonymous session on mount
-  useEffect(() => {
-    const checkExistingSession = async () => {
-      try {
-        const supabase = createClient();
-        const { data: { session }, error } = await supabase.auth.getSession();
-        if (error) {
-          console.error("Error checking existing session:", error);
-        } else if (session && session.user.is_anonymous) {
-          console.log("✅ Existing anonymous session found, hiding Turnstile");
-          setAnonymousSessionEstablished(true);
-          setShowTurnstile(false);
-        } else {
-          console.log("⚠️ No anonymous session found, Turnstile required");
-          setAnonymousSessionEstablished(false);
-          setShowTurnstile(true);
-        }
-      } catch (error) {
-        console.error("Error checking session:", error);
-        setShowTurnstile(true); // Show Turnstile on error
-      }
-    };
-    
-    checkExistingSession();
-  }, [setAnonymousSessionEstablished]);
+  // Session check removed - handled by SessionGuard wrapper
 
-  // Get site key from environment, with localhost override
-  const getSiteKey = () => {
-    const isLocalhost = typeof window !== 'undefined' && 
-      (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1');
-    
-    if (isLocalhost) {
-      // Use demo key for localhost that's guaranteed to work
-      return '1x00000000000000000000AA';
-    }
-    
-    return process.env.NEXT_PUBLIC_CLOUDFLARE_TURNSTILE_SITE_KEY;
-  };
+  // Turnstile removed - handled by SessionGuard
 
-  // Set up global callback for managed widget
-  useEffect(() => {
-    const siteKey = getSiteKey();
-    console.log("🔐 Setting up Turnstile managed widget callback");
-    console.log("🔐 Anonymous session established:", anonymousSessionEstablished);
-    console.log("🔐 Environment:", typeof window !== 'undefined' ? window.location.hostname : 'server');
-    console.log("🔐 Site key:", siteKey);
-    
-    // Check if Cloudflare Turnstile script is loaded
-    console.log("🔐 Turnstile object exists:", !!(window as any).turnstile);
-    console.log("🔐 DOM container exists:", !!document.querySelector('.cf-turnstile'));
-    
-    // Set up global callback for the managed widget
-    (window as any).onTurnstileCallback = (token: string) => {
-      console.log("🔐 Managed widget callback triggered with token:", token);
-      handleTurnstileToken(token);
-    };
-
-    // Add error callback for debugging
-    (window as any).onTurnstileError = (errorCode: string) => {
-      console.error("🔐 Managed widget error callback:", errorCode);
-      setTurnstileAuthError(`Security verification failed: ${errorCode}`);
-    };
-
-    // Check if managed widget rendered after a delay
-    if (!anonymousSessionEstablished && (window as any).turnstile) {
-      const timeoutId = setTimeout(() => {
-        const container = document.querySelector('.cf-turnstile');
-        if (container) {
-          const hasContent = container.innerHTML.trim();
-          const hasHiddenInput = container.querySelector('input[type="hidden"]');
-          
-          console.log("🔐 Widget check - hasContent:", !!hasContent, "hasHiddenInput:", !!hasHiddenInput);
-          
-          // Only render if container is truly empty (no hidden inputs from managed widget)
-          if (!hasContent || !hasHiddenInput) {
-            console.log("🔐 Managed widget appears empty, trying explicit render as fallback");
-            
-            // Clear container first to avoid conflicts
-            container.innerHTML = '';
-            
-            try {
-              const widgetId = (window as any).turnstile.render(container, {
-                sitekey: siteKey,
-                callback: (token: string) => {
-                  console.log("🔐 Explicit render callback triggered");
-                  handleTurnstileToken(token);
-                },
-                'error-callback': (errorCode: string) => {
-                  console.error("🔐 Explicit render error:", errorCode);
-                  setTurnstileAuthError(`Security verification failed: ${errorCode}`);
-                }
-              });
-              console.log("🔐 Explicit render attempted, widget ID:", widgetId);
-            } catch (error) {
-              console.error("🔐 Explicit render failed:", error);
-            }
-          } else {
-            console.log("🔐 Managed widget has rendered successfully");
-          }
-        }
-      }, 2000); // Longer delay to let managed widget fully load
-      
-      return () => clearTimeout(timeoutId);
-    }
-
-    return () => {
-      // Cleanup
-      delete (window as any).onTurnstileCallback;
-      delete (window as any).onTurnstileError;
-    };
-  }, [anonymousSessionEstablished]);
+  // Turnstile effect removed - handled by SessionGuard
 
 
-  const handleTurnstileToken = async (token: string) => {
-    setTurnstileToken(token);
-    setIsVerifyingTurnstileAndAuth(true);
-    setTurnstileAuthError(null);
-
-    try {
-      console.log("🔐 Verifying Turnstile token...");
-      const response = await fetch('/api/verify-turnstile-and-anon-auth', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ token }),
-      });
-
-      // Check if response is ok before parsing
-      if (!response.ok) {
-        console.error(`❌ API response error: ${response.status} ${response.statusText}`);
-        setTurnstileAuthError(`Server error: ${response.status}. Please try again.`);
-        return;
-      }
-
-      const result = await response.json();
-
-      // Check if result exists before accessing properties
-      if (!result) {
-        console.error('❌ Empty response from verification API');
-        setTurnstileAuthError('Invalid server response. Please try again.');
-        return;
-      }
-
-      if (result.success && result.turnstileVerified) {
-        console.log('✅ Turnstile verified successfully');
-        
-        // Now create anonymous session client-side
-        console.log('🔐 Creating anonymous session...');
-        const supabase = createClient();
-        const { data: authData, error: authError } = await supabase.auth.signInAnonymously();
-        
-        if (authError) {
-          console.error('❌ Failed to create anonymous session:', authError);
-          setTurnstileAuthError(`Failed to create session: ${authError.message}`);
-          return;
-        }
-        
-        if (authData.user && authData.session) {
-          console.log('✅ Anonymous session created:', authData.user.id);
-          setAnonymousSessionEstablished(true);
-          setTurnstileAuthError(null);
-          
-          console.log('🔍 Session details:', {
-            userId: authData.user.id,
-            isAnonymous: authData.user.is_anonymous,
-            expiresAt: authData.session.expires_at
-          });
-          
-          // Test localStorage immediately after session creation
-          setTimeout(() => {
-            const storageData = localStorage.getItem('lodgetix-registration-storage');
-            const parsed = storageData ? JSON.parse(storageData) : null;
-            console.log('🔬 Storage check 2 seconds after session:', parsed?.state?.anonymousSessionEstablished);
-          }, 2000);
-        } else {
-          console.error('❌ Anonymous session created but missing user/session data');
-          setTurnstileAuthError('Failed to establish session. Please try again.');
-        }
-      } else {
-        console.error('❌ Turnstile verification failed:', result.error, result.errorCodes);
-        setTurnstileAuthError(result.error || 'Security verification failed. Please try again.');
-        setTurnstileToken(null);
-      }
-    } catch (error: any) {
-      console.error('❌ Error during Turnstile verification:', error);
-      setTurnstileAuthError('An unexpected error occurred during verification. Please try again.');
-      setTurnstileToken(null);
-    } finally {
-      setIsVerifyingTurnstileAndAuth(false);
-    }
-  };
+  // Turnstile handler removed - handled by SessionGuard
 
   const initializeAttendees = useCallback((typeId: RegistrationType['id']) => {
     // Clear existing attendees when changing type
@@ -381,12 +226,18 @@ export function RegistrationTypeStep() {
       (attendee.primaryEmail && attendee.primaryEmail.trim()) || 
       (attendee.lodgeNameNumber && attendee.lodgeNameNumber.trim()));
     
+    // Check if we're already on the selected type with existing data
+    const isSelectingCurrentType = currentDraftType === type;
+    
     // Simplified draft detection:
-    // Show modal if there's an incomplete registration (draft) that hasn't been handled yet
+    // Show modal if there's an incomplete registration (draft)
+    // But don't show it if the user is selecting the same type they already have
+    // And don't show it for completed registrations
     const hasIncompleteDraft = currentDraftType !== null && 
                                confirmationNumber === null && 
-                               !draftRecoveryHandled &&
-                               (hasExistingAttendees || currentStep > 1 || hasFilledData);
+                               currentState.status !== 'completed' &&
+                               (hasExistingAttendees || currentStep > 1 || hasFilledData) &&
+                               !isSelectingCurrentType; // Don't show modal if selecting the same type
     
     console.log("Registration type selection check:", { 
       currentDraftType, 
@@ -397,6 +248,7 @@ export function RegistrationTypeStep() {
       confirmationNumber,
       draftRecoveryHandled,
       hasIncompleteDraft,
+      isSelectingCurrentType,
       attendees: currentState.attendees.length
     });
     
@@ -404,6 +256,17 @@ export function RegistrationTypeStep() {
       console.log("Showing draft modal - incomplete registration detected");
       setPendingRegistrationType(type);
       setShowDraftModal(true);
+    } else if (isSelectingCurrentType && hasExistingAttendees) {
+      // If selecting the same type and we have attendees, just proceed without reinitializing
+      console.log("Selecting current type with existing data - proceeding without reinitializing");
+      setSelectedType(type);
+      
+      // Mark draft recovery as handled since user is continuing with existing data
+      setDraftRecoveryHandled(true);
+      
+      // Move to the next step
+      const goToNextStep = useRegistrationStore.getState().goToNextStep;
+      goToNextStep();
     } else {
       console.log("No incomplete draft - proceeding with selection");
       setSelectedType(type);
@@ -417,7 +280,7 @@ export function RegistrationTypeStep() {
       const goToNextStep = useRegistrationStore.getState().goToNextStep;
       goToNextStep();
     }
-  }, [storeSetRegistrationType, initializeAttendees]);
+  }, [storeSetRegistrationType, initializeAttendees, setDraftRecoveryHandled]);
 
   const handleContinueDraft = () => {
     setShowDraftModal(false);
@@ -556,37 +419,9 @@ export function RegistrationTypeStep() {
           })}
         </div>
         
-        {/* Turnstile Widget - Matches card layout */}
-        {!anonymousSessionEstablished && (
-          <div className="mt-6 grid gap-6 md:grid-cols-3">
-            <div className="md:col-start-2">
-              <div>
-                <div
-                  className="cf-turnstile"
-                  data-sitekey={getSiteKey()}
-                  data-size="flexible"
-                  data-callback="onTurnstileCallback"
-                  data-error-callback="onTurnstileError"
-                ></div>
-              </div>
-            </div>
-          </div>
-        )}
+        {/* Turnstile Widget removed - session is now handled by SessionGuard */}
       </RadioGroup>
 
-      
-      {isVerifyingTurnstileAndAuth && (
-        <div className="mt-4 text-center">
-          <p className="text-sm">Verifying...</p>
-        </div>
-      )}
-      
-      {turnstileAuthError && (
-        <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded">
-          <p className="text-red-800 text-sm">{turnstileAuthError}</p>
-        </div>
-      )}
-      
 
       {showDraftModal && (
         <AlertDialog open={showDraftModal} onOpenChange={setShowDraftModal}>
