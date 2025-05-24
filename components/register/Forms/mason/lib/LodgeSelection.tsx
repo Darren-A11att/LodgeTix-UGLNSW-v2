@@ -31,9 +31,11 @@ interface LodgeOption {
   number: number | null;
   district: string | null;
   meeting_place: string | null;
-  display_name: string;
-  grand_lodge_id: string;
+  display_name: string | null;
+  grand_lodge_id: string | null;
   region_code?: string;
+  area_type?: string | null;
+  created_at?: string;
 }
 
 export const LodgeSelection: React.FC<LodgeSelectionProps> = ({
@@ -87,6 +89,12 @@ export const LodgeSelection: React.FC<LodgeSelectionProps> = ({
     searchLodgesByGrandLodge: async (term: string, grandLodgeId: string) => {
       try {
         if (!term || term.length < 2 || !grandLodgeId) {
+          return [];
+        }
+        
+        // Don't search if the term looks like a UUID
+        const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+        if (uuidPattern.test(term)) {
           return [];
         }
         
@@ -149,12 +157,12 @@ export const LodgeSelection: React.FC<LodgeSelectionProps> = ({
         
         // If not in state or cache, use the store action to search
         // This just triggers the search - we don't wait for results
-        searchAllLodgesAction(term, grandLodgeId);
+        searchAllLodgesAction(term);
         
         // Return any existing search results that match
         return allLodgeSearchResults.filter(l => l.grand_lodge_id === grandLodgeId);
       } catch (error) {
-        console.error('[LodgeSelection] Error searching lodges:', error);
+        // Error searching lodges
         return [];
       }
     }
@@ -210,8 +218,8 @@ export const LodgeSelection: React.FC<LodgeSelectionProps> = ({
         .then(() => {
           loadingLodgesRef.current = false;
         })
-        .catch(error => {
-          console.error(`[LodgeSelection] Error loading lodges:`, error);
+        .catch(() => {
+          // Error loading lodges
           loadingLodgesRef.current = false;
         });
     }
@@ -284,13 +292,8 @@ export const LodgeSelection: React.FC<LodgeSelectionProps> = ({
     // Skip if user is actively typing
     if (userIsTypingRef.current) return;
     
-    // Use a local variable to track processing state
-    let isProcessing = false;
-    
     if (value && !selectedLodge) {
-      isProcessing = true;
-      console.log(`[LodgeSelection] Loading lodge data for ID: ${value}`);
-      
+            
       // Check if the value we're loading matches the primaryMason
       if (primaryMason?.lodgeId === value) {
         // If we have an active "use same lodge" setting, let that effect handle it
@@ -299,49 +302,71 @@ export const LodgeSelection: React.FC<LodgeSelectionProps> = ({
         }
       }
       
-      try {
-        // First try to find it in the current lodges list
-        const foundInCurrentList = lodges.find(l => l.id === value);
-        if (foundInCurrentList) {
-          console.log(`[LodgeSelection] Found lodge in current list: ${foundInCurrentList.display_name}`);
-          setSelectedLodge(foundInCurrentList);
-          setInputValue(foundInCurrentList.display_name);
-          lodgeNameRef.current = foundInCurrentList.display_name;
-          setIsInitialized(true);
-          return;
-        }
+      // First try to find it in the current lodges list
+      const foundInCurrentList = lodges.find(l => l.id === value);
+      if (foundInCurrentList) {
+        setSelectedLodge(foundInCurrentList);
+        const displayName = foundInCurrentList.display_name || `${foundInCurrentList.name} No. ${foundInCurrentList.number || 'N/A'}`;
+        setInputValue(displayName);
+        lodgeNameRef.current = displayName;
+        setIsInitialized(true);
+        return;
+      }
+      
+      // Next, try to find it in search results
+      const foundInSearch = allLodgeSearchResults.find(l => l.id === value);
+      if (foundInSearch) {
+        setSelectedLodge(foundInSearch);
+        const displayName = foundInSearch.display_name || `${foundInSearch.name} No. ${foundInSearch.number || 'N/A'}`;
+        setInputValue(displayName);
+        lodgeNameRef.current = displayName;
+        setIsInitialized(true);
+        return;
+      }
+      
+      // If we have a lodgeNameNumber from primary mason, use it
+      if (primaryMason?.lodgeNameNumber && primaryMason.lodgeId === value) {
+        setInputValue(primaryMason.lodgeNameNumber);
+        lodgeNameRef.current = primaryMason.lodgeNameNumber;
+        initialLoadDoneRef.current = true;
+        setIsInitialized(true);
+        return;
+      }
+      
+      // If all else fails, try to fetch it directly - but only once
+      if (!isLoadingAllLodges && !initialLoadDoneRef.current) {
+        initialLoadDoneRef.current = true;
         
-        // Next, try to find it in search results
-        const foundInSearch = allLodgeSearchResults.find(l => l.id === value);
-        if (foundInSearch) {
-          console.log(`[LodgeSelection] Found lodge in search results: ${foundInSearch.display_name}`);
-          setSelectedLodge(foundInSearch);
-          setInputValue(foundInSearch.display_name);
-          lodgeNameRef.current = foundInSearch.display_name;
-          setIsInitialized(true);
-          return;
-        }
+        // Fetch the lodge by ID directly instead of searching for it
+        const fetchLodgeById = async () => {
+          try {
+            const { supabase } = await import('@/lib/supabase-browser');
+            const { data, error } = await supabase
+              .from('lodges')
+              .select('*')
+              .eq('id', value)
+              .single();
+            
+            if (!error && data) {
+              const lodgeData = data as LodgeOption;
+              setSelectedLodge(lodgeData);
+              setInputValue(lodgeData.display_name || `${lodgeData.name} No. ${lodgeData.number || 'N/A'}`);
+              lodgeNameRef.current = lodgeData.display_name || `${lodgeData.name} No. ${lodgeData.number || 'N/A'}`;
+              setIsInitialized(true);
+            } else {
+              // Lodge not found, clear the invalid value
+              setInputValue('');
+              lodgeNameRef.current = null;
+              onChange('', '');
+            }
+          } catch (error) {
+            console.error('[LodgeSelection] Error fetching lodge by ID:', error);
+            setInputValue('');
+            lodgeNameRef.current = null;
+          }
+        };
         
-        // If we have a lodgeNameNumber from primary mason, use it
-        if (primaryMason?.lodgeNameNumber && primaryMason.lodgeId === value) {
-          console.log(`[LodgeSelection] Using lodge name from primary mason: ${primaryMason.lodgeNameNumber}`);
-          setInputValue(primaryMason.lodgeNameNumber);
-          lodgeNameRef.current = primaryMason.lodgeNameNumber;
-          initialLoadDoneRef.current = true;
-          setIsInitialized(true);
-          return;
-        }
-        
-        // If all else fails, try to search for it directly - but only once
-        if (!isLoadingAllLodges && !initialLoadDoneRef.current) {
-          console.log(`[LodgeSelection] Searching for lodge with ID: ${value}`);
-          searchAllLodgesAction(value);
-          initialLoadDoneRef.current = true;
-          setInputValue('Looking up Lodge...');
-        }
-      } finally {
-        // Flag is no longer needed as we're using a local variable
-        isProcessing = false;
+        fetchLodgeById();
       }
     } else if (!value && selectedLodge) {
       // Clear selection if value is empty/null but we have a selectedLodge
@@ -361,8 +386,6 @@ export const LodgeSelection: React.FC<LodgeSelectionProps> = ({
     
     if (useSameLodge && primaryMason?.lodgeId && primaryMason?.lodgeNameNumber) {
       isHandlingSameLodgeChange.current = true;
-      console.log(`[LodgeSelection] Using same lodge as primary: ${primaryMason.lodgeNameNumber}`);
-      
       // Update references first
       lodgeNameRef.current = primaryMason.lodgeNameNumber;
       setInputValue(primaryMason.lodgeNameNumber);
@@ -414,7 +437,6 @@ export const LodgeSelection: React.FC<LodgeSelectionProps> = ({
     lodgeNameRef.current = displayValue;
     onChange(lodge.id, displayValue);
     
-    console.log(`[LodgeSelection] Selected lodge: ${displayValue} (${lodge.id})`);
   }, [onChange]);
 
   // Search function for autocomplete
@@ -424,6 +446,12 @@ export const LodgeSelection: React.FC<LodgeSelectionProps> = ({
   
   const searchFunction = useCallback(async (query: string) => {
     if (!grandLodgeId || query.length < 2) return [];
+    
+    // Don't search if the query looks like a UUID (to prevent searching for lodge IDs)
+    const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (uuidPattern.test(query)) {
+      return [];
+    }
     
     // Create a cache key based on the query and Grand Lodge ID
     const cacheKey = `${grandLodgeId}:${query}`;
@@ -461,7 +489,7 @@ export const LodgeSelection: React.FC<LodgeSelectionProps> = ({
       
       return results;
     } catch (error) {
-      console.error('[LodgeSelection] Lodge search error:', error);
+      // Lodge search error
       return [];
     }
   }, [grandLodgeId, lodges]);
@@ -472,30 +500,23 @@ export const LodgeSelection: React.FC<LodgeSelectionProps> = ({
     
     setIsCreating(true);
     try {
-      console.log(`[LodgeSelection] Creating new lodge: ${newLodgeName} No. ${newLodgeNumber || 'N/A'}`);
-      
-      // Add region code from IP data if available
-      const regionCode = ipData?.region_code;
-      
       const newLodge = await createLodge({
         name: newLodgeName,
         number: parseInt(newLodgeNumber) || null,
         grand_lodge_id: grandLodgeId,
-        display_name: `${newLodgeName} No. ${newLodgeNumber || 'N/A'}`,
-        region_code: regionCode,
         district: null,
-        meeting_place: null
+        meeting_place: null,
+        area_type: null
       });
       
       if (newLodge) {
-        console.log(`[LodgeSelection] Successfully created lodge: ${newLodge.id}`);
         handleSelect(newLodge);
         setShowCreateDialog(false);
         setNewLodgeName('');
         setNewLodgeNumber('');
       }
     } catch (error) {
-      console.error('[LodgeSelection] Failed to create lodge:', error);
+      // Failed to create lodge
     } finally {
       setIsCreating(false);
     }
@@ -503,22 +524,15 @@ export const LodgeSelection: React.FC<LodgeSelectionProps> = ({
 
   // Handle "use same lodge" checkbox change
   const handleUseSameLodgeChange = useCallback((checked: boolean) => {
-    console.log(`[LodgeSelection] "Use same lodge" changed to: ${checked}`);
     setUseSameLodge(checked);
     
     // Apply lodge data from primary mason
-    if (checked && primaryMason?.lodgeId && primaryMason?.lodgeNameNumber) {
-      const updates = handleUseSameLodgeChange(true, undefined, primaryAttendee);
-      
+    if (checked && primaryAttendee?.lodgeId && primaryAttendee?.lodgeNameNumber) {
       // Update UI state
-      if (primaryAttendee.lodgeNameNumber) {
-        setInputValue(primaryAttendee.lodgeNameNumber);
-      }
+      setInputValue(primaryAttendee.lodgeNameNumber);
       
       // Update the lodge value
-      if (primaryAttendee.lodgeId) {
-        onChange(primaryAttendee.lodgeId, primaryAttendee.lodgeNameNumber);
-      }
+      onChange(String(primaryAttendee.lodgeId || ''), primaryAttendee.lodgeNameNumber || '');
     } else if (!checked) {
       // Clear lodge data when unchecking
       setInputValue('');
@@ -585,9 +599,11 @@ export const LodgeSelection: React.FC<LodgeSelectionProps> = ({
     
     // If we have cached lodges, prioritize those for initial options
     if (cachedLodges.length > 0) {
-      return cachedLodges.slice(0, 20).sort((a, b) => 
-        (a.display_name || '').localeCompare(b.display_name || '')
-      );
+      return cachedLodges.slice(0, 20).sort((a, b) => {
+        const aName = a.display_name || a.name || '';
+        const bName = b.display_name || b.name || '';
+        return aName.localeCompare(bName);
+      });
     }
     
     // Otherwise, show the filtered lodges from state
