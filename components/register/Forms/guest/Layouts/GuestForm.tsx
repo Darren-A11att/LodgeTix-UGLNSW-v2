@@ -37,7 +37,7 @@ export const GuestForm: React.FC<GuestFormProps> = ({ attendeeId, attendeeNumber
   const titleOptions = GUEST_TITLES.map(title => ({ value: title, label: title }));
   
   return (
-    <div className="p-4 space-y-6 relative">
+    <div className="p-4 space-y-4 relative">
       
       {/* For First Row Layout */}
       <div className="hidden md:block">
@@ -96,7 +96,7 @@ export const GuestForm: React.FC<GuestFormProps> = ({ attendeeId, attendeeNumber
         )}
       </div>
       
-      <div className="space-y-6">
+      <div className="space-y-4">
         {/* Use type assertion to handle UnifiedAttendeeData - BasicInfo internally handles both Mason and Guest */}
         {/* Only show BasicInfo for non-partners or on mobile view */}
         {(!isPartner || isMobile) && (

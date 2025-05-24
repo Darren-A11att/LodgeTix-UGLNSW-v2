@@ -35,3 +35,15 @@ Medium - Visual/UX issue affecting professional appearance
 - Review and adjust margin/padding classes on form headers
 - Ensure consistent spacing units across all forms
 - Consider using design system spacing tokens
+
+## Resolution Summary
+Fixed the excessive vertical spacing between form headers and input fields by adjusting the spacing classes in the attendee form components.
+
+### Changes Made:
+1. Updated GuestForm component: Changed `space-y-6` to `space-y-4` (reduced from 24px to 16px gap)
+2. Updated MasonForm component: Changed `space-y-6` to `space-y-4` in both desktop and mobile layouts
+3. Maintained consistent spacing across both form types
+
+The changes reduce the visual gap while maintaining proper separation between form sections. The reduction from 1.5rem (24px) to 1rem (16px) creates a more cohesive and professional appearance without making the forms feel cramped.
+
+Container-level forms (IndividualsForm, LodgesForm, DelegationsForm) were left unchanged as they use the larger spacing appropriately for card-based layouts.
