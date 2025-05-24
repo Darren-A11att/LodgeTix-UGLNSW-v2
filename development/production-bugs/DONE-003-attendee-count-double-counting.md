@@ -46,3 +46,24 @@ High - Affects data accuracy and event planning
 - Separate partner counting from guest counting
 - Ensure partners are only counted in the "Partners" category
 - Update counting logic to differentiate between standalone guests and partners
+
+## Resolution Summary
+Fixed the double-counting issue where partners were being counted as both guests and partners in the attendee summary components.
+
+### Changes Made:
+1. Updated SimpleAttendeeSummary component: Modified guest count filter to exclude partners (`!att.isPartner`)
+2. Updated SimpleAttendeeSummaryV2 component: Applied same fix to exclude partners from guest count
+3. Updated SimpleOrderReviewSummary component: Fixed guest counting logic
+4. Updated SimpleConfirmationSummary component: Fixed guest counting logic
+
+The fix ensures that:
+- Partners are only counted in the "Partners" category
+- Guests count only includes standalone guests (not partners)
+- Total attendee count remains accurate (sum of Masons + Guests + Partners)
+- Event organizers get accurate breakdowns for planning purposes
+
+Using the example from the bug report, the counts now correctly show:
+- Total Attendees: 8
+- Masons: 3
+- Guests: 2 (only standalone guests)
+- Partners: 3

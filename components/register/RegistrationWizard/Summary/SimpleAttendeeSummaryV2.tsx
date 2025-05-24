@@ -18,7 +18,7 @@ export const SimpleAttendeeSummaryV2: React.FC<{
   const counts = {
     total: attendees.length,
     masons: attendees.filter(att => att.attendeeType?.toLowerCase() === 'mason').length,
-    guests: attendees.filter(att => att.attendeeType?.toLowerCase() === 'guest').length,
+    guests: attendees.filter(att => att.attendeeType?.toLowerCase() === 'guest' && !att.isPartner).length, // Exclude partners from guest count
     partners: attendees.filter(att => att.isPartner).length
   };
   
