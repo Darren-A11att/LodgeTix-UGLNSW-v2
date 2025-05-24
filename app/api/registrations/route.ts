@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { v4 as uuidv4 } from "uuid";
 import { createClient } from '@/utils/supabase/server';
-import { createAdminClient } from '@/utils/supabase/admin';
 import { UnifiedAttendeeData } from "@/shared/types/supabase";
 import { generateUUID } from "@/lib/uuid-slug-utils";
 import { Tables, TablesInsert, Database } from "@/supabase/types";
@@ -166,17 +165,13 @@ export async function POST(request: Request) {
       );
     }
     
-    // Use admin client for database operations to bypass RLS temporarily
-    // This is a temporary solution until RLS policies are properly configured
-    console.log("Using admin client for database operations (temporary RLS bypass)");
-    const adminClient = createAdminClient();
-    
-    // Also keep a reference to the regular client for operations that need user context
+    // Use the user's authenticated client - RLS policies will handle permissions
+    console.log("Using user's authenticated client with RLS policies");
     const userClient = supabase;
     
     // First, ensure customer exists or create one
     console.log("Checking if customer exists for user:", customerId);
-    const { data: existingCustomer, error: customerCheckError } = await adminClient
+    const { data: existingCustomer, error: customerCheckError } = await userClient
       .from("customers")
       .select("id")
       .eq("id", customerId)
@@ -195,7 +190,7 @@ export async function POST(request: Request) {
         created_at: new Date().toISOString()
       };
       
-      const { data: newCustomer, error: customerCreateError } = await adminClient
+      const { data: newCustomer, error: customerCreateError } = await userClient
         .from("customers")
         .insert(customerRecord)
         .select()
@@ -225,7 +220,7 @@ export async function POST(request: Request) {
     // Insert registration record into BOTH tables to handle FK constraints
     // This is a temporary workaround for the table naming inconsistency
     console.log("Inserting registration into Registrations (capital R) table");
-    const { data: savedRegistration, error: registrationError } = await adminClient
+    const { data: savedRegistration, error: registrationError } = await userClient
       .from("Registrations")
       .insert(registrationRecord)
       .select()
@@ -234,7 +229,7 @@ export async function POST(request: Request) {
     if (!registrationError && savedRegistration) {
       // Also insert into lowercase table for tickets FK
       console.log("Also inserting into registrations (lowercase) table for consistency");
-      const { error: lowerCaseError } = await adminClient
+      const { error: lowerCaseError } = await userClient
         .from("registrations")
         .insert(registrationRecord)
         .select()
@@ -312,7 +307,7 @@ export async function POST(request: Request) {
       console.log("Attendee record to insert:", attendeeRecord);
       
       // Check if attendee already exists (duplicate submission)
-      const { data: existingAttendee } = await adminClient
+      const { data: existingAttendee } = await userClient
         .from("attendees")
         .select()
         .eq("attendeeid", attendeeRecord.attendeeid)
@@ -332,7 +327,7 @@ export async function POST(request: Request) {
           attendeeid: newAttendeeId
         };
         
-        const { data: newAttendee, error: attendeeError } = await adminClient
+        const { data: newAttendee, error: attendeeError } = await userClient
           .from("attendees")
           .insert(updatedAttendeeRecord)
           .select()
@@ -369,7 +364,7 @@ export async function POST(request: Request) {
         attendeeIdMapping.set(attendeeRecord.attendeeid, newAttendeeId);
       } else {
         // Insert new attendee as normal
-        const { data: newAttendee, error: attendeeError } = await adminClient
+        const { data: newAttendee, error: attendeeError } = await userClient
           .from("attendees")
           .insert(attendeeRecord)
           .select()
@@ -406,7 +401,7 @@ export async function POST(request: Request) {
       
       if (attendee.isPrimary && savedAttendee) {
         // Update both tables
-        const { error: updateRegError } = await adminClient
+        const { error: updateRegError } = await userClient
           .from("Registrations")
           .update({ primary_attendee_id: savedAttendee.attendeeid }) 
           .eq("registration_id", newRegistrationId);
@@ -416,7 +411,7 @@ export async function POST(request: Request) {
         }
         
         // Also update lowercase table
-        const { error: updateLowerError } = await adminClient
+        const { error: updateLowerError } = await userClient
           .from("registrations")
           .update({ primary_attendee_id: savedAttendee.attendeeid }) 
           .eq("registration_id", newRegistrationId);
@@ -464,7 +459,7 @@ export async function POST(request: Request) {
         
         console.log("Ticket record to insert:", ticketRecord);
         
-        const { data: savedTicket, error: ticketError } = await adminClient
+        const { data: savedTicket, error: ticketError } = await userClient
           .from("tickets") 
           .insert(ticketRecord)
           .select()

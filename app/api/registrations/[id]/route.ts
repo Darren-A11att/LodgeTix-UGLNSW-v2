@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { table } from "@/lib/supabase-singleton";
+import { createClient } from '@/utils/supabase/server';
 
 export async function GET(
   request: Request,
@@ -11,8 +11,23 @@ export async function GET(
     console.group("📋 Fetch Registration Details");
     console.log("Registration ID:", registrationId);
     
-    // Get registration data
-    const { data: registration, error: registrationError } = await table("registrations")
+    // Create authenticated client
+    const supabase = await createClient();
+    
+    // Verify user is authenticated
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    if (authError || !user) {
+      console.error("Authentication error:", authError);
+      console.groupEnd();
+      return NextResponse.json(
+        { error: "User not authenticated" },
+        { status: 401 }
+      );
+    }
+    
+    // Get registration data - RLS will ensure user owns this registration
+    const { data: registration, error: registrationError } = await supabase
+      .from("registrations")
       .select("*")
       .eq("registration_id", registrationId)
       .single();
@@ -27,18 +42,20 @@ export async function GET(
     }
     
     // Get attendees
-    const { data: attendees, error: attendeesError } = await table("attendees")
+    const { data: attendees, error: attendeesError } = await supabase
+      .from("attendees")
       .select("*")
-      .eq("registration_id", registrationId);
+      .eq("registrationid", registrationId);
     
     if (attendeesError) {
       console.error("Error fetching attendees:", attendeesError);
     }
     
     // Get tickets
-    const { data: tickets, error: ticketsError } = await table("tickets")
+    const { data: tickets, error: ticketsError } = await supabase
+      .from("tickets")
       .select("*")
-      .in("attendee_id", attendees?.map(a => a.attendee_id) || []);
+      .in("attendee_id", attendees?.map(a => a.attendeeid) || []);
     
     if (ticketsError) {
       console.error("Error fetching tickets:", ticketsError);
