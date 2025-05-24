@@ -472,7 +472,7 @@ export class EventsSchemaService {
     try {
       if (!data || !data.id) {
         api.error('transformEvent received invalid data:', data);
-        throw new Error('Invalid event data received');
+        throw new Error('Invalid event data received - missing required ID field');
       }
       
       // Get location data from location field
@@ -575,30 +575,8 @@ export class EventsSchemaService {
     } catch (error) {
       api.error(`Error transforming event data for ID ${data?.id || 'unknown'}:`, error);
       
-      // Return a minimal valid event object with defaults in case of error
-      return {
-        id: data?.id || 'error-event',
-        slug: data?.slug || 'error-event',
-        title: DEFAULT_EVENT_VALUES.title,
-        description: DEFAULT_EVENT_VALUES.description,
-        event_start: data?.eventStart || new Date().toISOString(),
-        event_end: null,
-        location: DEFAULT_EVENT_VALUES.location,
-        date: DEFAULT_EVENT_VALUES.date,
-        time: DEFAULT_EVENT_VALUES.time,
-        created_at: data?.createdAt || new Date().toISOString(),
-        status: DEFAULT_EVENT_VALUES.status,
-        featured: false,
-        image_url: null,
-        type: null,
-        is_multi_day: false,
-        parent_event_id: null,
-        event_includes: null,
-        important_information: null,
-        latitude: null,
-        longitude: null,
-        is_purchasable_individually: false
-      };
+      // Don't return invalid data - throw the error up the chain
+      throw new Error(`Failed to transform event data: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
 }

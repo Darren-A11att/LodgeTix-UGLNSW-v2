@@ -80,16 +80,35 @@ export async function POST(request: Request) {
       try {
         const { getEventByIdOrSlug } = await import('@/lib/event-facade');
         const event = await getEventByIdOrSlug(finalEventId);
-        if (event && event.id) {
+        if (event && event.id && uuidRegex.test(event.id)) {
           console.log(`Found event UUID for slug ${finalEventId}: ${event.id}`);
           finalEventId = event.id;
         } else {
-          console.error(`Could not find event for slug: ${finalEventId}`);
-          // Continue with the slug - it might work if the DB has slug support
+          console.error(`Could not find valid event for slug: ${finalEventId}`);
+          console.groupEnd();
+          return NextResponse.json(
+            { error: `Invalid event specified: ${finalEventId}. Please ensure you are registering for a valid event.` },
+            { status: 400 }
+          );
         }
       } catch (error) {
         console.error(`Error looking up event by slug: ${error}`);
+        console.groupEnd();
+        return NextResponse.json(
+          { error: `Unable to validate event: ${finalEventId}. Please try again or contact support.` },
+          { status: 400 }
+        );
       }
+    }
+    
+    // Final validation - ensure we have a valid UUID
+    if (!finalEventId || !uuidRegex.test(finalEventId)) {
+      console.error(`Invalid event ID after processing: ${finalEventId}`);
+      console.groupEnd();
+      return NextResponse.json(
+        { error: "A valid event must be specified for registration." },
+        { status: 400 }
+      );
     }
 
     // Prepare registration record using snake_case for database columns
