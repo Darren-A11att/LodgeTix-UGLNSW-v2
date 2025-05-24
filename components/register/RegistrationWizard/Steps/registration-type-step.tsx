@@ -183,7 +183,7 @@ export function RegistrationTypeStep() {
       return '1x00000000000000000000AA';
     }
     
-    return process.env.NEXT_PUBLIC_CLOUDFLARE_TURNSTILE_SITE_KEY;
+    return process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY || process.env.NEXT_PUBLIC_CLOUDFLARE_TURNSTILE_SITE_KEY;
   };
 
   // Set up global callback for managed widget
