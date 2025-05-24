@@ -31,3 +31,9 @@ next-env.d.ts
 [id]/
 # Sentry Config File
 .env.sentry-build-plugin
+
+.env.example
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local

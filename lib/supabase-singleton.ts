@@ -157,7 +157,7 @@ export function getBrowserClient() {
       single: () => Promise.resolve({ data: null, error: null }),
       maybeSingle: () => Promise.resolve({ data: null, error: null }),
       then: (resolve: any) => resolve({ data: [], error: null }),
-      catch: (reject: any) => mockQueryBuilder,
+      catch: () => mockQueryBuilder,
       finally: (cb: any) => { cb(); return mockQueryBuilder; },
     };
 
