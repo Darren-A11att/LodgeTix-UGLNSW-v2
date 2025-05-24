@@ -86,9 +86,17 @@ export const BillingDetailsForm: React.FC<BillingDetailsFormProps> = ({
   // Add direct access to the Zustand store for immediate updates
   const updateStoreBillingDetails = useRegistrationStore(state => state.updateBillingDetails);
   
+  // Add a ref to track if we're updating from billToPrimary
+  const isUpdatingFromBillToPrimary = useRef(false);
+  
   // Add a field watcher to update store when form values change
   useEffect(() => {
     const subscription = form.watch((value, { name, type }) => {
+      // Skip updates if we're currently updating from billToPrimary checkbox
+      if (isUpdatingFromBillToPrimary.current) {
+        return;
+      }
+      
       // Only update store when values actually change (not on first render)
       if (type === 'change') {
         console.log('Billing field changed:', name, value);
@@ -128,93 +136,90 @@ export const BillingDetailsForm: React.FC<BillingDetailsFormProps> = ({
   // Handle "Bill to Primary" checkbox changes with immediate store update
   useEffect(() => {
     const currentFormValues = form.getValues();
+    let shouldUpdate = false;
     let detailsToSet: BillingDetails;
 
     if (billToPrimaryWatched && primaryAttendee) {
-      // When checkbox is checked and we have primary attendee data
-      detailsToSet = {
-        ...currentFormValues, // Preserve existing address fields
-        billToPrimary: true,
-        firstName: primaryAttendee.firstName || '',
-        lastName: primaryAttendee.lastName || '',
-        mobileNumber: primaryAttendee.primaryPhone || '',
-        emailAddress: primaryAttendee.primaryEmail || '',
-        // Address fields are preserved from currentFormValues
-      };
+      // Check if we need to update - only update if values are different
+      const needsUpdate = 
+        currentFormValues.firstName !== primaryAttendee.firstName ||
+        currentFormValues.lastName !== primaryAttendee.lastName ||
+        currentFormValues.mobileNumber !== primaryAttendee.primaryPhone ||
+        currentFormValues.emailAddress !== primaryAttendee.primaryEmail;
       
-      // Log to verify the data being set
-      console.log('Setting billing details from primary:', { 
-        firstName: primaryAttendee.firstName,
-        lastName: primaryAttendee.lastName,
-        mobileNumber: primaryAttendee.primaryPhone, // Log the phone specifically
-        emailAddress: primaryAttendee.primaryEmail 
-      });
-    } else if (!billToPrimaryWatched) {
-      // When checkbox is unchecked - clear personal data but preserve any existing address info
+      if (needsUpdate) {
+        shouldUpdate = true;
+        // When checkbox is checked and we have primary attendee data
+        detailsToSet = {
+          ...currentFormValues, // Preserve existing address fields
+          billToPrimary: true,
+          firstName: primaryAttendee.firstName || '',
+          lastName: primaryAttendee.lastName || '',
+          mobileNumber: primaryAttendee.primaryPhone || '',
+          emailAddress: primaryAttendee.primaryEmail || '',
+          // Address fields are preserved from currentFormValues
+        };
+        
+        // Log to verify the data being set
+        console.log('Setting billing details from primary:', { 
+          firstName: primaryAttendee.firstName,
+          lastName: primaryAttendee.lastName,
+          mobileNumber: primaryAttendee.primaryPhone, // Log the phone specifically
+          emailAddress: primaryAttendee.primaryEmail 
+        });
+      }
+    } else if (!billToPrimaryWatched && currentFormValues.billToPrimary) {
+      // Only update if we're actually changing from checked to unchecked
+      shouldUpdate = true;
+      // When checkbox is unchecked - preserve existing data
       detailsToSet = {
-        ...currentFormValues, // Preserve any address fields user may have entered
+        ...currentFormValues, // Preserve all fields
         billToPrimary: false,
-        firstName: currentFormValues.firstName || '', // Preserve these instead of clearing
-        lastName: currentFormValues.lastName || '',
-        mobileNumber: currentFormValues.mobileNumber || '',
-        emailAddress: currentFormValues.emailAddress || '',
-        // The rest of the fields are preserved from currentFormValues
-      };
-    } else {
-      // This branch handles the case where (billToPrimaryWatched is true AND primaryAttendee is null/undefined)
-      detailsToSet = {
-        ...currentFormValues, // Preserve fields from current form values
-        billToPrimary: true,   // Keep this true as per checkbox state
-        firstName: '',
-        lastName: '',
-        mobileNumber: '',
-        emailAddress: '',
-        // Keep any address fields that may have been entered
       };
     }
 
-    // Set fields one by one with individual setValue calls to ensure proper updates
-    form.setValue('billToPrimary', detailsToSet.billToPrimary);
-    form.setValue('firstName', detailsToSet.firstName || '');
-    form.setValue('lastName', detailsToSet.lastName || '');
-    
-    // Force a synchronous update for the phone number to ensure it updates correctly
-    if (billToPrimaryWatched && primaryAttendee && primaryAttendee.primaryPhone) {
-      console.log('Explicitly setting mobileNumber to:', primaryAttendee.primaryPhone);
-      // Use setTimeout to ensure the value updates after the current execution cycle
-      setTimeout(() => {
-        form.setValue('mobileNumber', primaryAttendee.primaryPhone || '', {shouldDirty: true, shouldTouch: true, shouldValidate: true});
-      }, 10);
-    } else {
+    // Only proceed with updates if there's an actual change
+    if (shouldUpdate && detailsToSet!) {
+      // Set flag to prevent watch subscription from running
+      isUpdatingFromBillToPrimary.current = true;
+      
+      // Set fields one by one with individual setValue calls to ensure proper updates
+      form.setValue('billToPrimary', detailsToSet.billToPrimary);
+      form.setValue('firstName', detailsToSet.firstName || '');
+      form.setValue('lastName', detailsToSet.lastName || '');
       form.setValue('mobileNumber', detailsToSet.mobileNumber || '');
-    }
-    
-    form.setValue('emailAddress', detailsToSet.emailAddress || '');
-    
-    // Also update the store with these values
-    const billingDataForStore = {
-      firstName: detailsToSet.firstName || '',
-      lastName: detailsToSet.lastName || '',
-      email: detailsToSet.emailAddress || '',
-      phone: detailsToSet.mobileNumber || '',
-      addressLine1: detailsToSet.addressLine1 || '',
-      city: detailsToSet.suburb || '', 
-      stateProvince: detailsToSet.stateTerritory?.name || '',
-      postalCode: detailsToSet.postcode || '',
-      country: detailsToSet.country?.isoCode || '',
-      businessName: detailsToSet.businessName || '',
-    };
-    
-    // Update the store
-    console.log('Updating billing details from "Bill to Primary" change:', billingDataForStore);
-    updateStoreBillingDetails(billingDataForStore);
-    
-    // Call prop callback if provided
-    if (setBillingFormDetailsInStore) {
-      setBillingFormDetailsInStore(detailsToSet);
+      form.setValue('emailAddress', detailsToSet.emailAddress || '');
+      
+      // Also update the store with these values
+      const billingDataForStore = {
+        firstName: detailsToSet.firstName || '',
+        lastName: detailsToSet.lastName || '',
+        email: detailsToSet.emailAddress || '',
+        phone: detailsToSet.mobileNumber || '',
+        addressLine1: detailsToSet.addressLine1 || '',
+        city: detailsToSet.suburb || '', 
+        stateProvince: detailsToSet.stateTerritory?.name || '',
+        postalCode: detailsToSet.postcode || '',
+        country: detailsToSet.country?.isoCode || '',
+        businessName: detailsToSet.businessName || '',
+      };
+      
+      // Update the store
+      console.log('Updating billing details from "Bill to Primary" change:', billingDataForStore);
+      updateStoreBillingDetails(billingDataForStore);
+      
+      // Call prop callback if provided
+      if (setBillingFormDetailsInStore) {
+        setBillingFormDetailsInStore(detailsToSet);
+      }
+      
+      // Reset flag after a short delay to allow all setValue calls to complete
+      setTimeout(() => {
+        isUpdatingFromBillToPrimary.current = false;
+      }, 100);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [billToPrimaryWatched, primaryAttendee]);
+  }, [billToPrimaryWatched]);
 
   // Fetch countries on mount
   useEffect(() => {
