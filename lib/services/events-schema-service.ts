@@ -140,8 +140,7 @@ export class EventsSchemaService {
       
       let query = this.supabase
         .from("events") // Use snake_case table name
-        .select('*')
-        .single();
+        .select('*');
       
       if (isUUID) {
         query = query.eq('id', idOrSlug);
@@ -149,7 +148,7 @@ export class EventsSchemaService {
         query = query.eq('slug', idOrSlug);
       }
       
-      const { data, error } = await query;
+      const { data, error } = await query.single();
       
       if (error) {
         api.error(`Error fetching event ${idOrSlug}:`, error);
@@ -162,7 +161,7 @@ export class EventsSchemaService {
       }
       
       const transformedEvent = this.transformEvent(data);
-      api.debug(`Successfully transformed event: ${data.title}`);
+      api.debug(`Successfully transformed event: ${data.title || 'Unknown'}`);
       
       return transformedEvent;
     } catch (error) {
@@ -199,7 +198,10 @@ export class EventsSchemaService {
       }
       
       if (!data || data.length === 0) {
-        api.warn('No published events found');
+        // Only warn if not during build time
+        if (typeof window !== 'undefined' || process.env.NODE_ENV !== 'production') {
+          api.warn('No published events found');
+        }
         return [];
       }
       
@@ -469,7 +471,7 @@ export class EventsSchemaService {
   private transformEvent(data: EventsSchemaRow): EventType {
     try {
       if (!data || !data.id) {
-        api.error('transformEvent received invalid data');
+        api.error('transformEvent received invalid data:', data);
         throw new Error('Invalid event data received');
       }
       

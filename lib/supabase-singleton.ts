@@ -17,6 +17,9 @@ const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 let browserClientInstance: SupabaseClient<Database> | null = null;
 let serverClientInstance: SupabaseClient<Database> | null = null;
 
+// Track if we've already warned about mock client
+let hasWarnedAboutMockClient = false;
+
 // Map of DB table names for consistent access (snake_case)
 export const DB_TABLE_NAMES = {
   // Old PascalCase/camelCase names mapping to new snake_case names
@@ -126,7 +129,10 @@ export function getBrowserClient() {
   
   // During build time, return a dummy client that won't crash the build
   if (typeof window === 'undefined') {
-    console.warn('getBrowserClient called during SSR/build - returning mock client');
+    if (!hasWarnedAboutMockClient) {
+      console.warn('getBrowserClient called during SSR/build - returning mock client');
+      hasWarnedAboutMockClient = true;
+    }
     // Return a more complete mock that matches Supabase client structure with chainable query builder
     const mockQueryBuilder = {
       select: () => mockQueryBuilder,
@@ -154,8 +160,8 @@ export function getBrowserClient() {
       filter: () => mockQueryBuilder,
       order: () => mockQueryBuilder,
       limit: () => mockQueryBuilder,
-      single: () => Promise.resolve({ data: null, error: null }),
-      maybeSingle: () => Promise.resolve({ data: null, error: null }),
+      single: () => mockQueryBuilder,
+      maybeSingle: () => mockQueryBuilder,
       then: (resolve: any) => resolve({ data: [], error: null }),
       catch: () => mockQueryBuilder,
       finally: (cb: any) => { cb(); return mockQueryBuilder; },
