@@ -81,8 +81,9 @@ function RegistrationLayout({ eventId, eventSlug }: { eventId: string, eventSlug
 
 // Since we've added 'use client', we need a different approach
 // We'll fetch data on the client side for now
-export default function TicketsPage({ params }: { params: { id: string } }) {
-  const id = React.use(params).id
+export default function TicketsPage({ params }: { params: Promise<{ id: string }> }) {
+  const resolvedParams = React.use(params)
+  const id = resolvedParams.id
   
   // For now, we'll just pass the ID and handle navigation in the component
   // A full solution would involve setting up a special API route for server data
