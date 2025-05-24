@@ -44,18 +44,28 @@ export const ContactInfo: React.FC<ContactInfoProps> = ({
   const handleContactPreferenceChange = useCallback((value: string) => {
     console.log('Contact preference changing to:', value);
     
-    // Update via props
-    onChange('contactPreference', value);
+    // Update via props - use immediate update if available for contact preference
+    if (onChangeImmediate) {
+      onChangeImmediate('contactPreference', value);
+    } else {
+      onChange('contactPreference', value);
+    }
     
     // Immediately clear contact fields if switching away from "Directly" option
     // This makes sense since those fields won't be used
     if (value !== 'Directly') {
-      onChange('primaryEmail', '');
-      onChange('primaryPhone', '');
+      // Use immediate update to ensure fields are cleared right away
+      if (onChangeImmediate) {
+        onChangeImmediate('primaryEmail', '');
+        onChangeImmediate('primaryPhone', '');
+      } else {
+        onChange('primaryEmail', '');
+        onChange('primaryPhone', '');
+      }
     }
     
     // That's it - simple, direct update with no additional complexity
-  }, [onChange]);
+  }, [onChange, onChangeImmediate]);
 
   // Get primary attendee name for confirmation message
   const primaryName = primaryAttendee 

@@ -17,7 +17,7 @@ interface GuestFormProps extends FormProps {
 }
 
 export const GuestForm: React.FC<GuestFormProps> = ({ attendeeId, attendeeNumber, isPrimary, onRemove, onRelationshipChange }) => {
-  const { attendee, updateField } = useAttendeeDataWithDebounce(attendeeId);
+  const { attendee, updateField, updateFieldImmediate } = useAttendeeDataWithDebounce(attendeeId);
   const [isMobile, setIsMobile] = useState(false);
   
   // Check for mobile view on component mount
@@ -113,6 +113,7 @@ export const GuestForm: React.FC<GuestFormProps> = ({ attendeeId, attendeeNumber
           data={attendee}
           isPrimary={isPrimary}
           onChange={updateField}
+          onChangeImmediate={updateFieldImmediate}
         />
         
         {/* Additional Info */}

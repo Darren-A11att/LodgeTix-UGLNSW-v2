@@ -34,3 +34,19 @@ High - Affects data collection and user experience
 - Confusing user experience
 - Potential for collecting unnecessary data
 - Validation errors when users expect fields to be optional
+
+## Resolution Summary
+Fixed the issue by updating the ContactInfo component to use immediate updates when changing contact preferences. The problem was caused by debounced updates (300ms delay) in the form fields, which meant that when users changed the contact preference from "Directly" to "Provide details later", the email and phone fields were not immediately cleared and hidden.
+
+### Changes Made:
+1. Updated ContactInfo component to use `onChangeImmediate` callback for contact preference changes
+2. Modified GuestForm to pass `updateFieldImmediate` function from useAttendeeDataWithDebounce hook
+3. Ensured that email and phone fields are immediately cleared when switching away from "Directly" option
+
+The fix ensures that:
+- Fields are hidden immediately when "provide details later" is selected
+- Previously entered values are cleared right away
+- No validation errors occur for fields that should be optional
+- The UI updates without delay, providing better user experience
+
+Note: MasonForm already had this fix implemented correctly.
