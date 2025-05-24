@@ -47,6 +47,31 @@ export const CheckoutForm = memo(function CheckoutForm({
     };
   };
 
+  // Listen for validation failure event to reset state
+  useEffect(() => {
+    const handleValidationFailed = (e: Event) => {
+      const customEvent = e as CustomEvent;
+      console.log("🚫 Payment validation failed:", customEvent.detail);
+      
+      // Reset the submission state so user can try again
+      setIsSubmittingRegistration(false);
+      setIsProcessingPayment(false);
+      
+      // Show the error message to user if provided
+      if (customEvent.detail?.message) {
+        onPaymentError(customEvent.detail.message);
+      }
+    };
+    
+    window.addEventListener('paymentValidationFailed', handleValidationFailed);
+    console.log("🎯 CheckoutForm: Added paymentValidationFailed event listener");
+    
+    return () => {
+      window.removeEventListener('paymentValidationFailed', handleValidationFailed);
+      console.log("🎯 CheckoutForm: Removed paymentValidationFailed event listener");
+    };
+  }, [onPaymentError, setIsProcessingPayment]);
+  
   // Listen for the continuePayment event
   useEffect(() => {
     const handleContinuePayment = async (e: Event) => {
@@ -154,6 +179,7 @@ export const CheckoutForm = memo(function CheckoutForm({
         onPaymentError(`Error processing payment: ${err.message}`);
       } finally {
         setIsProcessingPayment(false);
+        setIsSubmittingRegistration(false); // Always reset submission state
       }
     };
     
@@ -168,7 +194,18 @@ export const CheckoutForm = memo(function CheckoutForm({
     };
   }, [stripe, elements, clientSecret, billingDetails, onPaymentSuccess, onPaymentError, setIsProcessingPayment]);
 
-  const handleSubmit = async (event: React.MouseEvent) => {
+  // Cleanup effect to clear any submission timeout on unmount
+  useEffect(() => {
+    return () => {
+      if ((window as any).__submissionTimeout) {
+        clearTimeout((window as any).__submissionTimeout);
+        delete (window as any).__submissionTimeout;
+        console.log("🧹 Cleaned up submission timeout on unmount");
+      }
+    };
+  }, []);
+
+  const handleSubmit = async () => {
     // Using button click instead of form submit - no need for preventDefault
     setIsProcessingPayment(true);
     setCardError(null);
@@ -194,6 +231,20 @@ export const CheckoutForm = memo(function CheckoutForm({
       setIsSubmittingRegistration(false);
       return;
     }
+    
+    // Note: Card validation will happen when Stripe processes the payment
+    // The card element doesn't expose an isComplete method in the types
+    
+    // Add a safeguard timeout to prevent permanent locking
+    const submissionTimeout = setTimeout(() => {
+      console.warn("⏱️ Submission timeout - resetting state");
+      setIsSubmittingRegistration(false);
+      setIsProcessingPayment(false);
+      onPaymentError("Payment processing timed out. Please try again.");
+    }, 15000); // 15 second timeout
+    
+    // Store timeout ID for cleanup
+    (window as any).__submissionTimeout = submissionTimeout;
 
     // Debug window state before dispatching event
     console.log("🔶 Global state check before saveRegistration event:");
@@ -213,6 +264,11 @@ export const CheckoutForm = memo(function CheckoutForm({
     window.dispatchEvent(formSubmitEvent);
     
     // The actual payment processing is now handled by the continuePayment event listener
+    
+    // Clear any existing submission timeout when dispatching new request
+    if ((window as any).__submissionTimeout) {
+      clearTimeout((window as any).__submissionTimeout);
+    }
   };
 
   return (

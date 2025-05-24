@@ -274,7 +274,11 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ eventId 
     if (eventId) {
       const storeState = useRegistrationStore.getState();
       const hasExistingIncompleteRegistration = storeState.registrationType !== null && 
-                                               storeState.confirmationNumber === null;
+                                               storeState.confirmationNumber === null &&
+                                               storeState.status !== 'completed';
+      
+      // No need to reset draftRecoveryHandled anymore since we always show the modal
+      // when there's an incomplete registration
       
       // Always go to registration type selection first - draft recovery happens when user selects a type
       console.log(`Setting up event: ${eventId}, ${hasExistingIncompleteRegistration ? 'has existing draft' : 'no draft'}`);
@@ -288,7 +292,7 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ eventId 
       // Never show modal on initial load - it's handled in registration type step
       setShowDraftRecoveryModal(false);
     }
-  }, [eventId, setEventId, setCurrentStep]);
+  }, [eventId, setEventId, setCurrentStep, setDraftRecoveryHandled]);
   
   // Handler for continuing existing draft
   const handleContinueDraft = () => {

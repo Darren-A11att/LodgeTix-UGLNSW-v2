@@ -594,13 +594,49 @@ function PaymentStep(props: PaymentStepProps = {}) {
       console.log("📝 Received saveRegistration event from CheckoutForm");
       const customEvent = event as CustomEvent;
       
-      // Trigger the form submission
+      // First check if the form is valid
       const formElement = document.getElementById('payment-step-form') as HTMLFormElement;
       if (formElement) {
-        console.log("📝 Triggering form submission programmatically");
+        // Check form validity before attempting submission
+        const isFormValid = form.formState.isValid;
+        
+        if (!isFormValid) {
+          console.error("❌ Form validation failed - cannot submit");
+          
+          // Dispatch validation failure event to reset CheckoutForm state
+          const validationFailureEvent = new CustomEvent('paymentValidationFailed', {
+            detail: {
+              errors: form.formState.errors,
+              message: 'Please complete all required billing fields before proceeding with payment.'
+            }
+          });
+          window.dispatchEvent(validationFailureEvent);
+          
+          // Trigger form validation to show error messages
+          form.trigger();
+          
+          // Focus on the first error field
+          const firstErrorField = Object.keys(form.formState.errors)[0];
+          if (firstErrorField) {
+            const errorElement = document.querySelector(`[name="${firstErrorField}"]`) as HTMLElement;
+            errorElement?.focus();
+          }
+          
+          return;
+        }
+        
+        console.log("📝 Form is valid - triggering form submission programmatically");
         formElement.requestSubmit();
       } else {
         console.error("❌ Could not find form element to submit");
+        
+        // Still dispatch failure event to reset CheckoutForm state
+        const failureEvent = new CustomEvent('paymentValidationFailed', {
+          detail: {
+            message: 'Unable to process payment form. Please refresh and try again.'
+          }
+        });
+        window.dispatchEvent(failureEvent);
       }
     };
 
@@ -613,7 +649,7 @@ function PaymentStep(props: PaymentStepProps = {}) {
       window.removeEventListener('saveRegistration', handleSaveRegistration);
       console.log("🎯 PaymentStep: Removed saveRegistration event listener from window");
     };
-  }, []);
+  }, [form]);
 
   // Effect to prefill form if primary attendee data is available
   useEffect(() => {
@@ -686,7 +722,12 @@ function PaymentStep(props: PaymentStepProps = {}) {
           onSubmit={onActualSubmit} 
           className="space-y-8"
         >
-          <BillingDetailsForm form={form} primaryAttendee={primaryAttendee} />
+          <BillingDetailsForm form={form} primaryAttendee={primaryAttendee ? {
+            firstName: primaryAttendee.firstName || undefined,
+            lastName: primaryAttendee.lastName || undefined,
+            primaryPhone: primaryAttendee.primaryPhone || undefined,
+            primaryEmail: primaryAttendee.primaryEmail || undefined
+          } : null} />
           <div ref={paymentElementRef}>
             <PaymentMethod 
               clientSecret={clientSecret}
@@ -704,6 +745,16 @@ function PaymentStep(props: PaymentStepProps = {}) {
             <Alert variant="destructive">
               <AlertTitle>Payment Processing Error</AlertTitle>
               <AlertDescription>{localPaymentProcessingError}</AlertDescription>
+            </Alert>
+          )}
+          
+          {/* Show validation errors if form is submitted but invalid */}
+          {form.formState.isSubmitted && !form.formState.isValid && (
+            <Alert variant="destructive">
+              <AlertTitle>Please complete required fields</AlertTitle>
+              <AlertDescription>
+                Please fill in all required billing information before proceeding with payment.
+              </AlertDescription>
             </Alert>
           )}
 

@@ -101,6 +101,39 @@ export function RegistrationTypeStep() {
   const draftStepInStore = useRegistrationStore.getState().currentStep;
   const storedAttendees = useRegistrationStore.getState().attendees;
   
+  // Check if we should show draft recovery modal on mount (coming back from payment failure)
+  useEffect(() => {
+    const storeState = useRegistrationStore.getState();
+    const hasCompletedRegistration = storeState.status === 'completed' && storeState.confirmationNumber !== null;
+    const hasIncompleteRegistration = storeState.registrationType !== null && 
+                                     storeState.confirmationNumber === null &&
+                                     storeState.status !== 'completed';
+    const hasFilledData = storeState.attendees.some(att => 
+      att.firstName || att.lastName || att.primaryEmail
+    );
+    const wasOnLaterStep = storeState.currentStep > 2;
+    
+    // If there's a completed registration, go directly to confirmation
+    if (hasCompletedRegistration) {
+      console.log('Detected completed registration - redirecting to confirmation');
+      // Set the step to confirmation
+      const setCurrentStep = useRegistrationStore.getState().setCurrentStep;
+      setCurrentStep(6); // Confirmation is step 6
+      return;
+    }
+    
+    // Show draft recovery modal if:
+    // 1. We have an incomplete registration
+    // 2. We have filled data
+    // 3. We were on a later step (e.g., payment)
+    if (hasIncompleteRegistration && hasFilledData && wasOnLaterStep) {
+      console.log('Showing draft recovery modal on mount - detected incomplete registration from later step');
+      setShowDraftModal(true);
+      // Set the selected type to match the draft
+      setSelectedType(storeState.registrationType);
+    }
+  }, []);
+  
   // Debug - log the current state of the registration store
   useEffect(() => {
     // Test localStorage functionality
@@ -193,12 +226,18 @@ export function RegistrationTypeStep() {
       (attendee.primaryEmail && attendee.primaryEmail.trim()) || 
       (attendee.lodgeNameNumber && attendee.lodgeNameNumber.trim()));
     
+    // Check if we're already on the selected type with existing data
+    const isSelectingCurrentType = currentDraftType === type;
+    
     // Simplified draft detection:
-    // Show modal if there's an incomplete registration (draft) that hasn't been handled yet
+    // Show modal if there's an incomplete registration (draft)
+    // But don't show it if the user is selecting the same type they already have
+    // And don't show it for completed registrations
     const hasIncompleteDraft = currentDraftType !== null && 
                                confirmationNumber === null && 
-                               !draftRecoveryHandled &&
-                               (hasExistingAttendees || currentStep > 1 || hasFilledData);
+                               currentState.status !== 'completed' &&
+                               (hasExistingAttendees || currentStep > 1 || hasFilledData) &&
+                               !isSelectingCurrentType; // Don't show modal if selecting the same type
     
     console.log("Registration type selection check:", { 
       currentDraftType, 
@@ -209,6 +248,7 @@ export function RegistrationTypeStep() {
       confirmationNumber,
       draftRecoveryHandled,
       hasIncompleteDraft,
+      isSelectingCurrentType,
       attendees: currentState.attendees.length
     });
     
@@ -216,6 +256,17 @@ export function RegistrationTypeStep() {
       console.log("Showing draft modal - incomplete registration detected");
       setPendingRegistrationType(type);
       setShowDraftModal(true);
+    } else if (isSelectingCurrentType && hasExistingAttendees) {
+      // If selecting the same type and we have attendees, just proceed without reinitializing
+      console.log("Selecting current type with existing data - proceeding without reinitializing");
+      setSelectedType(type);
+      
+      // Mark draft recovery as handled since user is continuing with existing data
+      setDraftRecoveryHandled(true);
+      
+      // Move to the next step
+      const goToNextStep = useRegistrationStore.getState().goToNextStep;
+      goToNextStep();
     } else {
       console.log("No incomplete draft - proceeding with selection");
       setSelectedType(type);
@@ -229,7 +280,7 @@ export function RegistrationTypeStep() {
       const goToNextStep = useRegistrationStore.getState().goToNextStep;
       goToNextStep();
     }
-  }, [storeSetRegistrationType, initializeAttendees]);
+  }, [storeSetRegistrationType, initializeAttendees, setDraftRecoveryHandled]);
 
   const handleContinueDraft = () => {
     setShowDraftModal(false);
