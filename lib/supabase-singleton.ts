@@ -134,6 +134,9 @@ export function getBrowserClient() {
       hasWarnedAboutMockClient = true;
     }
     // Return a more complete mock that matches Supabase client structure with chainable query builder
+    let isSingle = false;
+    let isMaybeSingle = false;
+    
     const mockQueryBuilder = {
       select: () => mockQueryBuilder,
       insert: () => mockQueryBuilder,
@@ -160,9 +163,18 @@ export function getBrowserClient() {
       filter: () => mockQueryBuilder,
       order: () => mockQueryBuilder,
       limit: () => mockQueryBuilder,
-      single: () => mockQueryBuilder,
-      maybeSingle: () => mockQueryBuilder,
-      then: (resolve: any) => resolve({ data: [], error: null }),
+      single: () => { isSingle = true; return mockQueryBuilder; },
+      maybeSingle: () => { isMaybeSingle = true; return mockQueryBuilder; },
+      then: (resolve: any) => {
+        // Return appropriate mock data based on query type
+        if (isSingle || isMaybeSingle) {
+          // For single queries, return null data (not found) instead of invalid data
+          resolve({ data: null, error: null });
+        } else {
+          // For list queries, return empty array
+          resolve({ data: [], error: null });
+        }
+      },
       catch: () => mockQueryBuilder,
       finally: (cb: any) => { cb(); return mockQueryBuilder; },
     };
@@ -206,7 +218,67 @@ export function getServerClient() {
     return serverClientInstance;
   }
   
+  // During build time, we might not have all environment variables
+  // Return a mock client similar to the browser client during build
   if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+    if (process.env.NODE_ENV === 'production' && !process.env.VERCEL) {
+      // During local build, return mock client
+      console.warn('Server client requested during build without env vars - returning mock client');
+      
+      let isSingle = false;
+      let isMaybeSingle = false;
+      
+      const mockQueryBuilder = {
+        select: () => mockQueryBuilder,
+        insert: () => mockQueryBuilder,
+        update: () => mockQueryBuilder,
+        delete: () => mockQueryBuilder,
+        upsert: () => mockQueryBuilder,
+        eq: () => mockQueryBuilder,
+        neq: () => mockQueryBuilder,
+        gt: () => mockQueryBuilder,
+        gte: () => mockQueryBuilder,
+        lt: () => mockQueryBuilder,
+        lte: () => mockQueryBuilder,
+        like: () => mockQueryBuilder,
+        ilike: () => mockQueryBuilder,
+        is: () => mockQueryBuilder,
+        in: () => mockQueryBuilder,
+        contains: () => mockQueryBuilder,
+        containedBy: () => mockQueryBuilder,
+        range: () => mockQueryBuilder,
+        overlaps: () => mockQueryBuilder,
+        match: () => mockQueryBuilder,
+        not: () => mockQueryBuilder,
+        or: () => mockQueryBuilder,
+        filter: () => mockQueryBuilder,
+        order: () => mockQueryBuilder,
+        limit: () => mockQueryBuilder,
+        single: () => { isSingle = true; return mockQueryBuilder; },
+        maybeSingle: () => { isMaybeSingle = true; return mockQueryBuilder; },
+        then: (resolve: any) => {
+          if (isSingle || isMaybeSingle) {
+            resolve({ data: null, error: null });
+          } else {
+            resolve({ data: [], error: null });
+          }
+        },
+        catch: () => mockQueryBuilder,
+        finally: (cb: any) => { cb(); return mockQueryBuilder; },
+      };
+
+      return {
+        auth: {
+          getSession: async () => ({ data: { session: null }, error: null }),
+          onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => {} } } }),
+          signInWithPassword: async () => ({ data: null, error: new Error('Not available during build') }),
+          signOut: async () => ({ error: null }),
+        },
+        from: () => mockQueryBuilder,
+      } as any as SupabaseClient<Database>;
+    }
+    
+    // In production with real deployment, throw error
     throw new Error('Missing Supabase environment variables for server client');
   }
 

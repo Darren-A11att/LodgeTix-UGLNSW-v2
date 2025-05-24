@@ -3,50 +3,49 @@ import type { EventType } from '@/shared/types/event'
 import { api } from '@/lib/api-logger'
 import { getSupabaseClient } from '@/lib/supabase-singleton'
 
-// Define the structure of events in the existing schema
+// Define the structure of events in the existing schema (matching actual database)
 interface EventsSchemaRow {
   id: string
   slug: string
   title: string
-  subtitle?: string
-  description: string
-  eventStart: string // Using existing camelCase column names
-  eventEnd?: string
-  location: string
-  locationid?: string // Reference to location record
-  type?: string
-  category?: string
-  degree_type?: string
-  dress_code?: string
-  regalia?: string
-  regalia_description?: string
-  imageUrl?: string // Using existing camelCase column name
-  organizer_name?: string
+  subtitle?: string | null
+  description: string | null
+  event_start: string | null // Using snake_case as in DB
+  event_end?: string | null
+  location: string | null
+  locationid?: string | null // Reference to location record
+  type?: string | null
+  category?: string | null
+  degree_type?: string | null
+  dress_code?: string | null
+  regalia?: string | null
+  regalia_description?: string | null
+  image_url?: string | null // Using snake_case as in DB
+  organizer_name?: string | null
   organizer_contact?: any
-  is_published?: boolean
-  featured?: boolean
+  is_published?: boolean | null
+  featured?: boolean | null
   sections?: any
   attendance?: any
   documents?: any
-  related_events?: string[]
-  parentEventId?: string // Using existing camelCase column name
-  createdAt: string // Using existing camelCase column name
-  updatedAt: string // Using existing camelCase column name
+  related_events?: string[] | null
+  parent_event_id?: string | null // Using snake_case as in DB
+  created_at: string // Using snake_case as in DB
+  updated_at?: string // Using snake_case as in DB
   
   // Legacy fields (maintained for backward compatibility)
-  eventId?: string
-  price?: number
-  isPurchasableIndividually?: boolean
-  isMultiDay?: boolean
-  importantInformation?: string[]
-  eventIncludes?: string[]
-  maxAttendees?: number
-  displayScopeId?: string
-  registrationAvailabilityId?: string
-  organiserorganisationid?: string
-  locationid?: string
-  latitude?: number
-  longitude?: number
+  event_id?: string | null
+  price?: number | null
+  is_purchasable_individually?: boolean | null
+  is_multi_day?: boolean | null
+  important_information?: string[] | null
+  event_includes?: string[] | null
+  max_attendees?: number | null
+  display_scope_id?: string | null
+  registration_availability_id?: string | null
+  organiserorganisationid?: string | null
+  latitude?: number | null
+  longitude?: number | null
 }
 
 // Default values for missing or invalid fields
@@ -157,6 +156,12 @@ export class EventsSchemaService {
       
       if (!data) {
         api.warn(`No event found with ${isUUID ? 'UUID' : 'slug'}: ${idOrSlug}`);
+        return null;
+      }
+      
+      // Additional validation to ensure we have valid data structure
+      if (typeof data !== 'object' || Array.isArray(data)) {
+        api.error(`Invalid data structure received for event ${idOrSlug}:`, data);
         return null;
       }
       
@@ -481,8 +486,8 @@ export class EventsSchemaService {
         DEFAULT_EVENT_VALUES.location;
       
       // Parse dates for formatting (with fallbacks)
-      const eventStartDate = safeParseDate(data.eventStart);
-      const eventEndDate = safeParseDate(data.eventEnd);
+      const eventStartDate = safeParseDate(data.event_start || undefined);
+      const eventEndDate = safeParseDate(data.event_end || undefined);
       
       // Format date string for display
       let dateString = DEFAULT_EVENT_VALUES.date;
@@ -503,73 +508,75 @@ export class EventsSchemaService {
       
       // Format the full event object with proper type handling and defaults
       const event: EventType = {
-        // Core required fields with defaults if needed
+        // Core required fields with camelCase mapping
         id: data.id,
         slug: data.slug || `event-${data.id.slice(0, 8)}`, // Generate slug if missing
         title: isValidValue(data.title) ? data.title : DEFAULT_EVENT_VALUES.title,
         description: isValidValue(data.description) ? data.description : DEFAULT_EVENT_VALUES.description,
         
-        // Date/time fields with validation
-        event_start: data.eventStart,
-        event_end: data.eventEnd || null,
+        // Map snake_case to camelCase for core date fields
+        eventStart: data.event_start || '', // Required field in EventType
+        eventEnd: data.event_end || null,
+        
+        // Frontend-specific formatted fields
         date: dateString,
         time: timeString,
         
         // Location handling
         location: locationName,
-        locationDetails: null, // Location details would come from joined location table
         latitude: data.latitude || null,
         longitude: data.longitude || null,
         
         // Event details with proper defaulting
         type: isValidValue(data.type) ? data.type : null,
-        category: isValidValue(data.category) ? data.category : null,
-        featured: !!data.featured, // Convert to boolean
+        featured: data.featured || null,
         
         // UI-specific fields
-        image_url: isValidValue(data.imageUrl) ? data.imageUrl: null,
-        imageSrc: isValidValue(data.imageUrl) ? data.imageUrl: null, // Alias for compatibility
+        imageUrl: isValidValue(data.image_url) ? data.image_url: null,
+        imageSrc: isValidValue(data.image_url) ? data.image_url: undefined, // Optional alias
         
-        // Metadata fields
-        created_at: data.createdAt,
-        is_multi_day: !!data.isMultiDay,
-        parent_event_id: isValidValue(data.parentEventId) ? data.parentEventId: null,
+        // Map snake_case to camelCase for metadata
+        createdAt: data.created_at,
+        isMultiDay: data.is_multi_day || null,
+        parentEventId: isValidValue(data.parent_event_id) ? data.parent_event_id: null,
         
         // Content fields with array validation
-        event_includes: Array.isArray(data.eventIncludes) ? data.eventIncludes: null,
-        important_information: Array.isArray(data.importantInformation) ? data.importantInformation: null,
+        eventIncludes: Array.isArray(data.event_includes) ? data.event_includes: null,
+        importantInformation: Array.isArray(data.important_information) ? data.important_information: null,
         
         // Status and feature flags
-        is_purchasable_individually: !!data.isPurchasableIndividually,
+        isPurchasableIndividually: data.is_purchasable_individually || null,
+        
+        // Additional fields not in EventType interface but used elsewhere
+        // These will be type-ignored or extended later
+        category: isValidValue(data.category) ? data.category : null,
+        event_start: data.event_start || '', // Keep snake_case version for compatibility
+        event_end: data.event_end || null,
+        created_at: data.created_at, // Keep snake_case version
+        is_multi_day: !!data.is_multi_day,
+        parent_event_id: isValidValue(data.parent_event_id) ? data.parent_event_id: null,
+        event_includes: Array.isArray(data.event_includes) ? data.event_includes: null,
+        important_information: Array.isArray(data.important_information) ? data.important_information: null,
+        is_purchasable_individually: !!data.is_purchasable_individually,
+        image_url: isValidValue(data.image_url) ? data.image_url: null,
         isPublished: data.is_published !== undefined ? !!data.is_published : !!data.featured,
         status: data.is_published ? "Published" : "Draft",
-        
-        // Additional fields with proper object handling
         organizerName: isValidValue(data.organizer_name) ? data.organizer_name : null,
         organizerContact: isValidValue(data.organizer_contact) ? data.organizer_contact : null,
         degreeType: isValidValue(data.degree_type) ? data.degree_type : null,
         dressCode: isValidValue(data.dress_code) ? data.dress_code : null,
         regalia: isValidValue(data.regalia) ? data.regalia : null,
         regaliaDescription: isValidValue(data.regalia_description) ? data.regalia_description : null,
-        
-        // Object fields that may contain structured data
         sections: isValidValue(data.sections) ? data.sections : null,
         attendance: isValidValue(data.attendance) ? data.attendance : null,
         documents: isValidValue(data.documents) ? data.documents : null,
-        
-        // Legacy compatibility fields
         price: formatPrice(data.price),
         ticketsSold: DEFAULT_EVENT_VALUES.ticketsSold,
         revenue: DEFAULT_EVENT_VALUES.revenue,
-        
-        // Related event fields
         relatedEventIds: Array.isArray(data.related_events) ? data.related_events : null,
-      };
+      } as EventType & Record<string, any>; // Allow additional properties
       
-      // Add eligibility requirements if available in sections
-      if (data.sections?.eligibilityRequirements) {
-        event.eligibilityRequirements = data.sections.eligibilityRequirements;
-      }
+      // Note: eligibility requirements would be in sections but not directly on EventType
       
       return event;
     } catch (error) {

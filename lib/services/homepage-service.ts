@@ -160,6 +160,12 @@ export async function getFeaturedEvents() {
  */
 function transformEventData(data: any) {
   if (!data) return null;
+  
+  // Validate data structure
+  if (typeof data !== 'object' || Array.isArray(data) || !data.id) {
+    api.error('Invalid event data structure in transformEventData:', data);
+    return null;
+  }
 
   const formattedDate = formatEventDate({
     event_start: data.event_start,
@@ -173,18 +179,18 @@ function transformEventData(data: any) {
 
   return {
     id: data.id,
-    slug: data.slug,
-    title: data.title,
-    subtitle: data.subtitle,
-    description: data.description,
-    organiser: data.organiser || data.organizer_name,
-    location: data.location,
-    image_url: data.image_url,
-    imageUrl: data.image_url, // For compatibility with EventCard component
+    slug: data.slug || `event-${data.id}`,
+    title: data.title || 'Untitled Event',
+    subtitle: data.subtitle || '',
+    description: data.description || '',
+    organiser: data.organiser || data.organizer_name || 'TBD',
+    location: data.location || 'TBD',
+    image_url: data.image_url || null,
+    imageUrl: data.image_url || null, // For compatibility with EventCard component
     date: formattedDate,
     time: formattedTime,
     price: data.price ? `$${data.price}` : "$0",
-    parent_event_id: data.parent_event_id,
+    parent_event_id: data.parent_event_id || null,
     event_start: data.event_start,
     event_end: data.event_end
   };
