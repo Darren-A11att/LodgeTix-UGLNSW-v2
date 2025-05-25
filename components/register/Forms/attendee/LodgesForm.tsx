@@ -2,12 +2,9 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { useRegistrationStore } from '@/lib/registrationStore';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
+import { Table, TableBody, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Badge } from '@/components/ui/badge';
-import { Building, Plus, Trash2, Users, UserPlus, Edit } from 'lucide-react';
-import { Separator } from '@/components/ui/separator';
+import { Building, Plus, Users } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { cn } from '@/lib/utils';
 import { AttendeeData } from './types';
@@ -15,13 +12,16 @@ import { GrandLodgeSelection } from '../mason/lib/GrandLodgeSelection';
 import { LodgeSelection } from '../mason/lib/LodgeSelection';
 import { MasonForm } from '../mason/Layouts/MasonForm';
 import { GuestForm } from '../guest/Layouts/GuestForm';
-import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Alert } from '@/components/ui/alert';
 import formSaveManager from '@/lib/formSaveManager';
 import { TextField, SelectField, EmailField, PhoneField } from '../shared/FieldComponents';
 import { useDebouncedCallback } from 'use-debounce';
 import { GrandOfficerFields } from '../mason/utils/GrandOfficerFields';
-import { UnifiedAttendeeData } from '@/lib/registrationStore';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { LodgeMemberRow } from './components/LodgeMemberRow';
+import { ProvideAttendeesLater } from './components/ProvideAttendeesLater';
+import { MinimumMembersAlert } from './components/MinimumMembersAlert';
+import { MASON_TITLES, MASON_RANKS } from './utils/constants';
 
 // Constants for form behavior
 const DEBOUNCE_DELAY = 300; // 300ms debounce delay for field updates
@@ -39,113 +39,6 @@ interface LodgeMember {
   isPrimary: boolean;
 }
 
-// Simpler table row component without React.memo to avoid complexity
-function LodgeMemberRow({
-  attendeeId,
-  isMember,
-  isPrimary,
-  onSetPrimary,
-  onRemove,
-  onTogglePartner,
-  hasPartner,
-  parentName,
-  onEdit,
-  attendee
-}: {
-  attendeeId: string;
-  isMember: boolean;
-  isPrimary: boolean;
-  onSetPrimary: () => void;
-  onRemove: () => void;
-  onTogglePartner: () => void;
-  hasPartner: boolean;
-  parentName?: string;
-  onEdit: () => void;
-  attendee: any; // Pass attendee data directly to avoid store subscription
-}) {
-  if (!attendee) return null;
-
-  const isPartner = !!attendee.isPartner;
-
-  return (
-    <TableRow className={isPartner ? 'bg-gray-50' : ''}>
-      <TableCell className="pl-6">
-        {isPartner && <span className="text-xs text-gray-500 mr-2">└─</span>}
-        {attendee.title || 'Select title'}
-      </TableCell>
-      <TableCell>
-        {attendee.firstName || 'First name'}
-      </TableCell>
-      <TableCell>
-        {attendee.lastName || 'Last name'}
-      </TableCell>
-      <TableCell>
-        {attendee.rank || 'Select rank'}
-      </TableCell>
-      <TableCell>
-        {isPartner ? (
-          <Badge variant="secondary">Guest Partner</Badge>
-        ) : (
-          <Badge>Mason</Badge>
-        )}
-      </TableCell>
-      <TableCell>
-        {attendee.primaryEmail || 'Email'}
-      </TableCell>
-      <TableCell>
-        {attendee.primaryPhone || 'Mobile'}
-      </TableCell>
-      <TableCell className="pr-6">
-        <div className="flex items-center gap-2">
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={onEdit}
-          >
-            <Edit className="w-4 h-4" />
-          </Button>
-          {isMember && (
-            <>
-              {isPrimary ? (
-                <Badge>Primary</Badge>
-              ) : (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={onSetPrimary}
-                >
-                  Set as Primary
-                </Button>
-              )}
-              <Button
-                size="sm"
-                variant="ghost"
-                onClick={onTogglePartner}
-                title={hasPartner ? "Remove Partner" : "Add Partner"}
-              >
-                <UserPlus className={cn("w-4 h-4", hasPartner && "text-blue-600")} />
-              </Button>
-              {!isPrimary && (
-                <Button
-                  size="sm"
-                  variant="ghost"
-                  onClick={onRemove}
-                >
-                  <Trash2 className="w-4 h-4" />
-                </Button>
-              )}
-            </>
-          )}
-          {isPartner && (
-            <span className="text-sm text-gray-500">
-              Partner of {parentName}
-            </span>
-          )}
-        </div>
-      </TableCell>
-    </TableRow>
-  );
-}
 
 export const LodgesForm: React.FC<LodgesFormProps> = ({
   minMembers = 3,
@@ -383,12 +276,7 @@ export const LodgesForm: React.FC<LodgesFormProps> = ({
                           debouncedUpdateAttendee(primaryAttendee.attendeeId, { title: value });
                         }
                       }}
-                      options={[
-                        { value: "Bro", label: "Bro" },
-                        { value: "W Bro", label: "W Bro" },
-                        { value: "VW Bro", label: "VW Bro" },
-                        { value: "RW Bro", label: "RW Bro" },
-                      ]}
+                      options={MASON_TITLES.map(title => ({ value: title, label: title }))}
                       disabled={!selectedLodge}
                       updateOnBlur={true}
                     />
@@ -434,13 +322,7 @@ export const LodgesForm: React.FC<LodgesFormProps> = ({
                           debouncedUpdateAttendee(primaryAttendee.attendeeId, { rank: value });
                         }
                       }}
-                      options={[
-                        { value: "EA", label: "EA" },
-                        { value: "FC", label: "FC" },
-                        { value: "MM", label: "MM" },
-                        { value: "IM", label: "IM" },
-                        { value: "GL", label: "GL" },
-                      ]}
+                      options={MASON_RANKS}
                       disabled={!selectedLodge}
                       updateOnBlur={true}
                     />
@@ -639,128 +521,34 @@ export const LodgesForm: React.FC<LodgesFormProps> = ({
               </Table>
               
               {/* Empty State Guidance */}
-              {selectedLodge && memberAttendees.filter(a => !a.isPartner).length < minMembers && (
-                <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 mx-6 mb-6 mt-4">
-                  <div className="flex gap-3">
-                    <div className="flex-shrink-0 text-amber-500 mt-0.5">
-                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5">
-                        <path fillRule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clipRule="evenodd" />
-                      </svg>
-                    </div>
-                    <div className="flex-1">
-                      <h3 className="text-base font-medium text-amber-800">Minimum Members Required</h3>
-                      <p className="mt-1 text-sm text-amber-700">
-                        Lodge registrations require at least {minMembers} members to proceed. Click "Add Member" to add {minMembers - memberAttendees.filter(a => !a.isPartner).length} more member{minMembers - memberAttendees.filter(a => !a.isPartner).length > 1 ? 's' : ''}.
-                      </p>
-                      <div className="mt-3">
-                        <Button
-                          onClick={handleAddMember}
-                          disabled={memberAttendees.filter(a => !a.isPartner).length >= maxMembers || !selectedLodge}
-                          variant="secondary"
-                          className="gap-2 bg-amber-100 hover:bg-amber-200 text-amber-800 border-amber-300"
-                        >
-                          <Plus className="w-4 h-4" />
-                          Add Member
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
+              {selectedLodge && (
+                <MinimumMembersAlert
+                  currentCount={memberAttendees.filter(a => !a.isPartner).length}
+                  minMembers={minMembers}
+                  onAddMember={handleAddMember}
+                  disabled={memberAttendees.filter(a => !a.isPartner).length >= maxMembers || !selectedLodge}
+                />
               )}
             </TabsContent>
             
             {/* Tab: Provide Attendees Later */}
             <TabsContent value="provide-later" className="p-6">
-              <div className="bg-gray-50 rounded-lg p-6 border border-gray-200">
-                <h3 className="text-lg font-medium mb-3">Provide Attendee Count</h3>
-                <p className="text-gray-600 mb-6">
-                  If you don't have all attendee details yet, you can specify how many members will be attending.
-                  You can provide their details later.
-                </p>
-                
-                <div className="space-y-6 max-w-md mx-auto">
-                  {/* Mason Count */}
-                  <div className="space-y-2">
-                    <Label htmlFor="mason-count" className="text-gray-700">Number of Masons</Label>
-                    <div className="flex items-center">
-                      <Button 
-                        variant="outline" 
-                        size="icon"
-                        className="rounded-r-none h-10 w-10 border-gray-300"
-                        onClick={() => {
-                          // Decrease count logic
-                        }}
-                      >
-                        <span className="text-xl font-medium">−</span>
-                      </Button>
-                      <Input 
-                        id="mason-count"
-                        type="number" 
-                        min="1" 
-                        value="1"
-                        className="h-10 text-center rounded-none border-x-0 w-20 border-gray-300" 
-                      />
-                      <Button 
-                        variant="outline" 
-                        size="icon"
-                        className="rounded-l-none h-10 w-10 border-gray-300"
-                        onClick={() => {
-                          // Increase count logic
-                        }}
-                      >
-                        <span className="text-xl font-medium">+</span>
-                      </Button>
-                    </div>
-                  </div>
-                  
-                  {/* Partner Count */}
-                  <div className="space-y-2">
-                    <Label htmlFor="partner-count" className="text-gray-700">Number of Partners</Label>
-                    <div className="flex items-center">
-                      <Button 
-                        variant="outline" 
-                        size="icon"
-                        className="rounded-r-none h-10 w-10 border-gray-300"
-                        onClick={() => {
-                          // Decrease count logic
-                        }}
-                      >
-                        <span className="text-xl font-medium">−</span>
-                      </Button>
-                      <Input 
-                        id="partner-count"
-                        type="number" 
-                        min="0" 
-                        value="0"
-                        className="h-10 text-center rounded-none border-x-0 w-20 border-gray-300" 
-                      />
-                      <Button 
-                        variant="outline" 
-                        size="icon"
-                        className="rounded-l-none h-10 w-10 border-gray-300"
-                        onClick={() => {
-                          // Increase count logic
-                        }}
-                      >
-                        <span className="text-xl font-medium">+</span>
-                      </Button>
-                    </div>
-                  </div>
-                  
-                  <div className="pt-4">
-                    <Button className="w-full bg-[#0a2059] hover:bg-[#0c2669]">
-                      Confirm Attendee Count
-                    </Button>
-                  </div>
-                </div>
-              </div>
+              <ProvideAttendeesLater
+                onConfirm={(masonCount: number, partnerCount: number) => {
+                  // TODO: Handle attendee count confirmation
+                  console.log('Confirmed attendees:', { masonCount, partnerCount });
+                  // This would typically update the store with placeholder attendees
+                }}
+                minMembers={minMembers}
+                maxMembers={maxMembers}
+              />
             </TabsContent>
           </Tabs>
         </CardContent>
       </Card>
 
       {/* Edit Dialog - Enhanced */}
-      <Dialog open={!!editingAttendeeId} onOpenChange={(open) => !open && setEditingAttendeeId(null)}>
+      <Dialog open={!!editingAttendeeId} onOpenChange={(open: boolean) => !open && setEditingAttendeeId(null)}>
         <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader className="border-b pb-4">
             <DialogTitle className="flex items-center gap-2 text-primary">
@@ -777,7 +565,7 @@ export const LodgesForm: React.FC<LodgesFormProps> = ({
             </DialogTitle>
             {editingAttendee && (
               <div className="flex items-center gap-2 mt-2">
-                <Badge variant={editingAttendee.isPartner ? "secondary" : "default"}>
+                <Badge className={editingAttendee.isPartner ? "bg-gray-100 text-gray-700" : ""}>
                   {editingAttendee.isPartner ? "Guest Partner" : "Mason"}
                 </Badge>
                 <span className="text-sm text-gray-500">
@@ -890,7 +678,7 @@ export const LodgeFormSummary: React.FC = () => {
 
       {/* Member list */}
       <div className="space-y-2">
-        {masonAttendees.map((mason, index) => (
+        {masonAttendees.map((mason) => (
           <div key={mason.attendeeId} className="flex items-center gap-2">
             {mason.isPrimary && <Badge variant="secondary">Primary</Badge>}
             <span className="text-sm">
