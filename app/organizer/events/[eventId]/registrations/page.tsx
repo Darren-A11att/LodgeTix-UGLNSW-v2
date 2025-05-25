@@ -11,7 +11,10 @@ import {
   CreditCard,
   Clock,
   Eye,
-  MoreHorizontal
+  MoreHorizontal,
+  BarChart3,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -40,6 +43,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { EventRegistrationsClient } from './registrations-client'
+import { FinancialSummaryWrapper } from './financial-summary-wrapper'
 
 interface Registration {
   registration_id: string
@@ -415,6 +419,9 @@ export default async function EventRegistrationsPage({
           </CardContent>
         </Card>
       </div>
+
+      {/* Financial Summary */}
+      <FinancialSummaryWrapper registrations={registrations} />
 
       {/* Search and Filter */}
       <EventRegistrationsClient 
