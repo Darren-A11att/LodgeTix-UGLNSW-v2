@@ -55,13 +55,11 @@ function ConfirmationStep() {
     tickets: any[];
   } | null>(null);
 
-  const {
-    registrationType,
-    clearRegistration,
-    confirmationNumber: storeConfirmationNumber,
-    attendees: allStoreAttendees,
-    draftId,
-  } = store
+  const registrationType = store.registrationType;
+  const clearRegistration = store.clearRegistration;
+  const storeConfirmationNumber = store.confirmationNumber;
+  const allStoreAttendees = store.attendees;
+  const draftId = store.draftId;
 
   // Fetch registration data from Supabase
   useEffect(() => {

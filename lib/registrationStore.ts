@@ -10,6 +10,17 @@ import { generateUUID } from './uuid-slug-utils';
 // Re-export UnifiedAttendeeData for backward compatibility
 export type { UnifiedAttendeeData };
 
+// Lodge ticket order interface
+export interface LodgeTicketOrder {
+  tableCount: number;
+  totalTickets: number;
+  galaDinnerTickets: number;
+  ceremonyTickets: number;
+  eventId: string;
+  galaDinnerEventId: string;
+  ceremonyEventId: string;
+}
+
 // --- Placeholder Types (Defined locally) ---
 // Using RegistrationType from './registration-types'
 
@@ -53,6 +64,7 @@ export interface RegistrationState {
   confirmationNumber: string | null; // Add confirmationNumber for completion
   draftRecoveryHandled: boolean; // Flag to track if draft recovery has been handled in current session
   anonymousSessionEstablished: boolean; // Track if Turnstile verification and anonymous session is complete
+  lodgeTicketOrder: LodgeTicketOrder | null; // Lodge bulk ticket order details
 
   // --- Actions ---
   startNewRegistration: (type: RegistrationType) => string; // Returns new draftId
@@ -85,10 +97,13 @@ export interface RegistrationState {
   
   // Anonymous session methods
   setAnonymousSessionEstablished: (established: boolean) => void; // Set if anonymous session is established
+  
+  // Lodge ticket order methods
+  setLodgeTicketOrder: (order: LodgeTicketOrder | null) => void; // Set lodge bulk ticket order
 }
 
 // --- Initial State ---
-const initialRegistrationState: Omit<RegistrationState, 'startNewRegistration' | 'addPrimaryAttendee' | 'loadDraft' | 'clearRegistration' | 'clearAllAttendees' | 'setRegistrationType' | 'addAttendee' | 'addMasonAttendee' | 'addGuestAttendee' | 'addPartnerAttendee' | 'updateAttendee' | 'removeAttendee' | 'updatePackageSelection' | 'updateBillingDetails' | 'setAgreeToTerms' | '_updateStatus' | 'setCurrentStep' | 'goToNextStep' | 'goToPrevStep' | 'setConfirmationNumber' | 'setEventId' | 'setDraftRecoveryHandled' | 'setAnonymousSessionEstablished'> = {
+const initialRegistrationState: Omit<RegistrationState, 'startNewRegistration' | 'addPrimaryAttendee' | 'loadDraft' | 'clearRegistration' | 'clearAllAttendees' | 'setRegistrationType' | 'addAttendee' | 'addMasonAttendee' | 'addGuestAttendee' | 'addPartnerAttendee' | 'updateAttendee' | 'removeAttendee' | 'updatePackageSelection' | 'updateBillingDetails' | 'setAgreeToTerms' | '_updateStatus' | 'setCurrentStep' | 'goToNextStep' | 'goToPrevStep' | 'setConfirmationNumber' | 'setEventId' | 'setDraftRecoveryHandled' | 'setAnonymousSessionEstablished' | 'setLodgeTicketOrder'> = {
     draftId: null,
     eventId: null, // Initialize eventId as null
     registrationType: null,
@@ -104,6 +119,7 @@ const initialRegistrationState: Omit<RegistrationState, 'startNewRegistration' |
     confirmationNumber: null, // No confirmation until complete
     draftRecoveryHandled: false, // Initialize draft recovery flag
     anonymousSessionEstablished: false, // Initialize anonymous session flag
+    lodgeTicketOrder: null, // Initialize lodge ticket order
 };
 
 type RegistrationStateCreator = StateCreator<RegistrationState>;
@@ -489,7 +505,10 @@ export const useRegistrationStore = create<RegistrationState>(
       setDraftRecoveryHandled: (handled) => set({ draftRecoveryHandled: handled }),
       
       // Anonymous session actions
-      setAnonymousSessionEstablished: (established) => set({ anonymousSessionEstablished: established })
+      setAnonymousSessionEstablished: (established) => set({ anonymousSessionEstablished: established }),
+      
+      // Lodge ticket order actions
+      setLodgeTicketOrder: (order) => set({ lodgeTicketOrder: order })
 
     }),
     {
@@ -505,6 +524,7 @@ export const useRegistrationStore = create<RegistrationState>(
         confirmationNumber: state.confirmationNumber, // Persist confirmation number
         // Don't persist draftRecoveryHandled - it should reset on each session
         anonymousSessionEstablished: state.anonymousSessionEstablished, // Persist anonymous session state
+        lodgeTicketOrder: state.lodgeTicketOrder, // Persist lodge ticket order
         lastSaved: Date.now(),
       }),
       onRehydrateStorage: () => {
