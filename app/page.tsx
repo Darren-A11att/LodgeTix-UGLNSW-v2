@@ -81,7 +81,7 @@ export default async function HomePage() {
       {/* Footer */}
       <footer className="bg-masonic-navy py-12 text-gray-300">
         <div className="container mx-auto px-4">
-          <div className="grid gap-8 md:grid-cols-4">
+          <div className="grid gap-8 md:grid-cols-5">
             <div>
               <h3 className="mb-4 text-xl font-bold text-masonic-gold">LodgeTix</h3>
               <p>Official ticketing platform for the Grand Installation.</p>
@@ -156,6 +156,26 @@ export default async function HomePage() {
                 <li>
                   <Link href="/contact" className="hover:text-masonic-gold">
                     Contact Us
+                  </Link>
+                </li>
+              </ul>
+            </div>
+            <div>
+              <h4 className="mb-4 font-semibold text-masonic-gold">For Organizers</h4>
+              <ul className="space-y-2">
+                <li>
+                  <Link href="/organizer/login" className="hover:text-masonic-gold">
+                    Organizer Login
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/organizer/register" className="hover:text-masonic-gold">
+                    Register Organization
+                  </Link>
+                </li>
+                <li>
+                  <Link href="/help#organizers" className="hover:text-masonic-gold">
+                    Organizer Help
                   </Link>
                 </li>
               </ul>
