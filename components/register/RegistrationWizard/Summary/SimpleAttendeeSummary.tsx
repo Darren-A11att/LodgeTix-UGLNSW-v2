@@ -36,33 +36,61 @@ export const SimpleAttendeeSummary: React.FC = () => {
       {/* Attendee Count Summary */}
       <div>
         <h3 className="text-sm font-medium mb-2">Attendee List</h3>
-        <div className="space-y-3">
-          {attendees.map(attendee => (
-            <div key={attendee.attendeeId} className="flex items-center justify-between py-2 px-3 bg-gray-50 rounded-md border border-gray-100">
-              <div className="flex items-center">
-                {attendee.attendeeType?.toLowerCase() === 'mason' && (
-                  <ShieldCheck className="w-4 h-4 mr-2 text-masonic-navy" />
-                )}
-                {attendee.attendeeType?.toLowerCase() === 'guest' && (
-                  <User className="w-4 h-4 mr-2 text-gray-600" />
-                )}
-                {attendee.isPartner && (
-                  <UserCheck className="w-4 h-4 mr-2 text-pink-500" />
-                )}
-                <div>
-                  <div className="text-sm font-medium">
-                    {attendee.title} {attendee.firstName} {attendee.lastName}
+        <div className="space-y-2">
+          {/* Table Header */}
+          <div className="grid grid-cols-2 gap-4 text-xs font-medium text-gray-700 pb-2 border-b">
+            <div>Name</div>
+            <div>Type/Role</div>
+          </div>
+          
+          {/* Attendee Rows */}
+          {attendees.map(attendee => {
+            // Get the related attendee name if this is a partner
+            const getPartnerInfo = () => {
+              if (attendee.isPartner) {
+                const relatedAttendee = attendees.find(a => a.attendeeId === attendee.isPartner);
+                if (relatedAttendee) {
+                  return `Partner of ${relatedAttendee.firstName} ${relatedAttendee.lastName}`;
+                }
+              }
+              return null;
+            };
+            
+            // Format the type/role display
+            const getTypeDisplay = () => {
+              const partnerInfo = getPartnerInfo();
+              if (partnerInfo) return partnerInfo;
+              
+              let typeDisplay = attendee.attendeeType;
+              if (attendee.isPrimary) {
+                typeDisplay += ' (Primary)';
+              }
+              return typeDisplay;
+            };
+            
+            return (
+              <div key={attendee.attendeeId} className="grid grid-cols-2 gap-4 py-2 border-b border-gray-100">
+                <div className="flex items-center">
+                  {attendee.attendeeType?.toLowerCase() === 'mason' && !attendee.isPartner && (
+                    <ShieldCheck className="w-4 h-4 mr-2 text-masonic-navy" />
+                  )}
+                  {attendee.attendeeType?.toLowerCase() === 'guest' && !attendee.isPartner && (
+                    <User className="w-4 h-4 mr-2 text-gray-600" />
+                  )}
+                  {attendee.isPartner && (
+                    <UserCheck className="w-4 h-4 mr-2 text-pink-500" />
+                  )}
+                  <div className="text-sm">
+                    {attendee.firstName} {attendee.lastName}
                     {attendee.rank && <span className="ml-1 text-xs text-gray-500">({attendee.rank})</span>}
-                    {attendee.grandRank && <span className="ml-1 text-xs text-gray-500">({attendee.grandRank})</span>}
-                  </div>
-                  <div className="text-xs text-gray-500">
-                    {attendee.attendeeType}
-                    {attendee.isPrimary ? ' (Primary)' : ''}
                   </div>
                 </div>
+                <div className="text-sm text-gray-600">
+                  {getTypeDisplay()}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         <div className="flex items-center pt-3 mt-2 border-t">

@@ -50,32 +50,60 @@ export const SimpleAttendeeSummaryV2: React.FC<{
       {/* Attendee List */}
       <SummarySection title="Attendee List">
         <div className="space-y-2">
-          {attendees.map(attendee => (
-            <div key={attendee.attendeeId} className="flex items-center justify-between py-2 px-3 bg-muted/30 rounded-md">
-              <div className="flex items-center gap-2">
-                {attendee.attendeeType?.toLowerCase() === 'mason' && (
-                  <ShieldCheck className="w-3.5 h-3.5 text-primary" />
-                )}
-                {attendee.attendeeType?.toLowerCase() === 'guest' && (
-                  <User className="w-3.5 h-3.5 text-muted-foreground" />
-                )}
-                {attendee.isPartner && (
-                  <UserCheck className="w-3.5 h-3.5 text-pink-500" />
-                )}
-                <div>
-                  <div className="text-sm font-medium">
-                    {attendee.title} {attendee.firstName} {attendee.lastName}
+          {/* Table Header */}
+          <div className="grid grid-cols-2 gap-4 text-xs font-medium text-muted-foreground pb-2 border-b">
+            <div>Name</div>
+            <div>Type/Role</div>
+          </div>
+          
+          {/* Attendee Rows */}
+          {attendees.map(attendee => {
+            // Get the related attendee name if this is a partner
+            const getPartnerInfo = () => {
+              if (attendee.isPartner) {
+                const relatedAttendee = attendees.find(a => a.attendeeId === attendee.isPartner);
+                if (relatedAttendee) {
+                  return `Partner of ${relatedAttendee.firstName} ${relatedAttendee.lastName}`;
+                }
+              }
+              return null;
+            };
+            
+            // Format the type/role display
+            const getTypeDisplay = () => {
+              const partnerInfo = getPartnerInfo();
+              if (partnerInfo) return partnerInfo;
+              
+              let typeDisplay = attendee.attendeeType;
+              if (attendee.isPrimary) {
+                typeDisplay += ' (Primary)';
+              }
+              return typeDisplay;
+            };
+            
+            return (
+              <div key={attendee.attendeeId} className="grid grid-cols-2 gap-4 py-2 border-b border-muted/30">
+                <div className="flex items-center gap-2">
+                  {attendee.attendeeType?.toLowerCase() === 'mason' && !attendee.isPartner && (
+                    <ShieldCheck className="w-3.5 h-3.5 text-primary" />
+                  )}
+                  {attendee.attendeeType?.toLowerCase() === 'guest' && !attendee.isPartner && (
+                    <User className="w-3.5 h-3.5 text-muted-foreground" />
+                  )}
+                  {attendee.isPartner && (
+                    <UserCheck className="w-3.5 h-3.5 text-pink-500" />
+                  )}
+                  <div className="text-sm">
+                    {attendee.firstName} {attendee.lastName}
                     {attendee.rank && <span className="ml-1 text-xs text-muted-foreground">({attendee.rank})</span>}
-                    {attendee.grandRank && <span className="ml-1 text-xs text-muted-foreground">({attendee.grandRank})</span>}
-                  </div>
-                  <div className="text-xs text-muted-foreground">
-                    {attendee.attendeeType}
-                    {attendee.isPrimary ? ' (Primary)' : ''}
                   </div>
                 </div>
+                <div className="text-sm text-muted-foreground">
+                  {getTypeDisplay()}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </SummarySection>
       

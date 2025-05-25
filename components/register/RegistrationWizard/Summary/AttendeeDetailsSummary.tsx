@@ -221,6 +221,34 @@ export const AttendeeDetailsSummary: React.FC = () => {
               {attendees.map((attendee) => {
                 const canAddPartner = getCanAddPartner(attendee);
                 
+                // Get the related attendee name if this is a partner
+                const getPartnerInfo = () => {
+                  if (attendee.isPartner) {
+                    const relatedAttendee = attendees.find(a => a.attendeeId === attendee.isPartner);
+                    if (relatedAttendee) {
+                      return `Partner of ${relatedAttendee.firstName} ${relatedAttendee.lastName}`;
+                    }
+                  }
+                  return null;
+                };
+                
+                // Format the type/role display
+                const getTypeDisplay = () => {
+                  const partnerInfo = getPartnerInfo();
+                  if (partnerInfo) return partnerInfo;
+                  
+                  let typeDisplay = attendee.attendeeType;
+                  if (attendee.isPrimary) {
+                    return (
+                      <>
+                        {typeDisplay}
+                        <Badge variant="outline" className="ml-1 text-[10px] py-0 h-4">Primary</Badge>
+                      </>
+                    );
+                  }
+                  return typeDisplay;
+                };
+                
                 return (
                   <div key={attendee.attendeeId} className="flex items-center p-2 bg-white rounded-md border border-slate-200">
                     <div className="mr-2">
@@ -231,10 +259,7 @@ export const AttendeeDetailsSummary: React.FC = () => {
                         {attendee.firstName || 'Unnamed'} {attendee.lastName || 'Attendee'}
                       </p>
                       <p className="text-xs text-gray-500">
-                        {attendee.attendeeType}
-                        {attendee.isPrimary && (
-                          <Badge variant="outline" className="ml-1 text-[10px] py-0 h-4">Primary</Badge>
-                        )}
+                        {getTypeDisplay()}
                       </p>
                     </div>
                     <div className="flex items-center space-x-1">
