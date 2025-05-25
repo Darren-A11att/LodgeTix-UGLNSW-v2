@@ -120,32 +120,25 @@ export async function PUT(
       );
     }
     
-    // Also update related tickets to 'confirmed' status
-    // TODO: This section needs review. The link between registrations and tickets is unclear.
-    // The previous .eq("registration_id", registrationId) or .eq("registration_id", registrationId) on "Tickets" table is likely incorrect
-    // as "Tickets" table does not have a direct registrationId FK according to Tickets.sql.
-    // Commenting out this block to prevent errors until the correct linking logic is implemented.
-    /*
+    // Also update related tickets to 'completed' status
     console.log("Updating tickets for registration:", registrationId);
-    const { error: ticketUpdateError } = await supabase
+    const { data: updatedTickets, error: ticketUpdateError } = await adminClient
       .from("tickets") 
       .update({ 
-        status: "confirmed", // 'status' is lowercase in Tickets.sql
-        updatedat: new Date().toISOString() // 'updatedat' is lowercase in Tickets.sql
+        ticket_status: "completed",
+        updated_at: new Date().toISOString()
       })
-      // This .eq() clause needs to use the correct column(s) from "Tickets" that link to a registration
-      // For example, if linked via eventid and a specific attendee tied to the registration:
-      // .eq("eventid", existingRegistration.event_id) 
-      // .eq("attendeeid", existingRegistration.primary_attendee_id) // Assuming primaryAttendeeId is the link
-      .eq("some_linking_column_placeholder", registrationId); // Replace with actual logic
+      .eq("registration_id", registrationId)
+      .select();
     
     if (ticketUpdateError) {
-      console.warn("Error updating tickets (logic needs review):", ticketUpdateError);
-      console.log("Error details (ticket update):", JSON.stringify(ticketUpdateError, null, 2));
+      console.error("Error updating tickets:", ticketUpdateError);
+      console.log("Error details:", JSON.stringify(ticketUpdateError, null, 2));
+      // Don't fail the whole request if tickets can't be updated
+      // The registration is already marked as paid which is the critical part
     } else {
-      console.log("Tickets update attempted (review logic)");
+      console.log(`Successfully updated ${updatedTickets?.length || 0} tickets to completed status`);
     }
-    */
     
     // Also verify payment status using the Stripe FDW
     try {
