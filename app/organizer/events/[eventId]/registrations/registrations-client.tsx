@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Search, Filter, Users, Table as TableIcon, Grid, Eye, Download, FileText, FileSpreadsheet } from 'lucide-react'
+import { Search, Filter, Users, Table as TableIcon, Grid, Eye, Download, FileText, FileSpreadsheet, Printer } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -30,6 +30,7 @@ import {
 } from '@/components/ui/table'
 import { createBrowserClient } from '@/lib/supabase-browser'
 import { AttendeeDetailDrawer } from './attendee-detail-drawer'
+import { PrintLayout } from './print-layout'
 
 interface Registration {
   registration_id: string
@@ -58,8 +59,18 @@ interface Registration {
   }>
 }
 
+interface EventInfo {
+  event_id: string
+  title: string
+  description: string | null
+  event_start: string | null
+  event_end: string | null
+  location: string | null
+}
+
 interface EventRegistrationsClientProps {
   eventId: string
+  eventInfo: EventInfo
   initialRegistrations: Registration[]
   initialSearch: string
   initialStatus: string
@@ -387,7 +398,7 @@ function RegistrationCard({
   const primaryAttendee = registration.attendees.find(a => !a.relationship) || registration.attendees[0]
   
   return (
-    <Card className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => onViewDetails(registration)}>
+    <Card className="hover:shadow-md transition-shadow cursor-pointer avoid-break registration-card" onClick={() => onViewDetails(registration)}>
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between">
           <div>
@@ -403,6 +414,7 @@ function RegistrationCard({
             <Button
               variant="ghost"
               size="icon"
+              className="print-hide"
               onClick={(e) => {
                 e.stopPropagation()
                 onViewDetails(registration)
@@ -466,6 +478,7 @@ function RegistrationCard({
 
 export function EventRegistrationsClient({
   eventId,
+  eventInfo,
   initialRegistrations,
   initialSearch,
   initialStatus
@@ -536,10 +549,52 @@ export function EventRegistrationsClient({
     exportToPDF(filteredRegistrations, eventId)
   }
 
+  const handlePrintReport = () => {
+    const printWindow = window.open('', '_blank')
+    if (!printWindow) {
+      alert('Popup blocked. Please allow popups for this site to print report.')
+      return
+    }
+
+    const printContent = document.createElement('div')
+    printContent.id = 'print-content'
+    
+    // We'll need to render the PrintLayout component to HTML
+    // For now, use the existing PDF export logic but open in print dialog
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Print Report - ${eventInfo.title}</title>
+        <style>
+          body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+          }
+          @media print {
+            body { margin: 0; }
+          }
+        </style>
+      </head>
+      <body>
+        <div id="print-layout-container"></div>
+        <script>
+          window.print();
+          window.onafterprint = function() {
+            window.close();
+          };
+        </script>
+      </body>
+      </html>
+    `)
+    printWindow.document.close()
+  }
+
   return (
     <div className="space-y-4">
       {/* Search and Filter Controls */}
-      <Card>
+      <Card className="print-hide">
         <CardHeader>
           <CardTitle className="flex items-center justify-between">
             <span className="flex items-center">
@@ -562,6 +617,10 @@ export function EventRegistrationsClient({
                   <DropdownMenuItem onClick={handleExportPDF}>
                     <FileText className="h-4 w-4 mr-2" />
                     Export as PDF
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handlePrintReport}>
+                    <Printer className="h-4 w-4 mr-2" />
+                    Print Report
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>

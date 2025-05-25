@@ -426,6 +426,7 @@ export default async function EventRegistrationsPage({
       {/* Search and Filter */}
       <EventRegistrationsClient 
         eventId={params.eventId}
+        eventInfo={eventInfo}
         initialRegistrations={registrations}
         initialSearch={searchParams.search || ''}
         initialStatus={searchParams.status || ''}
