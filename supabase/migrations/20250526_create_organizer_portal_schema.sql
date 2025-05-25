@@ -250,11 +250,27 @@ CREATE POLICY "Organizers can view own record" ON public.organizers
 CREATE POLICY "Organizers can update own record" ON public.organizers
     FOR UPDATE USING (user_id = auth.uid());
 
+-- Policy: Organizers can insert their own record
+CREATE POLICY "Organizers can insert own record" ON public.organizers
+    FOR INSERT WITH CHECK (user_id = auth.uid());
+
 -- Policy: User roles are viewable by the organizer they belong to
 CREATE POLICY "User roles viewable by organizer" ON public.user_roles
     FOR SELECT USING (
-        organizer_id IN (
-            SELECT organizer_id FROM public.organizers WHERE user_id = auth.uid()
+        EXISTS (
+            SELECT 1 FROM public.organizers o 
+            WHERE o.organizer_id = user_roles.organizer_id 
+              AND o.user_id = auth.uid()
+        )
+    );
+
+-- Policy: Allow inserting user roles for own organizer record
+CREATE POLICY "User roles insertable by organizer" ON public.user_roles
+    FOR INSERT WITH CHECK (
+        EXISTS (
+            SELECT 1 FROM public.organizers o 
+            WHERE o.organizer_id = user_roles.organizer_id 
+              AND o.user_id = auth.uid()
         )
     );
 
@@ -281,7 +297,7 @@ CREATE INDEX IF NOT EXISTS idx_user_roles_organizer_org ON public.user_roles(org
 
 -- Grant necessary permissions to authenticated users
 GRANT SELECT, INSERT, UPDATE ON public.organizers TO authenticated;
-GRANT SELECT ON public.user_roles TO authenticated;
+GRANT SELECT, INSERT, UPDATE ON public.user_roles TO authenticated;
 
 -- Grant EXECUTE on RPC functions
 GRANT EXECUTE ON FUNCTION public.get_organizer_by_user_id(UUID) TO authenticated;
