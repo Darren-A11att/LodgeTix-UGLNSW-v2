@@ -1,29 +1,44 @@
 import React from 'react';
-import { CheckIcon } from 'lucide-react';
+import { CheckIcon, XIcon, ArrowLeft } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 interface ProcessingStep {
   name: string;
   description: string;
-  status: 'complete' | 'current' | 'upcoming';
+  status: 'complete' | 'current' | 'upcoming' | 'error';
 }
 
 interface PaymentProcessingProps {
   steps: ProcessingStep[];
+  error?: string | null;
+  onBackToPayment?: () => void;
 }
 
 function classNames(...classes: string[]) {
   return classes.filter(Boolean).join(' ');
 }
 
-export const PaymentProcessing: React.FC<PaymentProcessingProps> = ({ steps }) => {
+export const PaymentProcessing: React.FC<PaymentProcessingProps> = ({ steps, error, onBackToPayment }) => {
   return (
     <Card className="w-full max-w-2xl mx-auto">
       <CardContent className="pt-8 pb-8">
         <div className="text-center mb-8">
-          <h2 className="text-2xl font-semibold mb-2">Processing Your Registration</h2>
-          <p className="text-muted-foreground">Please wait while we complete your registration...</p>
+          <h2 className="text-2xl font-semibold mb-2">
+            {error ? 'Registration Error' : 'Processing Your Registration'}
+          </h2>
+          <p className="text-muted-foreground">
+            {error ? 'An error occurred during registration' : 'Please wait while we complete your registration...'}
+          </p>
         </div>
+        
+        {error && (
+          <Alert variant="destructive" className="mb-6">
+            <AlertTitle>Payment Processing Error</AlertTitle>
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
         
         <nav aria-label="Progress" className="max-w-md mx-auto">
           <ol role="list" className="overflow-hidden">
@@ -63,6 +78,23 @@ export const PaymentProcessing: React.FC<PaymentProcessingProps> = ({ steps }) =
                       </span>
                     </div>
                   </>
+                ) : step.status === 'error' ? (
+                  <>
+                    {stepIdx !== steps.length - 1 ? (
+                      <div aria-hidden="true" className="absolute top-4 left-4 mt-0.5 -ml-px h-full w-0.5 bg-gray-300" />
+                    ) : null}
+                    <div className="group relative flex items-start">
+                      <span className="flex h-9 items-center">
+                        <span className="relative z-10 flex h-8 w-8 items-center justify-center rounded-full bg-red-600">
+                          <XIcon aria-hidden="true" className="h-5 w-5 text-white" />
+                        </span>
+                      </span>
+                      <span className="ml-4 flex min-w-0 flex-col">
+                        <span className="text-sm font-medium text-red-600">{step.name}</span>
+                        <span className="text-sm text-red-600">{step.description}</span>
+                      </span>
+                    </div>
+                  </>
                 ) : (
                   <>
                     {stepIdx !== steps.length - 1 ? (
@@ -87,8 +119,21 @@ export const PaymentProcessing: React.FC<PaymentProcessingProps> = ({ steps }) =
         </nav>
         
         <div className="mt-8 text-center text-sm text-muted-foreground">
-          <p>This usually takes 10-15 seconds. Please don't close this page.</p>
+          {!error && <p>This usually takes 10-15 seconds. Please don't close this page.</p>}
         </div>
+        
+        {error && onBackToPayment && (
+          <div className="mt-8 flex justify-center">
+            <Button 
+              type="button"
+              variant="outline" 
+              onClick={onBackToPayment}
+              className="flex items-center"
+            >
+              <ArrowLeft className="mr-2 h-4 w-4" /> Back to Payment
+            </Button>
+          </div>
+        )}
       </CardContent>
     </Card>
   );

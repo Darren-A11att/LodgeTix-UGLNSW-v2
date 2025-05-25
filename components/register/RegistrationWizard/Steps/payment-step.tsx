@@ -403,10 +403,17 @@ function PaymentStep(props: PaymentStepProps = {}) {
       console.log("✅ Registration payment status updated:", updateResult);
       setStoreConfirmationNumber(updateResult.confirmationNumber || regId); // Use server's confirmation or fallback
       
-      // Show processing steps and simulate progress
-      setShowProcessingSteps(true);
+      // Update processing steps - payment is now complete
+      setProcessingSteps(prev => {
+        const newSteps = [...prev];
+        // Mark first two steps as complete (registration saved, payment processed)
+        newSteps[0] = { ...newSteps[0], status: 'complete' };
+        newSteps[1] = { ...newSteps[1], status: 'complete' };
+        newSteps[2] = { ...newSteps[2], status: 'current' }; // Now reserving tickets
+        return newSteps;
+      });
       
-      // Simulate processing steps with delays
+      // Simulate remaining processing steps with delays
       const updateStep = (index: number, status: 'complete' | 'current') => {
         setProcessingSteps(prev => {
           const newSteps = [...prev];
@@ -418,13 +425,9 @@ function PaymentStep(props: PaymentStepProps = {}) {
         });
       };
       
-      // Start the processing animation
-      updateStep(0, 'current');
-      
-      setTimeout(() => updateStep(1, 'current'), 1500);
-      setTimeout(() => updateStep(2, 'current'), 3000);
-      setTimeout(() => updateStep(3, 'current'), 4500);
-      setTimeout(() => updateStep(4, 'current'), 6000);
+      // Continue with remaining steps
+      setTimeout(() => updateStep(3, 'current'), 1500);
+      setTimeout(() => updateStep(4, 'current'), 3000);
       
       // Complete all steps and navigate to confirmation
       setTimeout(() => {
@@ -439,7 +442,7 @@ function PaymentStep(props: PaymentStepProps = {}) {
           setShowProcessingSteps(false);
           goToNextStep(); // Proceed to confirmation page
         }, 1000);
-      }, 7500);
+      }, 4500);
 
     } catch (error: any) {
       console.error("❌ Registration Update Error");
@@ -461,9 +464,38 @@ function PaymentStep(props: PaymentStepProps = {}) {
       console.log("✅ Cleared payment timeout - payment failed");
     }
     
+    // Update processing steps to show error on payment step
+    setProcessingSteps(prev => {
+      const newSteps = [...prev];
+      // Find the payment processing step (should be index 1)
+      const paymentStepIndex = newSteps.findIndex(step => step.name.toLowerCase().includes('payment'));
+      if (paymentStepIndex >= 0) {
+        newSteps[paymentStepIndex] = { ...newSteps[paymentStepIndex], status: 'error' };
+      }
+      return newSteps;
+    });
+    
     setLocalPaymentProcessingError(errorMessage);
     setIsProcessingPayment(false);
     setIsSubmittingOrder(false); // Also re-enable the form
+  };
+  
+  const handleBackToPayment = () => {
+    console.log("🔙 Going back to payment form");
+    setShowProcessingSteps(false);
+    setLocalPaymentProcessingError(null);
+    setSubmissionError(null);
+    setIsProcessingPayment(false);
+    setIsSubmittingOrder(false);
+    
+    // Reset processing steps for next attempt
+    setProcessingSteps([
+      { name: 'Saving registration', description: 'Creating your registration record', status: 'upcoming' as const },
+      { name: 'Processing payment', description: 'Securely processing your payment', status: 'upcoming' as const },
+      { name: 'Reserving tickets', description: 'Securing your event tickets', status: 'upcoming' as const },
+      { name: 'Generating confirmation', description: 'Creating your QR codes', status: 'upcoming' as const },
+      { name: 'Sending confirmation', description: 'Preparing your email receipt', status: 'upcoming' as const },
+    ]);
   };
 
   const {reset: resetBillingForm, formState: {isDirty: billingFormIsDirty, isValid: billingFormIsValid, errors: billingFormErrors}} = form;
@@ -491,6 +523,18 @@ function PaymentStep(props: PaymentStepProps = {}) {
     setLocalPaymentProcessingError(null); // Clear previous errors
     setIsSubmittingOrder(true); // Indicate that the order submission process has started
     setSubmissionError(null);
+    
+    // Show processing view immediately
+    setShowProcessingSteps(true);
+    
+    // Initialize steps with first step as current
+    setProcessingSteps([
+      { name: 'Saving registration', description: 'Creating your registration record', status: 'current' as const },
+      { name: 'Processing payment', description: 'Securely processing your payment', status: 'upcoming' as const },
+      { name: 'Reserving tickets', description: 'Securing your event tickets', status: 'upcoming' as const },
+      { name: 'Generating confirmation', description: 'Creating your QR codes', status: 'upcoming' as const },
+      { name: 'Sending confirmation', description: 'Preparing your email receipt', status: 'upcoming' as const },
+    ]);
 
     // Step 1: Save Registration Data via onSaveData prop or fallback to direct API call
     let saveDataFunction = props.onSaveData;
@@ -579,6 +623,14 @@ function PaymentStep(props: PaymentStepProps = {}) {
         }
         
         setConfirmedRegistrationId(serverGeneratedRegistrationId); // Store the TRUE ID
+        
+        // Update processing steps - registration is now saved
+        setProcessingSteps(prev => {
+            const newSteps = [...prev];
+            newSteps[0] = { ...newSteps[0], status: 'complete' }; // Registration saved
+            newSteps[1] = { ...newSteps[1], status: 'current' }; // Now processing payment
+            return newSteps;
+        });
 
         // Store the registration result in window for CheckoutForm to access
         window.__registrationResult = saveResult;
@@ -621,6 +673,17 @@ function PaymentStep(props: PaymentStepProps = {}) {
     } catch (error: any) {
         console.error("❌ Error during registration save process:", error);
         
+        // Update processing steps to show error
+        setProcessingSteps(prev => {
+            const newSteps = [...prev];
+            // Find the current step and mark it as error
+            const currentIndex = newSteps.findIndex(step => step.status === 'current');
+            if (currentIndex >= 0) {
+                newSteps[currentIndex] = { ...newSteps[currentIndex], status: 'error' };
+            }
+            return newSteps;
+        });
+        
         // Check if it's an authentication error
         if (error.message && error.message.includes('authentication')) {
             setSubmissionError('Your session has expired. Please refresh the page and try again.');
@@ -628,6 +691,7 @@ function PaymentStep(props: PaymentStepProps = {}) {
             setSubmissionError(`An error occurred while saving your registration: ${error.message}. Please try again.`);
         }
         setIsSubmittingOrder(false);
+        setIsProcessingPayment(false);
     }
     // setIsSubmittingOrder(false); // Moved to finally block or after dispatch if payment is async and blocking further UI
   };
@@ -725,9 +789,15 @@ function PaymentStep(props: PaymentStepProps = {}) {
     
     const onActualSubmit = form.handleSubmit(onBillingSubmit);
 
-    // Show processing steps if payment was successful
+    // Show processing steps if payment is being processed
     if (showProcessingSteps) {
-      return <PaymentProcessing steps={processingSteps} />;
+      return (
+        <PaymentProcessing 
+          steps={processingSteps} 
+          error={localPaymentProcessingError || submissionError}
+          onBackToPayment={handleBackToPayment}
+        />
+      );
     }
 
     // Show loading state while checking session
