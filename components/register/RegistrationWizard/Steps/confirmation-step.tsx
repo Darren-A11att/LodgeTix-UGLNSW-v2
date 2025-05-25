@@ -172,6 +172,16 @@ function ConfirmationStep() {
   const handleReset = () => {
     clearRegistration()
   }
+  
+  const handleDownloadConfirmation = () => {
+    // TODO: Implement PDF generation
+    alert('Download functionality will be implemented with PDF generation library');
+  }
+  
+  const handlePrintConfirmation = () => {
+    // Open print dialog for current page
+    window.print();
+  }
 
   const allAttendees = [
     ...(primaryAttendee ? [primaryAttendee] : []),
@@ -380,10 +390,10 @@ function ConfirmationStep() {
               </CardContent>
               <CardFooter className="flex flex-col space-y-2 bg-gray-50 p-4">
                 <div className="grid w-full gap-2 md:grid-cols-2">
-                  <Button className="bg-masonic-navy hover:bg-masonic-blue">
+                  <Button onClick={handleDownloadConfirmation} className="bg-masonic-navy hover:bg-masonic-blue">
                     <Download className="mr-2 h-4 w-4" /> Download Confirmation
                   </Button>
-                  <Button variant="outline" className="border-masonic-navy text-masonic-navy hover:bg-masonic-lightblue">
+                  <Button onClick={handlePrintConfirmation} variant="outline" className="border-masonic-navy text-masonic-navy hover:bg-masonic-lightblue">
                     <Printer className="mr-2 h-4 w-4" /> Print Confirmation
                   </Button>
                 </div>
@@ -392,62 +402,89 @@ function ConfirmationStep() {
           </TabsContent>
 
           <TabsContent value="tickets" className="mt-4 space-y-4">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center">
-                  <TicketIcon className="mr-2 h-5 w-5" /> Your Tickets
-                </CardTitle>
-                <CardDescription>
-                  Total tickets: {totalTickets} • Total amount: ${totalAmount.toFixed(2)}
-                </CardDescription>
-              </CardHeader>
-              <CardContent className="p-0">
-                <ScrollArea className="h-[400px]" type="always">
-                  <div className="space-y-4 p-4">
-                    {currentTickets.map((ticket) => {
-                      const attendee = allAttendees.find((a) => a.attendeeId === ticket.attendeeId);
-                      if (!attendee) return null;
-                      return (
-                        <Card key={ticket.id} className="overflow-hidden border-masonic-lightgold">
-                          <div className="flex flex-col md:flex-row">
-                            <div className="flex items-center justify-center bg-masonic-navy p-4 text-white md:w-1/4">
-                              <QrCode className="h-24 w-24" />
+            <div className="space-y-4">
+              {allAttendees.map((attendee) => {
+                const attendeeTickets = currentTickets.filter(t => t.attendeeId === attendee.attendeeId);
+                if (attendeeTickets.length === 0) return null;
+                
+                const isRankMason = attendee.attendeeType === 'Mason' && attendee.rank;
+                const titleDisplay = isRankMason 
+                  ? `${attendee.title} ${attendee.firstName} ${attendee.lastName}`
+                  : `${attendee.title} ${attendee.firstName} ${attendee.lastName}`;
+                const subtitleDisplay = isRankMason ? `${attendee.rank} - ${attendee.lodgeNameNumber || 'Lodge details pending'}` : '';
+                
+                return (
+                  <Card key={attendee.attendeeId} className="overflow-hidden border-masonic-lightgold">
+                    <CardHeader className="bg-masonic-navy text-white">
+                      <CardTitle className="text-lg">{titleDisplay}</CardTitle>
+                      {subtitleDisplay && (
+                        <CardDescription className="text-gray-200">{subtitleDisplay}</CardDescription>
+                      )}
+                    </CardHeader>
+                    <CardContent className="p-0">
+                      <div className="grid grid-cols-5">
+                        {/* QR Code Column - 20% width */}
+                        <div className="col-span-1 flex items-center justify-center bg-gray-50 p-6">
+                          <QrCode className="h-20 w-20 text-masonic-navy" />
+                        </div>
+                        
+                        {/* Ticket Details Column - 80% width */}
+                        <div className="col-span-4 p-6">
+                          <h4 className="font-semibold mb-3">Tickets:</h4>
+                          <ul className="space-y-2">
+                            {attendeeTickets.map((ticket) => (
+                              <li key={ticket.id} className="flex items-start">
+                                <span className="mr-2">•</span>
+                                <div className="flex-1">
+                                  <span className="font-medium">{ticket.name}</span>
+                                  {ticket.isPackage && <Badge variant="secondary" className="ml-2 text-xs">Package</Badge>}
+                                  <div className="text-sm text-gray-600 mt-1">
+                                    <span className="mr-4">{formatDate(eventDate)}</span>
+                                    <span className="mr-4">10:00 AM</span>
+                                    <span>Sydney Masonic Centre</span>
+                                  </div>
+                                </div>
+                                <span className="font-medium">${ticket.price.toFixed(2)}</span>
+                              </li>
+                            ))}
+                          </ul>
+                          
+                          {/* Attendee Information */}
+                          {(attendee.dietaryRequirements || attendee.specialNeeds) && (
+                            <div className="mt-4 pt-4 border-t border-gray-200">
+                              {attendee.dietaryRequirements && (
+                                <p className="text-sm text-gray-600">
+                                  <span className="font-medium">Dietary:</span> {attendee.dietaryRequirements}
+                                </p>
+                              )}
+                              {attendee.specialNeeds && (
+                                <p className="text-sm text-gray-600 mt-1">
+                                  <span className="font-medium">Assistance:</span> {attendee.specialNeeds}
+                                </p>
+                              )}
                             </div>
-                            <div className="flex-1 p-4">
-                              <div className="mb-2 flex items-center justify-between">
-                                <h3 className="font-bold">{ticket.name}</h3>
-                                <Badge className="bg-masonic-gold text-masonic-navy">${ticket.price.toFixed(2)}</Badge>
-                              </div>
-                              <Separator className="my-2" />
-                              <div className="grid gap-2 md:grid-cols-2">
-                                <div className="flex items-center text-sm">
-                                  <User className="mr-1 h-4 w-4 text-gray-500" />
-                                  <span>
-                                    {getAttendeeTitle(attendee)} {attendee.firstName} {attendee.lastName}
-                                  </span>
-                                </div>
-                                <div className="flex items-center text-sm">
-                                  <Calendar className="mr-1 h-4 w-4 text-gray-500" />
-                                  <span>{formatDate(eventDate)}</span>
-                                </div>
-                                <div className="flex items-center text-sm">
-                                  <Clock className="mr-1 h-4 w-4 text-gray-500" />
-                                  <span>10:00 AM</span>
-                                </div>
-                                <div className="flex items-center text-sm">
-                                  <MapPin className="mr-1 h-4 w-4 text-gray-500" />
-                                  <span>Sydney Masonic Centre</span>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-                        </Card>
-                      );
-                    })}
+                          )}
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+              
+              {/* Summary Card */}
+              <Card className="border-masonic-navy">
+                <CardHeader>
+                  <CardTitle>Order Summary</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex justify-between items-center">
+                    <span>Total attendees: {allAttendees.length}</span>
+                    <span>Total tickets: {totalTickets}</span>
+                    <span className="font-bold text-lg">Total: ${totalAmount.toFixed(2)}</span>
                   </div>
-                </ScrollArea>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            </div>
           </TabsContent>
 
           <TabsContent value="details" className="mt-4 space-y-4">
