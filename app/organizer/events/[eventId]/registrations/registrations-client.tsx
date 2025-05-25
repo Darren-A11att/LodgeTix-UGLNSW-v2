@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Search, Filter, Users, Table as TableIcon, Grid, Eye } from 'lucide-react'
+import { Search, Filter, Users, Table as TableIcon, Grid, Eye, Download, FileText, FileSpreadsheet } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -14,6 +14,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import {
   Table,
   TableBody,
@@ -96,6 +102,279 @@ function getPaymentStatusBadge(status: string) {
       {config.label}
     </Badge>
   )
+}
+
+function exportToCSV(registrations: Registration[], eventId: string) {
+  if (registrations.length === 0) {
+    alert('No registrations to export')
+    return
+  }
+
+  // Flatten attendee data for CSV export
+  const csvData = registrations.flatMap(registration => 
+    registration.attendees.map(attendee => ({
+      'Registration ID': registration.registration_id,
+      'Customer Name': `${registration.customer_first_name} ${registration.customer_last_name}`,
+      'Customer Email': registration.customer_email,
+      'Customer Phone': registration.customer_phone || '',
+      'Attendee Name': `${attendee.first_name} ${attendee.last_name}`,
+      'Attendee Type': attendee.attendee_type,
+      'Relationship': attendee.relationship || 'Primary',
+      'Contact Preference': attendee.contact_preference,
+      'Dietary Requirements': attendee.dietary_requirements || '',
+      'Special Needs': attendee.special_needs || '',
+      'Registration Type': registration.registration_type,
+      'Payment Status': registration.payment_status,
+      'Amount Paid': registration.total_amount_paid,
+      'Registration Date': formatDate(registration.registration_date),
+      'Payment ID': registration.stripe_payment_intent_id || ''
+    }))
+  )
+
+  // Convert to CSV
+  const headers = Object.keys(csvData[0] || {})
+  const csvContent = [
+    headers.join(','),
+    ...csvData.map(row => 
+      headers.map(header => {
+        const value = row[header as keyof typeof row]
+        // Escape commas and quotes in CSV data
+        return typeof value === 'string' && (value.includes(',') || value.includes('"'))
+          ? `"${value.replace(/"/g, '""')}"`
+          : value
+      }).join(',')
+    )
+  ].join('\n')
+
+  // Download CSV
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+  const link = document.createElement('a')
+  const url = URL.createObjectURL(blob)
+  link.setAttribute('href', url)
+  link.setAttribute('download', `event-${eventId}-registrations-${new Date().toISOString().slice(0, 10)}.csv`)
+  link.style.visibility = 'hidden'
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+}
+
+function exportToPDF(registrations: Registration[], eventId: string) {
+  if (registrations.length === 0) {
+    alert('No registrations to export')
+    return
+  }
+
+  // Create a printable version in a new window
+  const printWindow = window.open('', '_blank')
+  if (!printWindow) {
+    alert('Popup blocked. Please allow popups for this site to export PDF.')
+    return
+  }
+
+  const htmlContent = `
+    <!DOCTYPE html>
+    <html>
+    <head>
+      <title>Event Registrations - ${eventId}</title>
+      <style>
+        body {
+          font-family: Arial, sans-serif;
+          font-size: 12px;
+          line-height: 1.4;
+          margin: 20px;
+        }
+        
+        h1 {
+          color: #1f2937;
+          border-bottom: 2px solid #e5e7eb;
+          padding-bottom: 10px;
+        }
+        
+        .summary {
+          background-color: #f9fafb;
+          padding: 15px;
+          border-radius: 8px;
+          margin-bottom: 20px;
+        }
+        
+        .registration {
+          border: 1px solid #e5e7eb;
+          border-radius: 8px;
+          margin-bottom: 15px;
+          padding: 15px;
+          page-break-inside: avoid;
+        }
+        
+        .registration-header {
+          display: flex;
+          justify-content: space-between;
+          align-items: flex-start;
+          margin-bottom: 10px;
+          border-bottom: 1px solid #f3f4f6;
+          padding-bottom: 8px;
+        }
+        
+        .customer-info {
+          flex: 1;
+        }
+        
+        .customer-name {
+          font-size: 16px;
+          font-weight: bold;
+          color: #1f2937;
+        }
+        
+        .registration-id {
+          color: #6b7280;
+          font-size: 11px;
+        }
+        
+        .payment-info {
+          text-align: right;
+        }
+        
+        .attendee {
+          background-color: #f8fafc;
+          padding: 10px;
+          border-radius: 6px;
+          margin: 8px 0;
+        }
+        
+        .attendee-name {
+          font-weight: bold;
+          color: #374151;
+        }
+        
+        .attendee-type {
+          display: inline-block;
+          background-color: #dbeafe;
+          color: #1e40af;
+          padding: 2px 8px;
+          border-radius: 12px;
+          font-size: 10px;
+          margin-left: 8px;
+        }
+        
+        .special-requirements {
+          background-color: #fef3c7;
+          border: 1px solid #f59e0b;
+          padding: 8px;
+          border-radius: 4px;
+          margin-top: 8px;
+        }
+        
+        .special-requirements h4 {
+          margin: 0 0 4px 0;
+          color: #92400e;
+          font-size: 11px;
+        }
+        
+        .details-grid {
+          display: grid;
+          grid-template-columns: 1fr 1fr;
+          gap: 10px;
+          margin-top: 10px;
+        }
+        
+        .detail-item {
+          font-size: 11px;
+        }
+        
+        .detail-label {
+          font-weight: bold;
+          color: #4b5563;
+        }
+        
+        @media print {
+          body {
+            margin: 10px;
+          }
+          
+          .registration {
+            page-break-inside: avoid;
+          }
+        }
+      </style>
+    </head>
+    <body>
+      <h1>Event Registrations</h1>
+      
+      <div class="summary">
+        <p><strong>Event ID:</strong> ${eventId}</p>
+        <p><strong>Total Registrations:</strong> ${registrations.length}</p>
+        <p><strong>Total Attendees:</strong> ${registrations.reduce((sum, reg) => sum + reg.attendee_count, 0)}</p>
+        <p><strong>Export Date:</strong> ${new Date().toLocaleDateString('en-AU', { 
+          weekday: 'long', 
+          year: 'numeric', 
+          month: 'long', 
+          day: 'numeric' 
+        })}</p>
+      </div>
+
+      ${registrations.map(registration => `
+        <div class="registration">
+          <div class="registration-header">
+            <div class="customer-info">
+              <div class="customer-name">${registration.customer_first_name} ${registration.customer_last_name}</div>
+              <div class="registration-id">Registration #${registration.registration_id.substring(0, 8)}...</div>
+            </div>
+            <div class="payment-info">
+              <div><strong>${formatCurrency(registration.total_amount_paid)}</strong></div>
+              <div style="color: ${registration.payment_status === 'paid' ? '#16a34a' : '#dc2626'}">
+                ${registration.payment_status.toUpperCase()}
+              </div>
+            </div>
+          </div>
+          
+          <div class="details-grid">
+            <div class="detail-item">
+              <span class="detail-label">Email:</span> ${registration.customer_email}
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Phone:</span> ${registration.customer_phone || 'N/A'}
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Registration Type:</span> ${registration.registration_type}
+            </div>
+            <div class="detail-item">
+              <span class="detail-label">Date:</span> ${formatDate(registration.registration_date)}
+            </div>
+          </div>
+          
+          <h3 style="margin: 15px 0 10px 0; color: #374151;">Attendees (${registration.attendee_count})</h3>
+          
+          ${registration.attendees.map(attendee => `
+            <div class="attendee">
+              <div class="attendee-name">
+                ${attendee.first_name} ${attendee.last_name}
+                <span class="attendee-type">${attendee.attendee_type}</span>
+                ${attendee.relationship ? `<span style="color: #6b7280; font-size: 11px; margin-left: 8px;">(${attendee.relationship})</span>` : ''}
+              </div>
+              
+              ${(attendee.dietary_requirements || attendee.special_needs) ? `
+                <div class="special-requirements">
+                  <h4>Special Requirements</h4>
+                  ${attendee.dietary_requirements ? `<p><strong>Dietary:</strong> ${attendee.dietary_requirements}</p>` : ''}
+                  ${attendee.special_needs ? `<p><strong>Accessibility:</strong> ${attendee.special_needs}</p>` : ''}
+                </div>
+              ` : ''}
+            </div>
+          `).join('')}
+        </div>
+      `).join('')}
+      
+      <script>
+        window.print();
+        window.onafterprint = function() {
+          window.close();
+        };
+      </script>
+    </body>
+    </html>
+  `
+
+  printWindow.document.write(htmlContent)
+  printWindow.document.close()
 }
 
 function RegistrationCard({ 
@@ -249,6 +528,14 @@ export function EventRegistrationsClient({
     setDrawerOpen(true)
   }
 
+  const handleExportCSV = () => {
+    exportToCSV(filteredRegistrations, eventId)
+  }
+
+  const handleExportPDF = () => {
+    exportToPDF(filteredRegistrations, eventId)
+  }
+
   return (
     <div className="space-y-4">
       {/* Search and Filter Controls */}
@@ -260,6 +547,25 @@ export function EventRegistrationsClient({
               Registrations ({filteredRegistrations.length})
             </span>
             <div className="flex items-center space-x-2">
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm">
+                    <Download className="h-4 w-4 mr-2" />
+                    Export
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem onClick={handleExportCSV}>
+                    <FileSpreadsheet className="h-4 w-4 mr-2" />
+                    Export as CSV
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleExportPDF}>
+                    <FileText className="h-4 w-4 mr-2" />
+                    Export as PDF
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
+              
               <Button
                 variant={viewMode === 'cards' ? 'default' : 'outline'}
                 size="sm"
