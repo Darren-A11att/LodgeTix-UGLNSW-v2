@@ -28,7 +28,7 @@ export const WizardShellLayout: React.FC<WizardShellLayoutProps> = ({
         "w-full sm:container sm:mx-auto sm:max-w-6xl px-0 sm:px-4 md:py-5 flex flex-col h-full",
         className
       )}>
-        <main className="flex-1 overflow-y-auto py-2 sm:py-4 min-h-0">
+        <main className="flex-1 py-2 sm:py-4">
           {/* Loading skeleton */}
           <div className="w-full py-8 animate-pulse">
             <div className="h-8 bg-slate-200 rounded w-1/3 mx-auto mb-4"></div>
@@ -52,8 +52,8 @@ export const WizardShellLayout: React.FC<WizardShellLayoutProps> = ({
         </header>
       )}
 
-      {/* Main scrollable body section */}
-      <main className="flex-1 overflow-y-auto py-2 sm:py-4 min-h-0">
+      {/* Main body section */}
+      <main className="flex-1 py-2 sm:py-4">
         {children}
       </main>
       

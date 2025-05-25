@@ -69,3 +69,20 @@ This issue requires deep analysis as it may have broader implications:
 - Accessibility testing with screen readers
 - Testing with various input devices (mouse, trackpad, touch)
 - Performance impact assessment
+
+## Resolution Summary
+Fixed the scroll accessibility issue by restructuring the overflow containers to allow scrolling from anywhere on the page.
+
+### Changes Made:
+1. Changed main element in tickets page from `overflow-hidden` to `overflow-y-auto`
+2. Removed `overflow-y-auto` from WizardShellLayout's main element
+3. Moved scroll handling to the parent container level
+
+The fix ensures that:
+- Users can scroll wizard content regardless of cursor position
+- Scroll events work from anywhere on the page including sidebars and background
+- Improved accessibility for users with motor impairments
+- Natural scroll behavior matches user expectations
+- No nested scroll containers that could capture events
+
+This solution maintains the layout structure while fixing the accessibility barrier.

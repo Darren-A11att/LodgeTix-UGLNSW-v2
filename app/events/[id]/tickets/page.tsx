@@ -52,7 +52,7 @@ function RegistrationLayout({ eventId, eventSlug, eventUUID }: { eventId: string
       </header>
 
       {/* Main Content Area - takes remaining height */}
-      <main className="flex-1 overflow-hidden">
+      <main className="flex-1 overflow-y-auto">
         <ClientOnly
           fallback={
             <div className="w-full py-8 text-center animate-pulse">
