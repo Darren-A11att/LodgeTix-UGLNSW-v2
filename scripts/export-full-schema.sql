@@ -178,12 +178,12 @@ WHERE tc.constraint_type = 'FOREIGN KEY'
 ORDER BY referenced_table, referencing_table;
 
 -- 10. Check column differences between duplicate tables
-WITH reg_cols AS (
+WITH lowercase_reg_cols AS (
     SELECT column_name, data_type, is_nullable, column_default
     FROM information_schema.columns
     WHERE table_name = 'registrations' AND table_schema = 'public'
 ),
-Reg_cols AS (
+uppercase_reg_cols AS (
     SELECT column_name, data_type, is_nullable, column_default
     FROM information_schema.columns
     WHERE table_name = 'Registrations' AND table_schema = 'public'
@@ -198,17 +198,17 @@ SELECT
         WHEN r1.data_type != r2.data_type THEN 'Type mismatch'
         ELSE 'Match'
     END as status
-FROM reg_cols r1
-FULL OUTER JOIN Reg_cols r2 ON r1.column_name = r2.column_name
+FROM lowercase_reg_cols r1
+FULL OUTER JOIN uppercase_reg_cols r2 ON r1.column_name = r2.column_name
 ORDER BY column_name;
 
 -- 11. Check column differences between tickets tables
-WITH tick_cols AS (
+WITH lowercase_tick_cols AS (
     SELECT column_name, data_type, is_nullable, column_default
     FROM information_schema.columns
     WHERE table_name = 'tickets' AND table_schema = 'public'
 ),
-Tick_cols AS (
+uppercase_tick_cols AS (
     SELECT column_name, data_type, is_nullable, column_default
     FROM information_schema.columns
     WHERE table_name = 'Tickets' AND table_schema = 'public'
@@ -223,6 +223,6 @@ SELECT
         WHEN t1.data_type != t2.data_type THEN 'Type mismatch'
         ELSE 'Match'
     END as status
-FROM tick_cols t1
-FULL OUTER JOIN Tick_cols t2 ON t1.column_name = t2.column_name
+FROM lowercase_tick_cols t1
+FULL OUTER JOIN uppercase_tick_cols t2 ON t1.column_name = t2.column_name
 ORDER BY column_name;

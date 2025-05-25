@@ -748,11 +748,17 @@ export const BillingDetailsForm: React.FC<BillingDetailsFormProps> = ({
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {states.map((s) => (
-                          <SelectItem key={s.id} value={s.id.toString()}>
-                            {s.state_code || s.name}
+                        {states.length > 0 ? (
+                          states.map((s) => (
+                            <SelectItem key={s.id} value={s.id.toString()}>
+                              {s.state_code || s.name}
+                            </SelectItem>
+                          ))
+                        ) : (
+                          <SelectItem value="no-states" disabled>
+                            No states available
                           </SelectItem>
-                        ))}
+                        )}
                       </SelectContent>
                     </Select>
                     {fetchError?.states && <div className="text-sm text-red-500 mt-1">{fetchError.states}</div>}
