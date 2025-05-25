@@ -56,7 +56,7 @@ BEGIN
         last_name,
         email,
         phone,
-        position,
+        job_position,
         is_active,
         created_at,
         updated_at
@@ -77,7 +77,7 @@ BEGIN
         last_name = EXCLUDED.last_name,
         email = EXCLUDED.email,
         phone = EXCLUDED.phone,
-        position = EXCLUDED.position,
+        job_position = EXCLUDED.job_position,
         is_active = EXCLUDED.is_active,
         updated_at = NOW()
     RETURNING organizer_id INTO darren_organizer_id;
@@ -134,7 +134,7 @@ SELECT
     '✅ SETUP COMPLETE' as status,
     o.first_name || ' ' || o.last_name as organizer_name,
     o.email,
-    o.position,
+    o.job_position,
     ho.name as organization,
     ho.organisation_id,
     ur.role_name as role,

@@ -99,7 +99,7 @@ BEGIN
         last_name,
         email,
         phone,
-        position,
+        job_position,
         is_active,
         created_at,
         updated_at
@@ -160,7 +160,7 @@ BEGIN
         last_name,
         email,
         phone,
-        position,
+        job_position,
         is_active,
         created_at,
         updated_at
@@ -221,7 +221,7 @@ BEGIN
         last_name,
         email,
         phone,
-        position,
+        job_position,
         is_active,
         created_at,
         updated_at
@@ -297,7 +297,7 @@ SELECT
     o.first_name,
     o.last_name,
     o.email,
-    o.position,
+    o.job_position,
     ho.name as organization,
     ur.role_name,
     ur.permissions
