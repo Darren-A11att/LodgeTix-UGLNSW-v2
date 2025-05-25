@@ -20,6 +20,7 @@ import { StripeBillingDetailsForClient } from "../payment/types";
 import { BillingDetailsForm } from "../payment/BillingDetailsForm";
 import { PaymentMethod } from "../payment/PaymentMethod";
 import { OrderSummary } from "../payment/OrderSummary";
+import { PaymentProcessing } from "../payment/PaymentProcessing";
 import { getPaymentSummaryData } from '../Summary/summary-data/payment-summary-data';
 import { SummaryRenderer } from '../Summary/SummaryRenderer';
 import { TwoColumnStepLayout } from "../Layouts/TwoColumnStepLayout";
@@ -145,6 +146,14 @@ function PaymentStep(props: PaymentStepProps = {}) {
   const [isProcessingPayment, setIsProcessingPayment] = useState(false);
   const [isSubmittingOrder, setIsSubmittingOrder] = useState(false);
   const [submissionError, setSubmissionError] = useState<string | null>(null);
+  const [showProcessingSteps, setShowProcessingSteps] = useState(false);
+  const [processingSteps, setProcessingSteps] = useState([
+    { name: 'Payment received', description: 'Processing your payment', status: 'upcoming' as const },
+    { name: 'Validating registration', description: 'Verifying registration details', status: 'upcoming' as const },
+    { name: 'Reserving tickets', description: 'Securing your event tickets', status: 'upcoming' as const },
+    { name: 'Generating confirmation', description: 'Creating your QR codes', status: 'upcoming' as const },
+    { name: 'Sending confirmation', description: 'Preparing your email receipt', status: 'upcoming' as const },
+  ]);
   
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [isPaymentIntentLoading, setIsPaymentIntentLoading] = useState(false);
@@ -393,9 +402,44 @@ function PaymentStep(props: PaymentStepProps = {}) {
 
       console.log("✅ Registration payment status updated:", updateResult);
       setStoreConfirmationNumber(updateResult.confirmationNumber || regId); // Use server's confirmation or fallback
-      // Clear sensitive data from store if necessary, or mark registration as complete
-      // e.g., useRegistrationStore.getState().clearSensitiveData();
-      goToNextStep(); // Proceed to confirmation/thank you page
+      
+      // Show processing steps and simulate progress
+      setShowProcessingSteps(true);
+      
+      // Simulate processing steps with delays
+      const updateStep = (index: number, status: 'complete' | 'current') => {
+        setProcessingSteps(prev => {
+          const newSteps = [...prev];
+          newSteps[index] = { ...newSteps[index], status };
+          if (status === 'current' && index > 0) {
+            newSteps[index - 1] = { ...newSteps[index - 1], status: 'complete' };
+          }
+          return newSteps;
+        });
+      };
+      
+      // Start the processing animation
+      updateStep(0, 'current');
+      
+      setTimeout(() => updateStep(1, 'current'), 1500);
+      setTimeout(() => updateStep(2, 'current'), 3000);
+      setTimeout(() => updateStep(3, 'current'), 4500);
+      setTimeout(() => updateStep(4, 'current'), 6000);
+      
+      // Complete all steps and navigate to confirmation
+      setTimeout(() => {
+        setProcessingSteps(prev => {
+          const newSteps = [...prev];
+          newSteps[4] = { ...newSteps[4], status: 'complete' };
+          return newSteps;
+        });
+        
+        // Small delay before navigation for visual completion
+        setTimeout(() => {
+          setShowProcessingSteps(false);
+          goToNextStep(); // Proceed to confirmation page
+        }, 1000);
+      }, 7500);
 
     } catch (error: any) {
       console.error("❌ Registration Update Error");
@@ -680,6 +724,11 @@ function PaymentStep(props: PaymentStepProps = {}) {
     console.log("🎨 anonymousSessionEstablished:", anonymousSessionEstablished);
     
     const onActualSubmit = form.handleSubmit(onBillingSubmit);
+
+    // Show processing steps if payment was successful
+    if (showProcessingSteps) {
+      return <PaymentProcessing steps={processingSteps} />;
+    }
 
     // Show loading state while checking session
     if (!sessionCheckComplete) {
