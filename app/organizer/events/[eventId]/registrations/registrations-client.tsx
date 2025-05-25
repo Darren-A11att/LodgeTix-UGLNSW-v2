@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { Search, Filter, Users, Table as TableIcon, Grid } from 'lucide-react'
+import { Search, Filter, Users, Table as TableIcon, Grid, Eye } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -23,6 +23,7 @@ import {
   TableRow,
 } from '@/components/ui/table'
 import { createBrowserClient } from '@/lib/supabase-browser'
+import { AttendeeDetailDrawer } from './attendee-detail-drawer'
 
 interface Registration {
   registration_id: string
@@ -97,11 +98,17 @@ function getPaymentStatusBadge(status: string) {
   )
 }
 
-function RegistrationCard({ registration }: { registration: Registration }) {
+function RegistrationCard({ 
+  registration, 
+  onViewDetails 
+}: { 
+  registration: Registration
+  onViewDetails: (registration: Registration) => void
+}) {
   const primaryAttendee = registration.attendees.find(a => !a.relationship) || registration.attendees[0]
   
   return (
-    <Card>
+    <Card className="hover:shadow-md transition-shadow cursor-pointer" onClick={() => onViewDetails(registration)}>
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between">
           <div>
@@ -114,6 +121,16 @@ function RegistrationCard({ registration }: { registration: Registration }) {
           </div>
           <div className="flex items-center space-x-2">
             {getPaymentStatusBadge(registration.payment_status)}
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={(e) => {
+                e.stopPropagation()
+                onViewDetails(registration)
+              }}
+            >
+              <Eye className="h-4 w-4" />
+            </Button>
           </div>
         </div>
       </CardHeader>
@@ -181,6 +198,8 @@ export function EventRegistrationsClient({
   const [statusFilter, setStatusFilter] = useState(initialStatus)
   const [viewMode, setViewMode] = useState<'cards' | 'table'>('cards')
   const [isLoading, setIsLoading] = useState(false)
+  const [selectedRegistration, setSelectedRegistration] = useState<Registration | null>(null)
+  const [drawerOpen, setDrawerOpen] = useState(false)
 
   // Debounced search
   useEffect(() => {
@@ -224,6 +243,11 @@ export function EventRegistrationsClient({
       return matchesSearch && matchesStatus
     })
   }, [registrations, searchTerm, statusFilter])
+
+  const handleViewDetails = (registration: Registration) => {
+    setSelectedRegistration(registration)
+    setDrawerOpen(true)
+  }
 
   return (
     <div className="space-y-4">
@@ -304,7 +328,11 @@ export function EventRegistrationsClient({
       ) : viewMode === 'cards' ? (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {filteredRegistrations.map((registration) => (
-            <RegistrationCard key={registration.registration_id} registration={registration} />
+            <RegistrationCard 
+              key={registration.registration_id} 
+              registration={registration} 
+              onViewDetails={handleViewDetails}
+            />
           ))}
         </div>
       ) : (
@@ -323,7 +351,11 @@ export function EventRegistrationsClient({
               </TableHeader>
               <TableBody>
                 {filteredRegistrations.map((registration) => (
-                  <TableRow key={registration.registration_id}>
+                  <TableRow 
+                    key={registration.registration_id}
+                    className="cursor-pointer hover:bg-gray-50"
+                    onClick={() => handleViewDetails(registration)}
+                  >
                     <TableCell>
                       <div>
                         <div className="font-medium">
@@ -377,6 +409,17 @@ export function EventRegistrationsClient({
             </Table>
           </CardContent>
         </Card>
+      )}
+      
+      {/* Attendee Detail Drawer */}
+      {selectedRegistration && (
+        <AttendeeDetailDrawer
+          registration={selectedRegistration}
+          open={drawerOpen}
+          onOpenChange={setDrawerOpen}
+        >
+          <div />
+        </AttendeeDetailDrawer>
       )}
     </div>
   )
