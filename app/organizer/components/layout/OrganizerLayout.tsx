@@ -33,9 +33,9 @@ import { Badge } from '@/components/ui/badge'
 
 const navigation = [
   { name: 'Dashboard', href: '/organizer/dashboard', icon: Home },
-  { name: 'My Functions', href: '/organizer/functions', icon: CalendarDays },
+  { name: 'My Events', href: '/organizer/events', icon: CalendarDays },
   { name: 'Reports', href: '/organizer/reports', icon: ChartBar },
-  { name: 'Payments', href: '/organizer/stripe/dashboard', icon: CreditCard },
+  { name: 'Payments', href: '/organizer/payments', icon: CreditCard },
   { name: 'Settings', href: '/organizer/settings', icon: Settings },
 ]
 
@@ -104,13 +104,13 @@ export function OrganizerLayout({
           {recentFunctions.length > 0 && (
             <li>
               <div className="text-xs font-semibold leading-6 text-gray-400">
-                Recent Functions
+                Recent Events
               </div>
               <ul role="list" className="-mx-2 mt-2 space-y-1">
-                {recentFunctions.map((func) => (
-                  <li key={func.id}>
+                {recentFunctions.map((event) => (
+                  <li key={event.id}>
                     <Link
-                      href={`/organizer/functions/${func.slug}`}
+                      href={`/organizer/events/${event.id}/registrations`}
                       className={cn(
                         'text-gray-700 hover:bg-gray-50 hover:text-indigo-600',
                         'group flex gap-x-3 rounded-md p-2 text-sm font-semibold leading-6'
@@ -123,9 +123,9 @@ export function OrganizerLayout({
                           'group-hover:border-indigo-600 group-hover:text-indigo-600'
                         )}
                       >
-                        {func.initial}
+                        {event.initial}
                       </span>
-                      <span className="truncate">{func.name}</span>
+                      <span className="truncate">{event.name}</span>
                     </Link>
                   </li>
                 ))}

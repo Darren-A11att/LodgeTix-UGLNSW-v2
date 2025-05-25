@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { CalendarDays, Users, DollarSign, TrendingUp, AlertCircle, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -45,11 +46,11 @@ export default function OrganizerDashboard() {
 
   const quickActions = [
     {
-      title: "Create New Event",
-      description: "Set up a new event for registrations",
-      href: "/organizer/events/create",
-      icon: Plus,
-      disabled: true // Will enable in v4
+      title: "View My Events",
+      description: "See all your events and registration counts",
+      href: "/organizer/events",
+      icon: CalendarDays,
+      disabled: false // ✅ Implemented in TODO-003
     },
     {
       title: "View Registrations",
@@ -130,15 +131,8 @@ export default function OrganizerDashboard() {
           <CardContent className="space-y-3">
             {quickActions.map((action) => {
               const Icon = action.icon
-              return (
-                <div
-                  key={action.title}
-                  className={`flex items-center space-x-3 p-3 rounded-lg border ${
-                    action.disabled 
-                      ? 'bg-gray-50 border-gray-200' 
-                      : 'bg-white border-gray-200 hover:border-gray-300 cursor-pointer'
-                  }`}
-                >
+              const content = (
+                <div className="flex items-center space-x-3 p-3 rounded-lg border bg-white border-gray-200 hover:border-gray-300">
                   <div className={`flex-shrink-0 ${action.disabled ? 'text-gray-400' : 'text-blue-600'}`}>
                     <Icon className="h-5 w-5" />
                   </div>
@@ -156,6 +150,16 @@ export default function OrganizerDashboard() {
                     </p>
                   </div>
                 </div>
+              )
+              
+              return action.disabled ? (
+                <div key={action.title} className="opacity-60 cursor-not-allowed">
+                  {content}
+                </div>
+              ) : (
+                <Link key={action.title} href={action.href} className="block">
+                  {content}
+                </Link>
               )
             })}
           </CardContent>

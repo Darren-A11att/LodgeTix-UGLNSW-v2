@@ -47,27 +47,27 @@ async function getOrganizerData() {
   }
 }
 
-async function getRecentEvents(_organizerId: string) {
-  // For now, return empty array since we haven't implemented events yet
-  // This will be implemented in later TODOs
-  return []
-  
-  /* Future implementation when events table is available:
+async function getRecentEvents(organizerId: string) {
   const supabase = await createClient()
-  const { data: events } = await supabase
-    .from('events')
-    .select('id, name, slug')
-    .eq('organizer_id', organizerId)
-    .order('created_at', { ascending: false })
-    .limit(5)
   
-  return (events || []).map((event: any) => ({
-    id: event.id,
-    name: event.name,
-    slug: event.slug,
-    initial: event.name.split(' ').map(w => w[0]).join('').substring(0, 2).toUpperCase()
-  }))
-  */
+  // Get recent events for this organizer
+  const { data: events, error } = await supabase
+    .rpc('get_organizer_events_with_counts', { org_id: organizerId })
+  
+  if (error || !events) {
+    console.error('Error fetching recent events:', error)
+    return []
+  }
+  
+  // Return the 3 most recent events, prioritizing upcoming events
+  return events
+    .slice(0, 3)
+    .map((event: any) => ({
+      id: event.event_id,
+      name: event.title,
+      slug: event.slug,
+      initial: event.title.split(' ').map((w: string) => w[0]).join('').substring(0, 2).toUpperCase()
+    }))
 }
 
 export default async function AuthLayout({
