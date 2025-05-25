@@ -187,7 +187,12 @@ export const BillingDetailsForm: React.FC<BillingDetailsFormProps> = ({
       form.setValue('billToPrimary', detailsToSet.billToPrimary);
       form.setValue('firstName', detailsToSet.firstName || '');
       form.setValue('lastName', detailsToSet.lastName || '');
-      form.setValue('mobileNumber', detailsToSet.mobileNumber || '');
+      // Use shouldDirty and shouldTouch to ensure the phone field updates properly
+      form.setValue('mobileNumber', detailsToSet.mobileNumber || '', { 
+        shouldDirty: true, 
+        shouldTouch: true,
+        shouldValidate: true 
+      });
       form.setValue('emailAddress', detailsToSet.emailAddress || '');
       
       // Also update the store with these values
@@ -422,18 +427,13 @@ export const BillingDetailsForm: React.FC<BillingDetailsFormProps> = ({
                     currentValue: field.value
                   });
                   
-                  if (billToPrimaryWatched && primaryAttendee?.primaryPhone) {
-                    // Need to update the field value directly and through react-hook-form
-                    field.onChange(primaryAttendee.primaryPhone);
+                  if (billToPrimaryWatched && primaryAttendee?.primaryPhone && field.value !== primaryAttendee.primaryPhone) {
+                    // Update the field value and ref
                     phoneRef.current = primaryAttendee.primaryPhone;
+                    field.onChange(primaryAttendee.primaryPhone);
                     console.log("Setting phone value to:", primaryAttendee.primaryPhone);
-                    
-                    // Force a re-render of the PhoneInput
-                    setTimeout(() => {
-                      field.onChange(primaryAttendee.primaryPhone);
-                    }, 0);
                   }
-                }, [billToPrimaryWatched, primaryAttendee?.primaryPhone, field]);
+                }, [billToPrimaryWatched, primaryAttendee?.primaryPhone]);
                 
                 const handlePhoneChange = (value: string) => {
                   if (value !== phoneRef.current) {
@@ -451,7 +451,8 @@ export const BillingDetailsForm: React.FC<BillingDetailsFormProps> = ({
                         value={field.value || ''} 
                         onChange={handlePhoneChange}
                         onBlur={field.onBlur}
-                        key={`phone-input-${billToPrimaryWatched ? 'primary' : 'custom'}`}
+                        // Force re-render when billToPrimary changes by using a key that includes the actual value
+                        key={`phone-${billToPrimaryWatched ? 'primary' : 'custom'}-${field.value || 'empty'}`}
                       />
                     </FormControl>
                     <FormMessage />
