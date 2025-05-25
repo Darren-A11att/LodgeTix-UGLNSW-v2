@@ -2,7 +2,7 @@
 // This file ensures we never create duplicate Supabase client instances
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { Database } from '@/supabase/types';
+import { Database } from '@/supabase/supabase';
 import { api } from '@/lib/api-logger';
 
 // Environment variables

@@ -55,7 +55,7 @@ export function table(tableName: string) {
   const normalizedTableName = 
     DB_TABLE_NAMES[tableName as keyof typeof DB_TABLE_NAMES] || tableName.toLowerCase();
   // console.log(`Accessing table via supabase.ts: "${normalizedTableName}" (original input: "${tableName}")`);
-  return client.from(normalizedTableName as keyof import('@/supabase/types').Database['public']['Tables']);
+  return client.from(normalizedTableName as keyof import('@/supabase/supabase').Database['public']['Tables']);
 }
 
 // All old client creation logic, HMR code, and old constants that are now handled by 

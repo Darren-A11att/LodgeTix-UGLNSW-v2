@@ -8,7 +8,7 @@
 
 import { PostgrestFilterBuilder } from '@supabase/postgrest-js';
 import { createClient } from '@supabase/supabase-js';
-import { Database } from '@/supabase/types';
+import { Database } from '@/supabase/supabase';
 
 // Table name mapping (PascalCase to snake_case)
 export const tableNameMap: Record<string, string> = {

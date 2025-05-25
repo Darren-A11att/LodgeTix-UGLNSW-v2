@@ -1,5 +1,5 @@
 import { getServerClient, DB_TABLE_NAMES } from '@/lib/supabase-singleton'
-import { Database } from '@/supabase/types'
+import { Database } from '@/supabase/supabase'
 import { notFound } from 'next/navigation'
 
 export interface Event {

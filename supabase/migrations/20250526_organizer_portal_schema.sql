@@ -180,39 +180,8 @@ BEGIN
 END;
 $$;
 
--- RPC Function: Search organizations for autocomplete
-CREATE OR REPLACE FUNCTION search_organizations(search_term TEXT)
-RETURNS TABLE (
-    organizer_id UUID,
-    organization_name TEXT,
-    organization_slug TEXT,
-    organization_type TEXT
-)
-LANGUAGE plpgsql SECURITY DEFINER
-AS $$
-BEGIN
-    RETURN QUERY
-    SELECT 
-        o.organizer_id,
-        o.organization_name,
-        o.organization_slug,
-        o.organization_type
-    FROM organizers o
-    WHERE o.is_active = TRUE
-    AND (
-        o.organization_name ILIKE '%' || search_term || '%'
-        OR o.organization_slug ILIKE '%' || search_term || '%'
-    )
-    ORDER BY 
-        CASE 
-            WHEN o.organization_name ILIKE search_term || '%' THEN 1
-            WHEN o.organization_name ILIKE '%' || search_term || '%' THEN 2
-            ELSE 3
-        END,
-        o.organization_name
-    LIMIT 20;
-END;
-$$;
+-- Note: Organization search now uses direct table query instead of RPC
+-- since it's a single-table operation. This improves performance and simplicity.
 
 -- RPC Function: Get organizer financial summary (for TODO-007)
 CREATE OR REPLACE FUNCTION get_organizer_financial_summary(
@@ -318,7 +287,6 @@ GRANT ALL ON organizers TO authenticated;
 GRANT ALL ON host_organisations TO authenticated;
 GRANT EXECUTE ON FUNCTION get_organizer_by_user_id(UUID) TO authenticated;
 GRANT EXECUTE ON FUNCTION create_organizer_registration(UUID, TEXT, TEXT, TEXT, TEXT, TEXT) TO authenticated;
-GRANT EXECUTE ON FUNCTION search_organizations(TEXT) TO authenticated;
 GRANT EXECUTE ON FUNCTION get_organizer_financial_summary(UUID, DATE, DATE) TO authenticated;
 
 COMMIT;

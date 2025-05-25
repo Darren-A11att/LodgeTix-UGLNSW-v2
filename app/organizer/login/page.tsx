@@ -9,7 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { getBrowserClient } from '@/lib/supabase-browser'
+import { createBrowserClient } from '@/lib/supabase-browser'
 import { MasonicLogo } from '@/components/masonic-logo'
 
 export default function OrganizerLoginPage() {
@@ -26,7 +26,7 @@ export default function OrganizerLoginPage() {
     setError('')
 
     try {
-      const supabase = getBrowserClient()
+      const supabase = createBrowserClient()
       
       const { data, error: authError } = await supabase.auth.signInWithPassword({
         email,

@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { getBrowserClient } from '@/lib/supabase-browser'
+import { createBrowserClient } from '@/lib/supabase-browser'
 import { MasonicLogo } from '@/components/masonic-logo'
 import AutocompleteInput from '@/shared/components/AutocompleteInput'
 
@@ -54,9 +54,14 @@ export default function OrganizerRegisterPage() {
     if (query.length < 2) return
     
     try {
-      const supabase = getBrowserClient()
+      const supabase = createBrowserClient()
       const { data, error } = await supabase
-        .rpc('search_organizations', { search_term: query })
+        .from('organizers')
+        .select('organizer_id, organization_name, organization_slug, organization_type')
+        .eq('is_active', true)
+        .or(`organization_name.ilike.%${query}%,organization_slug.ilike.%${query}%`)
+        .order('organization_name')
+        .limit(20)
       
       if (error) {
         console.error('Search error:', error)
@@ -165,7 +170,7 @@ export default function OrganizerRegisterPage() {
     setError('')
 
     try {
-      const supabase = getBrowserClient()
+      const supabase = createBrowserClient()
       
       // Step 1: Create user account
       const { data: authData, error: authError } = await supabase.auth.signUp({

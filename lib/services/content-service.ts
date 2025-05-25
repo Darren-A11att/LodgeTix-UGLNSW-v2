@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import type { Database } from '@/supabase/types';
+import type { Database } from '@/supabase/supabase';
 
 // Create a server-side Supabase client for server components
 function getServerClient() {

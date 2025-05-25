@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
-import { Database } from '@/supabase/types'
+import { Database } from '@/supabase/supabase'
 
 /**
  * Creates a Supabase client that bypasses Row Level Security.

@@ -3,7 +3,7 @@ import { v4 as uuidv4 } from "uuid";
 import { createClient } from '@/utils/supabase/server';
 import { UnifiedAttendeeData } from "@/shared/types/supabase";
 import { generateUUID } from "@/lib/uuid-slug-utils";
-import { Tables, TablesInsert, Database } from "@/supabase/types";
+import { Tables, TablesInsert, Database } from "@/supabase/supabase";
 
 export async function POST(request: Request) {
   // Use a single try/catch block to handle all errors
