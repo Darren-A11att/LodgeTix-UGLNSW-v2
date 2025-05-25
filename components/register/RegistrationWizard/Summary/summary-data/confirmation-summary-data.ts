@@ -55,7 +55,7 @@ export function getConfirmationSummaryData({
         value: `${attendeeCount} attendee${attendeeCount !== 1 ? 's' : ''}`
       },
       {
-        label: 'Tickets',
+        label: 'tickets',
         value: `${ticketCount} ticket${ticketCount !== 1 ? 's' : ''}`
       }
     ]

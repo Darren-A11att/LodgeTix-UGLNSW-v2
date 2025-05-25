@@ -2,7 +2,7 @@
 // This file ensures we never create duplicate Supabase client instances
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { Database } from '@/supabase/types';
+import { Database } from '@/supabase/supabase';
 import { api } from '@/lib/api-logger';
 
 // Environment variables
@@ -21,49 +21,6 @@ let serverClientInstance: SupabaseClient<Database> | null = null;
 let hasWarnedAboutMockClient = false;
 
 // Map of DB table names for consistent access (snake_case)
-export const DB_TABLE_NAMES = {
-  // Old PascalCase/camelCase names mapping to new snake_case names
-  Events: 'events',
-  DisplayScopes: 'displayscopes',
-  Customers: 'customers',
-  Registrations: 'registrations',
-  Tickets: 'tickets',
-  Attendees: 'attendees',
-  AttendeeEvents: 'attendeeevents',
-  EventTickets: 'eventtickets',
-  EventPackages: 'eventpackages',
-  EventPackageTickets: 'eventpackagetickets',
-  MasonicProfiles: 'masonicprofiles',
-  OrganisationMemberships: 'organisationmemberships',
-  
-  // snake_case versions mapping to themselves for consistency
-  events: 'events',
-  display_scopes: 'displayscopes', // Corrected from displayScopes
-  customers: 'customers',
-  registrations: 'registrations',
-  tickets: 'tickets',
-  attendees: 'attendees',
-  attendeeevents: 'attendeeevents',
-  eventtickets: 'eventtickets',
-  eventpackages: 'eventpackages',
-  eventpackagetickets: 'eventpackagetickets',
-  masonicprofiles: 'masonicprofiles', // Corrected from masonicProfiles
-  organisationmemberships: 'organisationmemberships',
-
-  // Added from lib/supabase.ts (ensure comprehensive coverage)
-  EventDays: 'event_days', // Added
-  eventDays: 'event_days', // Added, alias
-  event_days: 'event_days', // Added, snake_case
-  Masons: 'masons', // Added
-  masons: 'masons', // Added, snake_case
-  Guests: 'guests', // Added
-  guests: 'guests', // Added, snake_case
-  Contacts: 'contacts', // Added
-  contacts: 'contacts', // Added, snake_case
-  TicketDefinitions: 'ticket_definitions', // Added
-  ticketDefinitions: 'ticket_definitions', // Added, alias
-  ticket_definitions: 'ticket_definitions' // Added, snake_case
-};
 
 // Schema constants
 export const supabaseSchemas = {

@@ -3,7 +3,7 @@ import { supabaseTables } from '../../supabase';
 import * as SupabaseTypes from '../../../../supabase/supabase.types';
 
 type DbCustomer = SupabaseTypes.Database['public']['Tables']['Customers']['Row'];
-type DbRegistration = SupabaseTypes.Database['public']['Tables']['Registrations']['Row'];
+type DbRegistration = SupabaseTypes.Database['public']['Tables']['registrations']['Row'];
 
 export interface CustomerUpdateRequest {
   firstName?: string;

@@ -72,8 +72,8 @@ export const DATABASE_TABLE_MAPPINGS = {
   "Events": "events",
   "MasonicProfiles": "masonicprofiles",
   "OrganisationMemberships": "organisationmemberships",
-  "Registrations": "registrations",
-  "Tickets": "tickets"
+  'registrations': "registrations",
+  'tickets': "tickets"
 };
 
 export const DATABASE_ENUM_MAPPINGS = {

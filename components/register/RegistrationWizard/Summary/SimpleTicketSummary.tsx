@@ -72,7 +72,7 @@ export const SimpleTicketSummary: React.FC<{
           </SummarySection>
         </>
       ) : (
-        <SummarySection title="Tickets">
+        <SummarySection title='tickets'>
           <div className="text-sm text-muted-foreground italic">
             No tickets selected yet
           </div>

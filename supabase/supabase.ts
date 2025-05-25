@@ -85,7 +85,7 @@ export type Database = {
             foreignKeyName: "attendee_ticket_assignments_registration_id_fkey"
             columns: ["registration_id"]
             isOneToOne: false
-            referencedRelation: "Registrations"
+            referencedRelation: "registrations"
             referencedColumns: ["registration_id"]
           },
           {
@@ -212,7 +212,7 @@ export type Database = {
             foreignKeyName: "attendees_registrationid_fkey"
             columns: ["registrationid"]
             isOneToOne: false
-            referencedRelation: "Registrations"
+            referencedRelation: "registrations"
             referencedColumns: ["registration_id"]
           },
           {
@@ -223,6 +223,105 @@ export type Database = {
             referencedColumns: ["attendeeid"]
           },
         ]
+      }
+      content: {
+        Row: {
+          created_at: string | null
+          description: string
+          id: string
+          order: number | null
+          page: string
+          section: string
+          subtitle: string | null
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description: string
+          id?: string
+          order?: number | null
+          page: string
+          section: string
+          subtitle?: string | null
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string
+          id?: string
+          order?: number | null
+          page?: string
+          section?: string
+          subtitle?: string | null
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      content_features: {
+        Row: {
+          created_at: string | null
+          description: string
+          icon: string | null
+          id: string
+          order: number | null
+          page: string
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description: string
+          icon?: string | null
+          id?: string
+          order?: number | null
+          page: string
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string
+          icon?: string | null
+          id?: string
+          order?: number | null
+          page?: string
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      content_values: {
+        Row: {
+          created_at: string | null
+          description: string
+          id: string
+          order: number | null
+          page: string
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description: string
+          id?: string
+          order?: number | null
+          page: string
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string
+          id?: string
+          order?: number | null
+          page?: string
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: []
       }
       customers: {
         Row: {
@@ -1323,7 +1422,7 @@ export type Database = {
             foreignKeyName: "registration_vas_registration_id_fkey"
             columns: ["registration_id"]
             isOneToOne: false
-            referencedRelation: "Registrations"
+            referencedRelation: "registrations"
             referencedColumns: ["registration_id"]
           },
           {
@@ -1393,81 +1492,7 @@ export type Database = {
           total_price_paid?: number | null
           updated_at?: string | null
         }
-        Relationships: []
-      }
-      Registrations: {
-        Row: {
-          agree_to_terms: boolean | null
-          created_at: string | null
-          customer_id: string | null
-          event_id: string | null
-          payment_status: Database["public"]["Enums"]["payment_status"] | null
-          primary_attendee_id: string | null
-          registration_data: Json[] | null
-          registration_date: string | null
-          registration_id: string
-          registration_type:
-            | Database["public"]["Enums"]["registration_type"]
-            | null
-          status: string | null
-          stripe_payment_intent_id: string | null
-          total_amount_paid: number | null
-          total_price_paid: number | null
-          updated_at: string | null
-        }
-        Insert: {
-          agree_to_terms?: boolean | null
-          created_at?: string | null
-          customer_id?: string | null
-          event_id?: string | null
-          payment_status?: Database["public"]["Enums"]["payment_status"] | null
-          primary_attendee_id?: string | null
-          registration_data?: Json[] | null
-          registration_date?: string | null
-          registration_id: string
-          registration_type?:
-            | Database["public"]["Enums"]["registration_type"]
-            | null
-          status?: string | null
-          stripe_payment_intent_id?: string | null
-          total_amount_paid?: number | null
-          total_price_paid?: number | null
-          updated_at?: string | null
-        }
-        Update: {
-          agree_to_terms?: boolean | null
-          created_at?: string | null
-          customer_id?: string | null
-          event_id?: string | null
-          payment_status?: Database["public"]["Enums"]["payment_status"] | null
-          primary_attendee_id?: string | null
-          registration_data?: Json[] | null
-          registration_date?: string | null
-          registration_id?: string
-          registration_type?:
-            | Database["public"]["Enums"]["registration_type"]
-            | null
-          status?: string | null
-          stripe_payment_intent_id?: string | null
-          total_amount_paid?: number | null
-          total_price_paid?: number | null
-          updated_at?: string | null
-        }
         Relationships: [
-          {
-            foreignKeyName: "registrations_consolidated_eventid_fkey"
-            columns: ["event_id"]
-            isOneToOne: false
-            referencedRelation: "events"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "registrations_consolidated_eventid_fkey"
-            columns: ["event_id"]
-            isOneToOne: false
-            referencedRelation: "formatted_events"
-            referencedColumns: ["id"]
-          },
           {
             foreignKeyName: "registrations_customer_id_fkey"
             columns: ["customer_id"]
@@ -1587,116 +1612,87 @@ export type Database = {
       }
       tickets: {
         Row: {
-          attendee_id: string | null
-          created_at: string | null
-          event_id: string | null
-          id: string
-          is_partner_ticket: boolean | null
-          registration_id: string | null
-          ticket_price: number | null
-          ticket_status: string | null
-          ticket_type_id: string | null
-          updated_at: string | null
-        }
-        Insert: {
-          attendee_id?: string | null
-          created_at?: string | null
-          event_id?: string | null
-          id: string
-          is_partner_ticket?: boolean | null
-          registration_id?: string | null
-          ticket_price?: number | null
-          ticket_status?: string | null
-          ticket_type_id?: string | null
-          updated_at?: string | null
-        }
-        Update: {
-          attendee_id?: string | null
-          created_at?: string | null
-          event_id?: string | null
-          id?: string
-          is_partner_ticket?: boolean | null
-          registration_id?: string | null
-          ticket_price?: number | null
-          ticket_status?: string | null
-          ticket_type_id?: string | null
-          updated_at?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "tickets_registration_id_fkey"
-            columns: ["registration_id"]
-            isOneToOne: false
-            referencedRelation: "registrations"
-            referencedColumns: ["registration_id"]
-          },
-        ]
-      }
-      Tickets: {
-        Row: {
-          attendeeid: string
-          checkedinat: string | null
-          createdat: string
+          attendee_id: string
+          checked_in_at: string | null
+          created_at: string
           currency: string | null
+          event_id: string
           event_ticket_id: string | null
-          eventid: string
+          id: string | null
+          is_partner_ticket: boolean | null
           original_price: number | null
           package_id: string | null
           payment_status: string | null
-          pricepaid: number
+          price_paid: number
           purchased_at: string | null
+          registration_id: string | null
           reservation_expires_at: string | null
           reservation_id: string | null
-          seatinfo: string | null
+          seat_info: string | null
           status: string
-          ticketdefinitionid: string | null
-          ticketid: string
-          updatedat: string
+          ticket_definition_id: string | null
+          ticket_id: string
+          ticket_price: number | null
+          ticket_status: string | null
+          ticket_type_id: string | null
+          updated_at: string
         }
         Insert: {
-          attendeeid: string
-          checkedinat?: string | null
-          createdat?: string
+          attendee_id: string
+          checked_in_at?: string | null
+          created_at?: string
           currency?: string | null
+          event_id: string
           event_ticket_id?: string | null
-          eventid: string
+          id?: string | null
+          is_partner_ticket?: boolean | null
           original_price?: number | null
           package_id?: string | null
           payment_status?: string | null
-          pricepaid: number
+          price_paid: number
           purchased_at?: string | null
+          registration_id?: string | null
           reservation_expires_at?: string | null
           reservation_id?: string | null
-          seatinfo?: string | null
+          seat_info?: string | null
           status?: string
-          ticketdefinitionid?: string | null
-          ticketid?: string
-          updatedat?: string
+          ticket_definition_id?: string | null
+          ticket_id?: string
+          ticket_price?: number | null
+          ticket_status?: string | null
+          ticket_type_id?: string | null
+          updated_at?: string
         }
         Update: {
-          attendeeid?: string
-          checkedinat?: string | null
-          createdat?: string
+          attendee_id?: string
+          checked_in_at?: string | null
+          created_at?: string
           currency?: string | null
+          event_id?: string
           event_ticket_id?: string | null
-          eventid?: string
+          id?: string | null
+          is_partner_ticket?: boolean | null
           original_price?: number | null
           package_id?: string | null
           payment_status?: string | null
-          pricepaid?: number
+          price_paid?: number
           purchased_at?: string | null
+          registration_id?: string | null
           reservation_expires_at?: string | null
           reservation_id?: string | null
-          seatinfo?: string | null
+          seat_info?: string | null
           status?: string
-          ticketdefinitionid?: string | null
-          ticketid?: string
-          updatedat?: string
+          ticket_definition_id?: string | null
+          ticket_id?: string
+          ticket_price?: number | null
+          ticket_status?: string | null
+          ticket_type_id?: string | null
+          updated_at?: string
         }
         Relationships: [
           {
             foreignKeyName: "tickets_attendeeid_fkey"
-            columns: ["attendeeid"]
+            columns: ["attendee_id"]
             isOneToOne: false
             referencedRelation: "attendees"
             referencedColumns: ["attendeeid"]
@@ -1710,14 +1706,14 @@ export type Database = {
           },
           {
             foreignKeyName: "tickets_eventid_fkey"
-            columns: ["eventid"]
+            columns: ["event_id"]
             isOneToOne: false
             referencedRelation: "events"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "tickets_eventid_fkey"
-            columns: ["eventid"]
+            columns: ["event_id"]
             isOneToOne: false
             referencedRelation: "formatted_events"
             referencedColumns: ["id"]
@@ -1730,8 +1726,29 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "tickets_registration_id_fkey"
+            columns: ["registration_id"]
+            isOneToOne: false
+            referencedRelation: "registration_payments"
+            referencedColumns: ["registration_id"]
+          },
+          {
+            foreignKeyName: "tickets_registration_id_fkey"
+            columns: ["registration_id"]
+            isOneToOne: false
+            referencedRelation: "registration_summary"
+            referencedColumns: ["registration_id"]
+          },
+          {
+            foreignKeyName: "tickets_registration_id_fkey"
+            columns: ["registration_id"]
+            isOneToOne: false
+            referencedRelation: "registrations"
+            referencedColumns: ["registration_id"]
+          },
+          {
             foreignKeyName: "tickets_ticketdefinitionid_fkey"
-            columns: ["ticketdefinitionid"]
+            columns: ["ticket_definition_id"]
             isOneToOne: false
             referencedRelation: "ticket_definitions"
             referencedColumns: ["id"]
@@ -2015,20 +2032,6 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "registrations_consolidated_eventid_fkey"
-            columns: ["event_id"]
-            isOneToOne: false
-            referencedRelation: "events"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "registrations_consolidated_eventid_fkey"
-            columns: ["event_id"]
-            isOneToOne: false
-            referencedRelation: "formatted_events"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "registrations_customer_id_fkey"
             columns: ["customer_id"]
             isOneToOne: false
@@ -2261,24 +2264,30 @@ export type Database = {
           p_quantity: number
         }
         Returns: {
-          attendeeid: string
-          checkedinat: string | null
-          createdat: string
+          attendee_id: string
+          checked_in_at: string | null
+          created_at: string
           currency: string | null
+          event_id: string
           event_ticket_id: string | null
-          eventid: string
+          id: string | null
+          is_partner_ticket: boolean | null
           original_price: number | null
           package_id: string | null
           payment_status: string | null
-          pricepaid: number
+          price_paid: number
           purchased_at: string | null
+          registration_id: string | null
           reservation_expires_at: string | null
           reservation_id: string | null
-          seatinfo: string | null
+          seat_info: string | null
           status: string
-          ticketdefinitionid: string | null
-          ticketid: string
-          updatedat: string
+          ticket_definition_id: string | null
+          ticket_id: string
+          ticket_price: number | null
+          ticket_status: string | null
+          ticket_type_id: string | null
+          updated_at: string
         }[]
       }
       to_camel_case: {

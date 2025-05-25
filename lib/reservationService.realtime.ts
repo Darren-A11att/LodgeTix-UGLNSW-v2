@@ -298,7 +298,7 @@ export class ReservationService {
         {
           event: '*', // Listen for all events (INSERT, UPDATE, DELETE)
           schema: 'public',
-          table: 'Tickets',
+          table: 'tickets',
         },
         (payload) => {
           // When ticket status changes, notify registered callbacks

@@ -256,7 +256,7 @@ function OrderReviewStep() {
             </div>
             <CardDescription className="text-gray-200">
               {attendeesForDisplay.length} {attendeesForDisplay.length === 1 ? "Attendee" : "Attendees"} • {totalTickets}{" "}
-              {totalTickets === 1 ? "Ticket" : "Tickets"}
+              {totalTickets === 1 ? "Ticket" : 'tickets'}
             </CardDescription>
           </CardHeader>
           <CardContent className="p-6 space-y-6">

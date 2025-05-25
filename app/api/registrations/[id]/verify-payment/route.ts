@@ -74,7 +74,7 @@ export async function GET(
     // Get the payment intent ID for this registration
     const adminClient = createAdminClient();
     const { data: registrationData, error: registrationError } = await adminClient
-      .from("Registrations")
+      .from('registrations')
       .select("status, payment_status, stripe_payment_intent_id")
       .eq("registration_id", registrationId)
       .single();

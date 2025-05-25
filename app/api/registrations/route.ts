@@ -1,9 +1,7 @@
 import { NextResponse } from "next/server";
 import { v4 as uuidv4 } from "uuid";
 import { createClient } from '@/utils/supabase/server';
-import { UnifiedAttendeeData } from "@/shared/types/supabase";
-import { generateUUID } from "@/lib/uuid-slug-utils";
-import { Tables, TablesInsert, Database } from "@/supabase/types";
+import { Tables, TablesInsert, Database } from "@/supabase/supabase";
 
 export async function POST(request: Request) {
   // Use a single try/catch block to handle all errors
@@ -171,7 +169,7 @@ export async function POST(request: Request) {
     
     // First, ensure customer exists or create one
     console.log("Checking if customer exists for user:", customerId);
-    const { data: existingCustomer, error: customerCheckError } = await userClient
+    const { error: customerCheckError } = await userClient
       .from("customers")
       .select("id")
       .eq("id", customerId)
@@ -217,28 +215,13 @@ export async function POST(request: Request) {
       console.log("Customer already exists");
     }
 
-    // Insert registration record into BOTH tables to handle FK constraints
-    // This is a temporary workaround for the table naming inconsistency
-    console.log("Inserting registration into Registrations (capital R) table");
+    // Insert registration record
+    console.log("Inserting registration into registrations table");
     const { data: savedRegistration, error: registrationError } = await userClient
-      .from("Registrations")
+      .from('registrations')
       .insert(registrationRecord)
       .select()
-      .single<Tables<'Registrations'>>(); // Use capital R type
-    
-    if (!registrationError && savedRegistration) {
-      // Also insert into lowercase table for tickets FK
-      console.log("Also inserting into registrations (lowercase) table for consistency");
-      const { error: lowerCaseError } = await userClient
-        .from("registrations")
-        .insert(registrationRecord)
-        .select()
-        .single();
-        
-      if (lowerCaseError) {
-        console.warn("Failed to insert into lowercase registrations:", lowerCaseError.message);
-      }
-    }
+      .single<Tables<'registrations'>>();
     
     if (registrationError) {
       console.error("Error saving registration:", registrationError);
@@ -310,7 +293,7 @@ export async function POST(request: Request) {
       const { data: existingAttendee } = await userClient
         .from("attendees")
         .select()
-        .eq("attendeeid", attendeeRecord.attendeeid)
+        .eq("attendeeid", attendeeRecord.attendeeid!)
         .single();
       
       let savedAttendee;
@@ -361,7 +344,7 @@ export async function POST(request: Request) {
         savedAttendee = newAttendee;
         
         // Update the attendee ID mapping for tickets
-        attendeeIdMapping.set(attendeeRecord.attendeeid, newAttendeeId);
+        attendeeIdMapping.set(attendeeRecord.attendeeid!, newAttendeeId);
       } else {
         // Insert new attendee as normal
         const { data: newAttendee, error: attendeeError } = await userClient
@@ -402,7 +385,7 @@ export async function POST(request: Request) {
       if (attendee.isPrimary && savedAttendee) {
         // Update both tables
         const { error: updateRegError } = await userClient
-          .from("Registrations")
+          .from('registrations')
           .update({ primary_attendee_id: savedAttendee.attendeeid }) 
           .eq("registration_id", newRegistrationId);
           
@@ -450,6 +433,7 @@ export async function POST(request: Request) {
           attendee_id: attendeeForTicket.attendeeid!, 
           event_id: finalEventId, // Use the resolved event ID (UUID)
           ticket_price: ticket.price || 0, 
+          price_paid: ticket.price || 0, // Required field - using ticket_price value
           ticket_status: ticketStatusForDb,
           registration_id: newRegistrationId,
           // For packages, use ticketDefinitionId; for individual tickets, use eventTicketId

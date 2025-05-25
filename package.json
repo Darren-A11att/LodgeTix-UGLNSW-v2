@@ -83,7 +83,6 @@
     "resend": "^2.0.0",
     "sonner": "^1.7.1",
     "stripe": "^18.1.0",
-    "supabase": "^2.23.4",
     "tailwind-merge": "^2.5.5",
     "tailwindcss-animate": "^1.0.7",
     "use-debounce": "^10.0.4",
@@ -103,6 +102,7 @@
     "expect-playwright": "^0.8.0",
     "jest-playwright-preset": "^4.0.0",
     "postcss": "^8",
+    "supabase": "^2.23.4",
     "tailwindcss": "^3.4.17",
     "typescript": "^5"
   }

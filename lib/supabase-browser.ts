@@ -6,18 +6,16 @@
 // Re-export everything from supabase-singleton to maintain backward compatibility
 import { 
   supabase, 
-  DB_TABLE_NAMES, 
   getSupabaseClient, 
   getBrowserClient as createBrowserClient,
   supabaseTables,
   supabaseSchemas,
   table
 } from './supabase-singleton';
-import { Database } from '@/supabase/types';
+import { Database } from '@/supabase/supabase';
 
 export {
   supabase,
-  DB_TABLE_NAMES,
   createBrowserClient,
   supabaseTables,
   supabaseSchemas,

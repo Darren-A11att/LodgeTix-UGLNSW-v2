@@ -1,5 +1,5 @@
-import { getServerClient, DB_TABLE_NAMES } from '@/lib/supabase-singleton'
-import { Database } from '@/supabase/types'
+import { getServerClient } from '@/lib/supabase-singleton'
+import { Database } from '@/supabase/supabase'
 import { notFound } from 'next/navigation'
 
 export interface Event {
@@ -93,7 +93,7 @@ export async function getEventTickets(eventId: string): Promise<Ticket[]> {
   const supabase = getServerClient()
   
   const { data, error } = await supabase
-    .from('Tickets')
+    .from('tickets')
     .select('*')
     .eq('eventid', eventId)
     .order('pricepaid', { ascending: true })

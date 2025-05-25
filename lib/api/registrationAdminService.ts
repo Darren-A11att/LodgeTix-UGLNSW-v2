@@ -2,9 +2,9 @@ import { AdminApiService, AdminApiResponse, QueryParams } from './adminApiServic
 import { supabaseTables } from '../../supabase';
 import * as SupabaseTypes from '../../../../supabase/supabase.types';
 
-type DbRegistration = SupabaseTypes.Database['public']['Tables']['Registrations']['Row'];
+type DbRegistration = SupabaseTypes.Database['public']['Tables']['registrations']['Row'];
 type DbAttendee = SupabaseTypes.Database['public']['Tables']['Attendees']['Row'];
-type DbTicket = SupabaseTypes.Database['public']['Tables']['Tickets']['Row'];
+type DbTicket = SupabaseTypes.Database['public']['Tables']['tickets']['Row'];
 
 export interface RegistrationStatusUpdateRequest {
   status: string;

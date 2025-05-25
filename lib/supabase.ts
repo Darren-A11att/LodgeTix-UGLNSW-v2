@@ -2,8 +2,7 @@ import {
   getBrowserClient,
   getServerClient,
   supabaseSchemas,
-  DB_TABLE_NAMES, // Assuming this is the consolidated one from supabase-singleton
-  supabaseTables // Assuming this is the consolidated one from supabase-singleton
+  supabaseTables
 } from './supabase-singleton';
 
 // Export the browser client as 'supabase' for backward compatibility
@@ -28,7 +27,7 @@ export const supabase = new Proxy({} as ReturnType<typeof getBrowserClient>, {
 export const getSupabaseAdmin = getServerClient;
 
 // Re-export constants if they are managed by supabase-singleton.ts now
-export { DB_TABLE_NAMES, supabaseTables, supabaseSchemas };
+export { supabaseTables, supabaseSchemas };
 
 /**
  * Helper function to get a Supabase query with the correct table name casing.
@@ -37,7 +36,7 @@ export { DB_TABLE_NAMES, supabaseTables, supabaseSchemas };
  * IMPORTANT: Our database tables have been migrated from PascalCase to snake_case.
  * When using this function:
  * 1. Table names will be normalized to their proper snake_case version
- *    (e.g., "Registrations" or "registrations" -> "registrations")
+ *    (e.g., 'registrations' or "registrations" -> "registrations")
  * 2. Column names have also been migrated to snake_case and must match the schema
  * 
  * Example:
@@ -52,10 +51,9 @@ export function table(tableName: string) {
     console.error("Supabase client (browser) is not initialized when calling table() from supabase.ts");
     throw new Error("Supabase client (browser) not initialized in supabase.ts table().");
   }
-  const normalizedTableName = 
-    DB_TABLE_NAMES[tableName as keyof typeof DB_TABLE_NAMES] || tableName.toLowerCase();
+  const normalizedTableName = tableName.toLowerCase();
   // console.log(`Accessing table via supabase.ts: "${normalizedTableName}" (original input: "${tableName}")`);
-  return client.from(normalizedTableName as keyof import('@/supabase/types').Database['public']['Tables']);
+  return client.from(normalizedTableName as keyof import('@/supabase/supabase').Database['public']['Tables']);
 }
 
 // All old client creation logic, HMR code, and old constants that are now handled by 

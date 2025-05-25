@@ -55,7 +55,7 @@ export async function PUT(
     
     // Log the exact database query we're about to perform for debugging
     console.log("DB Operation: Looking up registration with exact query:");
-    console.log(`from("Registrations").select("*").eq("registration_id", "${registrationId}").single()`);
+    console.log(`from('registrations').select("*").eq("registration_id", "${registrationId}").single()`);
     
     // Check if registration exists - query with tracing
     console.log("Looking up registration with ID:", registrationId);
@@ -63,7 +63,7 @@ export async function PUT(
     
     const adminClient = createAdminClient();
     const { data: existingRegistration, error: findError } = await adminClient
-      .from("Registrations")
+      .from('registrations')
       .select("*")
       .eq("registration_id", registrationId)
       .single();
@@ -104,7 +104,7 @@ export async function PUT(
     // Update registration record
     console.log("Executing update query using actual schema names: supabase.from(\"Registrations\").update(updateData).eq(\"registrationId\", registrationId)");
     const { data: updatedRegistration, error: updateError } = await adminClient
-      .from("Registrations")
+      .from('registrations')
       .update(updateData)
       .eq("registration_id", registrationId)
       .select()
@@ -198,7 +198,7 @@ export async function GET(
     // First, check if registration exists
     const adminClient = createAdminClient();
     const { data: existingRegistrationData, error: findError } = await adminClient
-      .from("Registrations")
+      .from('registrations')
       .select("*")
       .eq("registration_id", registrationId)
       .single();

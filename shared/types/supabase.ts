@@ -7,6 +7,31 @@ export type Json =
   | Json[]
 
 export type Database = {
+  graphql_public: {
+    Tables: {
+      [_ in never]: never
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      graphql: {
+        Args: {
+          operationName?: string
+          query?: string
+          variables?: Json
+          extensions?: Json
+        }
+        Returns: Json
+      }
+    }
+    Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
+      [_ in never]: never
+    }
+  }
   public: {
     Tables: {
       attendee_ticket_assignments: {
@@ -39,22 +64,29 @@ export type Database = {
             foreignKeyName: "attendee_ticket_assignments_attendee_id_fkey"
             columns: ["attendee_id"]
             isOneToOne: false
-            referencedRelation: "Attendees"
+            referencedRelation: "attendees"
             referencedColumns: ["attendeeid"]
           },
           {
             foreignKeyName: "attendee_ticket_assignments_registration_id_fkey"
             columns: ["registration_id"]
             isOneToOne: false
-            referencedRelation: "registration_summary"
-            referencedColumns: ["registrationId"]
+            referencedRelation: "registration_payments"
+            referencedColumns: ["registration_id"]
           },
           {
             foreignKeyName: "attendee_ticket_assignments_registration_id_fkey"
             columns: ["registration_id"]
             isOneToOne: false
-            referencedRelation: "Registrations"
-            referencedColumns: ["registrationId"]
+            referencedRelation: "registration_summary"
+            referencedColumns: ["registration_id"]
+          },
+          {
+            foreignKeyName: "attendee_ticket_assignments_registration_id_fkey"
+            columns: ["registration_id"]
+            isOneToOne: false
+            referencedRelation: "registrations"
+            referencedColumns: ["registration_id"]
           },
           {
             foreignKeyName: "attendee_ticket_assignments_ticket_definition_id_fkey"
@@ -65,7 +97,53 @@ export type Database = {
           },
         ]
       }
-      Attendees: {
+      attendeeevents: {
+        Row: {
+          attendee_id: string
+          created_at: string
+          event_id: string
+          id: string
+          status: string
+        }
+        Insert: {
+          attendee_id: string
+          created_at?: string
+          event_id: string
+          id?: string
+          status?: string
+        }
+        Update: {
+          attendee_id?: string
+          created_at?: string
+          event_id?: string
+          id?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "attendee_events_attendee_id_fkey"
+            columns: ["attendee_id"]
+            isOneToOne: false
+            referencedRelation: "attendees"
+            referencedColumns: ["attendeeid"]
+          },
+          {
+            foreignKeyName: "attendee_events_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "attendee_events_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "formatted_events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      attendees: {
         Row: {
           attendeeid: string
           attendeetype: Database["public"]["Enums"]["attendee_type"]
@@ -120,118 +198,224 @@ export type Database = {
             foreignKeyName: "attendees_registrationid_fkey"
             columns: ["registrationid"]
             isOneToOne: false
-            referencedRelation: "registration_summary"
-            referencedColumns: ["registrationId"]
+            referencedRelation: "registration_payments"
+            referencedColumns: ["registration_id"]
           },
           {
             foreignKeyName: "attendees_registrationid_fkey"
             columns: ["registrationid"]
             isOneToOne: false
-            referencedRelation: "Registrations"
-            referencedColumns: ["registrationId"]
+            referencedRelation: "registration_summary"
+            referencedColumns: ["registration_id"]
+          },
+          {
+            foreignKeyName: "attendees_registrationid_fkey"
+            columns: ["registrationid"]
+            isOneToOne: false
+            referencedRelation: "registrations"
+            referencedColumns: ["registration_id"]
           },
           {
             foreignKeyName: "attendees_relatedattendeeid_fkey"
             columns: ["relatedattendeeid"]
             isOneToOne: false
-            referencedRelation: "Attendees"
+            referencedRelation: "attendees"
             referencedColumns: ["attendeeid"]
           },
         ]
       }
-      Customers: {
+      content: {
         Row: {
-          addressLine1: string | null
-          addressLine2: string | null
-          billingCity: string | null
-          billingCountry: string | null
-          billingEmail: string | null
-          billingFirstName: string | null
-          billingLastName: string | null
-          billingOrganisationName: string | null
-          billingPhone: string | null
-          billingPostalCode: string | null
-          billingState: string | null
-          billingStreetAddress: string | null
-          businessName: string | null
-          city: string | null
-          contactId: string | null
-          country: string | null
-          createdAt: string | null
-          email: string | null
-          firstName: string | null
+          created_at: string | null
+          description: string
           id: string
-          lastName: string | null
-          organisationId: string | null
-          person_id: string | null
-          phone: string | null
-          postalCode: string | null
-          state: string | null
-          stripeCustomerId: string | null
-          updatedAt: string | null
-          userId: string | null
+          order: number | null
+          page: string
+          section: string
+          subtitle: string | null
+          title: string
+          updated_at: string | null
         }
         Insert: {
-          addressLine1?: string | null
-          addressLine2?: string | null
-          billingCity?: string | null
-          billingCountry?: string | null
-          billingEmail?: string | null
-          billingFirstName?: string | null
-          billingLastName?: string | null
-          billingOrganisationName?: string | null
-          billingPhone?: string | null
-          billingPostalCode?: string | null
-          billingState?: string | null
-          billingStreetAddress?: string | null
-          businessName?: string | null
-          city?: string | null
-          contactId?: string | null
-          country?: string | null
-          createdAt?: string | null
-          email?: string | null
-          firstName?: string | null
-          id: string
-          lastName?: string | null
-          organisationId?: string | null
-          person_id?: string | null
-          phone?: string | null
-          postalCode?: string | null
-          state?: string | null
-          stripeCustomerId?: string | null
-          updatedAt?: string | null
-          userId?: string | null
+          created_at?: string | null
+          description: string
+          id?: string
+          order?: number | null
+          page: string
+          section: string
+          subtitle?: string | null
+          title: string
+          updated_at?: string | null
         }
         Update: {
-          addressLine1?: string | null
-          addressLine2?: string | null
-          billingCity?: string | null
-          billingCountry?: string | null
-          billingEmail?: string | null
-          billingFirstName?: string | null
-          billingLastName?: string | null
-          billingOrganisationName?: string | null
-          billingPhone?: string | null
-          billingPostalCode?: string | null
-          billingState?: string | null
-          billingStreetAddress?: string | null
-          businessName?: string | null
-          city?: string | null
-          contactId?: string | null
-          country?: string | null
-          createdAt?: string | null
-          email?: string | null
-          firstName?: string | null
+          created_at?: string | null
+          description?: string
           id?: string
-          lastName?: string | null
-          organisationId?: string | null
+          order?: number | null
+          page?: string
+          section?: string
+          subtitle?: string | null
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      content_features: {
+        Row: {
+          created_at: string | null
+          description: string
+          icon: string | null
+          id: string
+          order: number | null
+          page: string
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description: string
+          icon?: string | null
+          id?: string
+          order?: number | null
+          page: string
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string
+          icon?: string | null
+          id?: string
+          order?: number | null
+          page?: string
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      content_values: {
+        Row: {
+          created_at: string | null
+          description: string
+          id: string
+          order: number | null
+          page: string
+          title: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description: string
+          id?: string
+          order?: number | null
+          page: string
+          title: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string
+          id?: string
+          order?: number | null
+          page?: string
+          title?: string
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      customers: {
+        Row: {
+          address_line1: string | null
+          address_line2: string | null
+          billing_city: string | null
+          billing_country: string | null
+          billing_email: string | null
+          billing_first_name: string | null
+          billing_last_name: string | null
+          billing_organisation_name: string | null
+          billing_phone: string | null
+          billing_postal_code: string | null
+          billing_state: string | null
+          billing_street_address: string | null
+          business_name: string | null
+          city: string | null
+          contact_id: string | null
+          country: string | null
+          created_at: string | null
+          email: string | null
+          first_name: string | null
+          id: string
+          last_name: string | null
+          organisation_id: string | null
+          person_id: string | null
+          phone: string | null
+          postal_code: string | null
+          state: string | null
+          stripe_customer_id: string | null
+          updated_at: string | null
+          user_id: string | null
+        }
+        Insert: {
+          address_line1?: string | null
+          address_line2?: string | null
+          billing_city?: string | null
+          billing_country?: string | null
+          billing_email?: string | null
+          billing_first_name?: string | null
+          billing_last_name?: string | null
+          billing_organisation_name?: string | null
+          billing_phone?: string | null
+          billing_postal_code?: string | null
+          billing_state?: string | null
+          billing_street_address?: string | null
+          business_name?: string | null
+          city?: string | null
+          contact_id?: string | null
+          country?: string | null
+          created_at?: string | null
+          email?: string | null
+          first_name?: string | null
+          id: string
+          last_name?: string | null
+          organisation_id?: string | null
           person_id?: string | null
           phone?: string | null
-          postalCode?: string | null
+          postal_code?: string | null
           state?: string | null
-          stripeCustomerId?: string | null
-          updatedAt?: string | null
-          userId?: string | null
+          stripe_customer_id?: string | null
+          updated_at?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          address_line1?: string | null
+          address_line2?: string | null
+          billing_city?: string | null
+          billing_country?: string | null
+          billing_email?: string | null
+          billing_first_name?: string | null
+          billing_last_name?: string | null
+          billing_organisation_name?: string | null
+          billing_phone?: string | null
+          billing_postal_code?: string | null
+          billing_state?: string | null
+          billing_street_address?: string | null
+          business_name?: string | null
+          city?: string | null
+          contact_id?: string | null
+          country?: string | null
+          created_at?: string | null
+          email?: string | null
+          first_name?: string | null
+          id?: string
+          last_name?: string | null
+          organisation_id?: string | null
+          person_id?: string | null
+          phone?: string | null
+          postal_code?: string | null
+          state?: string | null
+          stripe_customer_id?: string | null
+          updated_at?: string | null
+          user_id?: string | null
         }
         Relationships: [
           {
@@ -243,23 +427,65 @@ export type Database = {
           },
         ]
       }
-      DisplayScopes: {
+      displayscopes: {
         Row: {
-          createdAt: string
+          created_at: string
           id: string
           name: string
         }
         Insert: {
-          createdAt?: string
+          created_at?: string
           id?: string
           name: string
         }
         Update: {
-          createdAt?: string
+          created_at?: string
           id?: string
           name?: string
         }
         Relationships: []
+      }
+      event_capacity: {
+        Row: {
+          created_at: string
+          event_id: string
+          max_capacity: number
+          reserved_count: number
+          sold_count: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          event_id: string
+          max_capacity: number
+          reserved_count?: number
+          sold_count?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          event_id?: string
+          max_capacity?: number
+          reserved_count?: number
+          sold_count?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_capacity_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: true
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_capacity_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: true
+            referencedRelation: "formatted_events"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       event_fees: {
         Row: {
@@ -300,7 +526,14 @@ export type Database = {
             foreignKeyName: "event_fees_event_id_fkey"
             columns: ["event_id"]
             isOneToOne: false
-            referencedRelation: "Events"
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_fees_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "formatted_events"
             referencedColumns: ["id"]
           },
           {
@@ -336,7 +569,14 @@ export type Database = {
             foreignKeyName: "event_vas_options_event_id_fkey"
             columns: ["event_id"]
             isOneToOne: false
-            referencedRelation: "Events"
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_vas_options_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "formatted_events"
             referencedColumns: ["id"]
           },
           {
@@ -348,94 +588,223 @@ export type Database = {
           },
         ]
       }
-      Events: {
+      eventpackages: {
         Row: {
-          createdAt: string
+          created_at: string
           description: string | null
-          displayScopeId: string | null
-          eventEnd: string | null
-          eventId: string | null
-          eventIncludes: string[] | null
-          eventStart: string | null
+          id: string
+          includes_description: string[] | null
+          name: string
+          parent_event_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          includes_description?: string[] | null
+          name: string
+          parent_event_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          includes_description?: string[] | null
+          name?: string
+          parent_event_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "packages_parent_event_id_fkey"
+            columns: ["parent_event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "packages_parent_event_id_fkey"
+            columns: ["parent_event_id"]
+            isOneToOne: false
+            referencedRelation: "formatted_events"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      eventpackagetickets: {
+        Row: {
+          created_at: string
+          event_ticket_id: string
+          id: string
+          package_id: string
+          quantity: number
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          event_ticket_id: string
+          id?: string
+          package_id: string
+          quantity?: number
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          event_ticket_id?: string
+          id?: string
+          package_id?: string
+          quantity?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_package_tickets_event_ticket_id_fkey"
+            columns: ["event_ticket_id"]
+            isOneToOne: false
+            referencedRelation: "eventtickets"
+            referencedColumns: ["event_ticket_id"]
+          },
+          {
+            foreignKeyName: "event_package_tickets_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "eventpackages"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      events: {
+        Row: {
+          attendance: Json | null
+          created_at: string
+          degree_type: string | null
+          description: string | null
+          display_scope_id: string | null
+          documents: Json | null
+          dress_code: string | null
+          event_end: string | null
+          event_id: string | null
+          event_includes: string[] | null
+          event_start: string | null
           featured: boolean | null
           id: string
-          imageUrl: string | null
-          importantInformation: string[] | null
-          isMultiDay: boolean | null
-          isPurchasableIndividually: boolean | null
+          image_url: string | null
+          important_information: string[] | null
+          is_multi_day: boolean | null
+          is_published: boolean | null
+          is_purchasable_individually: boolean | null
           latitude: number | null
           location: string | null
+          location_json: Json | null
           locationid: string | null
           longitude: number | null
-          maxAttendees: number | null
+          max_attendees: number | null
+          organiser_logo: string | null
           organiserorganisationid: string | null
-          parentEventId: string | null
+          organizer_contact: Json | null
+          organizer_name: string | null
+          parent_event_id: string | null
           price: number | null
-          registrationAvailabilityId: string | null
-          slug: string | null
+          publish_option: string | null
+          regalia: string | null
+          regalia_description: string | null
+          registration_availability_id: string | null
+          related_events: string[] | null
+          sections: Json | null
+          slug: string
+          subtitle: string | null
           title: string
           type: string | null
         }
         Insert: {
-          createdAt?: string
+          attendance?: Json | null
+          created_at?: string
+          degree_type?: string | null
           description?: string | null
-          displayScopeId?: string | null
-          eventEnd?: string | null
-          eventId?: string | null
-          eventIncludes?: string[] | null
-          eventStart?: string | null
+          display_scope_id?: string | null
+          documents?: Json | null
+          dress_code?: string | null
+          event_end?: string | null
+          event_id?: string | null
+          event_includes?: string[] | null
+          event_start?: string | null
           featured?: boolean | null
           id?: string
-          imageUrl?: string | null
-          importantInformation?: string[] | null
-          isMultiDay?: boolean | null
-          isPurchasableIndividually?: boolean | null
+          image_url?: string | null
+          important_information?: string[] | null
+          is_multi_day?: boolean | null
+          is_published?: boolean | null
+          is_purchasable_individually?: boolean | null
           latitude?: number | null
           location?: string | null
+          location_json?: Json | null
           locationid?: string | null
           longitude?: number | null
-          maxAttendees?: number | null
+          max_attendees?: number | null
+          organiser_logo?: string | null
           organiserorganisationid?: string | null
-          parentEventId?: string | null
+          organizer_contact?: Json | null
+          organizer_name?: string | null
+          parent_event_id?: string | null
           price?: number | null
-          registrationAvailabilityId?: string | null
-          slug?: string | null
+          publish_option?: string | null
+          regalia?: string | null
+          regalia_description?: string | null
+          registration_availability_id?: string | null
+          related_events?: string[] | null
+          sections?: Json | null
+          slug: string
+          subtitle?: string | null
           title: string
           type?: string | null
         }
         Update: {
-          createdAt?: string
+          attendance?: Json | null
+          created_at?: string
+          degree_type?: string | null
           description?: string | null
-          displayScopeId?: string | null
-          eventEnd?: string | null
-          eventId?: string | null
-          eventIncludes?: string[] | null
-          eventStart?: string | null
+          display_scope_id?: string | null
+          documents?: Json | null
+          dress_code?: string | null
+          event_end?: string | null
+          event_id?: string | null
+          event_includes?: string[] | null
+          event_start?: string | null
           featured?: boolean | null
           id?: string
-          imageUrl?: string | null
-          importantInformation?: string[] | null
-          isMultiDay?: boolean | null
-          isPurchasableIndividually?: boolean | null
+          image_url?: string | null
+          important_information?: string[] | null
+          is_multi_day?: boolean | null
+          is_published?: boolean | null
+          is_purchasable_individually?: boolean | null
           latitude?: number | null
           location?: string | null
+          location_json?: Json | null
           locationid?: string | null
           longitude?: number | null
-          maxAttendees?: number | null
+          max_attendees?: number | null
+          organiser_logo?: string | null
           organiserorganisationid?: string | null
-          parentEventId?: string | null
+          organizer_contact?: Json | null
+          organizer_name?: string | null
+          parent_event_id?: string | null
           price?: number | null
-          registrationAvailabilityId?: string | null
-          slug?: string | null
+          publish_option?: string | null
+          regalia?: string | null
+          regalia_description?: string | null
+          registration_availability_id?: string | null
+          related_events?: string[] | null
+          sections?: Json | null
+          slug?: string
+          subtitle?: string | null
           title?: string
           type?: string | null
         }
         Relationships: [
           {
             foreignKeyName: "events_display_scope_id_fkey"
-            columns: ["displayScopeId"]
+            columns: ["display_scope_id"]
             isOneToOne: false
-            referencedRelation: "DisplayScopes"
+            referencedRelation: "displayscopes"
             referencedColumns: ["id"]
           },
           {
@@ -454,59 +823,69 @@ export type Database = {
           },
           {
             foreignKeyName: "events_parent_event_id_fkey"
-            columns: ["parentEventId"]
+            columns: ["parent_event_id"]
             isOneToOne: false
-            referencedRelation: "Events"
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "events_parent_event_id_fkey"
+            columns: ["parent_event_id"]
+            isOneToOne: false
+            referencedRelation: "formatted_events"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "events_registration_availability_id_fkey"
-            columns: ["registrationAvailabilityId"]
+            columns: ["registration_availability_id"]
             isOneToOne: false
             referencedRelation: "registration_availabilities"
             referencedColumns: ["id"]
           },
         ]
       }
-      EventTickets: {
+      eventtickets: {
         Row: {
-          availableCount: number
-          createdAt: string
-          eventId: string
-          eventTicketId: string
+          available_count: number
+          created_at: string
+          event_id: string
+          event_ticket_id: string
+          event_uuid: string | null
           price: number
-          reservedCount: number
-          soldCount: number
+          reserved_count: number
+          sold_count: number
           status: string
-          ticketDefinitionId: string | null
-          totalCapacity: number
-          updatedAt: string
+          ticket_definition_id: string | null
+          total_capacity: number
+          updated_at: string
         }
         Insert: {
-          availableCount: number
-          createdAt?: string
-          eventId: string
-          eventTicketId?: string
+          available_count: number
+          created_at?: string
+          event_id: string
+          event_ticket_id?: string
+          event_uuid?: string | null
           price: number
-          reservedCount?: number
-          soldCount?: number
+          reserved_count?: number
+          sold_count?: number
           status?: string
-          ticketDefinitionId?: string | null
-          totalCapacity: number
-          updatedAt?: string
+          ticket_definition_id?: string | null
+          total_capacity: number
+          updated_at?: string
         }
         Update: {
-          availableCount?: number
-          createdAt?: string
-          eventId?: string
-          eventTicketId?: string
+          available_count?: number
+          created_at?: string
+          event_id?: string
+          event_ticket_id?: string
+          event_uuid?: string | null
           price?: number
-          reservedCount?: number
-          soldCount?: number
+          reserved_count?: number
+          sold_count?: number
           status?: string
-          ticketDefinitionId?: string | null
-          totalCapacity?: number
-          updatedAt?: string
+          ticket_definition_id?: string | null
+          total_capacity?: number
+          updated_at?: string
         }
         Relationships: []
       }
@@ -551,6 +930,8 @@ export type Database = {
           created_at: string
           id: string
           name: string
+          state_region: string | null
+          state_region_code: string | null
         }
         Insert: {
           abbreviation?: string | null
@@ -559,6 +940,8 @@ export type Database = {
           created_at?: string
           id?: string
           name: string
+          state_region?: string | null
+          state_region_code?: string | null
         }
         Update: {
           abbreviation?: string | null
@@ -567,6 +950,8 @@ export type Database = {
           created_at?: string
           id?: string
           name?: string
+          state_region?: string | null
+          state_region_code?: string | null
         }
         Relationships: []
       }
@@ -629,6 +1014,7 @@ export type Database = {
           meeting_place: string | null
           name: string
           number: number | null
+          state_region: string | null
         }
         Insert: {
           area_type?: string | null
@@ -640,6 +1026,7 @@ export type Database = {
           meeting_place?: string | null
           name: string
           number?: number | null
+          state_region?: string | null
         }
         Update: {
           area_type?: string | null
@@ -651,6 +1038,7 @@ export type Database = {
           meeting_place?: string | null
           name?: string
           number?: number | null
+          state_region?: string | null
         }
         Relationships: [
           {
@@ -662,7 +1050,7 @@ export type Database = {
           },
         ]
       }
-      MasonicProfiles: {
+      masonicprofiles: {
         Row: {
           createdat: string
           grandoffice: string | null
@@ -716,7 +1104,7 @@ export type Database = {
           },
         ]
       }
-      OrganisationMemberships: {
+      organisationmemberships: {
         Row: {
           createdat: string
           isprimarycontact: boolean | null
@@ -824,14 +1212,21 @@ export type Database = {
             foreignKeyName: "package_events_event_id_fkey"
             columns: ["event_id"]
             isOneToOne: false
-            referencedRelation: "Events"
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "package_events_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "formatted_events"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "package_events_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
-            referencedRelation: "packages"
+            referencedRelation: "eventpackages"
             referencedColumns: ["id"]
           },
         ]
@@ -860,7 +1255,7 @@ export type Database = {
             foreignKeyName: "package_vas_options_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
-            referencedRelation: "packages"
+            referencedRelation: "eventpackages"
             referencedColumns: ["id"]
           },
           {
@@ -868,41 +1263,6 @@ export type Database = {
             columns: ["vas_id"]
             isOneToOne: false
             referencedRelation: "value_added_services"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      packages: {
-        Row: {
-          created_at: string
-          description: string | null
-          id: string
-          includes_description: string[] | null
-          name: string
-          parent_event_id: string | null
-        }
-        Insert: {
-          created_at?: string
-          description?: string | null
-          id?: string
-          includes_description?: string[] | null
-          name: string
-          parent_event_id?: string | null
-        }
-        Update: {
-          created_at?: string
-          description?: string | null
-          id?: string
-          includes_description?: string[] | null
-          name?: string
-          parent_event_id?: string | null
-        }
-        Relationships: [
-          {
-            foreignKeyName: "packages_parent_event_id_fkey"
-            columns: ["parent_event_id"]
-            isOneToOne: false
-            referencedRelation: "Events"
             referencedColumns: ["id"]
           },
         ]
@@ -1048,15 +1408,22 @@ export type Database = {
             foreignKeyName: "registration_vas_registration_id_fkey"
             columns: ["registration_id"]
             isOneToOne: false
-            referencedRelation: "registration_summary"
-            referencedColumns: ["registrationId"]
+            referencedRelation: "registration_payments"
+            referencedColumns: ["registration_id"]
           },
           {
             foreignKeyName: "registration_vas_registration_id_fkey"
             columns: ["registration_id"]
             isOneToOne: false
-            referencedRelation: "Registrations"
-            referencedColumns: ["registrationId"]
+            referencedRelation: "registration_summary"
+            referencedColumns: ["registration_id"]
+          },
+          {
+            foreignKeyName: "registration_vas_registration_id_fkey"
+            columns: ["registration_id"]
+            isOneToOne: false
+            referencedRelation: "registrations"
+            referencedColumns: ["registration_id"]
           },
           {
             foreignKeyName: "registration_vas_vas_id_fkey"
@@ -1067,68 +1434,70 @@ export type Database = {
           },
         ]
       }
-      Registrations: {
+      registrations: {
         Row: {
-          agreeToTerms: boolean | null
-          createdAt: string | null
-          customerId: string | null
-          eventId: string | null
-          paymentStatus: string | null
-          primaryAttendeeId: string | null
-          registrationDate: string | null
-          registrationId: string
-          registrationType: string | null
+          agree_to_terms: boolean | null
+          created_at: string | null
+          customer_id: string | null
+          event_id: string | null
+          payment_status: Database["public"]["Enums"]["payment_status"] | null
+          primary_attendee_id: string | null
+          registration_data: Json[] | null
+          registration_date: string | null
+          registration_id: string
+          registration_type:
+            | Database["public"]["Enums"]["registration_type"]
+            | null
           status: string | null
-          stripePaymentIntentId: string | null
-          totalAmountPaid: number | null
-          totalPricePaid: number | null
-          updatedAt: string | null
+          stripe_payment_intent_id: string | null
+          total_amount_paid: number | null
+          total_price_paid: number | null
+          updated_at: string | null
         }
         Insert: {
-          agreeToTerms?: boolean | null
-          createdAt?: string | null
-          customerId?: string | null
-          eventId?: string | null
-          paymentStatus?: string | null
-          primaryAttendeeId?: string | null
-          registrationDate?: string | null
-          registrationId: string
-          registrationType?: string | null
+          agree_to_terms?: boolean | null
+          created_at?: string | null
+          customer_id?: string | null
+          event_id?: string | null
+          payment_status?: Database["public"]["Enums"]["payment_status"] | null
+          primary_attendee_id?: string | null
+          registration_data?: Json[] | null
+          registration_date?: string | null
+          registration_id: string
+          registration_type?:
+            | Database["public"]["Enums"]["registration_type"]
+            | null
           status?: string | null
-          stripePaymentIntentId?: string | null
-          totalAmountPaid?: number | null
-          totalPricePaid?: number | null
-          updatedAt?: string | null
+          stripe_payment_intent_id?: string | null
+          total_amount_paid?: number | null
+          total_price_paid?: number | null
+          updated_at?: string | null
         }
         Update: {
-          agreeToTerms?: boolean | null
-          createdAt?: string | null
-          customerId?: string | null
-          eventId?: string | null
-          paymentStatus?: string | null
-          primaryAttendeeId?: string | null
-          registrationDate?: string | null
-          registrationId?: string
-          registrationType?: string | null
+          agree_to_terms?: boolean | null
+          created_at?: string | null
+          customer_id?: string | null
+          event_id?: string | null
+          payment_status?: Database["public"]["Enums"]["payment_status"] | null
+          primary_attendee_id?: string | null
+          registration_data?: Json[] | null
+          registration_date?: string | null
+          registration_id?: string
+          registration_type?:
+            | Database["public"]["Enums"]["registration_type"]
+            | null
           status?: string | null
-          stripePaymentIntentId?: string | null
-          totalAmountPaid?: number | null
-          totalPricePaid?: number | null
-          updatedAt?: string | null
+          stripe_payment_intent_id?: string | null
+          total_amount_paid?: number | null
+          total_price_paid?: number | null
+          updated_at?: string | null
         }
         Relationships: [
           {
-            foreignKeyName: "registrations_consolidated_eventId_fkey"
-            columns: ["eventId"]
-            isOneToOne: false
-            referencedRelation: "Events"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "registrations_customer_id_fkey"
-            columns: ["customerId"]
+            columns: ["customer_id"]
             isOneToOne: false
-            referencedRelation: "Customers"
+            referencedRelation: "customers"
             referencedColumns: ["id"]
           },
         ]
@@ -1143,7 +1512,6 @@ export type Database = {
           id: string
           is_active: boolean | null
           name: string
-          package_id: string | null
           price: number
         }
         Insert: {
@@ -1155,7 +1523,6 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           name: string
-          package_id?: string | null
           price: number
         }
         Update: {
@@ -1167,7 +1534,6 @@ export type Database = {
           id?: string
           is_active?: boolean | null
           name?: string
-          package_id?: string | null
           price?: number
         }
         Relationships: [
@@ -1175,14 +1541,14 @@ export type Database = {
             foreignKeyName: "ticket_definitions_event_id_fkey"
             columns: ["event_id"]
             isOneToOne: false
-            referencedRelation: "Events"
+            referencedRelation: "events"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "ticket_definitions_package_id_fkey"
-            columns: ["package_id"]
+            foreignKeyName: "ticket_definitions_event_id_fkey"
+            columns: ["event_id"]
             isOneToOne: false
-            referencedRelation: "packages"
+            referencedRelation: "formatted_events"
             referencedColumns: ["id"]
           },
         ]
@@ -1244,79 +1610,145 @@ export type Database = {
           },
         ]
       }
-      Tickets: {
+      tickets: {
         Row: {
-          attendeeid: string
-          checkedinat: string | null
-          createdat: string
+          attendee_id: string
+          checked_in_at: string | null
+          created_at: string
           currency: string | null
-          eventid: string
-          originalPrice: number | null
-          paymentStatus: string | null
-          pricepaid: number
-          purchasedAt: string | null
-          reservationExpiresAt: string | null
-          reservationId: string | null
-          seatinfo: string | null
+          event_id: string
+          event_ticket_id: string | null
+          id: string | null
+          is_partner_ticket: boolean | null
+          original_price: number | null
+          package_id: string | null
+          payment_status: string | null
+          price_paid: number
+          purchased_at: string | null
+          registration_id: string | null
+          reservation_expires_at: string | null
+          reservation_id: string | null
+          seat_info: string | null
           status: string
-          ticketdefinitionid: string | null
-          ticketid: string
-          updatedat: string
+          ticket_definition_id: string | null
+          ticket_id: string
+          ticket_price: number | null
+          ticket_status: string | null
+          ticket_type_id: string | null
+          updated_at: string
         }
         Insert: {
-          attendeeid: string
-          checkedinat?: string | null
-          createdat?: string
+          attendee_id: string
+          checked_in_at?: string | null
+          created_at?: string
           currency?: string | null
-          eventid: string
-          originalPrice?: number | null
-          paymentStatus?: string | null
-          pricepaid: number
-          purchasedAt?: string | null
-          reservationExpiresAt?: string | null
-          reservationId?: string | null
-          seatinfo?: string | null
+          event_id: string
+          event_ticket_id?: string | null
+          id?: string | null
+          is_partner_ticket?: boolean | null
+          original_price?: number | null
+          package_id?: string | null
+          payment_status?: string | null
+          price_paid: number
+          purchased_at?: string | null
+          registration_id?: string | null
+          reservation_expires_at?: string | null
+          reservation_id?: string | null
+          seat_info?: string | null
           status?: string
-          ticketdefinitionid?: string | null
-          ticketid?: string
-          updatedat?: string
+          ticket_definition_id?: string | null
+          ticket_id?: string
+          ticket_price?: number | null
+          ticket_status?: string | null
+          ticket_type_id?: string | null
+          updated_at?: string
         }
         Update: {
-          attendeeid?: string
-          checkedinat?: string | null
-          createdat?: string
+          attendee_id?: string
+          checked_in_at?: string | null
+          created_at?: string
           currency?: string | null
-          eventid?: string
-          originalPrice?: number | null
-          paymentStatus?: string | null
-          pricepaid?: number
-          purchasedAt?: string | null
-          reservationExpiresAt?: string | null
-          reservationId?: string | null
-          seatinfo?: string | null
+          event_id?: string
+          event_ticket_id?: string | null
+          id?: string | null
+          is_partner_ticket?: boolean | null
+          original_price?: number | null
+          package_id?: string | null
+          payment_status?: string | null
+          price_paid?: number
+          purchased_at?: string | null
+          registration_id?: string | null
+          reservation_expires_at?: string | null
+          reservation_id?: string | null
+          seat_info?: string | null
           status?: string
-          ticketdefinitionid?: string | null
-          ticketid?: string
-          updatedat?: string
+          ticket_definition_id?: string | null
+          ticket_id?: string
+          ticket_price?: number | null
+          ticket_status?: string | null
+          ticket_type_id?: string | null
+          updated_at?: string
         }
         Relationships: [
           {
             foreignKeyName: "tickets_attendeeid_fkey"
-            columns: ["attendeeid"]
+            columns: ["attendee_id"]
             isOneToOne: false
-            referencedRelation: "Attendees"
+            referencedRelation: "attendees"
             referencedColumns: ["attendeeid"]
           },
           {
-            foreignKeyName: "tickets_eventid_fkey"
-            columns: ["eventid"]
+            foreignKeyName: "tickets_event_ticket_id_fkey"
+            columns: ["event_ticket_id"]
             isOneToOne: false
-            referencedRelation: "Events"
+            referencedRelation: "eventtickets"
+            referencedColumns: ["event_ticket_id"]
+          },
+          {
+            foreignKeyName: "tickets_eventid_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "tickets_eventid_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "formatted_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tickets_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "eventpackages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tickets_registration_id_fkey"
+            columns: ["registration_id"]
+            isOneToOne: false
+            referencedRelation: "registration_payments"
+            referencedColumns: ["registration_id"]
+          },
+          {
+            foreignKeyName: "tickets_registration_id_fkey"
+            columns: ["registration_id"]
+            isOneToOne: false
+            referencedRelation: "registration_summary"
+            referencedColumns: ["registration_id"]
+          },
+          {
+            foreignKeyName: "tickets_registration_id_fkey"
+            columns: ["registration_id"]
+            isOneToOne: false
+            referencedRelation: "registrations"
+            referencedColumns: ["registration_id"]
+          },
+          {
             foreignKeyName: "tickets_ticketdefinitionid_fkey"
-            columns: ["ticketdefinitionid"]
+            columns: ["ticket_definition_id"]
             isOneToOne: false
             referencedRelation: "ticket_definitions"
             referencedColumns: ["id"]
@@ -1379,42 +1811,241 @@ export type Database = {
       }
     }
     Views: {
-      registration_summary: {
+      formatted_events: {
         Row: {
+          attendance: Json | null
           createdAt: string | null
-          customer_name: string | null
-          customerId: string | null
-          event_title: string | null
+          date_formatted: string | null
+          day_formatted: string | null
+          degree_type: string | null
+          description: string | null
+          displayScopeId: string | null
+          documents: Json | null
+          dress_code: string | null
+          duration_hours: number | null
+          eventEnd: string | null
           eventId: string | null
-          paymentStatus: string | null
-          primaryAttendeeId: string | null
-          registrationDate: string | null
-          registrationId: string | null
-          registrationType: string | null
-          status: string | null
-          totalAmountPaid: number | null
-          totalPricePaid: number | null
-          updatedAt: string | null
+          eventIncludes: string[] | null
+          eventStart: string | null
+          featured: boolean | null
+          id: string | null
+          imageUrl: string | null
+          importantInformation: string[] | null
+          is_multi_day_calc: boolean | null
+          is_published: boolean | null
+          isMultiDay: boolean | null
+          isPurchasableIndividually: boolean | null
+          latitude: number | null
+          location: string | null
+          location_json: Json | null
+          locationid: string | null
+          longitude: number | null
+          maxAttendees: number | null
+          organiserorganisationid: string | null
+          organizer_contact: Json | null
+          organizer_name: string | null
+          parentEventId: string | null
+          price: number | null
+          publish_option: string | null
+          regalia: string | null
+          regalia_description: string | null
+          registrationAvailabilityId: string | null
+          related_events: string[] | null
+          sections: Json | null
+          slug: string | null
+          subtitle: string | null
+          time_formatted: string | null
+          title: string | null
+          type: string | null
+          until_formatted: string | null
+        }
+        Insert: {
+          attendance?: Json | null
+          createdAt?: string | null
+          date_formatted?: never
+          day_formatted?: never
+          degree_type?: string | null
+          description?: string | null
+          displayScopeId?: string | null
+          documents?: Json | null
+          dress_code?: string | null
+          duration_hours?: never
+          eventEnd?: string | null
+          eventId?: string | null
+          eventIncludes?: string[] | null
+          eventStart?: string | null
+          featured?: boolean | null
+          id?: string | null
+          imageUrl?: string | null
+          importantInformation?: string[] | null
+          is_multi_day_calc?: never
+          is_published?: boolean | null
+          isMultiDay?: boolean | null
+          isPurchasableIndividually?: boolean | null
+          latitude?: number | null
+          location?: string | null
+          location_json?: Json | null
+          locationid?: string | null
+          longitude?: number | null
+          maxAttendees?: number | null
+          organiserorganisationid?: string | null
+          organizer_contact?: Json | null
+          organizer_name?: string | null
+          parentEventId?: string | null
+          price?: number | null
+          publish_option?: string | null
+          regalia?: string | null
+          regalia_description?: string | null
+          registrationAvailabilityId?: string | null
+          related_events?: string[] | null
+          sections?: Json | null
+          slug?: string | null
+          subtitle?: string | null
+          time_formatted?: never
+          title?: string | null
+          type?: string | null
+          until_formatted?: never
+        }
+        Update: {
+          attendance?: Json | null
+          createdAt?: string | null
+          date_formatted?: never
+          day_formatted?: never
+          degree_type?: string | null
+          description?: string | null
+          displayScopeId?: string | null
+          documents?: Json | null
+          dress_code?: string | null
+          duration_hours?: never
+          eventEnd?: string | null
+          eventId?: string | null
+          eventIncludes?: string[] | null
+          eventStart?: string | null
+          featured?: boolean | null
+          id?: string | null
+          imageUrl?: string | null
+          importantInformation?: string[] | null
+          is_multi_day_calc?: never
+          is_published?: boolean | null
+          isMultiDay?: boolean | null
+          isPurchasableIndividually?: boolean | null
+          latitude?: number | null
+          location?: string | null
+          location_json?: Json | null
+          locationid?: string | null
+          longitude?: number | null
+          maxAttendees?: number | null
+          organiserorganisationid?: string | null
+          organizer_contact?: Json | null
+          organizer_name?: string | null
+          parentEventId?: string | null
+          price?: number | null
+          publish_option?: string | null
+          regalia?: string | null
+          regalia_description?: string | null
+          registrationAvailabilityId?: string | null
+          related_events?: string[] | null
+          sections?: Json | null
+          slug?: string | null
+          subtitle?: string | null
+          time_formatted?: never
+          title?: string | null
+          type?: string | null
+          until_formatted?: never
         }
         Relationships: [
           {
-            foreignKeyName: "registrations_consolidated_eventId_fkey"
-            columns: ["eventId"]
+            foreignKeyName: "events_display_scope_id_fkey"
+            columns: ["displayScopeId"]
             isOneToOne: false
-            referencedRelation: "Events"
+            referencedRelation: "displayscopes"
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "registrations_customer_id_fkey"
-            columns: ["customerId"]
+            foreignKeyName: "events_locationid_fkey"
+            columns: ["locationid"]
             isOneToOne: false
-            referencedRelation: "Customers"
+            referencedRelation: "locations"
+            referencedColumns: ["locationid"]
+          },
+          {
+            foreignKeyName: "events_organiserorganisationid_fkey"
+            columns: ["organiserorganisationid"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["organisationid"]
+          },
+          {
+            foreignKeyName: "events_parent_event_id_fkey"
+            columns: ["parentEventId"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "events_parent_event_id_fkey"
+            columns: ["parentEventId"]
+            isOneToOne: false
+            referencedRelation: "formatted_events"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "events_registration_availability_id_fkey"
+            columns: ["registrationAvailabilityId"]
+            isOneToOne: false
+            referencedRelation: "registration_availabilities"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      registration_payments: {
+        Row: {
+          payment_intent_id: string | null
+          payment_status: Database["public"]["Enums"]["payment_status"] | null
+          registration_id: string | null
+          registration_status: string | null
+          stripe_amount: number | null
+          stripe_payment_status: string | null
+          total_paid: number | null
+          total_price: number | null
+        }
+        Relationships: []
+      }
+      registration_summary: {
+        Row: {
+          created_at: string | null
+          customer_id: string | null
+          customer_name: string | null
+          event_id: string | null
+          event_title: string | null
+          payment_status: Database["public"]["Enums"]["payment_status"] | null
+          primary_attendee_id: string | null
+          registration_date: string | null
+          registration_id: string | null
+          registration_type:
+            | Database["public"]["Enums"]["registration_type"]
+            | null
+          status: string | null
+          total_amount_paid: number | null
+          total_price_paid: number | null
+          updated_at: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "registrations_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
             referencedColumns: ["id"]
           },
         ]
       }
     }
     Functions: {
+      broadcast_high_demand_event: {
+        Args: { event_id: string }
+        Returns: boolean
+      }
       cancel_reservation: {
         Args: { p_reservation_id: string } | { p_reservation_id: string }
         Returns: number
@@ -1422,6 +2053,10 @@ export type Database = {
       cancel_reservation_simple: {
         Args: { p_reservation_id: string }
         Returns: boolean
+      }
+      check_payment_intent_status: {
+        Args: { payment_intent_id: string }
+        Returns: Json
       }
       clear_expired_reservations: {
         Args: Record<PropertyKey, never>
@@ -1437,13 +2072,54 @@ export type Database = {
         Args: { p_reservation_id: string; p_attendee_id: string }
         Returns: string[]
       }
+      confirm_event_capacity: {
+        Args: { p_event_id: string; p_quantity?: number }
+        Returns: boolean
+      }
+      create_registration: {
+        Args: {
+          registration_data: Json
+          attendees_data: Json
+          tickets_data: Json
+        }
+        Returns: Json
+      }
+      get_event_availability: {
+        Args: { p_event_id: string }
+        Returns: Json
+      }
       get_ticket_availability: {
+        Args:
+          | { p_event_id: string; p_ticket_definition_id: string }
+          | { p_event_id: string; p_ticket_definition_id: string }
+        Returns: Json
+      }
+      get_ticket_availability_text: {
+        Args: { p_event_id: string; p_ticket_definition_id: string }
+        Returns: Json
+      }
+      get_ticket_availability_uuid: {
         Args: { p_event_id: string; p_ticket_definition_id: string }
         Returns: Json
       }
       hello_tickets: {
         Args: { name: string }
         Returns: string
+      }
+      initialize_event_capacity: {
+        Args: { p_event_id: string; p_max_capacity?: number }
+        Returns: {
+          created_at: string
+          event_id: string
+          max_capacity: number
+          reserved_count: number
+          sold_count: number
+          updated_at: string
+        }
+      }
+      is_event_high_demand: {
+        Args: { p_event_id: string; p_threshold_percent?: number }
+        Returns: boolean
       }
       is_ticket_high_demand: {
         Args: {
@@ -1466,9 +2142,21 @@ export type Database = {
         Args: { old_name: string; new_name: string; success?: boolean }
         Returns: undefined
       }
+      normalize_event_id: {
+        Args: { p_id: string }
+        Returns: string
+      }
       refresh_event_days: {
         Args: { parent_id_uuid: string }
         Returns: undefined
+      }
+      release_event_capacity: {
+        Args: { p_event_id: string; p_quantity?: number }
+        Returns: boolean
+      }
+      reserve_event_capacity: {
+        Args: { p_event_id: string; p_quantity?: number }
+        Returns: boolean
       }
       reserve_tickets: {
         Args: {
@@ -1522,9 +2210,52 @@ export type Database = {
           expires_at: string
         }[]
       }
+      safe_rename_column: {
+        Args: {
+          p_table_name: string
+          p_old_column: string
+          p_new_column: string
+        }
+        Returns: undefined
+      }
       schedule_reservation_cleanup: {
         Args: Record<PropertyKey, never>
         Returns: undefined
+      }
+      search_all_lodges: {
+        Args: { search_term: string; result_limit?: number }
+        Returns: {
+          area_type: string | null
+          created_at: string
+          display_name: string | null
+          district: string | null
+          grand_lodge_id: string | null
+          id: string
+          meeting_place: string | null
+          name: string
+          number: number | null
+          state_region: string | null
+        }[]
+      }
+      search_grand_lodges_prioritized: {
+        Args: { search_term: string; user_country: string }
+        Returns: {
+          abbreviation: string | null
+          country: string | null
+          country_code_iso3: string | null
+          created_at: string
+          id: string
+          name: string
+          state_region: string | null
+          state_region_code: string | null
+        }[]
+      }
+      show_columns: {
+        Args: { table_name: string }
+        Returns: {
+          column_name: string
+          data_type: string
+        }[]
       }
       test_reserve_tickets: {
         Args: {
@@ -1533,37 +2264,49 @@ export type Database = {
           p_quantity: number
         }
         Returns: {
-          attendeeid: string
-          checkedinat: string | null
-          createdat: string
+          attendee_id: string
+          checked_in_at: string | null
+          created_at: string
           currency: string | null
-          eventid: string
-          originalPrice: number | null
-          paymentStatus: string | null
-          pricepaid: number
-          purchasedAt: string | null
-          reservationExpiresAt: string | null
-          reservationId: string | null
-          seatinfo: string | null
+          event_id: string
+          event_ticket_id: string | null
+          id: string | null
+          is_partner_ticket: boolean | null
+          original_price: number | null
+          package_id: string | null
+          payment_status: string | null
+          price_paid: number
+          purchased_at: string | null
+          registration_id: string | null
+          reservation_expires_at: string | null
+          reservation_id: string | null
+          seat_info: string | null
           status: string
-          ticketdefinitionid: string | null
-          ticketid: string
-          updatedat: string
+          ticket_definition_id: string | null
+          ticket_id: string
+          ticket_price: number | null
+          ticket_status: string | null
+          ticket_type_id: string | null
+          updated_at: string
         }[]
       }
       to_camel_case: {
         Args: { snake_str: string }
         Returns: string
       }
+      verify_registration_payment: {
+        Args: { reg_id: string }
+        Returns: Json
+      }
     }
     Enums: {
       attendee_contact_preference:
-        | "Directly"
-        | "PrimaryAttendee"
-        | "Mason"
-        | "Guest"
-        | "ProvideLater"
-      attendee_type: "Mason" | "Guest" | "LadyPartner" | "GuestPartner"
+        | "directly"
+        | "primaryattendee"
+        | "mason"
+        | "guest"
+        | "providelater"
+      attendee_type: "mason" | "guest" | "ladypartner" | "guestpartner"
       billing_reason:
         | "subscription_cycle"
         | "subscription_create"
@@ -1576,13 +2319,27 @@ export type Database = {
       collection_method: "charge_automatically" | "send_invoice"
       invoice_status: "draft" | "open" | "paid" | "void" | "uncollectible"
       organisation_type:
-        | "Lodge"
-        | "GrandLodge"
-        | "MasonicOrder"
-        | "Company"
-        | "Other"
+        | "lodge"
+        | "grandlodge"
+        | "masonicorder"
+        | "company"
+        | "other"
+      payment_status:
+        | "pending"
+        | "completed"
+        | "failed"
+        | "refunded"
+        | "partially_refunded"
+        | "cancelled"
+        | "expired"
       price_type: "one_time" | "recurring"
       quote_status: "draft" | "open" | "accepted" | "canceled" | "expired"
+      registration_type:
+        | "individuals"
+        | "groups"
+        | "officials"
+        | "lodge"
+        | "delegation"
       stripe_order_status: "pending" | "completed" | "canceled"
       stripe_subscription_status:
         | "not_started"
@@ -1595,6 +2352,7 @@ export type Database = {
         | "unpaid"
         | "paused"
       tax_behavior: "inclusive" | "exclusive" | "unspecified"
+      URL: "url"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -1708,16 +2466,19 @@ export type CompositeTypes<
     : never
 
 export const Constants = {
+  graphql_public: {
+    Enums: {},
+  },
   public: {
     Enums: {
       attendee_contact_preference: [
-        "Directly",
-        "PrimaryAttendee",
-        "Mason",
-        "Guest",
-        "ProvideLater",
+        "directly",
+        "primaryattendee",
+        "mason",
+        "guest",
+        "providelater",
       ],
-      attendee_type: ["Mason", "Guest", "LadyPartner", "GuestPartner"],
+      attendee_type: ["mason", "guest", "ladypartner", "guestpartner"],
       billing_reason: [
         "subscription_cycle",
         "subscription_create",
@@ -1731,14 +2492,30 @@ export const Constants = {
       collection_method: ["charge_automatically", "send_invoice"],
       invoice_status: ["draft", "open", "paid", "void", "uncollectible"],
       organisation_type: [
-        "Lodge",
-        "GrandLodge",
-        "MasonicOrder",
-        "Company",
-        "Other",
+        "lodge",
+        "grandlodge",
+        "masonicorder",
+        "company",
+        "other",
+      ],
+      payment_status: [
+        "pending",
+        "completed",
+        "failed",
+        "refunded",
+        "partially_refunded",
+        "cancelled",
+        "expired",
       ],
       price_type: ["one_time", "recurring"],
       quote_status: ["draft", "open", "accepted", "canceled", "expired"],
+      registration_type: [
+        "individuals",
+        "groups",
+        "officials",
+        "lodge",
+        "delegation",
+      ],
       stripe_order_status: ["pending", "completed", "canceled"],
       stripe_subscription_status: [
         "not_started",
@@ -1752,48 +2529,7 @@ export const Constants = {
         "paused",
       ],
       tax_behavior: ["inclusive", "exclusive", "unspecified"],
+      URL: ["url"],
     },
   },
 } as const
-
-export type UnifiedAttendeeData = {
-  attendeeId: string; // PK - UUID
-  orderId?: string; // FK to Orders
-  eventId?: string; // FK to Events
-  attendeeType: Database["public"]["Enums"]["attendee_type"]; // 'Mason' | 'Guest' | 'LadyPartner' | 'GuestPartner'
-  title?: string | null;
-  firstName?: string | null;
-  lastName?: string | null;
-  lodgeNameNumber?: string | null; // For Masons or Guests if needed
-  primaryEmail?: string | null;
-  primaryPhone?: string | null;
-  dietaryRequirements?: string | null;
-  specialNeeds?: string | null;
-  contactPreference?: Database["public"]["Enums"]["attendee_contact_preference"] | ''; 
-  contactConfirmed?: boolean;
-  isPrimary?: boolean;
-  isCheckedIn?: boolean;
-  firstTime?: boolean; // Mason specific
-  rank?: string | null; // Mason specific
-  postNominals?: string | null; // Mason specific
-  grandLodgeId?: number | null; // FK to GrandLodges
-  lodgeId?: number | null; // FK to Lodges
-  tableAssignment?: number | null;
-  notes?: string | null;
-  paymentStatus?: string | null; // 'pending', 'paid', 'failed', 'refunded'
-  parentId?: string | null; // Review if still needed
-  relationship?: string | null; // e.g., relationship to Mason for Guest, or partner relationship
-
-  // --- New/Updated Relationship Fields ---
-  partner?: string | null; // FK: Mason/Guest -> LadyPartner/GuestPartner attendeeId (UUID)
-  partnerOf?: string | null; // FK: LadyPartner/GuestPartner -> Mason/Guest attendeeId (UUID)
-  guestOfId?: string | null; // FK: Guest -> Mason attendeeId (UUID)
-  isPartner?: string | null; // FK: Partners link to their related Mason/Guest attendeeId (UUID)
-  // --- End New/Updated Fields ---
-
-  // Fields potentially from join or calculation, ensure they are handled if needed
-  grandLodgeName?: string | null;
-  lodgeName?: string | null;
-  createdAt?: string;
-  updatedAt?: string;
-};
