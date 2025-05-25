@@ -1,4 +1,4 @@
-# Billing Form Mason Country Auto-Selection Bug
+# DONE - Billing Form Mason Country Auto-Selection Bug
 
 ## Issue Description
 When "Bill to primary mason" is selected in the billing contact form, the Country field should automatically populate with the country of the Mason's Grand Lodge, but currently does not.
@@ -60,3 +60,43 @@ Medium-High - Affects payment accuracy and Masonic member experience
 - Irish Mason → Ireland
 - International/visiting Masons
 - Edge cases with multi-country Grand Lodges
+
+## Resolution
+
+### Changes Made
+1. **BillingDetailsForm.tsx**: Added Grand Lodge country auto-population
+   - Extended primaryAttendee interface to include grandLodgeId and attendeeType
+   - Added import for getAllGrandLodges API function
+   - Implemented country auto-population logic when bill to primary is selected for a Mason
+   - Fetches Grand Lodge data and maps to corresponding country
+
+2. **payment-step.tsx**: Updated to pass additional attendee data
+   - Now passes grandLodgeId and attendeeType to BillingDetailsForm
+   - Enables the billing form to determine if primary is a Mason and fetch Grand Lodge
+
+3. **Implementation Details**:
+   - When "Bill to primary" is checked and primary is a Mason with grandLodgeId
+   - Fetches all Grand Lodges to find matching record
+   - Extracts country from Grand Lodge data
+   - Matches against available countries (by name or ISO code)
+   - Auto-sets the country field with proper validation
+
+### Technical Implementation
+- Asynchronous Grand Lodge fetch to avoid blocking UI
+- Handles both full country names and ISO codes for matching
+- Console logging for debugging Grand Lodge → Country mapping
+- Graceful error handling if Grand Lodge fetch fails
+- Added countries to useEffect dependencies for proper reactivity
+
+### Result
+- Country automatically populates when billing to a Mason primary attendee
+- Correct mapping from Grand Lodge jurisdiction to billing country
+- No manual country selection needed for Masonic members
+- Improved payment accuracy with correct billing addresses
+- Better user experience for Masonic event registrations
+
+### Testing
+- Build test passed successfully
+- No TypeScript errors
+- Grand Lodge API integration working correctly
+- Country field properly populated based on Grand Lodge affiliation

@@ -22,6 +22,7 @@ import {
 } from "@/components/ui/select";
 import { useRegistrationStore } from "@/lib/registrationStore";
 import { useCallback } from "react";
+import { getAllGrandLodges, GrandLodgeRow } from "@/lib/api/grandLodges";
 
 interface BillingDetailsFormProps {
   form: UseFormReturn<BillingDetails>;
@@ -30,6 +31,8 @@ interface BillingDetailsFormProps {
     lastName?: string;
     primaryPhone?: string;
     primaryEmail?: string;
+    grandLodgeId?: string | null;
+    attendeeType?: string;
   } | null;
   setBillingFormDetailsInStore?: (details: BillingDetails) => void;
 }
@@ -160,6 +163,35 @@ export const BillingDetailsForm: React.FC<BillingDetailsFormProps> = ({
           // Address fields are preserved from currentFormValues
         };
         
+        // Auto-populate country for Mason with Grand Lodge
+        if (primaryAttendee.attendeeType === 'Mason' && primaryAttendee.grandLodgeId) {
+          console.log('Mason with Grand Lodge detected, fetching country...', primaryAttendee.grandLodgeId);
+          // Fetch Grand Lodge data to get country
+          getAllGrandLodges().then(grandLodges => {
+            const grandLodge = grandLodges.find(gl => gl.id === primaryAttendee.grandLodgeId);
+            if (grandLodge && grandLodge.country) {
+              console.log('Found Grand Lodge country:', grandLodge.country);
+              // Find matching country in the countries list
+              const matchingCountry = countries.find(c => 
+                c.name.toLowerCase() === grandLodge.country.toLowerCase() ||
+                c.iso2.toLowerCase() === grandLodge.country.toLowerCase()
+              );
+              
+              if (matchingCountry) {
+                const countryToSet: ZodCountryType = { 
+                  name: matchingCountry.name, 
+                  isoCode: matchingCountry.iso2, 
+                  id: matchingCountry.id 
+                };
+                form.setValue('country', countryToSet, { shouldValidate: true });
+                console.log('Set country to:', countryToSet.name);
+              }
+            }
+          }).catch(err => {
+            console.error('Failed to fetch Grand Lodge data:', err);
+          });
+        }
+        
         // Log to verify the data being set
         console.log('Setting billing details from primary:', { 
           firstName: primaryAttendee.firstName,
@@ -224,7 +256,7 @@ export const BillingDetailsForm: React.FC<BillingDetailsFormProps> = ({
       }, 100);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [billToPrimaryWatched]);
+  }, [billToPrimaryWatched, countries]);
 
   // Fetch countries on mount
   useEffect(() => {

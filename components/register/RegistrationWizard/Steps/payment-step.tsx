@@ -726,7 +726,9 @@ function PaymentStep(props: PaymentStepProps = {}) {
             firstName: primaryAttendee.firstName || undefined,
             lastName: primaryAttendee.lastName || undefined,
             primaryPhone: primaryAttendee.primaryPhone || undefined,
-            primaryEmail: primaryAttendee.primaryEmail || undefined
+            primaryEmail: primaryAttendee.primaryEmail || undefined,
+            grandLodgeId: primaryAttendee.grandLodgeId || undefined,
+            attendeeType: primaryAttendee.attendeeType || undefined
           } : null} />
           <div ref={paymentElementRef}>
             <PaymentMethod 
