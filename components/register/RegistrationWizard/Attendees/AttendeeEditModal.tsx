@@ -96,6 +96,8 @@ const AttendeeEditModal: React.FC<AttendeeEditModalProps> = ({
         <GuestForm
           attendeeId={currentData.attendeeId}
           attendeeNumber={0}
+          isPrimary={currentData.isPrimary}
+          isEditMode={true} // Always show all fields in edit modal
         />
       );
     }

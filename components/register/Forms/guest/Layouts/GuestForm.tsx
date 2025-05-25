@@ -14,9 +14,10 @@ import { GUEST_TITLES } from '../../attendee/utils/constants';
 interface GuestFormProps extends FormProps {
   onRemove?: () => void;
   onRelationshipChange?: (relationship: string) => void;
+  isEditMode?: boolean; // Add flag to indicate if we're in edit modal
 }
 
-export const GuestForm: React.FC<GuestFormProps> = ({ attendeeId, attendeeNumber, isPrimary, onRemove, onRelationshipChange }) => {
+export const GuestForm: React.FC<GuestFormProps> = ({ attendeeId, attendeeNumber, isPrimary, onRemove, onRelationshipChange, isEditMode = false }) => {
   const { attendee, updateField, updateFieldImmediate } = useAttendeeDataWithDebounce(attendeeId);
   const [isMobile, setIsMobile] = useState(false);
   
@@ -98,8 +99,8 @@ export const GuestForm: React.FC<GuestFormProps> = ({ attendeeId, attendeeNumber
       
       <div className="space-y-4">
         {/* Use type assertion to handle UnifiedAttendeeData - BasicInfo internally handles both Mason and Guest */}
-        {/* Only show BasicInfo for non-partners or on mobile view */}
-        {(!isPartner || isMobile) && (
+        {/* Show BasicInfo for non-partners, on mobile view, or in edit mode (partners need to edit their details) */}
+        {(!isPartner || isMobile || isEditMode) && (
           <BasicInfo 
             data={attendee}
             type="Guest"

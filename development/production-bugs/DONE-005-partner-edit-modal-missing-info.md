@@ -38,3 +38,18 @@ High - Prevents users from editing critical information
 - Ensure partner form fields are properly included in edit modal
 - Check conditional rendering logic for partner vs regular attendee
 - Verify form field mapping for partner attendees
+
+## Resolution Summary
+Fixed the issue where BasicInfo section was not displayed for partners in the edit modal due to conditional rendering logic.
+
+### Changes Made:
+1. Added `isEditMode` prop to GuestForm interface to indicate when form is displayed in edit modal
+2. Updated GuestForm conditional rendering to show BasicInfo when `isEditMode` is true
+3. Modified AttendeeEditModal to pass `isEditMode={true}` when rendering GuestForm
+4. Also added missing `isPrimary` prop to GuestForm in AttendeeEditModal
+
+The fix ensures that:
+- Partners can see and edit all their basic information in the modal
+- The original behavior of hiding partner BasicInfo in main form (to avoid duplication) is preserved
+- Edit modal always shows complete form fields for all attendee types
+- Users can now correct partner information after initial entry
