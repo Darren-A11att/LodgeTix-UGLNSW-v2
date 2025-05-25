@@ -83,6 +83,7 @@ export function RegistrationTypeStep() {
     clearAllAttendees,
     addAttendee,
     updateAttendee,
+    draftRecoveryHandled,
     setDraftRecoveryHandled,
     anonymousSessionEstablished,
     setAnonymousSessionEstablished,
@@ -220,7 +221,6 @@ export function RegistrationTypeStep() {
     const hasExistingAttendees = currentState.attendees && currentState.attendees.length > 0;
     const currentStep = currentState.currentStep;
     const confirmationNumber = currentState.confirmationNumber;
-    const draftRecoveryHandled = currentState.draftRecoveryHandled;
     
     // Check if any of the attendees have data filled in
     const hasFilledData = currentState.attendees.some(attendee => 
@@ -249,7 +249,6 @@ export function RegistrationTypeStep() {
       hasFilledData,
       currentStep,
       confirmationNumber,
-      draftRecoveryHandled,
       hasIncompleteDraft,
       isSelectingCurrentType,
       attendees: currentState.attendees.length
