@@ -101,38 +101,41 @@ export function RegistrationTypeStep() {
   const draftStepInStore = useRegistrationStore.getState().currentStep;
   const storedAttendees = useRegistrationStore.getState().attendees;
   
-  // Check if we should show draft recovery modal on mount (coming back from payment failure)
+  // Check if we should show draft recovery modal on mount
   useEffect(() => {
     const storeState = useRegistrationStore.getState();
-    const hasCompletedRegistration = storeState.status === 'completed' && storeState.confirmationNumber !== null;
+    const hasCompletedRegistration = storeState.status === 'completed' || storeState.confirmationNumber !== null;
     const hasIncompleteRegistration = storeState.registrationType !== null && 
                                      storeState.confirmationNumber === null &&
                                      storeState.status !== 'completed';
     const hasFilledData = storeState.attendees.some(att => 
       att.firstName || att.lastName || att.primaryEmail
     );
-    const wasOnLaterStep = storeState.currentStep > 2;
     
-    // If there's a completed registration, go directly to confirmation
+    console.log('Registration type step mount check:', {
+      hasCompletedRegistration,
+      hasIncompleteRegistration,
+      hasFilledData,
+      registrationType: storeState.registrationType,
+      status: storeState.status,
+      confirmationNumber: storeState.confirmationNumber
+    });
+    
+    // If there's a completed registration, it should have been cleared by the wizard
+    // Just ensure we start fresh
     if (hasCompletedRegistration) {
-      console.log('Detected completed registration - redirecting to confirmation');
-      // Set the step to confirmation
-      const setCurrentStep = useRegistrationStore.getState().setCurrentStep;
-      setCurrentStep(6); // Confirmation is step 6
+      console.log('Completed registration detected in type step - should have been cleared by wizard');
+      setSelectedType(null);
       return;
     }
     
-    // Show draft recovery modal if:
-    // 1. We have an incomplete registration
-    // 2. We have filled data
-    // 3. We were on a later step (e.g., payment)
-    if (hasIncompleteRegistration && hasFilledData && wasOnLaterStep) {
-      console.log('Showing draft recovery modal on mount - detected incomplete registration from later step');
+    // Show draft recovery modal if we have an incomplete registration with data
+    if (hasIncompleteRegistration && hasFilledData && !draftRecoveryHandled) {
+      console.log('Showing draft recovery modal on mount - detected incomplete registration');
       setShowDraftModal(true);
-      // Set the selected type to match the draft
-      setSelectedType(storeState.registrationType);
+      // Don't set selected type yet - let user choose
     }
-  }, []);
+  }, [draftRecoveryHandled]);
   
   // Debug - log the current state of the registration store
   useEffect(() => {
@@ -286,7 +289,7 @@ export function RegistrationTypeStep() {
     setShowDraftModal(false);
     setDraftRecoveryHandled(true);
     
-    // When continuing with a draft, always go to step 2 (attendee details)
+    // When continuing with a draft, go to step 2 (attendee details)
     const currentState = useRegistrationStore.getState();
     const registrationType = currentState.registrationType;
     const hasAttendees = currentState.attendees && currentState.attendees.length > 0;
@@ -306,16 +309,10 @@ export function RegistrationTypeStep() {
       initializeAttendees(registrationType);
     }
     
-    // Resume at the saved step or move to step 2 (attendee details) when continuing a draft
-    const setCurrentStep = useRegistrationStore.getState().setCurrentStep;
-    const savedStep = currentState.currentStep;
-    const targetStep = savedStep > 1 ? savedStep : 2;
-    setCurrentStep(targetStep);
-    console.log(`Moving to step ${targetStep} for existing draft (was at step ${savedStep})`);
-    
-    // Ensure the store has the current state before proceeding
-    // This helps fix race conditions with localStorage rehydration
-    useRegistrationStore.persist.rehydrate();
+    // Always go to step 2 (attendee details) when continuing a draft
+    const goToNextStep = useRegistrationStore.getState().goToNextStep;
+    goToNextStep();
+    console.log(`Moving to attendee details for existing draft`);
     
     setPendingRegistrationType(null);
   };
