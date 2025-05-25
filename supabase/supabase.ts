@@ -1156,6 +1156,7 @@ export type Database = {
           createdat: string
           name: string
           organisationid: string
+          parent_id: string | null
           postalcode: string | null
           state: string | null
           streetaddress: string | null
@@ -1169,6 +1170,7 @@ export type Database = {
           createdat?: string
           name: string
           organisationid?: string
+          parent_id?: string | null
           postalcode?: string | null
           state?: string | null
           streetaddress?: string | null
@@ -1182,6 +1184,7 @@ export type Database = {
           createdat?: string
           name?: string
           organisationid?: string
+          parent_id?: string | null
           postalcode?: string | null
           state?: string | null
           streetaddress?: string | null
@@ -1189,7 +1192,15 @@ export type Database = {
           updatedat?: string
           website?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "organisations_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["organisationid"]
+          },
+        ]
       }
       package_events: {
         Row: {
@@ -1612,7 +1623,7 @@ export type Database = {
       }
       tickets: {
         Row: {
-          attendee_id: string
+          attendee_id: string | null
           checked_in_at: string | null
           created_at: string
           currency: string | null
@@ -1638,7 +1649,7 @@ export type Database = {
           updated_at: string
         }
         Insert: {
-          attendee_id: string
+          attendee_id?: string | null
           checked_in_at?: string | null
           created_at?: string
           currency?: string | null
@@ -1664,7 +1675,7 @@ export type Database = {
           updated_at?: string
         }
         Update: {
-          attendee_id?: string
+          attendee_id?: string | null
           checked_in_at?: string | null
           created_at?: string
           currency?: string | null
@@ -2264,7 +2275,7 @@ export type Database = {
           p_quantity: number
         }
         Returns: {
-          attendee_id: string
+          attendee_id: string | null
           checked_in_at: string | null
           created_at: string
           currency: string | null
