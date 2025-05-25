@@ -277,6 +277,15 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ eventId 
                                                storeState.confirmationNumber === null &&
                                                storeState.status !== 'completed';
       
+      // Check if there's a completed registration (confirmationNumber exists or status is completed)
+      const hasCompletedRegistration = storeState.confirmationNumber !== null || storeState.status === 'completed';
+      
+      // If there's a completed registration, clear it to start fresh
+      if (hasCompletedRegistration) {
+        console.log('Clearing completed registration to start fresh');
+        clearRegistration();
+      }
+      
       // No need to reset draftRecoveryHandled anymore since we always show the modal
       // when there's an incomplete registration
       
@@ -292,7 +301,7 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ eventId 
       // Never show modal on initial load - it's handled in registration type step
       setShowDraftRecoveryModal(false);
     }
-  }, [eventId, setEventId, setCurrentStep, setDraftRecoveryHandled]);
+  }, [eventId, setEventId, setCurrentStep, setDraftRecoveryHandled, clearRegistration]);
   
   // Handler for continuing existing draft
   const handleContinueDraft = () => {
