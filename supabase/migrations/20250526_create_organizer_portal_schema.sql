@@ -242,38 +242,6 @@ $$;
 ALTER TABLE public.organizers ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.user_roles ENABLE ROW LEVEL SECURITY;
 
--- Policy: Organizers can only see their own record
-CREATE POLICY "Organizers can view own record" ON public.organizers
-    FOR SELECT USING (user_id = auth.uid());
-
--- Policy: Organizers can update their own record
-CREATE POLICY "Organizers can update own record" ON public.organizers
-    FOR UPDATE USING (user_id = auth.uid());
-
--- Policy: Organizers can insert their own record
-CREATE POLICY "Organizers can insert own record" ON public.organizers
-    FOR INSERT WITH CHECK (user_id = auth.uid());
-
--- Policy: User roles are viewable by the organizer they belong to
-CREATE POLICY "User roles viewable by organizer" ON public.user_roles
-    FOR SELECT USING (
-        EXISTS (
-            SELECT 1 FROM public.organizers o 
-            WHERE o.organizer_id = user_roles.organizer_id 
-              AND o.user_id = auth.uid()
-        )
-    );
-
--- Policy: Allow inserting user roles for own organizer record
-CREATE POLICY "User roles insertable by organizer" ON public.user_roles
-    FOR INSERT WITH CHECK (
-        EXISTS (
-            SELECT 1 FROM public.organizers o 
-            WHERE o.organizer_id = user_roles.organizer_id 
-              AND o.user_id = auth.uid()
-        )
-    );
-
 -- =====================================================
 -- INDEXES FOR PERFORMANCE
 -- =====================================================
@@ -308,6 +276,38 @@ GRANT EXECUTE ON FUNCTION public.get_event_registration_stats(UUID) TO authentic
 COMMIT;
 
 -- =====================================================
+-- RLS POLICIES (Created after tables are committed)
+-- =====================================================
+
+-- Policy: Organizers can only see their own record
+CREATE POLICY "Organizers can view own record" ON public.organizers
+    FOR SELECT USING (user_id = auth.uid());
+
+-- Policy: Organizers can update their own record
+CREATE POLICY "Organizers can update own record" ON public.organizers
+    FOR UPDATE USING (user_id = auth.uid());
+
+-- Policy: Organizers can insert their own record
+CREATE POLICY "Organizers can insert own record" ON public.organizers
+    FOR INSERT WITH CHECK (user_id = auth.uid());
+
+-- Policy: User roles are viewable by the organizer they belong to
+CREATE POLICY "User roles viewable by organizer" ON public.user_roles
+    FOR SELECT USING (
+        organizer_id IN (
+            SELECT organizer_id FROM public.organizers WHERE user_id = auth.uid()
+        )
+    );
+
+-- Policy: Allow inserting user roles for own organizer record
+CREATE POLICY "User roles insertable by organizer" ON public.user_roles
+    FOR INSERT WITH CHECK (
+        organizer_id IN (
+            SELECT organizer_id FROM public.organizers WHERE user_id = auth.uid()
+        )
+    );
+
+-- =====================================================
 -- VERIFICATION
 -- =====================================================
 
@@ -331,3 +331,14 @@ FROM information_schema.routines
 WHERE routine_schema = 'public' 
   AND routine_name LIKE 'get_organizer%'
 ORDER BY routine_name;
+
+-- Verify RLS policies were created
+SELECT 
+    schemaname,
+    tablename,
+    policyname,
+    '✅ Created' as status
+FROM pg_policies 
+WHERE schemaname = 'public' 
+  AND tablename IN ('organizers', 'user_roles')
+ORDER BY tablename, policyname;
