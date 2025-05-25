@@ -527,7 +527,7 @@ export const LodgesForm: React.FC<LodgesFormProps> = ({
         </CardHeader>
         <CardContent className="p-0">
           <Tabs defaultValue="have-details" className="w-full">
-            <div className="grid grid-cols-2 gap-0 mb-6 bg-gray-100">
+            <TabsList className="grid grid-cols-2 gap-0 mb-6 bg-gray-100 h-auto rounded-none p-0">
               <TabsTrigger 
                 value="have-details" 
                 className="py-4 px-6 data-[state=active]:bg-white data-[state=active]:border-b-0 data-[state=active]:shadow-none rounded-none border-b-2 data-[state=active]:border-b-transparent data-[state=active]:font-medium"
@@ -540,7 +540,7 @@ export const LodgesForm: React.FC<LodgesFormProps> = ({
               >
                 Provide Attendees Later
               </TabsTrigger>
-            </div>
+            </TabsList>
             
             {/* Tab: Have Attendee Details */}
             <TabsContent value="have-details" className="mt-0 px-0">
