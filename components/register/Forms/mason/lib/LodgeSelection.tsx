@@ -15,7 +15,7 @@ import { AttendeeData } from '../../attendee/types';
 interface LodgeSelectionProps {
   grandLodgeId?: string;
   value?: string;
-  onChange: (value: string, lodgeNameNumber?: string) => void;
+  onChange: (value: string, lodgeNameNumber?: string, organisationId?: string) => void;
   required?: boolean;
   disabled?: boolean;
   error?: string;
@@ -36,6 +36,7 @@ interface LodgeOption {
   region_code?: string;
   area_type?: string | null;
   created_at?: string;
+  organisationid?: string;
 }
 
 export const LodgeSelection: React.FC<LodgeSelectionProps> = ({
@@ -155,12 +156,25 @@ export const LodgeSelection: React.FC<LodgeSelectionProps> = ({
           }
         }
         
-        // If not in state or cache, use the store action to search
-        // This just triggers the search - we don't wait for results
-        searchAllLodgesAction(term);
+        // If not in state or cache, search using the store
+        // Import supabase client
+        const { supabase } = await import('@/lib/supabase-browser');
         
-        // Return any existing search results that match
-        return allLodgeSearchResults.filter(l => l.grand_lodge_id === grandLodgeId);
+        // Search for lodges directly
+        const { data, error } = await supabase
+          .from('lodges')
+          .select('*')
+          .eq('grand_lodge_id', grandLodgeId)
+          .or(`name.ilike.%${term}%,display_name.ilike.%${term}%,district.ilike.%${term}%,meeting_place.ilike.%${term}%`)
+          .order('display_name', { ascending: true })
+          .limit(20);
+        
+        if (error) {
+          console.error('[LodgeSelection] Error searching lodges:', error);
+          return [];
+        }
+        
+        return data || [];
       } catch (error) {
         // Error searching lodges
         return [];
@@ -233,6 +247,10 @@ export const LodgeSelection: React.FC<LodgeSelectionProps> = ({
   // Reset lodge selection when grandLodgeId changes
   // But only if the lodgeId is not already set in the store
   useEffect(() => {
+    // Clear search cache when grand lodge changes
+    searchCacheRef.current = {};
+    lastSearchQueryRef.current = '';
+    
     // Don't reset if we already have a valid lodgeId for this grandLodge
     if (value && grandLodgeId) {
       // Try to load the lodge data
@@ -242,7 +260,7 @@ export const LodgeSelection: React.FC<LodgeSelectionProps> = ({
     // Otherwise clear selection for a new grandLodge
     setSelectedLodge(null);
     setInputValue('');
-    onChange('', '');
+    onChange('', '', '');
   }, [grandLodgeId, onChange, value]);
 
   // Handle input change with tracking for user interaction
@@ -272,15 +290,15 @@ export const LodgeSelection: React.FC<LodgeSelectionProps> = ({
     if (value === '') {
       setSelectedLodge(null);
       lodgeNameRef.current = null;
-      onChange('', '');
+      onChange('', '', '');
     } else if (selectedLodge) {
       // If there's a selected lodge but input doesn't match it,
       // preserve the ID but update the display value
-      onChange(selectedLodge.id, value);
+      onChange(selectedLodge.id, value, selectedLodge.organisationid);
     } else {
       // For a partial input with no selection, don't set ID yet
       // but update display value so it persists
-      onChange('', value);
+      onChange('', value, '');
     }
   }, [onChange, selectedLodge]);
 
@@ -357,7 +375,7 @@ export const LodgeSelection: React.FC<LodgeSelectionProps> = ({
               // Lodge not found, clear the invalid value
               setInputValue('');
               lodgeNameRef.current = null;
-              onChange('', '');
+              onChange('', '', '');
             }
           } catch (error) {
             console.error('[LodgeSelection] Error fetching lodge by ID:', error);
@@ -396,7 +414,7 @@ export const LodgeSelection: React.FC<LodgeSelectionProps> = ({
       
       // Call onChange last to avoid triggering other effects
       if (value !== primaryMason.lodgeId) {
-        onChange(primaryMason.lodgeId, primaryMason.lodgeNameNumber);
+        onChange(primaryMason.lodgeId, primaryMason.lodgeNameNumber, primaryMason.lodgeOrganisationId);
       }
       
       // Reset the flag after a short delay
@@ -410,7 +428,7 @@ export const LodgeSelection: React.FC<LodgeSelectionProps> = ({
       setInputValue('');
       lodgeNameRef.current = null;
       
-      onChange('', '');
+      onChange('', '', '');
       
       // Reset the flag after a short delay
       setTimeout(() => {
@@ -426,7 +444,7 @@ export const LodgeSelection: React.FC<LodgeSelectionProps> = ({
       setSelectedLodge(null);
       setInputValue('');
       lodgeNameRef.current = null;
-      onChange('', '');
+      onChange('', '', '');
       return;
     }
     
@@ -435,7 +453,7 @@ export const LodgeSelection: React.FC<LodgeSelectionProps> = ({
     const displayValue = lodge.display_name || `${lodge.name} No. ${lodge.number || 'N/A'}`;
     setInputValue(displayValue);
     lodgeNameRef.current = displayValue;
-    onChange(lodge.id, displayValue);
+    onChange(lodge.id, displayValue, lodge.organisationid);
     
   }, [onChange]);
 
@@ -443,13 +461,17 @@ export const LodgeSelection: React.FC<LodgeSelectionProps> = ({
   const lastSearchQueryRef = useRef('');
   const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const searchCacheRef = useRef<Record<string, LodgeOption[]>>({});
+  const searchInProgressRef = useRef<Record<string, boolean>>({});
   
   const searchFunction = useCallback(async (query: string) => {
     if (!grandLodgeId || query.length < 2) return [];
     
+    console.log(`[LodgeSelection] searchFunction called with query: "${query}", grandLodgeId: ${grandLodgeId}`);
+    
     // Don't search if the query looks like a UUID (to prevent searching for lodge IDs)
     const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     if (uuidPattern.test(query)) {
+      console.log('[LodgeSelection] Query is UUID, skipping search');
       return [];
     }
     
@@ -458,17 +480,26 @@ export const LodgeSelection: React.FC<LodgeSelectionProps> = ({
     
     // Check if we have this query cached
     if (searchCacheRef.current[cacheKey]) {
+      console.log(`[LodgeSelection] Returning cached results for key: ${cacheKey}`);
       return searchCacheRef.current[cacheKey];
+    }
+    
+    // Check if a search is already in progress for this query
+    if (searchInProgressRef.current[cacheKey]) {
+      console.log(`[LodgeSelection] Search already in progress for key: ${cacheKey}, skipping`);
+      return [];
     }
     
     // Skip if this is the same query we just searched for
     if (lastSearchQueryRef.current === query) {
+      console.log(`[LodgeSelection] Same query as last search, checking local lodges`);
       // Just use current state without triggering new searches
       const currentResults = lodges.filter(l => 
         l.grand_lodge_id === grandLodgeId && filterLodgeByTerm(l, query)
       );
       
       if (currentResults.length > 0) {
+        console.log(`[LodgeSelection] Found ${currentResults.length} results in local state`);
         searchCacheRef.current[cacheKey] = currentResults;
         return currentResults;
       }
@@ -478,17 +509,29 @@ export const LodgeSelection: React.FC<LodgeSelectionProps> = ({
     lastSearchQueryRef.current = query;
     
     try {
+      // Mark search as in progress
+      searchInProgressRef.current[cacheKey] = true;
+      
+      console.log(`[LodgeSelection] Executing new search for query: "${query}"`);
       // Use our store reference method that was defined at component initialization
       // This avoids any dynamic imports during render
       const results = await storeRef.current.searchLodgesByGrandLodge(query, grandLodgeId);
+      
+      console.log(`[LodgeSelection] Search returned ${results.length} results`);
       
       // Cache results for future use
       if (results.length > 0) {
         searchCacheRef.current[cacheKey] = results;
       }
       
+      // Mark search as complete
+      delete searchInProgressRef.current[cacheKey];
+      
       return results;
     } catch (error) {
+      console.error('[LodgeSelection] Search error:', error);
+      // Mark search as complete even on error
+      delete searchInProgressRef.current[cacheKey];
       // Lodge search error
       return [];
     }
@@ -506,7 +549,8 @@ export const LodgeSelection: React.FC<LodgeSelectionProps> = ({
         grand_lodge_id: grandLodgeId,
         district: null,
         meeting_place: null,
-        area_type: null
+        area_type: null,
+        state_region: null
       });
       
       if (newLodge) {
@@ -532,12 +576,12 @@ export const LodgeSelection: React.FC<LodgeSelectionProps> = ({
       setInputValue(primaryAttendee.lodgeNameNumber);
       
       // Update the lodge value
-      onChange(String(primaryAttendee.lodgeId || ''), primaryAttendee.lodgeNameNumber || '');
+      onChange(String(primaryAttendee.lodgeId || ''), primaryAttendee.lodgeNameNumber || '', primaryAttendee.lodgeOrganisationId || '');
     } else if (!checked) {
       // Clear lodge data when unchecking
       setInputValue('');
       setSelectedLodge(null);
-      onChange('', '');
+      onChange('', '', '');
     }
   }, [primaryAttendee, onChange]);
 

@@ -27,24 +27,63 @@ import AttendeeEditModal from "../Attendees/AttendeeEditModal"
 import { TwoColumnStepLayout } from "../Layouts/TwoColumnStepLayout"
 import { getOrderReviewSummaryData } from '../Summary/summary-data/order-review-summary-data';
 import { SummaryRenderer } from '../Summary/SummaryRenderer';
+import { ticketService, EventTicket, TicketPackage } from '@/lib/api/ticketService';
+import { getEventTicketsService, type TicketDefinition, type EventPackage } from '@/lib/services/event-tickets-service';
+import { api } from '@/lib/api-logger';
 
-// Ticket types and packages from Supabase database
-// Defining minimal versions here for type safety in ticket derivation logic
-const ticketTypesMinimal = [
-  { id: "d5891f32-a57c-48f3-b71a-3832eb0c8f21", name: "Installation Ceremony", price: 75 },
-  { id: "f2c9b7e1-d85a-4e03-9c53-4b7f62e8d9a3", name: "Grand Banquet", price: 150 },
-  { id: "7ae31d05-6f8b-49ec-b2c8-18df3ef7d9b6", name: "Farewell Brunch", price: 45 },
-  { id: "3c5b1e8d-947a-42f6-b837-0d72c614a53f", name: "City Tour", price: 60 },
-];
-const ticketPackagesMinimal = [
-  { id: "a9e3d210-7f65-4c8b-9d1a-f5b83e92c615", name: "Complete Package", price: 250, includes: ["d5891f32-a57c-48f3-b71a-3832eb0c8f21", "f2c9b7e1-d85a-4e03-9c53-4b7f62e8d9a3", "7ae31d05-6f8b-49ec-b2c8-18df3ef7d9b6", "3c5b1e8d-947a-42f6-b837-0d72c614a53f"] },
-  { id: "b821c7d5-3e5f-49a2-8d16-7e09bf432a87", name: "Ceremony & Banquet", price: 200, includes: ["d5891f32-a57c-48f3-b71a-3832eb0c8f21", "f2c9b7e1-d85a-4e03-9c53-4b7f62e8d9a3"] },
-  { id: "c743e9f1-5a82-4d07-b6c3-8901fdae5243", name: "Social Package", price: 180, includes: ["f2c9b7e1-d85a-4e03-9c53-4b7f62e8d9a3", "7ae31d05-6f8b-49ec-b2c8-18df3ef7d9b6", "3c5b1e8d-947a-42f6-b837-0d72c614a53f"] },
-];
+// Define the parent event ID for Grand Proclamation 2025
+const GRAND_PROCLAMATION_PARENT_ID = "307c2d85-72d5-48cf-ac94-082ca2a5d23d";
 
 function OrderReviewStep() {
   const registrationType = useRegistrationStore((s) => s.registrationType);
   const allStoreAttendees = useRegistrationStore((s) => s.attendees);
+  const eventId = useRegistrationStore((s) => s.eventId);
+  
+  // State for dynamic ticket and package data
+  const [ticketTypesMinimal, setTicketTypesMinimal] = useState<TicketDefinition[]>([]);
+  const [ticketPackagesMinimal, setTicketPackagesMinimal] = useState<EventPackage[]>([]);
+  const [isLoadingTickets, setIsLoadingTickets] = useState(true);
+  
+  // Fetch tickets and packages on component mount
+  useEffect(() => {
+    async function fetchTicketsAndPackages() {
+      try {
+        setIsLoadingTickets(true);
+        
+        const service = getEventTicketsService();
+        const targetEventId = eventId || GRAND_PROCLAMATION_PARENT_ID;
+        
+        api.debug(`[OrderReviewStep] Fetching tickets for event: ${targetEventId}`);
+        
+        if (targetEventId === GRAND_PROCLAMATION_PARENT_ID) {
+          const childEventsData = await service.getChildEventsWithTicketsAndPackages(targetEventId);
+          
+          const allTickets: TicketDefinition[] = [];
+          childEventsData.forEach(eventData => {
+            allTickets.push(...eventData.tickets);
+          });
+          
+          if (childEventsData.length > 0) {
+            setTicketTypesMinimal(allTickets);
+            setTicketPackagesMinimal(childEventsData[0].packages);
+            api.debug(`[OrderReviewStep] Loaded ${allTickets.length} tickets and ${childEventsData[0].packages.length} packages`);
+          }
+        } else {
+          const { tickets, packages } = await service.getEventTicketsAndPackages(targetEventId);
+          setTicketTypesMinimal(tickets);
+          setTicketPackagesMinimal(packages);
+          api.debug(`[OrderReviewStep] Loaded ${tickets.length} tickets and ${packages.length} packages`);
+        }
+      } catch (error) {
+        api.error('[OrderReviewStep] Error fetching tickets and packages:', error);
+        console.error('[OrderReviewStep] Error fetching tickets and packages:', error);
+      } finally {
+        setIsLoadingTickets(false);
+      }
+    }
+    
+    fetchTicketsAndPackages();
+  }, [eventId]);
   
   const primaryAttendee = useMemo(() => 
     allStoreAttendees.find(att => att.isPrimary) as UnifiedAttendeeData | undefined, 
@@ -112,16 +151,30 @@ function OrderReviewStep() {
     getOrderedAttendees(primaryAttendee, otherAttendees, allStoreAttendees)
   , [primaryAttendee, otherAttendees, allStoreAttendees]);
 
+  const packages = useRegistrationStore((s) => s.packages);
   const [currentTickets, setCurrentTickets] = useState<Array<any & { attendeeId: string; price: number; name: string; description?: string; isPackage?: boolean }>>([]);
 
   useEffect(() => {
+    console.log("[OrderReviewStep] Debug - allStoreAttendees:", allStoreAttendees);
+    console.log("[OrderReviewStep] Debug - packages:", packages);
+    console.log("[OrderReviewStep] Debug - ticketTypesMinimal:", ticketTypesMinimal);
+    console.log("[OrderReviewStep] Debug - ticketPackagesMinimal:", ticketPackagesMinimal);
+    
     const derivedTickets = allStoreAttendees.flatMap(attendee => {
-        if (!attendee.ticket) return [];
-        const { ticketDefinitionId, selectedEvents } = attendee.ticket;
+        const attendeePackage = packages[attendee.attendeeId];
+        console.log(`[OrderReviewStep] Debug - Attendee ${attendee.attendeeId} package:`, attendeePackage);
+        
+        if (!attendeePackage) {
+            console.log(`[OrderReviewStep] No package found for attendee ${attendee.attendeeId}`);
+            return [];
+        }
+        
+        const { ticketDefinitionId, selectedEvents } = attendeePackage;
         const attendeeId = attendee.attendeeId;
         let tickets: Array<any & { attendeeId: string; price: number; name: string; description?: string; isPackage?: boolean }> = [];
 
         if (ticketDefinitionId) {
+            console.log(`[OrderReviewStep] Looking for package ${ticketDefinitionId}`);
             const pkgInfo = ticketPackagesMinimal.find(p => p.id === ticketDefinitionId);
             if (pkgInfo) {
                 tickets.push({ 
@@ -135,27 +188,34 @@ function OrderReviewStep() {
                         return ticket ? ticket.name : ticketId;
                     }).join(", ")}`
                 });
+            } else {
+                console.log(`[OrderReviewStep] Package ${ticketDefinitionId} not found in ticketPackagesMinimal`);
             }
-        } else {
-            selectedEvents?.forEach(eventId => {
-                const eventInfo = ticketTypesMinimal.find(e => e.id === eventId);
-                if (eventInfo) {
+        } else if (selectedEvents && selectedEvents.length > 0) {
+            console.log(`[OrderReviewStep] Processing selected tickets:`, selectedEvents);
+            selectedEvents.forEach(ticketId => {
+                const ticketInfo = ticketTypesMinimal.find(t => t.id === ticketId);
+                if (ticketInfo) {
                     tickets.push({ 
-                        id: `${attendeeId}-${eventInfo.id}`, 
-                        name: eventInfo.name, 
-                        price: eventInfo.price, 
+                        id: `${attendeeId}-${ticketInfo.id}`, 
+                        name: ticketInfo.name, 
+                        price: ticketInfo.price, 
                         attendeeId, 
                         isPackage: false,
-                        description: `Individual ticket for ${eventInfo.name}`
+                        description: ticketInfo.description || `Individual ticket`
                     });
+                } else {
+                    console.log(`[OrderReviewStep] Ticket ${ticketId} not found in ticketTypesMinimal`);
                 }
             });
+        } else {
+            console.log(`[OrderReviewStep] No tickets selected for attendee ${attendee.attendeeId}`);
         }
         return tickets;
     });
     setCurrentTickets(derivedTickets);
-    // console.log("[OrderReviewStep] Derived tickets for display:", derivedTickets);
-  }, [allStoreAttendees]);
+    console.log("[OrderReviewStep] Final derived tickets:", derivedTickets);
+  }, [allStoreAttendees, packages, ticketTypesMinimal, ticketPackagesMinimal]);
 
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingAttendee, setEditingAttendee] = useState<{ attendeeData: UnifiedAttendeeData; index: number } | null>(null);
@@ -198,9 +258,11 @@ function OrderReviewStep() {
     setIsRemoveConfirmOpen(true);
   }
 
+  const updatePackageSelection = useRegistrationStore((s) => s.updatePackageSelection);
+  
   const handleConfirmRemoveAttendee = () => {
     if (removingAttendeeId) {
-      updateAttendeeStore(removingAttendeeId, { ticket: { ticketDefinitionId: null, selectedEvents: [] } });
+      updatePackageSelection(removingAttendeeId, { ticketDefinitionId: null, selectedEvents: [] });
       removeAttendeeStore(removingAttendeeId);
     }
     setIsRemoveConfirmOpen(false);
@@ -232,6 +294,26 @@ function OrderReviewStep() {
     
     return <SummaryRenderer {...summaryData} />;
   };
+
+  // Show loading state while tickets are being fetched
+  if (isLoadingTickets) {
+    return (
+      <TwoColumnStepLayout
+        summaryContent={<div className="text-center py-8">Loading ticket information...</div>}
+        summaryTitle="Step Summary"
+        currentStep={4}
+        totalSteps={6}
+        stepName="Order Review"
+      >
+        <div className="flex items-center justify-center py-12">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-masonic-gold mx-auto mb-4"></div>
+            <p className="text-gray-600">Loading ticket information...</p>
+          </div>
+        </div>
+      </TwoColumnStepLayout>
+    );
+  }
 
   return (
     <TwoColumnStepLayout
@@ -333,7 +415,7 @@ function OrderReviewStep() {
                               <span>${ticket.price.toFixed(2)}</span>
                               <Button variant="ghost" size="icon" 
                                   onClick={() => {                                  
-                                    const currentAttendeeTicketData = allStoreAttendees.find(a => a.attendeeId === ticket.attendeeId)?.ticket || { ticketDefinitionId: null, selectedEvents: [] };
+                                    const currentPackage = packages[ticket.attendeeId] || { ticketDefinitionId: null, selectedEvents: [] };
                                     let updatedTicketSelection: PackageSelectionType;
                                     if (ticket.isPackage) {
                                       updatedTicketSelection = { ticketDefinitionId: null, selectedEvents: [] };
@@ -341,10 +423,10 @@ function OrderReviewStep() {
                                       const originalTicketTypeId = ticket.id.substring(ticket.attendeeId.length + 1);
                                       updatedTicketSelection = {
                                         ticketDefinitionId: null,
-                                        selectedEvents: currentAttendeeTicketData.selectedEvents.filter(id => id !== originalTicketTypeId)
+                                        selectedEvents: currentPackage.selectedEvents.filter(id => id !== originalTicketTypeId)
                                       };
                                     }
-                                    updateAttendeeStore(ticket.attendeeId, { ticket: updatedTicketSelection });
+                                    updatePackageSelection(ticket.attendeeId, updatedTicketSelection);
                                   }}
                                   className="h-7 w-7 text-red-500 hover:text-red-700">
                                   <Trash2 className="h-4 w-4" />

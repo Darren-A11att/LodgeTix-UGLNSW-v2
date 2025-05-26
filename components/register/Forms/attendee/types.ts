@@ -35,7 +35,9 @@ export interface AttendeeData {
   otherGrandOfficerRole?: string;
   grandOfficerDetails?: string;
   grandLodgeId?: string;
+  grandLodgeOrganisationId?: string;
   lodgeId?: string;
+  lodgeOrganisationId?: string;
   lodgeNameNumber?: string;
   useSameLodge?: boolean;
 }

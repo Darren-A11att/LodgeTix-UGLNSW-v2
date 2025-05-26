@@ -67,9 +67,11 @@ export type Attendee = MasonAttendee | GuestAttendee | PartnerAttendee
 
 // Legacy type to support components during migration
 export type UnifiedAttendeeData = {
+  attendeeId: string
   id: string
   firstName: string
   lastName: string
+  attendeeType: "Mason" | "Guest" | "Partner"
   type: "mason" | "guest" | "partner"
   title?: string
   masonicTitle?: MasonicTitle
@@ -83,6 +85,21 @@ export type UnifiedAttendeeData = {
   specialNeeds?: string
   hasPartner?: boolean
   partner?: any
+  isPartner?: string | null
+  guestOfId?: string | null
+  isPrimary?: boolean
+  // Mason-specific fields
+  grandLodgeId?: string
+  grandLodgeOrganisationId?: string
+  lodgeId?: string
+  lodgeOrganisationId?: string
+  lodgeNameNumber?: string
+  rank?: string
+  grandOfficerStatus?: string
+  presentGrandOfficerRole?: string
+  otherGrandOfficerRole?: string
+  grandOfficerDetails?: string
+  useSameLodge?: boolean
 }
 
 // Legacy type for MasonForm to reference during migration

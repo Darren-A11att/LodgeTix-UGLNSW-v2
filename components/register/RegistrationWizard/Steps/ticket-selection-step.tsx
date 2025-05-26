@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRegistrationStore } from '../../../../lib/registrationStore'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card"
@@ -9,7 +9,7 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { Checkbox } from "@/components/ui/checkbox"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
-import { Package, Check, User, UserPlus, ShoppingCart, XCircle, ChevronLeft, ChevronRight } from "lucide-react"
+import { Package, Check, User, UserPlus, ShoppingCart, XCircle, ChevronLeft, ChevronRight, Loader2 } from "lucide-react"
 import type { Attendee, Ticket, MasonAttendee, GuestAttendee, PartnerAttendee } from "@/lib/registration-types"
 import { v7 as uuidv7 } from "uuid"
 import { SectionHeader } from "../Shared/SectionHeader"
@@ -17,77 +17,81 @@ import { AlertModal } from "@/components/ui/alert-modal"
 import { TwoColumnStepLayout } from "../Layouts/TwoColumnStepLayout"
 import { getTicketSummaryData } from '../Summary/summary-data/ticket-summary-data';
 import { SummaryRenderer } from '../Summary/SummaryRenderer';
+import { getEventTicketsService, type TicketDefinition, type EventPackage } from '@/lib/services/event-tickets-service'
+import { api } from '@/lib/api-logger'
 
 // Define AttendeeType for eligibility checking, leveraging existing types
 export type AttendeeType = Attendee['type'];
 
-// Ticket types from Supabase database
-const ticketTypes = [
-  {
-    id: "d5891f32-a57c-48f3-b71a-3832eb0c8f21",
-    name: "Installation Ceremony",
-    price: 75,
-    description: "Admission to the Grand Installation Ceremony",
-    category: "ceremony",
-    eligibleAttendeeTypes: ["mason"] as AttendeeType[],
-  },
-  {
-    id: "f2c9b7e1-d85a-4e03-9c53-4b7f62e8d9a3",
-    name: "Grand Banquet",
-    price: 150,
-    description: "Formal dinner with wine at the venue",
-    category: "dining",
-    eligibleAttendeeTypes: ["mason", "guest"] as AttendeeType[],
-  },
-  {
-    id: "7ae31d05-6f8b-49ec-b2c8-18df3ef7d9b6",
-    name: "Farewell Brunch",
-    price: 45,
-    description: "Sunday morning brunch",
-    category: "dining",
-    eligibleAttendeeTypes: ["mason", "guest"] as AttendeeType[],
-  },
-  {
-    id: "3c5b1e8d-947a-42f6-b837-0d72c614a53f",
-    name: "City Tour",
-    price: 60,
-    description: "Guided tour of local landmarks",
-    category: "activity",
-    eligibleAttendeeTypes: ["mason", "guest"] as AttendeeType[],
-  },
-]
-
-// Ticket packages from Supabase database
-const ticketPackages = [
-  {
-    id: "a9e3d210-7f65-4c8b-9d1a-f5b83e92c615",
-    name: "Complete Package",
-    price: 250,
-    description: "Includes all events (save $80)",
-    includes: ["d5891f32-a57c-48f3-b71a-3832eb0c8f21", "f2c9b7e1-d85a-4e03-9c53-4b7f62e8d9a3", "7ae31d05-6f8b-49ec-b2c8-18df3ef7d9b6", "3c5b1e8d-947a-42f6-b837-0d72c614a53f"],
-    eligibleAttendeeTypes: ["mason"] as AttendeeType[],
-  },
-  {
-    id: "b821c7d5-3e5f-49a2-8d16-7e09bf432a87",
-    name: "Ceremony & Banquet",
-    price: 200,
-    description: "Installation ceremony and formal dinner (save $25)",
-    includes: ["d5891f32-a57c-48f3-b71a-3832eb0c8f21", "f2c9b7e1-d85a-4e03-9c53-4b7f62e8d9a3"],
-    eligibleAttendeeTypes: ["mason"] as AttendeeType[],
-  },
-  {
-    id: "c743e9f1-5a82-4d07-b6c3-8901fdae5243",
-    name: "Social Package",
-    price: 180,
-    description: "All social events without the ceremony (save $75)",
-    includes: ["f2c9b7e1-d85a-4e03-9c53-4b7f62e8d9a3", "7ae31d05-6f8b-49ec-b2c8-18df3ef7d9b6", "3c5b1e8d-947a-42f6-b837-0d72c614a53f"],
-    eligibleAttendeeTypes: ["mason", "guest"] as AttendeeType[],
-  },
-]
+// Define the parent event ID for Grand Proclamation 2025
+const GRAND_PROCLAMATION_PARENT_ID = "307c2d85-72d5-48cf-ac94-082ca2a5d23d"
 
 function TicketSelectionStep() {
   const allStoreAttendees = useRegistrationStore((s) => s.attendees);
   const updateAttendeeStore = useRegistrationStore((s) => s.updateAttendee);
+  const updatePackageSelection = useRegistrationStore((s) => s.updatePackageSelection);
+  const packages = useRegistrationStore((s) => s.packages);
+  const eventId = useRegistrationStore((s) => s.eventId);
+
+  // State for dynamic ticket and package data
+  const [ticketTypes, setTicketTypes] = useState<TicketDefinition[]>([])
+  const [ticketPackages, setTicketPackages] = useState<EventPackage[]>([])
+  const [isLoadingTickets, setIsLoadingTickets] = useState(true)
+  const [ticketsError, setTicketsError] = useState<string | null>(null)
+
+  // Fetch tickets and packages on component mount
+  useEffect(() => {
+    async function fetchTicketsAndPackages() {
+      try {
+        setIsLoadingTickets(true)
+        setTicketsError(null)
+        
+        const service = getEventTicketsService()
+        
+        // Use the eventId from the store if available, otherwise use Grand Proclamation
+        const targetEventId = eventId || GRAND_PROCLAMATION_PARENT_ID
+        
+        api.debug(`Fetching tickets for event: ${targetEventId}`)
+        
+        // Check if this is the parent event or a child event
+        if (targetEventId === GRAND_PROCLAMATION_PARENT_ID) {
+          // Fetch child events and their tickets
+          const childEventsData = await service.getChildEventsWithTicketsAndPackages(targetEventId)
+          
+          // Aggregate all tickets from child events
+          const allTickets: TicketDefinition[] = []
+          childEventsData.forEach(eventData => {
+            allTickets.push(...eventData.tickets)
+          })
+          
+          // Use packages from the first result (they're the same for all child events)
+          if (childEventsData.length > 0) {
+            setTicketTypes(allTickets)
+            setTicketPackages(childEventsData[0].packages)
+          }
+        } else {
+          // For a specific event, fetch its tickets and packages
+          const { tickets, packages } = await service.getEventTicketsAndPackages(targetEventId)
+          setTicketTypes(tickets)
+          setTicketPackages(packages)
+        }
+        
+        api.debug(`Loaded ${ticketTypes.length} tickets and ${ticketPackages.length} packages`)
+      } catch (error) {
+        console.error('Full error details:', error)
+        api.error('Error fetching tickets and packages:', {
+          message: error instanceof Error ? error.message : 'Unknown error',
+          stack: error instanceof Error ? error.stack : undefined,
+          error: JSON.stringify(error, null, 2)
+        })
+        setTicketsError('Failed to load ticket options. Please try again.')
+      } finally {
+        setIsLoadingTickets(false)
+      }
+    }
+    
+    fetchTicketsAndPackages()
+  }, [eventId])
 
   // Main log for component input state, matching the desired format
   console.log("!!!!!!!!!!!! TICKET SELECTION STEP: ALL ATTENDEES INPUT !!!!!!!!!!!!", JSON.stringify(allStoreAttendees, null, 2));
@@ -100,7 +104,7 @@ function TicketSelectionStep() {
     const attendeeIdentifier = (attendee as any).attendeeId;
     if (!attendeeIdentifier) return [];
 
-    const selection = (attendee as any).ticket;
+    const selection = packages[attendeeIdentifier];
 
     if (selection?.ticketDefinitionId) { 
       const packageInfo = ticketPackages.find(p => p.id === selection.ticketDefinitionId);
@@ -109,7 +113,7 @@ function TicketSelectionStep() {
           id: packageInfo.id, 
           name: packageInfo.name,
           price: packageInfo.price,
-          description: packageInfo.description,
+          description: packageInfo.description || "",
           attendeeId: attendeeIdentifier,
           isPackage: true,
           includedTicketTypes: packageInfo.includes,
@@ -124,7 +128,7 @@ function TicketSelectionStep() {
             id: `${attendeeIdentifier}-${ticketTypeInfo.id}`, 
             name: ticketTypeInfo.name,
             price: ticketTypeInfo.price,
-            description: ticketTypeInfo.description,
+            description: ticketTypeInfo.description || "",
             attendeeId: attendeeIdentifier,
             isPackage: false,
           };
@@ -164,8 +168,8 @@ function TicketSelectionStep() {
       ordered.push(primary as Attendee);
       
       // If primary attendee has a partner, add it immediately after
-      if (primary.partner) {
-        const primaryPartner = additional.find(att => att.attendeeId === primary.partner);
+      if ((primary as any).partner) {
+        const primaryPartner = additional.find(att => (att as any).attendeeId === (primary as any).partner);
         if (primaryPartner) {
           ordered.push(primaryPartner as Attendee);
         }
@@ -175,12 +179,12 @@ function TicketSelectionStep() {
     // For remaining attendees, add each one followed by their partner if they have one
     const remainingAttendees = additional.filter(att => {
       // Skip attendees that are partners of others (they'll be added with their related attendee)
-      if (att.isPartner && (att.attendeeId === primary?.partner || 
-          additional.some(otherAtt => otherAtt.partner === att.attendeeId))) {
+      if ((att as any).isPartner && ((att as any).attendeeId === (primary as any)?.partner || 
+          additional.some(otherAtt => (otherAtt as any).partner === (att as any).attendeeId))) {
         return false;
       }
       // Skip primary's partner as it's already added
-      if (primary && primary.partner === att.attendeeId) {
+      if (primary && (primary as any).partner === (att as any).attendeeId) {
         return false;
       }
       return true;
@@ -191,8 +195,8 @@ function TicketSelectionStep() {
       ordered.push(attendee as Attendee);
       
       // If this attendee has a partner, add it immediately after
-      if (attendee.partner) {
-        const partner = all.find(att => att.attendeeId === attendee.partner);
+      if ((attendee as any).partner) {
+        const partner = all.find(att => (att as any).attendeeId === (attendee as any).partner);
         if (partner) {
           ordered.push(partner as Attendee);
         }
@@ -245,20 +249,11 @@ function TicketSelectionStep() {
   }
 
   const isIndividualTicketDirectlySelected = (attendeeIdentifier: string, ticketTypeId: string) => {
-    const attendee = allStoreAttendees.find(a => (a as any).attendeeId === attendeeIdentifier);
-    const isSelected = !(attendee as any)?.ticket?.ticketDefinitionId && ((attendee as any)?.ticket?.selectedEvents || []).includes(ticketTypeId);
+    const packageSelection = packages[attendeeIdentifier];
+    const isSelected = !packageSelection?.ticketDefinitionId && (packageSelection?.selectedEvents || []).includes(ticketTypeId);
     return isSelected;
   };
   
-  const isTicketCoveredBySelectedPackage = (attendeeIdentifier: string, ticketTypeId: string): boolean => {
-    const attendee = allStoreAttendees.find(a => (a as any).attendeeId === attendeeIdentifier);
-    let isCovered = false;
-    if ((attendee as any)?.ticket?.ticketDefinitionId) {
-      const selectedPackageInfo = ticketPackages.find(p => p.id === (attendee as any).ticket!.ticketDefinitionId);
-      isCovered = selectedPackageInfo?.includes.includes(ticketTypeId) || false;
-    }
-    return isCovered;
-  };
 
   const handleSelectPackage = (attendeeIdentifier: string, packageId: string) => {
     const selectedPackageInfo = ticketPackages.find((p) => p.id === packageId);
@@ -267,21 +262,22 @@ function TicketSelectionStep() {
     const attendee = allStoreAttendees.find(a => (a as any).attendeeId === attendeeIdentifier);
     if (!attendee) return;
 
-    const isCurrentlySelected = (attendee as any).ticket?.ticketDefinitionId === packageId;
+    const isCurrentlySelected = packages[attendeeIdentifier]?.ticketDefinitionId === packageId;
 
     if (isCurrentlySelected) {
       // Deselect package
-      updateAttendeeStore(attendeeIdentifier, { 
-        ticket: { ticketDefinitionId: null, selectedEvents: [] } 
-      } as any);
+      console.log(`[TicketSelection] Deselecting package ${packageId} for attendee ${attendeeIdentifier}`);
+      updatePackageSelection(attendeeIdentifier, { 
+        ticketDefinitionId: null, 
+        selectedEvents: [] 
+      });
     } else {
       // Select package
-      updateAttendeeStore(attendeeIdentifier, { 
-        ticket: { 
-          ticketDefinitionId: packageId, 
-          selectedEvents: selectedPackageInfo.includes // Store included events for clarity/consistency
-        }
-      } as any);
+      console.log(`[TicketSelection] Selecting package ${packageId} for attendee ${attendeeIdentifier}`);
+      updatePackageSelection(attendeeIdentifier, { 
+        ticketDefinitionId: packageId, 
+        selectedEvents: selectedPackageInfo.includes // Store included events for clarity/consistency
+      });
     }
   };
 
@@ -292,7 +288,7 @@ function TicketSelectionStep() {
     const attendee = allStoreAttendees.find(a => (a as any).attendeeId === attendeeIdentifier);
     if (!attendee) return;
 
-    const currentSelection = (attendee as any).ticket || { ticketDefinitionId: null, selectedEvents: [] };
+    const currentSelection = packages[attendeeIdentifier] || { ticketDefinitionId: null, selectedEvents: [] };
     
     // If the attendee currently has a package selected, we need to start with an empty selection
     // Otherwise, copy the current individual selections
@@ -316,19 +312,18 @@ function TicketSelectionStep() {
     }
     
     // Selecting an individual ticket always clears any package
-    updateAttendeeStore(attendeeIdentifier, { 
-      ticket: { 
-        ticketDefinitionId: null, 
-        selectedEvents: newSelectedEvents 
-      }
-    } as any);
+    console.log(`[TicketSelection] Updating individual tickets for attendee ${attendeeIdentifier}:`, newSelectedEvents);
+    updatePackageSelection(attendeeIdentifier, { 
+      ticketDefinitionId: null, 
+      selectedEvents: newSelectedEvents 
+    });
   };
 
   const isPackageSelectedForAttendee = (attendeeIdentifier: string, packageName: string) => {
     const packageInfo = ticketPackages.find(p => p.name === packageName);
     if (!packageInfo) return false;
-    const attendee = allStoreAttendees.find(a => (a as any).attendeeId === attendeeIdentifier);
-    const isSelected = (attendee as any)?.ticket?.ticketDefinitionId === packageInfo.id;
+    const packageSelection = packages[attendeeIdentifier];
+    const isSelected = packageSelection?.ticketDefinitionId === packageInfo.id;
     return isSelected;
   };
 
@@ -373,6 +368,53 @@ function TicketSelectionStep() {
     
     return <SummaryRenderer {...summaryData} />;
   };
+
+  // Show loading state
+  if (isLoadingTickets) {
+    return (
+      <TwoColumnStepLayout
+        summaryContent={<div className="animate-pulse">Loading ticket information...</div>}
+        summaryTitle="Step Summary"
+        currentStep={3}
+        totalSteps={6}
+        stepName="Ticket Selection"
+      >
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-masonic-navy" />
+            <p className="text-gray-600">Loading available tickets and packages...</p>
+          </div>
+        </div>
+      </TwoColumnStepLayout>
+    )
+  }
+
+  // Show error state
+  if (ticketsError) {
+    return (
+      <TwoColumnStepLayout
+        summaryContent={<div className="text-red-600">Error loading tickets</div>}
+        summaryTitle="Step Summary"
+        currentStep={3}
+        totalSteps={6}
+        stepName="Ticket Selection"
+      >
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <XCircle className="h-8 w-8 mx-auto mb-4 text-red-600" />
+            <p className="text-red-600 mb-4">{ticketsError}</p>
+            <Button 
+              variant="outline" 
+              onClick={() => window.location.reload()}
+              className="border-masonic-navy text-masonic-navy"
+            >
+              Try Again
+            </Button>
+          </div>
+        </div>
+      </TwoColumnStepLayout>
+    )
+  }
 
   return (
     <TwoColumnStepLayout
@@ -437,17 +479,13 @@ function TicketSelectionStep() {
                             {ticketPackages
                               .filter(pkg => {
                                 // Normalize attendee type to lowercase for consistent comparison
-                                const mappedType = attendee.attendeeType?.toLowerCase();
+                                const mappedType = attendee.attendeeType?.toLowerCase() || '';
                                 
-                                // Use the correct mapping based on attendee type
-                                if (mappedType === 'mason' || mappedType === 'Mason'.toLowerCase()) {
-                                  return pkg.eligibleAttendeeTypes.includes('mason');
-                                } else if (mappedType === 'guest' || mappedType === 'Guest'.toLowerCase() || 
-                                          mappedType === 'ladypartner' || mappedType === 'LadyPartner'.toLowerCase() || 
-                                          mappedType === 'guestpartner' || mappedType === 'GuestPartner'.toLowerCase()) {
-                                  return pkg.eligibleAttendeeTypes.includes('guest');
-                                }
-                                return false;
+                                // Map all partner types to 'guest' for eligibility
+                                const effectiveType = mappedType === 'mason' ? 'mason' : 'guest';
+                                
+                                // Check if package is eligible for this attendee type
+                                return pkg.eligibleAttendeeTypes.includes(effectiveType as AttendeeType);
                               })
                               .map((pkg) => (
                               <Card
@@ -504,17 +542,13 @@ function TicketSelectionStep() {
                               {ticketTypes
                                 .filter(ticket => {
                                   // Normalize attendee type to lowercase for consistent comparison
-                                  const mappedType = attendee.attendeeType?.toLowerCase();
+                                  const mappedType = attendee.attendeeType?.toLowerCase() || '';
                                   
-                                  // Use the correct mapping based on attendee type
-                                  if (mappedType === 'mason' || mappedType === 'Mason'.toLowerCase()) {
-                                    return ticket.eligibleAttendeeTypes.includes('mason');
-                                  } else if (mappedType === 'guest' || mappedType === 'Guest'.toLowerCase() || 
-                                            mappedType === 'ladypartner' || mappedType === 'LadyPartner'.toLowerCase() || 
-                                            mappedType === 'guestpartner' || mappedType === 'GuestPartner'.toLowerCase()) {
-                                    return ticket.eligibleAttendeeTypes.includes('guest');
-                                  }
-                                  return false;
+                                  // Map all partner types to 'guest' for eligibility
+                                  const effectiveType = mappedType === 'mason' ? 'mason' : 'guest';
+                                  
+                                  // Check if ticket is eligible for this attendee type
+                                  return ticket.eligibleAttendeeTypes.includes(effectiveType as AttendeeType);
                                 })
                                 .map((ticket) => (
                                 <TableRow key={ticket.id}>
@@ -526,7 +560,7 @@ function TicketSelectionStep() {
                                     />
                                   </TableCell>
                                   <TableCell className="font-medium">{ticket.name}</TableCell>
-                                  <TableCell>{ticket.description}</TableCell>
+                                  <TableCell>{ticket.description || 'No description available'}</TableCell>
                                   <TableCell className="text-right">${ticket.price}</TableCell>
                                 </TableRow>
                               ))}

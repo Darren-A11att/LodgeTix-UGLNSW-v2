@@ -9,7 +9,7 @@ import { create } from 'zustand';
 
 interface GrandLodgeSelectionProps {
   value?: string;
-  onChange: (value: string) => void;
+  onChange: (value: string, organisationId?: string) => void;
   required?: boolean;
   disabled?: boolean;
   error?: string;
@@ -21,6 +21,7 @@ interface GrandLodgeOption {
   name: string;
   country: string;
   abbreviation: string;
+  organisationid?: string;
 }
 
 export const GrandLodgeSelection: React.FC<GrandLodgeSelectionProps> = ({
@@ -54,14 +55,14 @@ export const GrandLodgeSelection: React.FC<GrandLodgeSelectionProps> = ({
       // Handle null case - clear the selection
       setSelectedGrandLodge(null);
       setInputValue('');
-      onChange('');
+      onChange('', undefined);
       return;
     }
     
     // Normal flow when grandLodge is not null
     setSelectedGrandLodge(grandLodge);
     setInputValue(grandLodge.name);
-    onChange(grandLodge.id);
+    onChange(grandLodge.id, grandLodge.organisationid);
   }, [onChange]);
 
   // Get better default placeholder based on user's location from IP
@@ -162,7 +163,7 @@ export const GrandLodgeSelection: React.FC<GrandLodgeSelectionProps> = ({
             setSelectedGrandLodge(defaultGrandLodge);
             setInputValue(defaultGrandLodge.name);
             // Call onChange last
-            onChange(defaultGrandLodge.id);
+            onChange(defaultGrandLodge.id, defaultGrandLodge.organisationid);
             setIsInitialized(true);
           }
         }
@@ -327,11 +328,11 @@ export const GrandLodgeSelection: React.FC<GrandLodgeSelectionProps> = ({
     // If clearing the input, clear the selection
     if (value === '') {
       setSelectedGrandLodge(null);
-      onChange('');
+      onChange('', undefined);
     } else if (selectedGrandLodge) {
       // If there's a selected lodge but input doesn't match it,
       // keep the ID in sync
-      onChange(selectedGrandLodge.id);
+      onChange(selectedGrandLodge.id, selectedGrandLodge.organisationid);
     }
   }, [searchGrandLodges, filterLocalOptions, ipData?.country_name, selectedGrandLodge, onChange]);
 

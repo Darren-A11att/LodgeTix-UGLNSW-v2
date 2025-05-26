@@ -67,10 +67,13 @@ export const MasonForm: React.FC<MasonFormProps> = ({ attendeeId, attendeeNumber
     (localContactPreference === 'PrimaryAttendee' || localContactPreference === 'ProvideLater');
   
   // Callbacks for complex field updates
-  const handleLodgeChange = useCallback((lodgeId: string, lodgeNameNumber?: string) => {
+  const handleLodgeChange = useCallback((lodgeId: string, lodgeNameNumber?: string, organisationId?: string) => {
     // Use immediate update to prevent data loss during navigation
     updateFieldImmediate('lodgeId', lodgeId);
     updateFieldImmediate('lodgeNameNumber', lodgeNameNumber || '');
+    if (organisationId) {
+      updateFieldImmediate('lodgeOrganisationId', organisationId);
+    }
   }, [updateFieldImmediate]);
   
   // Sync with data when it changes
@@ -213,6 +216,13 @@ export const MasonForm: React.FC<MasonFormProps> = ({ attendeeId, attendeeNumber
                       updateFieldImmediate('grandLodgeId', primaryMason.grandLodgeId);
                       updateFieldImmediate('lodgeId', primaryMason.lodgeId);
                       updateFieldImmediate('lodgeNameNumber', primaryMason.lodgeNameNumber || '');
+                      // Also copy organisationid fields
+                      if (primaryMason.grandLodgeOrganisationId) {
+                        updateFieldImmediate('grandLodgeOrganisationId', primaryMason.grandLodgeOrganisationId);
+                      }
+                      if (primaryMason.lodgeOrganisationId) {
+                        updateFieldImmediate('lodgeOrganisationId', primaryMason.lodgeOrganisationId);
+                      }
                     }
                   }}
                 />
@@ -231,7 +241,12 @@ export const MasonForm: React.FC<MasonFormProps> = ({ attendeeId, attendeeNumber
             <div className="col-span-6">
               <GrandLodgeSelection 
                 value={attendee.grandLodgeId}
-                onChange={(value) => updateFieldImmediate('grandLodgeId', value)}
+                onChange={(value, organisationId) => {
+                  updateFieldImmediate('grandLodgeId', value);
+                  if (organisationId) {
+                    updateFieldImmediate('grandLodgeOrganisationId', organisationId);
+                  }
+                }}
               />
             </div>
             
@@ -492,6 +507,13 @@ export const MasonForm: React.FC<MasonFormProps> = ({ attendeeId, attendeeNumber
                       updateFieldImmediate('grandLodgeId', primaryMason.grandLodgeId);
                       updateFieldImmediate('lodgeId', primaryMason.lodgeId);
                       updateFieldImmediate('lodgeNameNumber', primaryMason.lodgeNameNumber || '');
+                      // Also copy organisationid fields
+                      if (primaryMason.grandLodgeOrganisationId) {
+                        updateFieldImmediate('grandLodgeOrganisationId', primaryMason.grandLodgeOrganisationId);
+                      }
+                      if (primaryMason.lodgeOrganisationId) {
+                        updateFieldImmediate('lodgeOrganisationId', primaryMason.lodgeOrganisationId);
+                      }
                     }
                   }}
                 />
@@ -508,7 +530,12 @@ export const MasonForm: React.FC<MasonFormProps> = ({ attendeeId, attendeeNumber
             <>
               <GrandLodgeSelection 
                 value={attendee.grandLodgeId}
-                onChange={(value) => updateFieldImmediate('grandLodgeId', value)}
+                onChange={(value, organisationId) => {
+                  updateFieldImmediate('grandLodgeId', value);
+                  if (organisationId) {
+                    updateFieldImmediate('grandLodgeOrganisationId', organisationId);
+                  }
+                }}
               />
               
               <LodgeSelection 

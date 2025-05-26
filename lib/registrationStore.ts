@@ -3,8 +3,7 @@ import { persist } from 'zustand/middleware';
 import { v7 as uuidv7 } from 'uuid';
 import { TicketType } from '../shared/types/register';
 import { TicketDefinitionType } from '../shared/types/ticket';
-import { UnifiedAttendeeData } from '../shared/types/supabase';
-import { RegistrationType } from './registration-types';
+import { RegistrationType, UnifiedAttendeeData } from './registration-types';
 import { generateUUID } from './uuid-slug-utils';
 
 // Re-export UnifiedAttendeeData for backward compatibility

@@ -2,7 +2,9 @@ import { supabase } from '../supabase-browser';
 import { Database } from '../../shared/types/supabase';
 
 // Explicitly type based on your Database schema definitions
-export type LodgeRow = Database['public']['Tables']['lodges']['Row'];
+export type LodgeRow = Database['public']['Tables']['lodges']['Row'] & {
+  organisationid?: string;
+};
 export type LodgeInsert = Database['public']['Tables']['lodges']['Insert'];
 export type LodgeUpdate = Database['public']['Tables']['lodges']['Update'];
 

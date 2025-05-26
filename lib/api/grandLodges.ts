@@ -2,7 +2,9 @@ import { supabase } from '../supabase-browser';
 import { Database } from '../../shared/types/supabase';
 
 // Explicitly type based on your Database schema definitions
-export type GrandLodgeRow = Database['public']['Tables']['grand_lodges']['Row'];
+export type GrandLodgeRow = Database['public']['Tables']['grand_lodges']['Row'] & {
+  organisationid?: string;
+};
 
 // Define filter type
 interface GrandLodgeFilter {

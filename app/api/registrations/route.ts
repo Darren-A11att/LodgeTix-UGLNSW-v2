@@ -167,7 +167,7 @@ export async function POST(request: Request) {
     console.log("Using user's authenticated client with RLS policies");
     const userClient = supabase;
     
-    // First, ensure customer exists or create one
+    // First, ensure customer exists or create/update one
     console.log("Checking if customer exists for user:", customerId);
     const { error: customerCheckError } = await userClient
       .from("customers")
@@ -195,15 +195,36 @@ export async function POST(request: Request) {
         .single();
       
       if (customerCreateError) {
-        console.error("Error creating customer:", customerCreateError);
-        console.groupEnd();
-        return NextResponse.json(
-          { error: `Failed to create customer record: ${customerCreateError.message}` },
-          { status: 500 }
-        );
+        // Check if it's a duplicate key error - this can happen in race conditions
+        if (customerCreateError.code === '23505' && customerCreateError.message.includes('customers_consolidated_pkey')) {
+          console.warn("Customer was created by another process, continuing...");
+          // Try to fetch the customer that was just created
+          const { error: refetchError } = await userClient
+            .from("customers")
+            .select("id")
+            .eq("id", customerId)
+            .single();
+          
+          if (refetchError) {
+            console.error("Error fetching recently created customer:", refetchError);
+            console.groupEnd();
+            return NextResponse.json(
+              { error: `Failed to verify customer record: ${refetchError.message}` },
+              { status: 500 }
+            );
+          }
+          console.log("Customer verified after race condition");
+        } else {
+          console.error("Error creating customer:", customerCreateError);
+          console.groupEnd();
+          return NextResponse.json(
+            { error: `Failed to create customer record: ${customerCreateError.message}` },
+            { status: 500 }
+          );
+        }
+      } else {
+        console.log("Customer created successfully:", newCustomer);
       }
-      
-      console.log("Customer created successfully:", newCustomer);
     } else if (customerCheckError) {
       console.error("Error checking customer:", customerCheckError);
       console.groupEnd();
@@ -213,6 +234,28 @@ export async function POST(request: Request) {
       );
     } else {
       console.log("Customer already exists");
+      
+      // Update customer with latest billing details if provided
+      if (billingDetails && (billingDetails.emailAddress || billingDetails.firstName || billingDetails.lastName || billingDetails.mobileNumber)) {
+        console.log("Updating existing customer with latest billing details");
+        const updateData: any = {};
+        
+        if (billingDetails.emailAddress) updateData.email = billingDetails.emailAddress;
+        if (billingDetails.firstName) updateData.first_name = billingDetails.firstName;
+        if (billingDetails.lastName) updateData.last_name = billingDetails.lastName;
+        if (billingDetails.mobileNumber) updateData.phone = billingDetails.mobileNumber;
+        updateData.updated_at = new Date().toISOString();
+        
+        const { error: updateError } = await userClient
+          .from("customers")
+          .update(updateData)
+          .eq("id", customerId);
+        
+        if (updateError) {
+          console.warn("Failed to update customer billing details:", updateError);
+          // Don't fail the registration if update fails
+        }
+      }
     }
 
     // Insert registration record
@@ -420,13 +463,10 @@ export async function POST(request: Request) {
           continue;
         }
         
-        // tickets.ticket_status column uses 'payment_status' enum from Database["public"]["Enums"]["payment_status"]
-        let ticketStatusForDb: Database["public"]["Enums"]["payment_status"] = 'pending'; 
-        const clientTicketStatus = ticket.status?.toLowerCase();
-        if (clientTicketStatus === 'pending' || clientTicketStatus === 'completed' || clientTicketStatus === 'failed' || clientTicketStatus === 'refunded' || clientTicketStatus === 'partially_refunded' || clientTicketStatus === 'cancelled' || clientTicketStatus === 'expired') {
-            ticketStatusForDb = clientTicketStatus as Database["public"]["Enums"]["payment_status"];
-        }
-
+        // The 'status' column is what has the check constraint, not 'ticket_status'
+        // Valid values: 'available', 'reserved', 'sold', 'used', 'cancelled'
+        let statusForDb = 'reserved'; // Default to 'reserved' for new registrations
+        
         const ticketRecord: TablesInsert<'tickets'> = {
           // id is generated automatically by Supabase
           id: uuidv4(),
@@ -434,7 +474,8 @@ export async function POST(request: Request) {
           event_id: finalEventId, // Use the resolved event ID (UUID)
           ticket_price: ticket.price || 0, 
           price_paid: ticket.price || 0, // Required field - using ticket_price value
-          ticket_status: ticketStatusForDb,
+          status: statusForDb, // Use 'status' not 'ticket_status'
+          payment_status: 'Unpaid', // This is a separate column
           registration_id: newRegistrationId,
           // For packages, use ticketDefinitionId; for individual tickets, use eventTicketId
           ticket_type_id: ticket.isPackage ? (ticket.ticketDefinitionId || ticket.package_id) : (ticket.eventTicketId || ticket.event_ticket_id),
