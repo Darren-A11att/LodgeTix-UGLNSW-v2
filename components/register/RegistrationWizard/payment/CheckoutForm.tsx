@@ -17,7 +17,6 @@ declare global {
 }
 
 export const CheckoutForm = memo(function CheckoutForm({
-  clientSecret,
   totalAmount,
   onPaymentSuccess,
   onPaymentError,
@@ -154,25 +153,24 @@ export const CheckoutForm = memo(function CheckoutForm({
       setIsProcessingPayment(true);
 
       try {
-        const { error, paymentIntent } = await stripe.confirmCardPayment(clientSecret, {
-          payment_method: {
-            card: cardElement,
-            billing_details: getBillingDetailsForStripe(),
-          },
+        // Two-step flow: Create payment method token
+        console.log("💳 Creating payment method token");
+        const { error: tokenError, paymentMethod } = await stripe.createPaymentMethod({
+          type: 'card',
+          card: cardElement,
+          billing_details: getBillingDetailsForStripe(),
         });
 
-        if (error) {
-          console.error("Payment error:", error);
-          onPaymentError(`Payment failed: ${error.message}`);
+        if (tokenError) {
+          console.error("Token creation error:", tokenError);
+          onPaymentError(`Failed to create payment method: ${tokenError.message}`);
           return;
         }
 
-        if (paymentIntent?.status === 'succeeded') {
-          console.log("Payment succeeded:", paymentIntent);
-          onPaymentSuccess(paymentIntent.id, getBillingDetailsForStripe());
-        } else {
-          console.error("Unexpected payment status:", paymentIntent?.status);
-          onPaymentError(`Payment returned unexpected status: ${paymentIntent?.status}`);
+        if (paymentMethod) {
+          console.log("Payment method created:", paymentMethod.id);
+          // Pass payment method ID to parent
+          onPaymentSuccess(paymentMethod.id, getBillingDetailsForStripe());
         }
       } catch (err: any) {
         console.error("Payment processing error:", err);
@@ -192,7 +190,7 @@ export const CheckoutForm = memo(function CheckoutForm({
       window.removeEventListener('continuePayment', handleContinuePayment);
       console.log("🎯 CheckoutForm: Removed continuePayment event listener from window");
     };
-  }, [stripe, elements, clientSecret, billingDetails, onPaymentSuccess, onPaymentError, setIsProcessingPayment]);
+  }, [stripe, elements, billingDetails, onPaymentSuccess, onPaymentError, setIsProcessingPayment]);
 
   // Cleanup effect to clear any submission timeout on unmount
   useEffect(() => {
@@ -211,7 +209,7 @@ export const CheckoutForm = memo(function CheckoutForm({
     setCardError(null);
     setIsSubmittingRegistration(true);
 
-    console.log("🔶 Stripe Payment Submit - clientSecret:", clientSecret ? "exists" : "null");
+    console.log("🔶 Stripe Payment Submit");
     console.log("🔶 Stripe instance ready:", stripe ? "yes" : "no");
     console.log("🔶 Elements ready:", elements ? "yes" : "no");
 
@@ -231,9 +229,6 @@ export const CheckoutForm = memo(function CheckoutForm({
       setIsSubmittingRegistration(false);
       return;
     }
-    
-    // Note: Card validation will happen when Stripe processes the payment
-    // The card element doesn't expose an isComplete method in the types
     
     // Add a safeguard timeout to prevent permanent locking
     const submissionTimeout = setTimeout(() => {
@@ -290,7 +285,7 @@ export const CheckoutForm = memo(function CheckoutForm({
         <Button
           type="button"
           onClick={handleSubmit}
-          disabled={!stripe || !elements || !clientSecret || isSubmittingRegistration}
+          disabled={!stripe || !elements || isSubmittingRegistration}
           className="w-full bg-masonic-gold text-masonic-navy hover:bg-masonic-lightgold flex items-center justify-center mt-4"
         >
           {isSubmittingRegistration ? (

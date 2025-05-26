@@ -24,19 +24,7 @@ import { PaymentProcessing } from "../payment/PaymentProcessing";
 import { getPaymentSummaryData } from '../Summary/summary-data/payment-summary-data';
 import { SummaryRenderer } from '../Summary/SummaryRenderer';
 import { TwoColumnStepLayout } from "../Layouts/TwoColumnStepLayout";
-
-// Placeholder ticket definitions (should be imported from a shared source eventually)
-const ticketTypesMinimal = [
-  { id: "d5891f32-a57c-48f3-b71a-3832eb0c8f21", name: "Installation Ceremony", price: 75 },
-  { id: "f2c9b7e1-d85a-4e03-9c53-4b7f62e8d9a3", name: "Grand Banquet", price: 150 },
-  { id: "7ae31d05-6f8b-49ec-b2c8-18df3ef7d9b6", name: "Farewell Brunch", price: 45 },
-  { id: "3c5b1e8d-947a-42f6-b837-0d72c614a53f", name: "City Tour", price: 60 },
-];
-const ticketPackagesMinimal = [
-  { id: "a9e3d210-7f65-4c8b-9d1a-f5b83e92c615", name: "Complete Package", price: 250, includes: ["d5891f32-a57c-48f3-b71a-3832eb0c8f21", "f2c9b7e1-d85a-4e03-9c53-4b7f62e8d9a3", "7ae31d05-6f8b-49ec-b2c8-18df3ef7d9b6", "3c5b1e8d-947a-42f6-b837-0d72c614a53f"] },
-  { id: "b821c7d5-3e5f-49a2-8d16-7e09bf432a87", name: "Ceremony & Banquet", price: 200, includes: ["d5891f32-a57c-48f3-b71a-3832eb0c8f21", "f2c9b7e1-d85a-4e03-9c53-4b7f62e8d9a3"] },
-  { id: "c743e9f1-5a82-4d07-b6c3-8901fdae5243", name: "Social Package", price: 180, includes: ["f2c9b7e1-d85a-4e03-9c53-4b7f62e8d9a3", "7ae31d05-6f8b-49ec-b2c8-18df3ef7d9b6", "3c5b1e8d-947a-42f6-b837-0d72c614a53f"] },
-];
+import { getEventTicketsService, type TicketDefinition, type EventPackage } from '@/lib/services/event-tickets-service';
 
 // Add global type declarations for our window extensions
 declare global {
@@ -104,14 +92,19 @@ function PaymentStep(props: PaymentStepProps = {}) {
 
   // Derive ticket data for summary and submission
   const currentTicketsForSummary = useMemo(() => {
+    // Don't calculate if tickets haven't loaded yet
+    if (isLoadingTickets) return [];
+    
     return allStoreAttendees.flatMap(attendee => {
-      if (!attendee.ticket) return [];
-      const { ticketDefinitionId, selectedEvents } = attendee.ticket;
       const attendeeId = attendee.attendeeId;
+      const selection = packages[attendeeId];
+      
+      if (!selection) return [];
+      
       let tickets: Array<{ id: string; name: string; price: number; attendeeId: string; isPackage?: boolean; description?: string }> = [];
 
-      if (ticketDefinitionId) {
-        const pkgInfo = ticketPackagesMinimal.find(p => p.id === ticketDefinitionId);
+      if (selection.ticketDefinitionId) {
+        const pkgInfo = ticketPackages.find(p => p.id === selection.ticketDefinitionId);
         if (pkgInfo) {
           tickets.push({ 
             id: `${attendeeId}-${pkgInfo.id}`,
@@ -119,12 +112,12 @@ function PaymentStep(props: PaymentStepProps = {}) {
             price: pkgInfo.price, 
             attendeeId, 
             isPackage: true,
-            description: `Package: ${pkgInfo.name}` // Simplified description for summary
+            description: pkgInfo.description || `Package: ${pkgInfo.name}`
           });
         }
-      } else {
-        selectedEvents?.forEach(eventId => {
-          const eventInfo = ticketTypesMinimal.find(e => e.id === eventId);
+      } else if (selection.selectedEvents && selection.selectedEvents.length > 0) {
+        selection.selectedEvents.forEach(eventId => {
+          const eventInfo = ticketTypes.find(t => t.id === eventId);
           if (eventInfo) {
             tickets.push({ 
               id: `${attendeeId}-${eventInfo.id}`,
@@ -132,14 +125,14 @@ function PaymentStep(props: PaymentStepProps = {}) {
               price: eventInfo.price, 
               attendeeId, 
               isPackage: false,
-              description: eventInfo.name // Simplified description for summary
+              description: eventInfo.description || eventInfo.name
             });
           }
         });
       }
       return tickets;
     });
-  }, [allStoreAttendees]);
+  }, [allStoreAttendees, packages, ticketTypes, ticketPackages, isLoadingTickets]);
 
   // Local component state
   const [localPaymentProcessingError, setLocalPaymentProcessingError] = useState<string | null>(null);
@@ -155,14 +148,16 @@ function PaymentStep(props: PaymentStepProps = {}) {
     { name: 'Sending confirmation', description: 'Preparing your email receipt', status: 'upcoming' as const },
   ]);
   
-  const [clientSecret, setClientSecret] = useState<string | null>(null);
-  const [isPaymentIntentLoading, setIsPaymentIntentLoading] = useState(false);
-  const [paymentIntentError, setPaymentIntentError] = useState<string | null>(null);
-  const [isPaymentIntentReady, setIsPaymentIntentReady] = useState(false);
   const [confirmedRegistrationId, setConfirmedRegistrationId] = useState<string | null>(null);
 
   // Session state
   const [sessionCheckComplete, setSessionCheckComplete] = useState(false);
+  
+  // State for dynamic ticket and package data
+  const [ticketTypes, setTicketTypes] = useState<TicketDefinition[]>([]);
+  const [ticketPackages, setTicketPackages] = useState<EventPackage[]>([]);
+  const [isLoadingTickets, setIsLoadingTickets] = useState(true);
+  const [ticketsError, setTicketsError] = useState<string | null>(null);
   
   // Ref for payment element to trigger Stripe processing
   const paymentElementRef = useRef<HTMLDivElement>(null);
@@ -173,7 +168,44 @@ function PaymentStep(props: PaymentStepProps = {}) {
       exists: !!paymentElementRef.current,
       element: paymentElementRef.current
     });
-  }, [clientSecret]); // Re-check when clientSecret changes
+  }, []); // Run once on mount
+
+  // Fetch tickets and packages on component mount
+  useEffect(() => {
+    async function fetchTicketsAndPackages() {
+      try {
+        setIsLoadingTickets(true);
+        setTicketsError(null);
+        
+        const service = getEventTicketsService();
+        const parentEventId = eventId || "307c2d85-72d5-48cf-ac94-082ca2a5d23d"; // Fallback to Grand Proclamation
+        
+        console.log("💳 PaymentStep: Fetching tickets for event:", parentEventId);
+        
+        const [ticketsResult, packagesResult] = await Promise.all([
+          service.getTickets(parentEventId),
+          service.getPackages(parentEventId)
+        ]);
+        
+        if (ticketsResult.error || packagesResult.error) {
+          throw new Error(ticketsResult.error || packagesResult.error || 'Failed to load ticket information');
+        }
+        
+        console.log("💳 PaymentStep: Loaded tickets:", ticketsResult.data?.length);
+        console.log("💳 PaymentStep: Loaded packages:", packagesResult.data?.length);
+        
+        setTicketTypes(ticketsResult.data || []);
+        setTicketPackages(packagesResult.data || []);
+      } catch (error) {
+        console.error('Error fetching tickets and packages:', error);
+        setTicketsError(error instanceof Error ? error.message : 'Failed to load ticket information');
+      } finally {
+        setIsLoadingTickets(false);
+      }
+    }
+    
+    fetchTicketsAndPackages();
+  }, [eventId]);
 
   // Calculate total amount from derived tickets
   const totalAmount = useMemo(() => 
@@ -199,55 +231,6 @@ function PaymentStep(props: PaymentStepProps = {}) {
     },
   });
 
-  // Create a debounced payment intent creation function
-  const createPaymentIntent = useCallback(async () => {
-    console.log("💰 createPaymentIntent function called, totalAmount:", totalAmount);
-    if (totalAmount <= 0) {
-      console.log("💰 Skipping payment intent creation - amount is 0");
-      return;
-    }
-    
-    try {
-      console.log("💰 Starting API call to create payment intent...");
-      
-      const requestBody = { 
-        amount: totalAmount * 100, 
-        currency: 'aud',
-        idempotencyKey: `order-${Date.now()}-${Math.random().toString(36).substring(2, 10)}` 
-      };
-      console.log("💰 Request body:", requestBody);
-      
-      const response = await fetch('/api/stripe/create-payment-intent', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(requestBody),
-      });
-
-      console.log("💰 Stripe API response status:", response.status);
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        console.error("💰 Stripe API error:", errorData);
-        throw new Error(errorData.error || `Failed to create payment intent: ${response.statusText}`);
-      }
-
-      const data = await response.json();
-      console.log("💰 Stripe API success, client secret received (first 10 chars):", 
-        data.clientSecret ? data.clientSecret.substring(0, 10) + "..." : "none");
-      
-      setClientSecret(data.clientSecret);
-      setIsPaymentIntentReady(true);
-    } catch (error: any) {
-      console.error("💰 Error creating payment intent:", error);
-      setPaymentIntentError(error.message || "Unknown error occurred");
-      setIsPaymentIntentReady(false);
-    } finally {
-      console.log("💰 Finishing payment intent creation, setting loading to false");
-      setIsPaymentIntentLoading(false);
-    }
-  }, [totalAmount]);
 
   // Check session status on mount - simpler approach
   useEffect(() => {
@@ -287,106 +270,47 @@ function PaymentStep(props: PaymentStepProps = {}) {
     checkSession();
   }, []); // Remove dependencies to run only once on mount
 
-  // Removed Turnstile rendering - session should be established in registration type step
 
-  // Removed Turnstile token handler - session should be established in registration type step
-
-  // Simplified payment intent creation effect
-  useEffect(() => {
-    console.log("💰 Payment Intent Creation Logic");
-    console.log("💰 totalAmount:", totalAmount);
-    console.log("💰 anonymousSessionEstablished:", anonymousSessionEstablished);
-    console.log("💰 sessionCheckComplete:", sessionCheckComplete);
-    console.log("💰 clientSecret exists:", !!clientSecret);
-
-    // Only create payment intent if session is established and we haven't created one yet
-    if (totalAmount > 0 && anonymousSessionEstablished && sessionCheckComplete && !clientSecret) {
-      console.log("💰 Creating payment intent...");
-      
-      // Use a ref to track if we've already started loading to prevent duplicate calls
-      if (isPaymentIntentLoading) {
-        console.log("💰 Payment intent already loading, skipping");
-        return;
-      }
-      
-      setIsPaymentIntentLoading(true);
-      setIsPaymentIntentReady(false);
-      setPaymentIntentError(null);
-
-      // Small delay to ensure session is fully established
-      const timeoutId = setTimeout(() => {
-        console.log("💰 Timeout fired, calling createPaymentIntent");
-        createPaymentIntent();
-      }, 300);
-      
-      return () => {
-        console.log("💰 Cleaning up timeout");
-        clearTimeout(timeoutId);
-      };
-    } else {
-      console.log("💰 Payment intent creation blocked:", {
-        totalAmount: totalAmount > 0,
-        sessionEstablished: anonymousSessionEstablished,
-        sessionCheckComplete,
-        hasClientSecret: !!clientSecret
-      });
-    }
-  }, [
-    totalAmount, 
-    createPaymentIntent,
-    anonymousSessionEstablished,
-    sessionCheckComplete,
-    clientSecret
-    // Removed isPaymentIntentLoading from dependencies to prevent infinite loop
-  ]);
-
-  const handleSuccessfulPayment = async (paymentIntentId: string, stripeBillingDetailsUsed: StripeBillingDetailsForClient, regId: string) => {
+  const handlePaymentMethodCreated = async (paymentMethodId: string, stripeBillingDetailsUsed: StripeBillingDetailsForClient, regId: string) => {
     // Clear the payment timeout if it exists
     if ((window as any).__paymentTimeout) {
       clearTimeout((window as any).__paymentTimeout);
       delete (window as any).__paymentTimeout;
-      console.log("✅ Cleared payment timeout - payment succeeded");
+      console.log("✅ Cleared payment timeout - payment method created");
     }
     
     if (!regId) {
-      console.error("❌ Critical Error: handleSuccessfulPayment called without a valid registrationId.");
-      setLocalPaymentProcessingError("Failed to update registration: Missing critical registration ID after payment.");
+      console.error("❌ Critical Error: handleTwoStepPaymentSuccess called without a valid registrationId.");
+      setLocalPaymentProcessingError("Failed to update registration: Missing critical registration ID after payment method creation.");
       setIsProcessingPayment(false);
       return;
     }
-    console.log("📝 Payment Success - Updating Registration");
-    console.log("Payment Intent ID:", paymentIntentId);
+    console.log("💳 Two-Step Payment - Payment Method Created");
+    console.log("Payment Method ID:", paymentMethodId);
     console.log("Registration ID for update:", regId);
 
     // Clear any previous errors
     setLocalPaymentProcessingError(null);
-    setIsProcessingPayment(true); // Should already be true, but ensure
+    setIsProcessingPayment(true);
 
     try {
-      // Validate UUID format for safety, though it should be server-generated
-      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-      if (!uuidRegex.test(regId)) {
-        console.error(`Invalid registration ID format for update: ${regId}`);
-        setLocalPaymentProcessingError(`Invalid registration ID format: ${regId}. Cannot update payment status.`);
-        setIsProcessingPayment(false);
-        return;
-      }
-
-      console.log("Payment Update Data:", {
-        paymentIntentId,
-        totalAmount,
-        status: "paid", // Or derive dynamically if needed
-        paymentStatus: "completed", // Or derive dynamically if needed
+      // Update processing steps - payment method created
+      setProcessingSteps(prev => {
+        const newSteps = [...prev];
+        newSteps[0] = { ...newSteps[0], status: 'complete' }; // Registration saved
+        newSteps[1] = { ...newSteps[1], status: 'complete' }; // Payment method created
+        newSteps[2] = { ...newSteps[2], status: 'current' }; // Now processing payment
+        return newSteps;
       });
 
+      // Call API to create payment intent and process payment server-side
       const updateResponse = await fetch(`/api/registrations/${regId}/payment`, {
         method: 'PUT',
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          paymentIntentId,
+          paymentMethodId,
           totalAmount,
-          status: "paid", // Example status, adjust as needed
-          paymentStatus: "completed", // Example status, adjust as needed
+          billingDetails: stripeBillingDetailsUsed
         }),
       });
 
@@ -396,24 +320,37 @@ function PaymentStep(props: PaymentStepProps = {}) {
       if (!updateResponse.ok) {
         console.error("API Error Response:", updateResult);
         throw new Error(
-          updateResult.error || "Failed to update registration payment status"
+          updateResult.error || "Failed to process payment"
         );
       }
 
-      console.log("✅ Registration payment status updated:", updateResult);
-      setStoreConfirmationNumber(updateResult.confirmationNumber || regId); // Use server's confirmation or fallback
+      console.log("✅ Payment processing initiated:", updateResult);
       
-      // Update processing steps - payment is now complete
-      setProcessingSteps(prev => {
-        const newSteps = [...prev];
-        // Mark first two steps as complete (registration saved, payment processed)
-        newSteps[0] = { ...newSteps[0], status: 'complete' };
-        newSteps[1] = { ...newSteps[1], status: 'complete' };
-        newSteps[2] = { ...newSteps[2], status: 'current' }; // Now reserving tickets
-        return newSteps;
-      });
+      // Check if we have a redirect URL for 3D Secure or other verification
+      if (updateResult.requiresAction && updateResult.clientSecret) {
+        console.log("🔐 Payment requires additional authentication");
+        // Handle 3D Secure authentication
+        const stripe = (window as any).Stripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY);
+        const { error } = await stripe.confirmCardPayment(updateResult.clientSecret);
+        
+        if (error) {
+          throw new Error(`Authentication failed: ${error.message}`);
+        }
+        
+        // After successful authentication, verify payment status
+        const verifyResponse = await fetch(`/api/registrations/${regId}/verify-payment`, {
+          method: 'POST',
+          headers: { "Content-Type": "application/json" },
+        });
+        
+        if (!verifyResponse.ok) {
+          throw new Error("Failed to verify payment after authentication");
+        }
+      }
       
-      // Simulate remaining processing steps with delays
+      setStoreConfirmationNumber(updateResult.confirmationNumber || regId);
+      
+      // Continue with remaining processing steps
       const updateStep = (index: number, status: 'complete' | 'current') => {
         setProcessingSteps(prev => {
           const newSteps = [...prev];
@@ -445,14 +382,25 @@ function PaymentStep(props: PaymentStepProps = {}) {
       }, 4500);
 
     } catch (error: any) {
-      console.error("❌ Registration Update Error");
-      console.error("Error updating registration payment status:", error.message);
+      console.error("❌ Payment Processing Error");
+      console.error("Error processing payment:", error.message);
       console.error("Stack Trace:", error.stack);
-      setLocalPaymentProcessingError(`Payment succeeded, but failed to update registration: ${error.message}. Please contact support with your payment ID: ${paymentIntentId}.`);
+      setLocalPaymentProcessingError(`Failed to process payment: ${error.message}. Please contact support with your registration ID: ${regId}.`);
+      
+      // Update processing steps to show error
+      setProcessingSteps(prev => {
+        const newSteps = [...prev];
+        const paymentStepIndex = newSteps.findIndex(step => step.name.toLowerCase().includes('payment'));
+        if (paymentStepIndex >= 0) {
+          newSteps[paymentStepIndex] = { ...newSteps[paymentStepIndex], status: 'error' };
+        }
+        return newSteps;
+      });
     } finally {
       setIsProcessingPayment(false);
     }
   };
+
 
   const handlePaymentError = (errorMessage: string) => {
     console.error("❌ Payment Error:", errorMessage);
@@ -500,15 +448,16 @@ function PaymentStep(props: PaymentStepProps = {}) {
 
   const {reset: resetBillingForm, formState: {isDirty: billingFormIsDirty, isValid: billingFormIsValid, errors: billingFormErrors}} = form;
 
-  // Passed as a prop to CheckoutForm
-  // This function will be called by CheckoutForm AFTER Stripe payment is successful
-  const onPaymentSuccessWrapper = (paymentIntentId: string, stripeBillingDetailsUsed: StripeBillingDetailsForClient) => {
+  // This function will be called by CheckoutForm AFTER creating payment method
+  const onPaymentSuccessWrapper = (paymentMethodId: string, stripeBillingDetailsUsed: StripeBillingDetailsForClient) => {
     if (!confirmedRegistrationId) {
         console.error("CRITICAL: onPaymentSuccessWrapper called without confirmedRegistrationId. This should not happen.");
-        setLocalPaymentProcessingError("A critical error occurred. Payment was made but registration update failed. Please contact support.");
+        setLocalPaymentProcessingError("A critical error occurred. Payment method was created but registration update failed. Please contact support.");
         return;
     }
-    handleSuccessfulPayment(paymentIntentId, stripeBillingDetailsUsed, confirmedRegistrationId);
+    
+    console.log("💳 Payment method created, ready to process payment");
+    handlePaymentMethodCreated(paymentMethodId, stripeBillingDetailsUsed, confirmedRegistrationId);
   };
 
   const onBillingSubmit = async (data: FormBillingDetailsSchema) => {
@@ -851,10 +800,7 @@ function PaymentStep(props: PaymentStepProps = {}) {
           } : null} />
           <div ref={paymentElementRef}>
             <PaymentMethod 
-              clientSecret={clientSecret}
               totalAmount={totalAmount}
-              paymentIntentError={paymentIntentError}
-              isPaymentIntentLoading={isPaymentIntentLoading}
               onPaymentSuccess={onPaymentSuccessWrapper}
               onPaymentError={handlePaymentError}
               setIsProcessingPayment={setIsProcessingPayment}
@@ -903,7 +849,7 @@ function PaymentStep(props: PaymentStepProps = {}) {
       isPaymentValid: form.formState.isValid && !isSubmittingOrder,
       attendeeCount: (primaryAttendee ? 1 : 0) + otherAttendees.length,
       ticketCount: currentTicketsForSummary.length,
-      isProcessing: isProcessingPayment || isSubmittingOrder || isPaymentIntentLoading,
+      isProcessing: isProcessingPayment || isSubmittingOrder,
       error: localPaymentProcessingError || submissionError
     });
     

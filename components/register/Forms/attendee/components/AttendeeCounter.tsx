@@ -11,6 +11,7 @@ interface AttendeeCounterProps {
   max?: number;
   onChange: (value: number) => void;
   className?: string;
+  disabled?: boolean;
 }
 
 export const AttendeeCounter: React.FC<AttendeeCounterProps> = ({
@@ -20,7 +21,8 @@ export const AttendeeCounter: React.FC<AttendeeCounterProps> = ({
   min = 0,
   max = 99,
   onChange,
-  className = ''
+  className = '',
+  disabled = false
 }) => {
   const handleDecrease = () => {
     if (value > min) {
@@ -50,7 +52,7 @@ export const AttendeeCounter: React.FC<AttendeeCounterProps> = ({
           size="icon"
           className="rounded-r-none h-10 w-10 border-gray-300"
           onClick={handleDecrease}
-          disabled={value <= min}
+          disabled={disabled || value <= min}
         >
           <span className="text-xl font-medium">−</span>
         </Button>
@@ -62,13 +64,14 @@ export const AttendeeCounter: React.FC<AttendeeCounterProps> = ({
           value={value}
           onChange={handleInputChange}
           className="h-10 text-center rounded-none border-x-0 w-20 border-gray-300" 
+          disabled={disabled}
         />
         <Button 
           variant="outline" 
           size="icon"
           className="rounded-l-none h-10 w-10 border-gray-300"
           onClick={handleIncrease}
-          disabled={value >= max}
+          disabled={disabled || value >= max}
         >
           <span className="text-xl font-medium">+</span>
         </Button>

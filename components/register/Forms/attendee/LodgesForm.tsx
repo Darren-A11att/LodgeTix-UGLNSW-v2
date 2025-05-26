@@ -4,11 +4,22 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Info, ShoppingCart, Users } from 'lucide-react';
+import { Info, ShoppingCart, Users, Package, Check, Building } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import formSaveManager from '@/lib/formSaveManager';
 import { useDebouncedCallback } from 'use-debounce';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
+
+// Import form components
+import { BasicInfo } from '../basic-details/BasicInfo';
+import { ContactInfo } from '../basic-details/ContactInfo';
+import { GrandOfficerFields } from '../mason/utils/GrandOfficerFields';
+import { GrandOfficerDropdown } from '../shared/GrandOfficerDropdown';
+import { MASON_TITLES, MASON_RANKS, GRAND_OFFICER_ROLES } from '../attendee/utils/constants';
+import { GrandLodgeSelection } from '../mason/lib/GrandLodgeSelection';
+import { LodgeSelection } from '../mason/lib/LodgeSelection';
 
 // Import our new extracted components
 import {
@@ -90,6 +101,22 @@ export const LodgesForm: React.FC<LodgesFormProps> = ({
       totalPrice: tableCount * TABLE_PRICE
     });
   }, [tableCount]);
+  
+  // Initialize Grand Lodge and Lodge from primary attendee when loaded
+  useEffect(() => {
+    if (primaryAttendee && !selectedGrandLodge && primaryAttendee.grandLodgeId) {
+      // Initialize Grand Lodge
+      setSelectedGrandLodge(String(primaryAttendee.grandLodgeId));
+      
+      // Initialize Lodge if available
+      if (primaryAttendee.lodgeId) {
+        setSelectedLodge(String(primaryAttendee.lodgeId));
+        if (primaryAttendee.lodgeNameNumber) {
+          setLodgeName(primaryAttendee.lodgeNameNumber);
+        }
+      }
+    }
+  }, [primaryAttendee, selectedGrandLodge]);
 
   // One-time initialization
   const isInitializedRef = React.useRef(false);
@@ -148,15 +175,28 @@ export const LodgesForm: React.FC<LodgesFormProps> = ({
   const handleGrandLodgeChange = useCallback((grandLodgeId: string) => {
     if (selectedGrandLodge !== grandLodgeId) {
       setSelectedGrandLodge(grandLodgeId);
-      setSelectedLodge('');
-      setLodgeName('');
+      
+      // Only clear Lodge selection if we're actually changing the Grand Lodge
+      // Don't clear if this is the initial load from draft
+      const isInitialLoad = !selectedGrandLodge && grandLodgeId && primaryAttendee?.lodgeId;
+      
+      if (!isInitialLoad) {
+        setSelectedLodge('');
+        setLodgeName('');
+      }
       
       if (primaryAttendee) {
-        debouncedUpdateAttendee(primaryAttendee.attendeeId, { 
+        const updates: any = { 
           grandLodgeId: grandLodgeId ? Number(grandLodgeId) : 0,
-          lodgeId: 0,
-          lodgeNameNumber: '',
-        });
+        };
+        
+        // Only clear lodge data if not initial load
+        if (!isInitialLoad) {
+          updates.lodgeId = 0;
+          updates.lodgeNameNumber = '';
+        }
+        
+        debouncedUpdateAttendee(primaryAttendee.attendeeId, updates);
       }
     }
   }, [primaryAttendee, debouncedUpdateAttendee, selectedGrandLodge]);
@@ -218,28 +258,136 @@ export const LodgesForm: React.FC<LodgesFormProps> = ({
 
   return (
     <div className={cn("space-y-6", className)}>
-      {/* Lodge Selection Card */}
-      <LodgeSelectionCard
-        selectedGrandLodge={selectedGrandLodge}
-        selectedLodge={selectedLodge}
-        onGrandLodgeChange={handleGrandLodgeChange}
-        onLodgeChange={handleLodgeChange}
-        disabled={false}
-      />
-
-      {/* Booking Contact Section */}
-      {primaryAttendee && selectedLodge && (
-        <Card>
-          <CardContent className="pt-0">
-            <BookingContactSection
-              attendee={primaryAttendee}
-              onFieldChange={handleFieldChange}
-              onFieldChangeImmediate={handleFieldChangeImmediate}
-              disabled={!selectedLodge}
-            />
+      {/* Lodge Selection with integrated Booking Contact */}
+      <div className="relative">
+        <Card className="border-2 border-primary/20">
+          <CardHeader className="bg-primary/5 border-b border-primary/10">
+            <CardTitle className="flex items-center gap-2 text-primary">
+              <Building className="w-5 h-5" />
+              Your Lodge
+            </CardTitle>
+            <p className="text-sm text-gray-600 mt-1">
+              These details will be applied to all members in this registration
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-6 pt-6">
+            {/* Lodge Selection Fields */}
+            <div className="grid md:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <GrandLodgeSelection 
+                  value={selectedGrandLodge}
+                  onChange={handleGrandLodgeChange}
+                />
+                {!selectedGrandLodge && (
+                  <p className="text-amber-600 text-xs mt-1 flex items-center gap-1">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
+                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a.75.75 0 000 1.5h.253a.25.25 0 01.244.304l-.459 2.066A1.75 1.75 0 0010.747 15H11a.75.75 0 000-1.5h-.253a.25.25 0 01-.244-.304l.459-2.066A1.75 1.75 0 009.253 9H9z" clipRule="evenodd" />
+                    </svg>
+                    Required to proceed
+                  </p>
+                )}
+              </div>
+              
+              <div className="space-y-2">
+                <LodgeSelection 
+                  grandLodgeId={selectedGrandLodge}
+                  value={selectedLodge}
+                  onChange={(lodgeId, lodgeName) => handleLodgeChange(lodgeId, lodgeName ?? '')}
+                  disabled={!selectedGrandLodge}
+                />
+                {selectedGrandLodge && !selectedLodge && (
+                  <p className="text-amber-600 text-xs mt-1 flex items-center gap-1">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
+                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a.75.75 0 000 1.5h.253a.25.25 0 01.244.304l-.459 2.066A1.75 1.75 0 0010.747 15H11a.75.75 0 000-1.5h-.253a.25.25 0 01-.244-.304l.459-2.066A1.75 1.75 0 009.253 9H9z" clipRule="evenodd" />
+                    </svg>
+                    Required to proceed
+                  </p>
+                )}
+              </div>
+            </div>
+            
+            {/* Booking Contact Details */}
+            {primaryAttendee && (
+              <div className="space-y-4 border-t pt-6">
+                <h3 className="text-base font-medium">Booking Contact</h3>
+                
+                {/* Name and Title Row - following MasonForm layout */}
+                <div className="grid grid-cols-12 gap-4">
+                  {/* Masonic Title - 2 columns */}
+                  <div className="col-span-2">
+                    <Label>Title *</Label>
+                    <select
+                      className="w-full border rounded-md px-3 py-2"
+                      value={primaryAttendee.title || ''}
+                      onChange={(e) => handleFieldChangeImmediate('title', e.target.value)}
+                    >
+                      <option value="">Select</option>
+                      {MASON_TITLES.map(title => (
+                        <option key={title} value={title}>{title}</option>
+                      ))}
+                    </select>
+                  </div>
+                  
+                  {/* First Name - 4 columns */}
+                  <div className="col-span-4">
+                    <Label>First Name *</Label>
+                    <input
+                      type="text"
+                      className="w-full border rounded-md px-3 py-2"
+                      value={primaryAttendee.firstName || ''}
+                      onChange={(e) => handleFieldChange('firstName', e.target.value)}
+                      required
+                    />
+                  </div>
+                  
+                  {/* Last Name - 4 columns */}
+                  <div className="col-span-4">
+                    <Label>Last Name *</Label>
+                    <input
+                      type="text"
+                      className="w-full border rounded-md px-3 py-2"
+                      value={primaryAttendee.lastName || ''}
+                      onChange={(e) => handleFieldChange('lastName', e.target.value)}
+                      required
+                    />
+                  </div>
+                  
+                  {/* Rank - 2 columns */}
+                  <div className="col-span-2">
+                    <Label>Rank *</Label>
+                    <select
+                      className="w-full border rounded-md px-3 py-2"
+                      value={primaryAttendee.rank || ''}
+                      onChange={(e) => handleFieldChangeImmediate('rank', e.target.value)}
+                    >
+                      <option value="">Select</option>
+                      {MASON_RANKS.map(rank => (
+                        <option key={rank.value} value={rank.value}>{rank.label}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+                
+                {/* Grand Officer Fields - show if rank is GL */}
+                {primaryAttendee.rank === 'GL' && (
+                  <GrandOfficerFields
+                    data={primaryAttendee}
+                    onChange={handleFieldChangeImmediate}
+                    required={true}
+                  />
+                )}
+                
+                {/* Contact Information */}
+                <ContactInfo
+                  data={primaryAttendee}
+                  isPrimary={true}
+                  onChange={handleFieldChange}
+                />
+              </div>
+            )}
           </CardContent>
         </Card>
-      )}
+      </div>
 
       {/* Table Order Section */}
       <Card className={cn(
@@ -258,91 +406,135 @@ export const LodgesForm: React.FC<LodgesFormProps> = ({
           </div>
         </CardHeader>
         <CardContent className="p-6">
-          {/* Info Alert */}
-          <Alert className="mb-6 border-blue-200 bg-blue-50">
-            <Info className="h-4 w-4 text-blue-600" />
-            <AlertDescription className="text-blue-800">
-              <strong>Early Bird Special:</strong> Purchase tables now and allocate attendees later. 
-              Each table includes 10 tickets to both the Gala Dinner and Ceremony.
-            </AlertDescription>
-          </Alert>
-
-          {/* Table Selection */}
-          <div className="space-y-6">
-            <div>
-              <Label htmlFor="table-count" className="text-base font-medium mb-2 block">
-                Number of Tables
-              </Label>
-              <AttendeeCounter
-                id="table-count"
-                label=""
-                value={tableCount}
-                min={minTables}
-                max={maxTables}
-                onChange={handleTableCountChange}
-                disabled={!selectedLodge}
-              />
-              <p className="text-sm text-gray-600 mt-2">
-                Each table seats 10 people
-              </p>
-            </div>
-
-            {/* Order Summary */}
-            <div className="bg-gray-50 rounded-lg p-6 space-y-4">
-              <h4 className="font-medium text-lg">Order Summary</h4>
+          {/* 2-Column Layout */}
+          <div className="grid grid-cols-2 gap-8">
+            {/* Column 1: Ticket Selection (from ticket-selection-step) */}
+            <div className="space-y-4">
+              <h3 className="font-medium text-lg mb-4">Available Packages</h3>
               
-              <div className="space-y-2">
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-600">Tables ({tableCount} × $1,950)</span>
-                  <span className="font-medium">${(tableCount * TABLE_PRICE).toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between items-center text-sm text-gray-500">
-                  <span>Total Tickets</span>
-                  <span>{tableOrder.totalTickets} tickets</span>
-                </div>
-                <div className="flex justify-between items-center text-sm text-gray-500">
-                  <span>Gala Dinner Tickets</span>
-                  <span>{tableOrder.totalTickets} × $145</span>
-                </div>
-                <div className="flex justify-between items-center text-sm text-gray-500">
-                  <span>Ceremony Tickets</span>
-                  <span>{tableOrder.totalTickets} × $50</span>
+              {/* Grand Proclamation Package */}
+              <div className="border rounded-lg p-4 hover:bg-gray-50 cursor-pointer transition-colors">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Package className="w-5 h-5 text-primary" />
+                      <h4 className="font-medium">Grand Proclamation Table</h4>
+                    </div>
+                    <p className="text-sm text-gray-600 mb-2">
+                      Complete package for 10 attendees including:
+                    </p>
+                    <ul className="text-sm text-gray-600 space-y-1 ml-4">
+                      <li className="flex items-center gap-2">
+                        <Check className="w-4 h-4 text-green-600" />
+                        Installation Ceremony (10 tickets)
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <Check className="w-4 h-4 text-green-600" />
+                        Grand Banquet Gala Dinner (10 tickets)
+                      </li>
+                    </ul>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-2xl font-bold">$1,950</p>
+                    <p className="text-sm text-gray-500">per table</p>
+                  </div>
                 </div>
               </div>
 
-              <div className="border-t pt-4">
-                <div className="flex justify-between items-center">
-                  <span className="text-lg font-semibold">Total Amount</span>
-                  <span className="text-2xl font-bold text-primary">
-                    ${tableOrder.totalPrice.toLocaleString()}
-                  </span>
+              {/* Info about the package */}
+              <Alert className="border-blue-200 bg-blue-50">
+                <Info className="h-4 w-4 text-blue-600" />
+                <AlertDescription className="text-sm">
+                  Each table seats 10 attendees. Purchase multiple tables for larger groups.
+                  Attendee details can be provided later.
+                </AlertDescription>
+              </Alert>
+            </div>
+
+            {/* Column 2: Table Selection and Order Summary */}
+            <div className="space-y-6">
+              <div>
+                <Label htmlFor="table-count" className="text-base font-medium mb-2 block">
+                  Number of Tables
+                </Label>
+                <AttendeeCounter
+                  id="table-count"
+                  label=""
+                  value={tableCount}
+                  min={minTables}
+                  max={maxTables}
+                  onChange={handleTableCountChange}
+                  disabled={!selectedLodge}
+                />
+                <p className="text-sm text-gray-600 mt-2">
+                  {tableCount} {tableCount === 1 ? 'table' : 'tables'} = {tableCount * TABLE_SIZE} attendees
+                </p>
+              </div>
+
+              {/* Order Summary */}
+              <div className="bg-gray-50 rounded-lg p-6 space-y-4">
+                <h4 className="font-medium text-lg">Order Summary</h4>
+                
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-600">Tables</span>
+                    <span className="font-medium">{tableCount} × $1,950</span>
+                  </div>
+                  <div className="flex justify-between items-center text-sm text-gray-500">
+                    <span>Total Attendees</span>
+                    <span>{tableOrder.totalTickets} people</span>
+                  </div>
+                </div>
+
+                <div className="border-t pt-4 space-y-2">
+                  <div className="text-sm text-gray-600">
+                    <div className="flex justify-between">
+                      <span>Ceremony Tickets</span>
+                      <span>{tableOrder.totalTickets} × $50</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Gala Dinner Tickets</span>
+                      <span>{tableOrder.totalTickets} × $145</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="border-t pt-4">
+                  <div className="flex justify-between items-center">
+                    <span className="text-lg font-semibold">Total Amount</span>
+                    <span className="text-2xl font-bold text-primary">
+                      ${tableOrder.totalPrice.toLocaleString()}
+                    </span>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            {/* Attendee Allocation Note */}
-            <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-              <h4 className="font-medium text-amber-900 mb-2 flex items-center gap-2">
-                <Users className="w-4 h-4" />
-                Attendee Details
-              </h4>
-              <p className="text-sm text-amber-800">
-                You can allocate specific attendees to your purchased tickets at any time before the event. 
-                All attendees will automatically inherit your lodge details.
-              </p>
+              {/* Attendee Allocation Note */}
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+                <h4 className="font-medium text-amber-900 mb-2 flex items-center gap-2">
+                  <Users className="w-4 h-4" />
+                  Attendee Details
+                </h4>
+                <p className="text-sm text-amber-800">
+                  Attendee names and details will be requested closer to the event date.
+                  All attendees will automatically inherit your lodge information.
+                </p>
+              </div>
             </div>
-
-            {/* Continue Button */}
-            <Button
-              onClick={handleComplete}
-              disabled={!selectedLodge || tableCount < minTables}
-              className="w-full py-6 text-lg bg-[#0a2059] hover:bg-[#0c2669]"
-            >
-              Continue to Payment
-            </Button>
           </div>
         </CardContent>
       </Card>
+      
+      {/* Complete Button */}
+      <div className="flex justify-end">
+        <Button 
+          size="lg" 
+          onClick={handleComplete}
+          disabled={!selectedGrandLodge || !selectedLodge || !primaryAttendee?.firstName || !primaryAttendee?.lastName}
+        >
+          Continue to Next Step
+        </Button>
+      </div>
     </div>
   );
 };

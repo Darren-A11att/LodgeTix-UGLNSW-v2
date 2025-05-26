@@ -31,9 +31,8 @@ export interface StripeBillingDetailsForClient {
 }
 
 export interface CheckoutFormProps {
-  clientSecret: string;
   totalAmount: number;
-  onPaymentSuccess: (paymentIntentId: string, billingDetailsForStripe: StripeBillingDetailsForClient) => void;
+  onPaymentSuccess: (paymentMethodId: string, billingDetailsForStripe: StripeBillingDetailsForClient) => void;
   onPaymentError: (errorMessage: string) => void;
   setIsProcessingPayment: (isProcessing: boolean) => void;
   billingDetails: BillingDetails;

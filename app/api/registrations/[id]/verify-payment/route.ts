@@ -25,27 +25,100 @@ export async function POST(
       );
     }
 
-    // Call the verify_registration_payment function which accesses Stripe FDW
     const adminClient = createAdminClient();
-    const { data: verificationResult, error: verificationError } = await adminClient
-      .rpc('verify_registration_payment', { reg_id: registrationId });
     
-    if (verificationError) {
-      console.error("Error verifying payment status:", verificationError);
+    // First get the registration to check if we have a payment intent
+    const { data: registration, error: findError } = await adminClient
+      .from('registrations')
+      .select("*")
+      .eq("registration_id", registrationId)
+      .single();
+    
+    if (findError || !registration) {
+      console.error("Registration not found:", findError);
       console.groupEnd();
       return NextResponse.json(
-        { error: `Failed to verify payment status: ${verificationError.message}` },
+        { error: "Registration not found" },
+        { status: 404 }
+      );
+    }
+    
+    if (!registration.stripe_payment_intent_id) {
+      console.error("No payment intent ID found on registration");
+      console.groupEnd();
+      return NextResponse.json(
+        { error: "No payment intent associated with this registration" },
+        { status: 400 }
+      );
+    }
+    
+    // Import Stripe dynamically
+    const Stripe = (await import('stripe')).default;
+    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+      apiVersion: '2025-04-30.basil',
+    });
+    
+    // Retrieve payment intent from Stripe
+    const paymentIntent = await stripe.paymentIntents.retrieve(
+      registration.stripe_payment_intent_id
+    );
+    
+    console.log("Payment Intent Status:", paymentIntent.status);
+    
+    // Update registration based on payment status
+    let updateData: any = {
+      updated_at: new Date().toISOString()
+    };
+    
+    if (paymentIntent.status === 'succeeded') {
+      updateData.status = 'paid';
+      updateData.payment_status = 'completed';
+      
+      // Also update tickets to completed
+      const { error: ticketUpdateError } = await adminClient
+        .from("tickets") 
+        .update({ 
+          ticket_status: "completed",
+          updated_at: new Date().toISOString()
+        })
+        .eq("registration_id", registrationId);
+        
+      if (ticketUpdateError) {
+        console.error("Error updating tickets:", ticketUpdateError);
+      }
+    } else if (paymentIntent.status === 'requires_payment_method') {
+      updateData.payment_status = 'failed';
+    } else if (paymentIntent.status === 'processing') {
+      updateData.payment_status = 'processing';
+    } else if (paymentIntent.status === 'requires_action') {
+      updateData.payment_status = 'requires_action';
+    }
+    
+    // Update registration
+    const { data: updatedRegistration, error: updateError } = await adminClient
+      .from('registrations')
+      .update(updateData)
+      .eq("registration_id", registrationId)
+      .select()
+      .single();
+    
+    if (updateError) {
+      console.error("Error updating registration:", updateError);
+      console.groupEnd();
+      return NextResponse.json(
+        { error: "Failed to update registration status" },
         { status: 500 }
       );
     }
     
-    console.log("Payment verification result:", verificationResult);
+    console.log("Registration payment verified and updated");
     console.groupEnd();
     
     return NextResponse.json({
-      success: verificationResult.success,
-      registrationId,
-      verificationResult
+      success: true,
+      paymentStatus: paymentIntent.status,
+      registrationStatus: updatedRegistration.status,
+      registrationPaymentStatus: updatedRegistration.payment_status
     });
     
   } catch (error: any) {

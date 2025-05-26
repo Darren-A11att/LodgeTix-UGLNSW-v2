@@ -28,18 +28,17 @@ export async function PUT(
     console.log("Payment data:", JSON.stringify(data, null, 2));
     
     const {
-      paymentIntentId,
+      paymentMethodId,
       totalAmount,
-      status = "paid",
-      paymentStatus = "completed",
+      billingDetails
     } = data;
     
     // Add more validation for required data
-    if (!paymentIntentId) {
-      console.error("Missing payment intent ID");
+    if (!paymentMethodId) {
+      console.error("Missing payment method ID");
       console.groupEnd();
       return NextResponse.json(
-        { error: "Payment intent ID is required" },
+        { error: "Payment method ID is required" },
         { status: 400 }
       );
     }
@@ -90,12 +89,67 @@ export async function PUT(
     
     console.log("Found registration:", JSON.stringify(existingRegistration, null, 2));
     
+    let finalPaymentIntentId;
+    let requiresAction = false;
+    let clientSecret = null;
+    
+    // Always use two-step flow: create payment intent from payment method
+    console.log("💳 Creating payment intent from payment method");
+    
+    try {
+      // Import Stripe dynamically to avoid circular dependencies
+      const Stripe = (await import('stripe')).default;
+      const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
+        apiVersion: '2025-04-30.basil',
+      });
+      
+      // Create payment intent with the payment method but don't confirm yet
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: Math.round(totalAmount * 100), // Convert to cents
+        currency: 'aud',
+        payment_method: paymentMethodId,
+        confirmation_method: 'manual',
+        confirm: false, // Don't confirm immediately
+        metadata: {
+          registration_id: registrationId,
+          created_at: new Date().toISOString(),
+        },
+        // Include return URL for 3D Secure
+        return_url: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/events/${existingRegistration.event_id}/confirmation?registration_id=${registrationId}`,
+      });
+      
+      console.log("Created payment intent:", paymentIntent.id);
+      console.log("Payment intent status:", paymentIntent.status);
+      
+      // Now confirm the payment intent
+      const confirmedIntent = await stripe.paymentIntents.confirm(paymentIntent.id);
+      
+      finalPaymentIntentId = confirmedIntent.id;
+      
+      if (confirmedIntent.status === 'requires_action' || confirmedIntent.status === 'requires_source_action') {
+        console.log("🔐 Payment requires additional authentication (3D Secure)");
+        requiresAction = true;
+        clientSecret = confirmedIntent.client_secret;
+      } else if (confirmedIntent.status !== 'succeeded') {
+        console.error("Unexpected payment status:", confirmedIntent.status);
+        throw new Error(`Payment failed with status: ${confirmedIntent.status}`);
+      }
+      
+    } catch (stripeError: any) {
+      console.error("Stripe error:", stripeError);
+      console.groupEnd();
+      return NextResponse.json(
+        { error: `Payment processing failed: ${stripeError.message}` },
+        { status: 500 }
+      );
+    }
+    
     // Prepare update data with actual schema column names
     const updateData = {
-      status: status,
-      payment_status: paymentStatus,
+      status: requiresAction ? "pending_payment" : "paid",
+      payment_status: requiresAction ? "requires_action" : "completed",
       total_amount_paid: totalAmount,
-      stripe_payment_intent_id: paymentIntentId,
+      stripe_payment_intent_id: finalPaymentIntentId,
       updated_at: new Date().toISOString()
     };
     
@@ -144,7 +198,7 @@ export async function PUT(
     try {
       console.log("Verifying payment through Stripe FDW...");
       const { data: stripeVerificationData, error: stripeVerificationError } = await adminClient
-        .rpc('check_payment_intent_status', { payment_intent_id: paymentIntentId });
+        .rpc('check_payment_intent_status', { payment_intent_id: finalPaymentIntentId });
 
       if (stripeVerificationError) {
         console.warn("Warning: Unable to verify payment through Stripe FDW:", stripeVerificationError);
@@ -152,7 +206,7 @@ export async function PUT(
         console.log("Stripe payment verification result:", stripeVerificationData);
         
         // If Stripe says the payment intent is not succeeded, log a warning
-        if (stripeVerificationData && stripeVerificationData.status !== 'succeeded') {
+        if (stripeVerificationData && stripeVerificationData.status !== 'succeeded' && !requiresAction) {
           console.warn(`Warning: Stripe payment status is ${stripeVerificationData.status}, but we're proceeding with the update as requested`);
         }
       }
@@ -172,7 +226,10 @@ export async function PUT(
       success: true,
       registrationId,
       confirmationNumber,
-      registration_data: updatedRegistration
+      registration_data: updatedRegistration,
+      requiresAction,
+      clientSecret,
+      paymentIntentId: finalPaymentIntentId
     });
   } catch (error: any) {
     console.error("Error updating registration payment:", error);
