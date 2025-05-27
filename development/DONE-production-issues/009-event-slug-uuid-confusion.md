@@ -62,7 +62,7 @@ function toEventUUID(id: string): EventUUID {
 ## Verification Steps
 ```bash
 # Test registration flow
-1. Navigate to /events/grand-installation-2025
+1. Navigate to /events/grand-proclamation-2025
 2. Click Register/Get Tickets
 3. Open DevTools > Network
 4. Complete registration

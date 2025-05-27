@@ -11,7 +11,7 @@ describe('UUID and Slug Utilities', () => {
   describe('generateSlug', () => {
     it('converts a title to a URL-friendly slug', () => {
       expect(generateSlug('Hello World')).toBe('hello-world');
-      expect(generateSlug('Grand Installation 2025')).toBe('grand-installation-2025');
+      expect(generateSlug('Grand Installation 2025')).toBe('grand-proclamation-2025');
       expect(generateSlug('Test & Special Characters!')).toBe('test-special-characters');
     });
 

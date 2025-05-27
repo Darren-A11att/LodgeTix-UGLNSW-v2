@@ -8,7 +8,7 @@ export default async function GrandInstallationRegisterRedirect() {
   // Commented out redirect logic to allow registration wizard flow
   /*
   // Fetch the grand installation event by slug
-  const event = await getEventByIdOrSlug("grand-installation-2025")
+  const event = await getEventByIdOrSlug("grand-proclamation-2025")
   
   if (event) {
     // Redirect to the dynamic event registration page

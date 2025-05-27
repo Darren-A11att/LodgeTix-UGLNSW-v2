@@ -492,7 +492,7 @@ export const getEvents = (): Event[] => {
     {
       // Core fields
       id: "d290f1ee-6c54-4b01-90e6-d701748f0855",
-      slug: "grand-installation-2025",
+      slug: "grand-proclamation-2025",
       title: "Grand Installation 2025",
       description: "Join us for the Installation of MW Bro Bernie Khristian Albano as Grand Master of the United Grand Lodge of NSW & ACT.",
       longDescription: "The United Grand Lodge of NSW & ACT invites you to the Installation of MW Bro Bernie Khristian Albano as Grand Master. This prestigious ceremony will be followed by a gala banquet and an optional farewell brunch the following day. Special accommodation rates are available at partner hotels.",

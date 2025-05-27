@@ -73,6 +73,9 @@ export const BillingDetailsForm: React.FC<BillingDetailsFormProps> = ({
 
   const [hasAttemptedGeoCountryPreselection, setHasAttemptedGeoCountryPreselection] = useState(false);
   const [hasAttemptedGeoStatePreselection, setHasAttemptedGeoStatePreselection] = useState(false);
+  
+  // Get stored billing details from Zustand store
+  const storeBillingDetails = useRegistrationStore(state => state.billingDetails);
 
   // Form watchers
   const billToPrimaryWatched = form.watch('billToPrimary');
@@ -119,6 +122,7 @@ export const BillingDetailsForm: React.FC<BillingDetailsFormProps> = ({
           postalCode: currentValues.postcode || '',
           country: currentValues.country?.isoCode || '',
           businessName: currentValues.businessName || '',
+          businessNumber: currentValues.businessNumber || '',
         };
         
         // Update the store
@@ -239,6 +243,7 @@ export const BillingDetailsForm: React.FC<BillingDetailsFormProps> = ({
         postalCode: detailsToSet.postcode || '',
         country: detailsToSet.country?.isoCode || '',
         businessName: detailsToSet.businessName || '',
+        businessNumber: detailsToSet.businessNumber || '',
       };
       
       // Update the store
@@ -277,9 +282,30 @@ export const BillingDetailsForm: React.FC<BillingDetailsFormProps> = ({
     fetchCountries();
   }, []);
 
-  // Pre-select country based on IP geolocation data
+  // Pre-select country based on stored billing details or IP geolocation data
   useEffect(() => {
-    if (countries.length > 0 && ipCountryIsoCode && !hasAttemptedGeoCountryPreselection && !form.getValues('country')) {
+    // First priority: Load from stored billing details
+    if (countries.length > 0 && storeBillingDetails?.country && !form.getValues('country')) {
+      // Ensure country is a string before using string methods
+      const countryValue = storeBillingDetails.country;
+      if (typeof countryValue === 'string') {
+        const storedCountry = countries.find(c => 
+          c.iso2 === countryValue || 
+          c.name.toLowerCase() === countryValue.toLowerCase()
+        );
+        if (storedCountry) {
+          const countryToSet: ZodCountryType = { 
+            name: storedCountry.name, 
+            isoCode: storedCountry.iso2, 
+            id: storedCountry.id 
+          };
+          form.setValue('country', countryToSet, { shouldValidate: true });
+          console.log('💳 Set country from stored billing details:', countryToSet.name);
+        }
+      }
+    }
+    // Second priority: IP geolocation
+    else if (countries.length > 0 && ipCountryIsoCode && !hasAttemptedGeoCountryPreselection && !form.getValues('country')) {
       const geoCountry = countries.find(c => c.iso2 === ipCountryIsoCode);
       if (geoCountry) {
         const countryToSet: ZodCountryType = { name: geoCountry.name, isoCode: geoCountry.iso2, id: geoCountry.id };
@@ -288,7 +314,7 @@ export const BillingDetailsForm: React.FC<BillingDetailsFormProps> = ({
       setHasAttemptedGeoCountryPreselection(true);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [countries, ipCountryIsoCode, hasAttemptedGeoCountryPreselection]);
+  }, [countries, ipCountryIsoCode, hasAttemptedGeoCountryPreselection, storeBillingDetails?.country]);
 
   // Fetch states when selected country changes
   useEffect(() => {
@@ -315,9 +341,32 @@ export const BillingDetailsForm: React.FC<BillingDetailsFormProps> = ({
     fetchStates();
   }, [selectedCountry?.id]);
   
-  // Pre-select state based on IP geolocation data, after country is set and states are loaded
+  // Pre-select state based on stored billing details or IP geolocation data
   useEffect(() => {
-    if (states.length > 0 && 
+    // First priority: Load from stored billing details
+    if (states.length > 0 && storeBillingDetails?.stateProvince && !form.getValues('stateTerritory')) {
+      // Ensure stateProvince is a string before using string methods
+      const stateValue = storeBillingDetails.stateProvince;
+      if (typeof stateValue === 'string') {
+        const storedState = states.find(s => 
+          s.name.toLowerCase() === stateValue.toLowerCase() ||
+          s.state_code === stateValue
+        );
+        
+        if (storedState && selectedCountry) {
+          const stateToSet: StateTerritoryType = { 
+            id: storedState.id, 
+            name: storedState.name, 
+            isoCode: storedState.state_code, 
+            countryCode: selectedCountry.isoCode 
+          };
+          form.setValue('stateTerritory', stateToSet, { shouldValidate: true });
+          console.log('💳 Set state from stored billing details:', stateToSet.name);
+        }
+      }
+    }
+    // Second priority: IP geolocation
+    else if (states.length > 0 && 
         selectedCountry?.isoCode === ipCountryIsoCode && 
         typeof ipStateName === 'string' && 
         ipStateName && 
@@ -345,7 +394,7 @@ export const BillingDetailsForm: React.FC<BillingDetailsFormProps> = ({
       setHasAttemptedGeoStatePreselection(false);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [states, selectedCountry, ipCountryIsoCode, ipStateName, hasAttemptedGeoStatePreselection]);
+  }, [states, selectedCountry, ipCountryIsoCode, ipStateName, hasAttemptedGeoStatePreselection, storeBillingDetails?.stateProvince]);
 
   // Clear state selection when country changes
   useEffect(() => {

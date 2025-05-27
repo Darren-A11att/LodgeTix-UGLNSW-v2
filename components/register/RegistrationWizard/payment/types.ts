@@ -36,6 +36,7 @@ export interface CheckoutFormProps {
   onPaymentError: (errorMessage: string) => void;
   setIsProcessingPayment: (isProcessing: boolean) => void;
   billingDetails: BillingDetails;
+  isProcessing?: boolean;
 }
 
 export interface FilterableComboboxProps<T> {

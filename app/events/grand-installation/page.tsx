@@ -9,7 +9,7 @@ import { getEventByIdOrSlug } from "@/lib/event-facade"
 
 export default async function GrandInstallationPage() {
   // Fetch the grand installation event by slug
-  const event = await getEventByIdOrSlug("grand-installation-2025")
+  const event = await getEventByIdOrSlug("grand-proclamation-2025")
   
   if (!event) {
     return (

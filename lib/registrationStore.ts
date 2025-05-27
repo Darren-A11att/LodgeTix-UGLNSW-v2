@@ -43,6 +43,8 @@ export interface BillingDetailsType {
   stateProvince: string;
   postalCode: string;
   country: string;
+  businessName?: string;
+  businessNumber?: string;
 }
 
 // --- State Interface ---

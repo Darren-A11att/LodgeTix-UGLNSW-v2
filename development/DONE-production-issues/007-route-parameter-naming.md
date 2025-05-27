@@ -9,7 +9,7 @@ The event routes use `[id]` as the parameter name but actually receive and expec
 
 ## Evidence
 - Route structure: `/app/events/[id]/page.tsx`
-- URLs use slugs: `/events/grand-installation-2025`
+- URLs use slugs: `/events/grand-proclamation-2025`
 - `generateStaticParams()` returns slugs for the `id` parameter
 - Code handles both via `getEventByIdOrSlug()` but naming suggests UUID only
 

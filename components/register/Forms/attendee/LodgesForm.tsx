@@ -171,16 +171,24 @@ export const LodgesForm: React.FC<LodgesFormProps> = ({
     }
   }, [primaryAttendee, debouncedUpdateAttendee, selectedGrandLodge, selectedLodge]);
 
+  // Track if we're initializing from draft to prevent clearing Lodge
+  const isInitializingFromDraftRef = React.useRef(true);
+  
   // Update Grand Lodge for primary attendee
   const handleGrandLodgeChange = useCallback((grandLodgeId: string) => {
     if (selectedGrandLodge !== grandLodgeId) {
+      const previousGrandLodge = selectedGrandLodge;
       setSelectedGrandLodge(grandLodgeId);
       
-      // Only clear Lodge selection if we're actually changing the Grand Lodge
-      // Don't clear if this is the initial load from draft
-      const isInitialLoad = !selectedGrandLodge && grandLodgeId && primaryAttendee?.lodgeId;
+      // Check if we should preserve the Lodge selection
+      const shouldPreserveLodge = isInitializingFromDraftRef.current && 
+                                 primaryAttendee?.lodgeId && 
+                                 Number(primaryAttendee?.grandLodgeId) === Number(grandLodgeId);
       
-      if (!isInitialLoad) {
+      // Only clear Lodge selection if:
+      // 1. We're not initializing from draft, OR
+      // 2. We're actually changing to a different Grand Lodge
+      if (!shouldPreserveLodge && previousGrandLodge) {
         setSelectedLodge('');
         setLodgeName('');
       }
@@ -190,13 +198,20 @@ export const LodgesForm: React.FC<LodgesFormProps> = ({
           grandLodgeId: grandLodgeId ? Number(grandLodgeId) : 0,
         };
         
-        // Only clear lodge data if not initial load
-        if (!isInitialLoad) {
+        // Only clear lodge data if we're not preserving it
+        if (!shouldPreserveLodge && previousGrandLodge) {
           updates.lodgeId = 0;
           updates.lodgeNameNumber = '';
         }
         
         debouncedUpdateAttendee(primaryAttendee.attendeeId, updates);
+      }
+      
+      // After first initialization, set flag to false
+      if (isInitializingFromDraftRef.current) {
+        setTimeout(() => {
+          isInitializingFromDraftRef.current = false;
+        }, 1000);
       }
     }
   }, [primaryAttendee, debouncedUpdateAttendee, selectedGrandLodge]);
