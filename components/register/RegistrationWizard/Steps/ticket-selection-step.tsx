@@ -109,6 +109,7 @@ function TicketSelectionStep() {
     if (selection?.ticketDefinitionId) { 
       const packageInfo = ticketPackages.find(p => p.id === selection.ticketDefinitionId);
       if (packageInfo) {
+        // For UI display, show the package as a single item
         const derivedPackageTicket = {
           id: packageInfo.id, 
           name: packageInfo.name,

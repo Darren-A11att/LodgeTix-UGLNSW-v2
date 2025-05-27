@@ -21,22 +21,28 @@ import { BillingDetailsForm } from "../payment/BillingDetailsForm";
 import { PaymentMethod } from "../payment/PaymentMethod";
 import { CheckoutFormHandle } from "../payment/CheckoutForm";
 import { PaymentProcessing } from "../payment/PaymentProcessing";
-import { getPaymentSummaryData } from '../Summary/summary-data/payment-summary-data';
-import { SummaryRenderer } from '../Summary/SummaryRenderer';
-import { TwoColumnStepLayout } from "../Layouts/TwoColumnStepLayout";
+import { OneColumnStepLayout } from "../Layouts/OneColumnStepLayout";
 import { getEventTicketsService, type TicketDefinition, type EventPackage } from '@/lib/services/event-tickets-service';
 
 interface PaymentStepProps {
-  eventId: string;
-  onNextStep: () => void;
-  onPrevStep: () => void;
+  eventId?: string;
+  onNextStep?: () => void;
+  onPrevStep?: () => void;
   onSaveData?: () => Promise<{ success: boolean; registrationId?: string; error?: string }>;
   currentStep?: number;
   steps?: string[];
 }
 
 function PaymentStep(props: PaymentStepProps) {
-  const { onNextStep: goToNextStep, onPrevStep: goToPrevStep, eventId } = props;
+  const { onNextStep, onPrevStep, eventId } = props;
+  
+  // Get navigation functions from store as fallback
+  const storeGoToNextStep = useRegistrationStore((state) => state.goToNextStep);
+  const storeGoToPrevStep = useRegistrationStore((state) => state.goToPrevStep);
+  
+  // Use props if provided, otherwise use store functions
+  const goToNextStep = onNextStep || storeGoToNextStep;
+  const goToPrevStep = onPrevStep || storeGoToPrevStep;
   
   // Store state
   const {
@@ -63,9 +69,6 @@ function PaymentStep(props: PaymentStepProps) {
   const [paymentError, setPaymentError] = useState<string | null>(null);
   const [currentRegistrationId, setCurrentRegistrationId] = useState<string | null>(null);
   
-  // Ref for payment method component
-  const paymentMethodRef = useRef<CheckoutFormHandle>(null);
-  
   // Processing steps for visual feedback
   const [showProcessingSteps, setShowProcessingSteps] = useState(false);
   const [processingSteps, setProcessingSteps] = useState([
@@ -76,6 +79,9 @@ function PaymentStep(props: PaymentStepProps) {
 
   // Session state
   const [sessionCheckComplete, setSessionCheckComplete] = useState(false);
+  
+  // Ref for payment method component
+  const paymentMethodRef = useRef<CheckoutFormHandle>(null);
 
   // Derive attendee data
   const primaryAttendee = useMemo(() => 
@@ -95,17 +101,39 @@ function PaymentStep(props: PaymentStepProps) {
         setTicketsError(null);
         
         const service = getEventTicketsService();
-        const parentEventId = eventId || storeEventId || "307c2d85-72d5-48cf-ac94-082ca2a5d23d";
+        const GRAND_PROCLAMATION_PARENT_ID = "307c2d85-72d5-48cf-ac94-082ca2a5d23d";
+        const targetEventId = eventId || storeEventId || GRAND_PROCLAMATION_PARENT_ID;
         
-        console.log("💳 Fetching tickets for event:", parentEventId);
+        console.log("💳 Fetching tickets for event:", targetEventId);
+        console.log("💳 Props eventId:", eventId);
+        console.log("💳 Store eventId:", storeEventId);
         
-        const result = await service.getEventTicketsAndPackages(parentEventId);
-        
-        console.log("💳 Loaded tickets:", result.tickets.length);
-        console.log("💳 Loaded packages:", result.packages.length);
-        
-        setTicketTypes(result.tickets);
-        setTicketPackages(result.packages);
+        // Check if this is the parent event or a child event (matching ticket selection logic)
+        if (targetEventId === GRAND_PROCLAMATION_PARENT_ID) {
+          // Fetch child events and their tickets
+          const childEventsData = await service.getChildEventsWithTicketsAndPackages(targetEventId);
+          
+          // Aggregate all tickets from child events
+          const allTickets: TicketDefinition[] = [];
+          childEventsData.forEach(eventData => {
+            allTickets.push(...eventData.tickets);
+          });
+          
+          // Use packages from the first result (they're the same for all child events)
+          if (childEventsData.length > 0) {
+            console.log("💳 Loaded tickets from child events:", allTickets.length);
+            console.log("💳 Loaded packages:", childEventsData[0].packages.length);
+            setTicketTypes(allTickets);
+            setTicketPackages(childEventsData[0].packages);
+          }
+        } else {
+          // For a specific event, fetch its tickets and packages
+          const result = await service.getEventTicketsAndPackages(targetEventId);
+          console.log("💳 Loaded tickets:", result.tickets.length);
+          console.log("💳 Loaded packages:", result.packages.length);
+          setTicketTypes(result.tickets);
+          setTicketPackages(result.packages);
+        }
       } catch (error) {
         console.error('Error fetching tickets:', error);
         setTicketsError(error instanceof Error ? error.message : 'Failed to load ticket information');
@@ -129,19 +157,175 @@ function PaymentStep(props: PaymentStepProps) {
     checkSession();
   }, []);
 
+  // Function to expand packages into individual tickets for registration
+  const expandPackagesForRegistration = (
+    tickets: Array<any>,
+    ticketTypes: TicketDefinition[],
+    ticketPackages: EventPackage[]
+  ) => {
+    const expandedTickets: Array<any> = [];
+    
+    tickets.forEach(ticket => {
+      if (ticket.isPackage) {
+        // Find the package info - need to extract package ID from the compound ID
+        const packageId = ticket.id.split('-').slice(1).join('-'); // Remove attendeeId prefix
+        const packageInfo = ticketPackages.find(p => p.id === packageId);
+        console.log(`📦 Looking for package ${packageId}:`, packageInfo);
+        
+        if (packageInfo) {
+          // If we have individual tickets, expand the package
+          if (packageInfo.includes && packageInfo.includes.length > 0 && ticketTypes.length > 0) {
+            // Expand package into individual tickets
+            packageInfo.includes.forEach(ticketTypeId => {
+              const ticketType = ticketTypes.find(t => t.id === ticketTypeId);
+              if (ticketType) {
+                expandedTickets.push({
+                  id: `${ticket.attendeeId}-${ticketType.id}`,
+                  attendeeId: ticket.attendeeId,
+                  event_id: ticketType.event_id,
+                  eventTicketId: ticketType.id,
+                  ticketTypeId: ticketType.id,
+                  name: ticketType.name,
+                  price: ticketType.price,
+                  isFromPackage: true,
+                  packageId: packageInfo.id,
+                  packageName: packageInfo.name,
+                  isPackage: false  // Individual ticket from package
+                });
+              }
+            });
+          } else {
+            // Fallback: Use package as a single ticket when individual tickets aren't available
+            expandedTickets.push({
+              id: ticket.id,
+              attendeeId: ticket.attendeeId,
+              event_id: eventId || storeEventId, // Use the event ID from props or store
+              eventTicketId: packageInfo.id,
+              ticketTypeId: packageInfo.id,
+              name: packageInfo.name,
+              price: packageInfo.price,
+              isFromPackage: true,
+              packageId: packageInfo.id,
+              packageName: packageInfo.name,
+              isPackage: true  // This IS a package
+            });
+            console.log(`📦 Added package as single ticket: ${packageInfo.name} - $${packageInfo.price}`);
+          }
+        } else {
+          console.warn(`📦 Package not found for ID: ${packageId}`);
+        }
+      } else {
+        // Individual ticket - pass through
+        expandedTickets.push({
+          ...ticket,
+          eventTicketId: ticket.id.split('-')[1] || ticket.id,  // Extract actual ticket ID
+          ticketTypeId: ticket.id.split('-')[1] || ticket.id
+        });
+      }
+    });
+    
+    console.log("📦 Expanded tickets for registration:", {
+      original: tickets.length,
+      expanded: expandedTickets.length,
+      details: expandedTickets
+    });
+    
+    return expandedTickets;
+  };
+
+  // Debug function to analyze why total might be 0
+  const debugTicketCalculation = () => {
+    console.log("🔍 DEBUG: Analyzing ticket calculation issue");
+    console.log("1️⃣ Attendees:", {
+      count: allStoreAttendees.length,
+      ids: allStoreAttendees.map(a => ({ id: a.attendeeId, name: `${a.firstName} ${a.lastName}` }))
+    });
+    console.log("2️⃣ Packages from store:", packages);
+    console.log("3️⃣ Ticket types loaded:", {
+      count: ticketTypes.length,
+      types: ticketTypes.map(t => ({ id: t.id, name: t.name, price: t.price }))
+    });
+    console.log("4️⃣ Ticket packages loaded:", {
+      count: ticketPackages.length,
+      packages: ticketPackages.map(p => ({ id: p.id, name: p.name, price: p.price }))
+    });
+    
+    // Check each attendee's selection
+    allStoreAttendees.forEach(attendee => {
+      const selection = packages[attendee.attendeeId];
+      console.log(`5️⃣ Attendee ${attendee.firstName} ${attendee.lastName} (${attendee.attendeeId}):`, {
+        hasSelection: !!selection,
+        selection,
+        calculatedTickets: selection ? (
+          selection.ticketDefinitionId 
+            ? `Package: ${selection.ticketDefinitionId}`
+            : `Individual tickets: ${selection.selectedEvents?.join(', ') || 'none'}`
+        ) : 'NO SELECTION'
+      });
+    });
+  };
+
   // Calculate tickets for summary
   const currentTicketsForSummary = useMemo(() => {
-    if (isLoadingTickets) return [];
+    if (isLoadingTickets) {
+      console.log("🎫 Skipping ticket calculation - still loading");
+      return [];
+    }
+    
+    // Additional checks to ensure data is loaded
+    const hasPackageSelections = Object.values(packages).some(p => p.ticketDefinitionId);
+    const hasEventSelections = Object.values(packages).some(p => p.selectedEvents && p.selectedEvents.length > 0);
+    
+    if (hasPackageSelections && ticketPackages.length === 0) {
+      console.warn("🎫 WARNING: Have package selections but ticketPackages not loaded yet");
+      return [];
+    }
+    
+    if (hasEventSelections && ticketTypes.length === 0) {
+      console.warn("🎫 WARNING: Have event selections but ticketTypes not loaded yet");
+      return [];
+    }
+    
+    // Check if packages object is empty - might indicate store not hydrated yet
+    const hasPackages = Object.keys(packages).length > 0;
+    if (!hasPackages && allStoreAttendees.length > 0) {
+      console.warn("🎫 WARNING: No packages found but attendees exist - store might not be hydrated");
+    }
+    
+    console.log("🎫 Calculating tickets for summary:", {
+      attendeeCount: allStoreAttendees.length,
+      attendeeIds: allStoreAttendees.map(a => a.attendeeId),
+      packagesData: packages,
+      packagesKeys: Object.keys(packages),
+      hasPackages,
+      ticketTypesCount: ticketTypes.length,
+      ticketPackagesCount: ticketPackages.length,
+      ticketPrices: ticketTypes.map(t => ({ id: t.id, name: t.name, price: t.price })),
+      packagePrices: ticketPackages.map(p => ({ id: p.id, name: p.name, price: p.price }))
+    });
     
     return allStoreAttendees.flatMap(attendee => {
       const attendeeId = attendee.attendeeId;
       const selection = packages[attendeeId];
       
-      if (!selection) return [];
+      console.log(`🎫 Processing attendee ${attendeeId}:`, {
+        hasSelection: !!selection,
+        selection,
+        packagesObject: packages,
+        attendeeIdType: typeof attendeeId,
+        packageKeys: Object.keys(packages)
+      });
+      
+      if (!selection) {
+        console.warn(`🎫 NO SELECTION FOUND for attendee ${attendeeId}`);
+        return [];
+      }
       
       let tickets: Array<{ id: string; name: string; price: number; attendeeId: string; isPackage?: boolean; description?: string }> = [];
 
       if (selection.ticketDefinitionId) {
+        console.log(`🎫 Looking for package ${selection.ticketDefinitionId} in ${ticketPackages.length} packages`);
+        console.log(`🎫 Available packages:`, ticketPackages.map(p => ({ id: p.id, name: p.name })));
         const pkgInfo = ticketPackages.find(p => p.id === selection.ticketDefinitionId);
         if (pkgInfo) {
           tickets.push({ 
@@ -152,19 +336,28 @@ function PaymentStep(props: PaymentStepProps) {
             isPackage: true,
             description: pkgInfo.description || `Package: ${pkgInfo.name}`
           });
+          console.log(`🎫 ✅ Added package ticket: ${pkgInfo.name} - $${pkgInfo.price}`);
+        } else {
+          console.warn(`🎫 ❌ Package ${selection.ticketDefinitionId} not found in ticketPackages`);
+          console.warn(`🎫 This likely means packages haven't loaded yet`);
         }
       } else if (selection.selectedEvents && selection.selectedEvents.length > 0) {
-        selection.selectedEvents.forEach(eventId => {
-          const eventInfo = ticketTypes.find(t => t.id === eventId);
-          if (eventInfo) {
+        console.log(`🎫 Processing ${selection.selectedEvents.length} individual tickets`);
+        selection.selectedEvents.forEach(ticketId => {
+          const ticketInfo = ticketTypes.find(t => t.id === ticketId);
+          console.log(`🎫 Looking for ticket ${ticketId}:`, ticketInfo);
+          if (ticketInfo) {
             tickets.push({ 
-              id: `${attendeeId}-${eventInfo.id}`,
-              name: eventInfo.name, 
-              price: eventInfo.price, 
+              id: `${attendeeId}-${ticketInfo.id}`,
+              name: ticketInfo.name, 
+              price: ticketInfo.price, 
               attendeeId, 
               isPackage: false,
-              description: eventInfo.description || eventInfo.name
+              description: ticketInfo.description || ticketInfo.name
             });
+            console.log(`🎫 Added individual ticket: ${ticketInfo.name} - $${ticketInfo.price}`);
+          } else {
+            console.warn(`🎫 Ticket ${ticketId} not found in ticketTypes`);
           }
         });
       }
@@ -173,9 +366,38 @@ function PaymentStep(props: PaymentStepProps) {
   }, [allStoreAttendees, packages, ticketTypes, ticketPackages, isLoadingTickets]);
 
   // Calculate total amount
+  // IMPORTANT: For packages, we use the package price (which might include discounts)
+  // NOT the sum of individual ticket prices
   const totalAmount = useMemo(() => {
-    const total = currentTicketsForSummary.reduce((sum, ticket) => sum + ticket.price, 0);
-    console.log("💰 Total amount:", total);
+    const total = currentTicketsForSummary.reduce((sum, ticket) => {
+      const price = ticket.price || 0;
+      if (price === 0) {
+        console.warn(`⚠️ Ticket has $0 price:`, ticket);
+      }
+      return sum + price;
+    }, 0);
+    
+    console.log("💰 Total amount calculation:", {
+      total,
+      ticketCount: currentTicketsForSummary.length,
+      tickets: currentTicketsForSummary.map(t => ({ 
+        name: t.name, 
+        price: t.price,
+        attendeeId: t.attendeeId,
+        isPackage: t.isPackage 
+      })),
+      attendeeCount: allStoreAttendees.length,
+      packages: Object.keys(packages).length,
+      ticketTypesLoaded: ticketTypes.length,
+      ticketPackagesLoaded: ticketPackages.length
+    });
+    
+    // If total is 0 but we have attendees, run debug
+    if (total === 0 && allStoreAttendees.length > 0) {
+      console.warn("⚠️ Total is $0 but attendees exist - running debug");
+      debugTicketCalculation();
+    }
+    
     return total;
   }, [currentTicketsForSummary]);
 
@@ -197,22 +419,28 @@ function PaymentStep(props: PaymentStepProps) {
     }
   });
 
-  // Linear payment flow - no events, no retries
-  const handlePaymentSubmit = async (billingData: FormBillingDetailsSchema) => {
-    console.log("🔶 Starting linear payment flow");
+  // Watch form changes to update store
+  useEffect(() => {
+    const subscription = form.watch((value) => {
+      updateStoreBillingDetails(value as FormBillingDetailsSchema);
+    });
+    return () => subscription.unsubscribe();
+  }, [form, updateStoreBillingDetails]);
+
+  // Handle payment method creation from CheckoutForm
+  const handlePaymentMethodCreated = async (paymentMethodId: string, stripeBillingDetails: StripeBillingDetailsForClient) => {
+    console.log("💳 Payment method created, processing payment:", paymentMethodId);
     
     if (!anonymousSessionEstablished) {
       setPaymentError("Session expired. Please return to the registration type page to complete verification.");
       return;
     }
 
-    // Update store with billing details
-    updateStoreBillingDetails(billingData);
     setPaymentError(null);
     setShowProcessingSteps(true);
     setIsProcessingPayment(true);
     
-    // Update first step
+    // Update steps to show registration saving
     setProcessingSteps(prev => {
       const newSteps = [...prev];
       newSteps[0] = { ...newSteps[0], status: 'current' };
@@ -220,55 +448,65 @@ function PaymentStep(props: PaymentStepProps) {
     });
 
     try {
-      // Step 1: Save registration
-      console.log("📨 Step 1: Saving registration");
+      // Step 1: Save registration if not already saved
+      let registrationId = currentRegistrationId;
       
-      let registrationId: string;
-      
-      if (props.onSaveData) {
-        // Use provided save function
-        const result = await props.onSaveData();
-        if (!result.success || !result.registrationId) {
-          throw new Error(result.error || "Failed to save registration");
-        }
-        registrationId = result.registrationId;
-      } else {
-        // Direct API call
-        const supabase = createClient();
-        const { data: { user } } = await supabase.auth.getUser();
+      if (!registrationId) {
+        console.log("📨 Saving registration");
         
-        if (!user) {
-          throw new Error('User authentication required');
+        if (props.onSaveData) {
+          // Use provided save function
+          const result = await props.onSaveData();
+          if (!result.success || !result.registrationId) {
+            throw new Error(result.error || "Failed to save registration");
+          }
+          registrationId = result.registrationId;
+        } else {
+          // Direct API call
+          const supabase = createClient();
+          const { data: { user } } = await supabase.auth.getUser();
+          
+          if (!user) {
+            throw new Error('User authentication required');
+          }
+
+          const billingData = form.getValues();
+          // Expand packages into individual tickets for registration
+          const expandedTickets = expandPackagesForRegistration(
+            currentTicketsForSummary,
+            ticketTypes,
+            ticketPackages
+          );
+          
+          const registrationData = {
+            registrationType,
+            primaryAttendee,
+            additionalAttendees: otherAttendees,
+            tickets: expandedTickets,  // Use expanded tickets
+            totalAmount,
+            billingDetails: billingData,
+            eventId: eventId || storeEventId,
+            customerId: user.id
+          };
+
+          const response = await fetch('/api/registrations', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(registrationData)
+          });
+
+          const result = await response.json();
+          
+          if (!response.ok || !result.registrationId) {
+            throw new Error(result.error || 'Failed to save registration');
+          }
+          
+          registrationId = result.registrationId;
         }
 
-        const registrationData = {
-          registrationType,
-          primaryAttendee,
-          additionalAttendees: otherAttendees,
-          tickets: currentTicketsForSummary,
-          totalAmount,
-          billingDetails: billingData,
-          eventId: eventId || storeEventId,
-          customerId: user.id
-        };
-
-        const response = await fetch('/api/registrations', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(registrationData)
-        });
-
-        const result = await response.json();
-        
-        if (!response.ok || !result.registrationId) {
-          throw new Error(result.error || 'Failed to save registration');
-        }
-        
-        registrationId = result.registrationId;
+        console.log("✅ Registration saved:", registrationId);
+        setCurrentRegistrationId(registrationId);
       }
-
-      console.log("✅ Registration saved:", registrationId);
-      setCurrentRegistrationId(registrationId);
       
       // Update step status
       setProcessingSteps(prev => {
@@ -278,65 +516,8 @@ function PaymentStep(props: PaymentStepProps) {
         return newSteps;
       });
 
-      // Step 2: Create payment method
-      console.log("💳 Step 2: Creating payment method");
-      
-      if (!paymentMethodRef.current) {
-        throw new Error("Payment form not ready");
-      }
-      
-      const paymentResult = await paymentMethodRef.current.createPaymentMethod();
-      
-      if (paymentResult.error) {
-        throw new Error(paymentResult.error);
-      }
-      
-      if (!paymentResult.paymentMethodId) {
-        throw new Error("Failed to create payment method");
-      }
-      
-      // Step 3: Process payment on server
-      await handlePaymentMethodCreated(paymentResult.paymentMethodId, billingData);
-      
-    } catch (error: any) {
-      console.error("❌ Error in payment flow:", error);
-      setPaymentError(error.message || "An error occurred during processing");
-      setShowProcessingSteps(false);
-      setIsProcessingPayment(false);
-      
-      // Reset steps
-      setProcessingSteps(prev => prev.map(step => ({ ...step, status: 'upcoming' as const })));
-    }
-  };
-
-  // Handle payment method creation from CheckoutForm
-  const handlePaymentMethodCreated = async (paymentMethodId: string, billingData: any) => {
-    console.log("💳 Step 3: Processing payment with method:", paymentMethodId);
-    
-    if (!currentRegistrationId) {
-      setPaymentError("Registration ID missing. Please try again.");
-      setIsProcessingPayment(false);
-      return;
-    }
-
-    try {
-      // Format billing details for Stripe
-      const stripeBillingDetails: StripeBillingDetailsForClient = {
-        name: `${billingData.firstName} ${billingData.lastName}`,
-        email: billingData.emailAddress,
-        phone: billingData.mobileNumber,
-        address: {
-          line1: billingData.addressLine1,
-          city: billingData.suburb,
-          state: billingData.stateTerritory?.name,
-          postal_code: billingData.postcode,
-          country: billingData.country?.isoCode || 'AU',
-          ...(billingData.businessName ? { line2: billingData.businessName } : {})
-        }
-      };
-      
-      // Call server to create and confirm payment intent
-      const response = await fetch(`/api/registrations/${currentRegistrationId}/payment`, {
+      // Step 2: Process payment
+      const response = await fetch(`/api/registrations/${registrationId}/payment`, {
         method: 'PUT',
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -374,7 +555,7 @@ function PaymentStep(props: PaymentStepProps) {
       });
       
       // Set confirmation number and proceed
-      setStoreConfirmationNumber(result.confirmationNumber || currentRegistrationId);
+      setStoreConfirmationNumber(result.confirmationNumber || registrationId);
       
       // Navigate to confirmation after a short delay
       setTimeout(() => {
@@ -385,6 +566,7 @@ function PaymentStep(props: PaymentStepProps) {
       console.error("❌ Payment error:", error);
       setPaymentError(error.message || "Payment processing failed");
       setIsProcessingPayment(false);
+      setShowProcessingSteps(false);
       
       // Update steps to show error
       setProcessingSteps(prev => {
@@ -398,8 +580,11 @@ function PaymentStep(props: PaymentStepProps) {
     }
   };
 
-  // Form submit handler
-  const onSubmit = form.handleSubmit(handlePaymentSubmit);
+  // Form submit handler - just validates billing form
+  const onSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    // The actual payment is triggered by the CheckoutForm button
+  };
 
   // Render content
   const renderFormContent = () => {
@@ -471,37 +656,78 @@ function PaymentStep(props: PaymentStepProps) {
       );
     }
 
-    // Main form
+    // Main form with two-column layout
     return (
       <Form {...form}>
-        <form onSubmit={onSubmit} className="space-y-8">
-          <BillingDetailsForm form={form} primaryAttendee={primaryAttendee ? {
-            firstName: primaryAttendee.firstName || undefined,
-            lastName: primaryAttendee.lastName || undefined,
-            primaryPhone: primaryAttendee.primaryPhone || undefined,
-            primaryEmail: primaryAttendee.primaryEmail || undefined,
-            grandLodgeId: primaryAttendee.grandLodgeId || undefined,
-            attendeeType: primaryAttendee.attendeeType || undefined
-          } : null} />
+        <form onSubmit={onSubmit}>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            {/* Left Column - Billing Details */}
+            <div className="space-y-6">
+              <h3 className="text-lg font-semibold">Billing Information</h3>
+              <BillingDetailsForm form={form} primaryAttendee={primaryAttendee ? {
+                firstName: primaryAttendee.firstName || undefined,
+                lastName: primaryAttendee.lastName || undefined,
+                primaryPhone: primaryAttendee.primaryPhone || undefined,
+                primaryEmail: primaryAttendee.primaryEmail || undefined,
+                grandLodgeId: primaryAttendee.grandLodgeId || undefined,
+                attendeeType: primaryAttendee.attendeeType || undefined
+              } : null} />
+            </div>
+            
+            {/* Right Column - Order Summary and Payment */}
+            <div className="space-y-6">
+              <h3 className="text-lg font-semibold">Order Summary & Payment</h3>
+              
+              {/* Order Summary */}
+              <div className="bg-gray-50 p-6 rounded-lg space-y-4">
+                <h4 className="font-medium">Order Details</h4>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Total Attendees:</span>
+                    <span className="font-medium">{allStoreAttendees.length}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-600">Total Tickets:</span>
+                    <span className="font-medium">{currentTicketsForSummary.length}</span>
+                  </div>
+                  {currentTicketsForSummary.map((ticket, idx) => (
+                    <div key={ticket.id} className="flex justify-between text-xs">
+                      <span className="text-gray-500 truncate max-w-[200px]">{ticket.name}</span>
+                      <span className="text-gray-500">${ticket.price.toFixed(2)}</span>
+                    </div>
+                  ))}
+                  <div className="border-t pt-2 mt-2">
+                    <div className="flex justify-between font-semibold">
+                      <span>Total Amount:</span>
+                      <span className="text-lg">${totalAmount.toFixed(2)}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              {/* Payment Method */}
+              <PaymentMethod 
+                ref={paymentMethodRef}
+                totalAmount={totalAmount}
+                onPaymentSuccess={handlePaymentMethodCreated}
+                onPaymentError={setPaymentError}
+                setIsProcessingPayment={setIsProcessingPayment}
+                billingDetails={form.getValues()}
+                isProcessing={isProcessingPayment}
+              />
+            </div>
+          </div>
           
-          <PaymentMethod 
-            ref={paymentMethodRef}
-            totalAmount={totalAmount}
-            onPaymentSuccess={handlePaymentMethodCreated}
-            onPaymentError={setPaymentError}
-            setIsProcessingPayment={setIsProcessingPayment}
-            billingDetails={form.getValues()}
-            isProcessing={isProcessingPayment}
-          />
-          
+          {/* Error Alert */}
           {paymentError && (
-            <Alert variant="destructive">
+            <Alert variant="destructive" className="mt-6">
               <AlertTitle>Payment Error</AlertTitle>
               <AlertDescription>{paymentError}</AlertDescription>
             </Alert>
           )}
 
-          <div className="flex justify-between">
+          {/* Navigation */}
+          <div className="flex justify-between mt-8">
             <Button 
               type="button"
               variant="outline" 
@@ -510,51 +736,20 @@ function PaymentStep(props: PaymentStepProps) {
             >
               <ArrowLeft className="mr-2 h-4 w-4" /> Previous Step
             </Button>
-            
-            <Button 
-              type="submit"
-              disabled={isProcessingPayment || !form.formState.isValid}
-              className="bg-blue-600 hover:bg-blue-700 text-white"
-            >
-              {isProcessingPayment ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Processing...
-                </>
-              ) : (
-                `Complete Payment - $${totalAmount.toFixed(2)}`
-              )}
-            </Button>
           </div>
         </form>
       </Form>
     );
   };
 
-  // Summary data
-  const renderSummaryContent = () => {
-    const summaryData = getPaymentSummaryData({
-      totalAmount,
-      isPaymentValid: form.formState.isValid && !isProcessingPayment,
-      attendeeCount: (primaryAttendee ? 1 : 0) + otherAttendees.length,
-      ticketCount: currentTicketsForSummary.length,
-      isProcessing: isProcessingPayment,
-      error: paymentError
-    });
-    
-    return <SummaryRenderer {...summaryData} />;
-  };
-
   return (
-    <TwoColumnStepLayout
-      summaryContent={renderSummaryContent()}
-      summaryTitle="Step Summary"
+    <OneColumnStepLayout
       currentStep={5}
       totalSteps={6}
       stepName="Payment"
     >
       {renderFormContent()}
-    </TwoColumnStepLayout>
+    </OneColumnStepLayout>
   );
 }
 

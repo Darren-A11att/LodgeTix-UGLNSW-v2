@@ -19,8 +19,8 @@ interface GrandLodgeSelectionProps {
 interface GrandLodgeOption {
   id: string;
   name: string;
-  country: string;
-  abbreviation: string;
+  country: string | null;
+  abbreviation: string | null;
   organisationid?: string;
 }
 
@@ -82,6 +82,12 @@ export const GrandLodgeSelection: React.FC<GrandLodgeSelectionProps> = ({
     // Skip if already initialized or initializing
     if (isInitialized || didAttemptLocationBasedDefaultRef.current) return;
     
+    // If we already have a value prop, mark as initialized and skip location-based init
+    if (value) {
+      setIsInitialized(true);
+      return;
+    }
+    
     const initializeGrandLodge = async () => {
       try {
         // Mark as initializing before starting async work
@@ -110,7 +116,7 @@ export const GrandLodgeSelection: React.FC<GrandLodgeSelectionProps> = ({
           
           // In Australia? Pre-fetch with a broad query to get local options
           if (userLocation?.country === 'Australia') {
-            auResults = await searchGrandLodges(initialQuery, 'Australia');
+            auResults = await searchGrandLodges(initialQuery);
             console.log(`[GrandLodgeSelection] Pre-loaded ${auResults.length} Australian Grand Lodges`);
           }
         }
@@ -196,24 +202,39 @@ export const GrandLodgeSelection: React.FC<GrandLodgeSelectionProps> = ({
       isProcessing = true;
       
       try {
-        // Only update if we don't already have the right selection
-        if (!selectedGrandLodge || selectedGrandLodge.id !== value) {
-          const grandLodge = grandLodges.find(gl => gl.id === value);
-          if (grandLodge) {
-            setSelectedGrandLodge(grandLodge);
-            setInputValue(grandLodge.name);
-            setIsInitialized(true);
-          }
+        // Find the grand lodge by ID
+        const grandLodge = grandLodges.find(gl => gl.id === value);
+        if (grandLodge) {
+          // Always update if we found a matching grand lodge, even if IDs match
+          // This ensures proper rehydration from drafts
+          setSelectedGrandLodge(grandLodge);
+          setInputValue(grandLodge.name);
+          setIsInitialized(true);
+        } else if (!selectedGrandLodge || selectedGrandLodge.id !== value) {
+          // If we can't find the grand lodge in our current list but have a value,
+          // keep the value and clear the display (grand lodge data might load later)
+          console.log(`[GrandLodgeSelection] Grand Lodge with ID ${value} not found in current list`);
+          setSelectedGrandLodge(null);
+          setInputValue('');
         }
       } finally {
         isProcessing = false;
       }
-    } else if (!value && selectedGrandLodge !== null) {
+    } else if (!value && selectedGrandLodge !== null && !userIsTypingRef.current) {
       // Clear selection if value is empty/null and user is not typing
       setSelectedGrandLodge(null);
       setInputValue('');
     }
-  }, [value, grandLodges, selectedGrandLodge]);
+  }, [value, grandLodges]);
+
+  // Ensure grand lodges are loaded when we have a value
+  useEffect(() => {
+    // If we have a value but no grand lodges loaded yet, fetch them
+    if (value && grandLodges.length === 0 && !isLoadingGrandLodges) {
+      console.log('[GrandLodgeSelection] Fetching grand lodges to display value:', value);
+      fetchInitialGrandLodges();
+    }
+  }, [value, grandLodges.length, isLoadingGrandLodges, fetchInitialGrandLodges]);
 
   // Pre-filter options locally for immediate feedback while search happens
   const filterLocalOptions = useCallback((query: string): GrandLodgeOption[] => {
@@ -305,7 +326,7 @@ export const GrandLodgeSelection: React.FC<GrandLodgeSelectionProps> = ({
       // Trigger search immediately for "NSW" due to its importance
       if (value.toUpperCase() === "NSW" || value.includes("United Grand Lodge")) {
         console.log(`[GrandLodgeSelection] Immediate search for important term: '${value}'`);
-        searchGrandLodges(value, ipData?.country_name || 'Australia')
+        searchGrandLodges(value)
           .then(results => {
             console.log(`[GrandLodgeSelection] Immediate search found ${results.length} results`);
             // No need to store lastSearchTermRef since we're doing an immediate search
@@ -315,7 +336,7 @@ export const GrandLodgeSelection: React.FC<GrandLodgeSelectionProps> = ({
       else if (value.length >= 2 && value !== lastSearchTermRef.current) {
         lastSearchTermRef.current = value;
         searchTimeoutRef.current = setTimeout(() => {
-          searchGrandLodges(value, ipData?.country_name || 'Australia');
+          searchGrandLodges(value);
         }, 300);
       }
     }
@@ -350,11 +371,8 @@ export const GrandLodgeSelection: React.FC<GrandLodgeSelectionProps> = ({
     
     try {
       console.log(`[GrandLodgeSelection] Searching for '${query}'`);
-      // Use the ipData country if available for better results
-      const userCountry = ipData?.country_name || 'Australia';
       
-      // Pass the user's country to prioritize local grand lodges
-      const results = await searchGrandLodges(query, userCountry);
+      const results = await searchGrandLodges(query);
       console.log(`[GrandLodgeSelection] Search returned ${results.length} results`);
       
       // Cache results for this query

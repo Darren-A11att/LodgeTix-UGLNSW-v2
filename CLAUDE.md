@@ -92,3 +92,83 @@ Please refer to `/development/Tech-stack/TECH-STACK-STANDARD.md` for the officia
 4. **Lazy Loading**: Component-heavy sections use dynamic imports for better performance
 
 5. **Data Normalization**: Helper functions ensure consistent data format between legacy and new schemas
+
+## Critical Development Process
+
+### Critical Memory: 12-Step Sequential Development Process
+
+This critical memory details the mandatory 12-step process for handling every development request and task, ensuring thorough analysis, reducing rework, minimizing regressions, and delivering reliable solutions.
+
+**Core Mindset:** Always use the simplest, stable, and secure path to meet requirements, approaching every step objectively without personal bias.
+
+**Key Principles:**
+- Systematic, sequential problem-solving
+- Objective analysis
+- Comprehensive testing
+- SOLID design principles
+- Continuous improvement
+
+#### 12-Step Process Overview
+1. Analyse & Understand the Request
+2. Determine Request Type
+3. Examine Existing Code Structure
+4. Explore Different Possibilities & Solutions
+5. Choose the Simplest, Stable & Secure Path
+6. Find Existing Reusable Components
+7. Develop Sequential TODO List
+8. Verify Plan Against Requirements
+9. Ask Clarifying Questions & Confirm Plan
+10. Implement the Plan
+11. Check & Test Implementation
+12. Summarise & Explain Implementation
+
+**Mandatory Time Allocation:**
+- Analysis (Steps 1-3): 20% of total time
+- Planning (Steps 4-9): 30% of total time
+- Implementation (Step 10): 35% of total time
+- Testing & Documentation (Steps 11-12): 15% of total time
+
+#### SOLID Principles Foundation
+Every implementation MUST adhere to SOLID principles:
+- Single Responsibility Principle
+- Open/Closed Principle
+- Liskov Substitution Principle
+- Interface Segregation Principle
+- Dependency Inversion Principle
+
+#### Technology Stack Standards
+**Mandatory Technologies:**
+- Next.js with App Router
+- TypeScript (Strict Mode)
+- TailwindCSS
+- Functional & Declarative Programming
+- SOLID-compliant Architecture
+
+**Imperative Guidelines:**
+- Zero code duplication
+- Strict modularisation
+- Functional component patterns
+- Comprehensive type coverage
+- SubAgent delegation for complex tasks
+
+#### Continuous Improvement Tracking
+- Regularly review and refine the development process
+- Collect feedback from team members
+- Track metrics on quality and delivery time
+- Update templates and guidelines based on lessons learned
+
+### Workflow Enforcement
+This 12-step process is NOT optional. It is a mandatory workflow for ALL development tasks, regardless of complexity. Deviations require explicit leadership approval.
+
+**Accountability Mechanisms:**
+- Code reviews will check adherence to this process
+- Documentation of each step is mandatory
+- Retrospectives will assess process effectiveness
+- Continuous training on process implementation
+
+By following this systematic approach, we ensure:
+- High-quality, maintainable code
+- Reduced technical debt
+- Consistent development standards
+- Objective, bias-free decision making
+- Continuous learning and improvement

@@ -477,9 +477,14 @@ export async function POST(request: Request) {
           status: statusForDb, // Use 'status' not 'ticket_status'
           payment_status: 'Unpaid', // This is a separate column
           registration_id: newRegistrationId,
-          // For packages, use ticketDefinitionId; for individual tickets, use eventTicketId
-          ticket_type_id: ticket.isPackage ? (ticket.ticketDefinitionId || ticket.package_id) : (ticket.eventTicketId || ticket.event_ticket_id),
-          is_partner_ticket: false // Default to false, can be updated based on business logic
+          // Always use the actual ticket type ID (packages are already expanded)
+          ticket_type_id: ticket.ticketTypeId || ticket.eventTicketId || ticket.event_ticket_id,
+          is_partner_ticket: false, // Default to false, can be updated based on business logic
+          // Store package info if ticket came from a package
+          ...(ticket.isFromPackage && {
+            package_id: ticket.packageId,
+            package_name: ticket.packageName
+          })
         };
         
         console.log("Ticket record to insert:", ticketRecord);

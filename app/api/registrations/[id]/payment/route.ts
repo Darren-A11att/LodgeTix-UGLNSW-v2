@@ -4,10 +4,10 @@ import { createAdminClient } from '@/utils/supabase/admin';
 
 export async function PUT(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const registrationId = params.id;
+    const { id: registrationId } = await params;
     console.group("💲 Update Registration Payment Status");
     console.log("Raw Request URL:", request.url);
     console.log("Registration ID from params:", registrationId);
@@ -114,15 +114,15 @@ export async function PUT(
           registration_id: registrationId,
           created_at: new Date().toISOString(),
         },
-        // Include return URL for 3D Secure
-        return_url: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/events/${existingRegistration.event_id}/confirmation?registration_id=${registrationId}`,
       });
       
       console.log("Created payment intent:", paymentIntent.id);
       console.log("Payment intent status:", paymentIntent.status);
       
-      // Now confirm the payment intent
-      const confirmedIntent = await stripe.paymentIntents.confirm(paymentIntent.id);
+      // Now confirm the payment intent with return URL for 3D Secure
+      const confirmedIntent = await stripe.paymentIntents.confirm(paymentIntent.id, {
+        return_url: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/events/${existingRegistration.event_id}/confirmation?registration_id=${registrationId}`,
+      });
       
       finalPaymentIntentId = confirmedIntent.id;
       
