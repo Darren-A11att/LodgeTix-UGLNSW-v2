@@ -52,6 +52,7 @@ export interface RegistrationState {
   draftId: string | null;
   eventId: string | null; // Add eventId field for the event being registered for
   registrationType: RegistrationType | null;
+  delegationType: 'lodge' | 'grandLodge' | 'masonicOrder' | null; // Type of delegation when registrationType is 'delegation'
   attendees: UnifiedAttendeeData[];
   // Using Record<attendeeId, PackageSelectionType> for packages
   packages: Record<string, PackageSelectionType>;
@@ -101,13 +102,17 @@ export interface RegistrationState {
   
   // Lodge ticket order methods
   setLodgeTicketOrder: (order: LodgeTicketOrder | null) => void; // Set lodge bulk ticket order
+  
+  // Delegation type methods
+  setDelegationType: (type: 'lodge' | 'grandLodge' | 'masonicOrder' | null) => void; // Set delegation sub-type
 }
 
 // --- Initial State ---
-const initialRegistrationState: Omit<RegistrationState, 'startNewRegistration' | 'addPrimaryAttendee' | 'loadDraft' | 'clearRegistration' | 'clearAllAttendees' | 'setRegistrationType' | 'addAttendee' | 'addMasonAttendee' | 'addGuestAttendee' | 'addPartnerAttendee' | 'updateAttendee' | 'removeAttendee' | 'updatePackageSelection' | 'updateBillingDetails' | 'setAgreeToTerms' | '_updateStatus' | 'setCurrentStep' | 'goToNextStep' | 'goToPrevStep' | 'setConfirmationNumber' | 'setEventId' | 'setDraftRecoveryHandled' | 'setAnonymousSessionEstablished' | 'setLodgeTicketOrder'> = {
+const initialRegistrationState: Omit<RegistrationState, 'startNewRegistration' | 'addPrimaryAttendee' | 'loadDraft' | 'clearRegistration' | 'clearAllAttendees' | 'setRegistrationType' | 'addAttendee' | 'addMasonAttendee' | 'addGuestAttendee' | 'addPartnerAttendee' | 'updateAttendee' | 'removeAttendee' | 'updatePackageSelection' | 'updateBillingDetails' | 'setAgreeToTerms' | '_updateStatus' | 'setCurrentStep' | 'goToNextStep' | 'goToPrevStep' | 'setConfirmationNumber' | 'setEventId' | 'setDraftRecoveryHandled' | 'setAnonymousSessionEstablished' | 'setLodgeTicketOrder' | 'setDelegationType'> = {
     draftId: null,
     eventId: null, // Initialize eventId as null
     registrationType: null,
+    delegationType: null,
     attendees: [],
     packages: {},
     billingDetails: null,
@@ -160,8 +165,8 @@ const createDefaultAttendee = (
     firstTime: attendeeType === 'Mason' ? false : undefined, // Only relevant for Mason
     rank: attendeeType === 'Mason' ? '' : undefined, // Only relevant for Mason
     postNominals: attendeeType === 'Mason' ? '' : undefined, // Only relevant for Mason
-    grandLodgeId: null,
-    lodgeId: null,
+    grandLodgeId: attendeeType === 'Mason' ? null : undefined,
+    lodgeId: attendeeType === 'Mason' ? null : undefined,
     tableAssignment: null,
     notes: '',
     paymentStatus: 'pending',
@@ -272,7 +277,7 @@ export const useRegistrationStore = create<RegistrationState>(
           }
 
           // For now, assume primary is always mason. Refine if needed.
-          const primaryAttendee = createDefaultAttendee('mason', { isPrimary: true });
+          const primaryAttendee = createDefaultAttendee('Mason', { isPrimary: true });
           // IMPORTANT: No default contact preference
           // User must explicitly select this
           primaryAttendee.contactPreference = '';
@@ -306,7 +311,8 @@ export const useRegistrationStore = create<RegistrationState>(
         const currentAnonymousSession = get().anonymousSessionEstablished;
         set({ 
           ...initialRegistrationState,
-          anonymousSessionEstablished: currentAnonymousSession // Preserve session state
+          anonymousSessionEstablished: currentAnonymousSession, // Preserve session state
+          delegationType: null // Explicitly clear delegation type
         }); // Reset to initial state but keep session
         console.log('Registration state cleared.');
       },
@@ -509,7 +515,10 @@ export const useRegistrationStore = create<RegistrationState>(
       setAnonymousSessionEstablished: (established) => set({ anonymousSessionEstablished: established }),
       
       // Lodge ticket order actions
-      setLodgeTicketOrder: (order) => set({ lodgeTicketOrder: order })
+      setLodgeTicketOrder: (order) => set({ lodgeTicketOrder: order }),
+      
+      // Delegation type actions
+      setDelegationType: (type) => set({ delegationType: type })
 
     }),
     {
@@ -517,10 +526,11 @@ export const useRegistrationStore = create<RegistrationState>(
       partialize: (state) => ({
         draftId: state.draftId,
         registrationType: state.registrationType,
+        delegationType: state.delegationType, // Persist delegation type
         attendees: state.attendees,
         packages: state.packages,
         billingDetails: state.billingDetails,
-        agreeToTerms: state.agreeToTerms, // Persist agreeToTerms
+        // Don't persist agreeToTerms - it should always default to false
         status: state.status, // Persist status to track completed registrations
         confirmationNumber: state.confirmationNumber, // Persist confirmation number
         // Don't persist draftRecoveryHandled - it should reset on each session
@@ -563,6 +573,7 @@ if (typeof window !== 'undefined') {
 
 // --- Basic Selectors ---
 export const selectRegistrationType = (state: RegistrationState) => state.registrationType;
+export const selectDelegationType = (state: RegistrationState) => state.delegationType;
 export const selectCurrentStep = (state: RegistrationState) => state.currentStep;
 export const selectAttendees = (state: RegistrationState) => state.attendees;
 export const selectPackages = (state: RegistrationState) => state.packages;

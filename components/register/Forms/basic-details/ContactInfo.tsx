@@ -10,7 +10,7 @@ export interface ContactInfoProps extends SectionProps {
   onChangeImmediate?: (field: string, value: any) => void;
 }
 
-export const ContactInfo: React.FC<ContactInfoProps> = ({ 
+export const ContactInfo: React.FC<ContactInfoProps> = React.memo(({ 
   data, 
   isPrimary, 
   onChange,
@@ -153,7 +153,20 @@ export const ContactInfo: React.FC<ContactInfoProps> = ({
       )}
     </div>
   );
-};
+}, (prevProps, nextProps) => {
+  // Custom comparison to prevent unnecessary re-renders
+  return (
+    prevProps.data.attendeeId === nextProps.data.attendeeId &&
+    prevProps.data.contactPreference === nextProps.data.contactPreference &&
+    prevProps.data.primaryEmail === nextProps.data.primaryEmail &&
+    prevProps.data.primaryPhone === nextProps.data.primaryPhone &&
+    prevProps.isPrimary === nextProps.isPrimary &&
+    prevProps.onChange === nextProps.onChange &&
+    prevProps.onChangeImmediate === nextProps.onChangeImmediate
+  );
+});
+
+ContactInfo.displayName = 'ContactInfo';
 
 // Wrapper for MasonContactInfo
 export const MasonContactInfo: React.FC<{

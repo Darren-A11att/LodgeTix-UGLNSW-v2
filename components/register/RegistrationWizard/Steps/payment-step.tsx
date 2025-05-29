@@ -406,10 +406,13 @@ function PaymentStep(props: PaymentStepProps) {
     resolver: zodResolver(billingDetailsSchema),
     defaultValues: {
       billToPrimary: false,
-      firstName: storeBillingDetails?.firstName || primaryAttendee?.firstName || '',
-      lastName: storeBillingDetails?.lastName || primaryAttendee?.lastName || '',
-      emailAddress: storeBillingDetails?.email || primaryAttendee?.primaryEmail || '',
-      mobileNumber: storeBillingDetails?.phone || primaryAttendee?.primaryPhone || '',
+      // Don't pre-fill personal details from stored billing unless explicitly needed
+      // This prevents confusion when user hasn't selected "bill to primary"
+      firstName: '',
+      lastName: '',
+      emailAddress: '',
+      mobileNumber: '',
+      // Address fields can be pre-filled from stored data
       addressLine1: storeBillingDetails?.addressLine1 || '',
       businessName: storeBillingDetails?.businessName || '',
       suburb: storeBillingDetails?.city || '',
@@ -656,13 +659,13 @@ function PaymentStep(props: PaymentStepProps) {
       );
     }
 
-    // Main form with two-column layout
+    // Main form with two-column 60/40 layout
     return (
       <Form {...form}>
         <form onSubmit={onSubmit}>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {/* Left Column - Billing Details */}
-            <div className="space-y-6">
+          <div className="flex flex-col md:flex-row gap-6 md:gap-8">
+            {/* Left Column - Billing Details (60%) */}
+            <div className="flex-1 space-y-6 md:flex-none md:w-[60%]">
               <h3 className="text-lg font-semibold">Billing Information</h3>
               <BillingDetailsForm form={form} primaryAttendee={primaryAttendee ? {
                 firstName: primaryAttendee.firstName || undefined,
@@ -674,32 +677,42 @@ function PaymentStep(props: PaymentStepProps) {
               } : null} />
             </div>
             
-            {/* Right Column - Order Summary and Payment */}
-            <div className="space-y-6">
+            {/* Right Column - Order Summary and Payment (40%) */}
+            <div className="flex-1 space-y-6 md:flex-none md:w-[40%]">
               <h3 className="text-lg font-semibold">Order Summary & Payment</h3>
               
               {/* Order Summary */}
-              <div className="bg-gray-50 p-6 rounded-lg space-y-4">
-                <h4 className="font-medium">Order Details</h4>
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
+              <div className="bg-gray-50 p-4 md:p-6 rounded-lg space-y-4">
+                <h4 className="font-medium text-gray-900">Order Details</h4>
+                <div className="space-y-3">
+                  <div className="flex justify-between text-sm">
                     <span className="text-gray-600">Total Attendees:</span>
-                    <span className="font-medium">{allStoreAttendees.length}</span>
+                    <span className="font-medium text-gray-900">{allStoreAttendees.length}</span>
                   </div>
-                  <div className="flex justify-between">
+                  <div className="flex justify-between text-sm">
                     <span className="text-gray-600">Total Tickets:</span>
-                    <span className="font-medium">{currentTicketsForSummary.length}</span>
+                    <span className="font-medium text-gray-900">{currentTicketsForSummary.length}</span>
                   </div>
-                  {currentTicketsForSummary.map((ticket, idx) => (
-                    <div key={ticket.id} className="flex justify-between text-xs">
-                      <span className="text-gray-500 truncate max-w-[200px]">{ticket.name}</span>
-                      <span className="text-gray-500">${ticket.price.toFixed(2)}</span>
+                  
+                  {/* Ticket Details */}
+                  {currentTicketsForSummary.length > 0 && (
+                    <div className="space-y-1 pt-2 border-t border-gray-200">
+                      {currentTicketsForSummary.map((ticket, idx) => (
+                        <div key={ticket.id} className="flex justify-between text-xs">
+                          <span className="text-gray-500 truncate pr-2" style={{ maxWidth: 'calc(100% - 60px)' }}>
+                            {ticket.name}
+                          </span>
+                          <span className="text-gray-600 font-medium">${ticket.price.toFixed(2)}</span>
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                  <div className="border-t pt-2 mt-2">
-                    <div className="flex justify-between font-semibold">
-                      <span>Total Amount:</span>
-                      <span className="text-lg">${totalAmount.toFixed(2)}</span>
+                  )}
+                  
+                  {/* Total */}
+                  <div className="border-t-2 border-gray-200 pt-3 mt-3">
+                    <div className="flex justify-between items-center">
+                      <span className="font-semibold text-gray-900">Total Amount:</span>
+                      <span className="text-xl font-bold text-masonic-navy">${totalAmount.toFixed(2)}</span>
                     </div>
                   </div>
                 </div>

@@ -1,10 +1,25 @@
 import Link from "next/link"
 import { getFeaturedEvents } from "@/lib/services/homepage-service"
+import { getEventByIdOrSlug } from "@/lib/event-facade"
 import { EventCard } from "@/components/event-card"
 
 export async function FeaturedEventsSection() {
   // Fetch featured events from Supabase
   const featuredEvents = await getFeaturedEvents();
+  
+  // Fetch parent event details for child events
+  const eventsWithParentInfo = await Promise.all(
+    featuredEvents.map(async (event) => {
+      if (event.parent_event_id) {
+        const parentEvent = await getEventByIdOrSlug(event.parent_event_id);
+        return {
+          ...event,
+          parentEventSlug: parentEvent?.slug || null
+        };
+      }
+      return event;
+    })
+  );
   
   // Default events to use if we don't have any from Supabase
   const defaultEvents = [
@@ -41,7 +56,7 @@ export async function FeaturedEventsSection() {
   ];
 
   // Use events from Supabase if available, otherwise use defaults
-  const events = featuredEvents.length > 0 ? featuredEvents : defaultEvents;
+  const events = eventsWithParentInfo.length > 0 ? eventsWithParentInfo : defaultEvents;
 
   return (
     <section className="py-16">
@@ -64,6 +79,8 @@ export async function FeaturedEventsSection() {
               location={event.location}
               imageUrl={event.imageUrl}
               price={event.price}
+              parentEventId={event.parent_event_id || null}
+              parentEventSlug={'parentEventSlug' in event ? event.parentEventSlug : null}
             />
           ))}
         </div>

@@ -1,6 +1,6 @@
 import { useCallback } from 'react';
 import { useRegistrationStore } from '@/lib/registrationStore';
-import { formatCurrency } from '@/lib/event-utils';
+import { formatCurrency } from '@/lib/formatters';
 
 export const useOrderSummary = () => {
   const { 

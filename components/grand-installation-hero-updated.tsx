@@ -90,7 +90,7 @@ function GrandInstallationHeroFallback() {
           <p className="mb-8 text-lg">Saturday, 25 November 2023 • Sydney Masonic Centre</p>
           <div className="flex flex-col justify-center gap-4 sm:flex-row">
             <Button asChild size="lg" className="bg-masonic-gold text-masonic-navy hover:bg-masonic-lightgold">
-              <Link href="/events/grand-installation/register">Purchase Tickets</Link>
+              <Link href="/events">View Events</Link>
             </Button>
           </div>
         </div>

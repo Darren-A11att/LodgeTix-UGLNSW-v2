@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { v4 as uuidv4 } from "uuid";
 import { createClient } from '@/utils/supabase/server';
 import { Tables, TablesInsert, Database } from "@/supabase/supabase";
+import { createRegistrationViaRPC, USE_RPC_REGISTRATION } from '@/lib/api/registration-rpc';
 
 export async function POST(request: Request) {
   // Use a single try/catch block to handle all errors
@@ -79,18 +80,22 @@ export async function POST(request: Request) {
       );
     }
     
-    // Check if eventId is a slug (not a UUID)
+    // Fetch event details to get title and validate ID
+    let eventData: any = null;
+    let eventTitle: string | null = null;
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    if (finalEventId && !uuidRegex.test(finalEventId)) {
-      console.log(`Event ID appears to be a slug: ${finalEventId}`);
-      // For now, we'll need to look up the event by slug to get the UUID
-      // This is a temporary solution - ideally the client should send the UUID
-      try {
-        const { getEventByIdOrSlug } = await import('@/lib/event-facade');
-        const event = await getEventByIdOrSlug(finalEventId);
-        if (event && event.id && uuidRegex.test(event.id)) {
-          console.log(`Found event UUID for slug ${finalEventId}: ${event.id}`);
-          finalEventId = event.id;
+    
+    try {
+      const { getEventByIdOrSlug } = await import('@/lib/event-facade');
+      
+      if (finalEventId && !uuidRegex.test(finalEventId)) {
+        console.log(`Event ID appears to be a slug: ${finalEventId}`);
+        // Look up by slug
+        eventData = await getEventByIdOrSlug(finalEventId);
+        if (eventData && eventData.id && uuidRegex.test(eventData.id)) {
+          console.log(`Found event UUID for slug ${finalEventId}: ${eventData.id}`);
+          finalEventId = eventData.id;
+          eventTitle = eventData.name || eventData.title || null;
         } else {
           console.error(`Could not find valid event for slug: ${finalEventId}`);
           console.groupEnd();
@@ -99,14 +104,18 @@ export async function POST(request: Request) {
             { status: 400 }
           );
         }
-      } catch (error) {
-        console.error(`Error looking up event by slug: ${error}`);
-        console.groupEnd();
-        return NextResponse.json(
-          { error: `Unable to validate event: ${finalEventId}. Please try again or contact support.` },
-          { status: 400 }
-        );
+      } else if (finalEventId && uuidRegex.test(finalEventId)) {
+        // Already have UUID, still fetch to get title
+        eventData = await getEventByIdOrSlug(finalEventId);
+        if (eventData) {
+          eventTitle = eventData.name || eventData.title || null;
+          console.log(`Found event title: ${eventTitle}`);
+        }
       }
+    } catch (error) {
+      console.error(`Error looking up event: ${error}`);
+      // Don't fail if we can't get the title, it's not critical
+      console.log(`Continuing without event title`);
     }
     
     // Final validation - ensure we have a valid UUID
@@ -133,7 +142,7 @@ export async function POST(request: Request) {
       stripe_payment_intent_id: paymentIntentId,
       primary_attendee_id: null, // Will be updated after primary attendee is created
       registration_type: finalRegistrationType, // Already correctly typed
-      registration_data: data.registrationData || null,
+      registration_data: [data], // Store the complete raw request payload as backup (as array)
     };
     
     console.log("Registration record to insert:", registrationRecord);
@@ -258,6 +267,68 @@ export async function POST(request: Request) {
       }
     }
 
+    // Check if we should use RPC registration
+    if (USE_RPC_REGISTRATION) {
+      console.log("🚀 Using RPC registration function");
+      
+      // Build registration state object to match what RPC expects
+      const registrationState = {
+        registrationType: clientRegistrationType || 'individual',
+        attendees: [primaryAttendee, ...additionalAttendees],
+        packages: tickets.reduce((acc: any, ticket: any) => {
+          // Group tickets by attendee
+          if (!acc[ticket.attendeeId]) {
+            acc[ticket.attendeeId] = {
+              ticketDefinitionId: ticket.isPackage ? ticket.id : null,
+              selectedEvents: ticket.isPackage ? [] : [ticket.id]
+            };
+          } else if (!ticket.isPackage) {
+            acc[ticket.attendeeId].selectedEvents.push(ticket.id);
+          }
+          return acc;
+        }, {}),
+        billingDetails,
+        agreeToTerms: data.agreeToTerms || true,
+        eventId: finalEventId,
+        draftId: data.draftId || null,
+        lodgeTicketOrder: data.lodgeTicketOrder || null
+      } as any;
+
+      // Call RPC function with raw payload and event title
+      const rpcResult = await createRegistrationViaRPC(
+        registrationState,
+        customerId,
+        finalEventId,
+        data.ticketTypes || [],
+        data.ticketPackages || [],
+        data, // Pass the complete raw request payload
+        eventTitle || undefined // Pass event title for attendees
+      );
+
+      if (!rpcResult.success) {
+        console.error("RPC registration failed:", rpcResult.error);
+        console.groupEnd();
+        return NextResponse.json(
+          { 
+            error: rpcResult.error || "Failed to create registration",
+            detail: rpcResult.detail 
+          },
+          { status: 500 }
+        );
+      }
+
+      console.log("✅ RPC registration successful:", rpcResult.registrationId);
+      console.groupEnd();
+      
+      return NextResponse.json({
+        success: true,
+        registrationId: rpcResult.registrationId,
+        confirmationNumber: rpcResult.confirmationNumber,
+        registrationData: rpcResult.registrationData
+      });
+    }
+
+    // Original direct insert logic continues here...
     // Insert registration record
     console.log("Inserting registration into registrations table");
     const { data: savedRegistration, error: registrationError } = await userClient
@@ -317,17 +388,41 @@ export async function POST(request: Request) {
         contactPreferenceForDb = clientContactPreference;
       }
 
+      // Determine if contact details should be included based on preference
+      const includeContactDetails = attendee.isPrimary || 
+        attendee.contactPreference?.toLowerCase() === 'directly';
+      
+      // Handle useSameLodge - inherit from primary attendee
+      let finalGrandLodgeId = attendee.grandLodgeId;
+      let finalLodgeId = attendee.lodgeId;
+      let finalLodgeNameNumber = attendee.lodgeNameNumber;
+      
+      if (attendee.useSameLodge && primaryAttendee && !attendee.isPrimary) {
+        finalGrandLodgeId = primaryAttendee.grandLodgeId || finalGrandLodgeId;
+        finalLodgeId = primaryAttendee.lodgeId || finalLodgeId;
+        finalLodgeNameNumber = primaryAttendee.lodgeNameNumber || finalLodgeNameNumber;
+      }
+      
+      // For Mason: title is masonicTitle, suffix is rank or grand rank
+      // For Guest: title is regular title, no suffix
+      const isMason = attendeeTypeForDb === 'mason';
+      const personTitle = isMason ? attendee.masonicTitle : attendee.title;
+      const personSuffix = isMason ? (attendee.grandOfficerStatus === 'Past' ? attendee.presentGrandOfficerRole : attendee.rank) : attendee.suffix;
+      
+      // The attendees table uses lowercase no-underscore column names
       const attendeeRecord: TablesInsert<'attendees'> = {
         attendeeid: newAttendeeId,
         registrationid: newRegistrationId, 
         attendeetype: attendeeTypeForDb,
-        eventtitle: data.eventTitle || undefined, 
+        eventtitle: eventTitle || null, 
         dietaryrequirements: attendee.dietaryRequirements || null,
         specialneeds: attendee.specialNeeds || null,
         contactpreference: contactPreferenceForDb,
         relationship: attendee.relationship || null,
         relatedattendeeid: attendee.partnerOf || attendee.related_attendee_id || null,
-        person_id: attendee.person_id || attendee.personId || null, 
+        person_id: attendee.person_id || attendee.personId || null
+        // Note: attendees table doesn't have is_primary, is_partner, has_partner, title, first_name, last_name, suffix, email, phone columns
+        // These should be stored in the related 'people' table if needed
       };
       
       console.log("Attendee record to insert:", attendeeRecord);
@@ -344,13 +439,13 @@ export async function POST(request: Request) {
       if (existingAttendee) {
         console.log(`Attendee ${attendeeRecord.attendeeid} already exists from a previous registration`);
         // Generate a new attendee ID for this registration
-        const newAttendeeId = uuidv4();
-        console.log(`Generating new attendee ID: ${newAttendeeId}`);
+        const newGeneratedAttendeeId = uuidv4();
+        console.log(`Generating new attendee ID: ${newGeneratedAttendeeId}`);
         
         // Create new attendee record with new ID
         const updatedAttendeeRecord = {
           ...attendeeRecord,
-          attendeeid: newAttendeeId
+          attendeeid: newGeneratedAttendeeId
         };
         
         const { data: newAttendee, error: attendeeError } = await userClient
@@ -387,7 +482,7 @@ export async function POST(request: Request) {
         savedAttendee = newAttendee;
         
         // Update the attendee ID mapping for tickets
-        attendeeIdMapping.set(attendeeRecord.attendeeid!, newAttendeeId);
+        attendeeIdMapping.set(attendeeRecord.attendeeid!, newGeneratedAttendeeId);
       } else {
         // Insert new attendee as normal
         const { data: newAttendee, error: attendeeError } = await userClient
@@ -468,8 +563,8 @@ export async function POST(request: Request) {
         let statusForDb = 'reserved'; // Default to 'reserved' for new registrations
         
         const ticketRecord: TablesInsert<'tickets'> = {
-          // id is generated automatically by Supabase
-          id: uuidv4(),
+          // ticket_id is generated automatically by Supabase
+          ticket_id: uuidv4(),
           attendee_id: attendeeForTicket.attendeeid!, 
           event_id: finalEventId, // Use the resolved event ID (UUID)
           ticket_price: ticket.price || 0, 
@@ -482,8 +577,8 @@ export async function POST(request: Request) {
           is_partner_ticket: false, // Default to false, can be updated based on business logic
           // Store package info if ticket came from a package
           ...(ticket.isFromPackage && {
-            package_id: ticket.packageId,
-            package_name: ticket.packageName
+            package_id: ticket.packageId
+            // Note: package_name doesn't exist in tickets table - only package_id
           })
         };
         

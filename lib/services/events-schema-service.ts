@@ -155,7 +155,13 @@ export class EventsSchemaService {
       }
       
       if (!data) {
-        api.warn(`No event found with ${isUUID ? 'UUID' : 'slug'}: ${idOrSlug}`);
+        // Only warn for slugs that are not known system routes
+        const nonEventSlugs = ['tickets', 'register', 'confirmation'];
+        if (!nonEventSlugs.includes(idOrSlug.toLowerCase())) {
+          api.warn(`No event found with ${isUUID ? 'UUID' : 'slug'}: ${idOrSlug}`);
+        } else {
+          api.debug(`Skipping warning for known non-event slug: ${idOrSlug}`);
+        }
         return null;
       }
       
@@ -469,6 +475,51 @@ export class EventsSchemaService {
   }
   
   /**
+   * Get child events by parent event ID
+   */
+  async getChildEventsByParentId(parentEventId: string): Promise<EventType[]> {
+    // Validate input
+    if (!parentEventId) {
+      api.warn('getChildEventsByParentId called with empty parentEventId');
+      return [];
+    }
+    
+    // Check connection status
+    if (!this.isConnected) {
+      api.error('Supabase client not connected, cannot fetch child events');
+      throw new Error('Database connection error');
+    }
+    
+    try {
+      api.debug(`Fetching child events for parentEventId: ${parentEventId}`);
+      
+      const { data, error } = await this.supabase
+        .from("events") // Use snake_case table name
+        .select('*')
+        .eq('parent_event_id', parentEventId)
+        .order("event_start", { ascending: true });
+      
+      if (error) {
+        api.error(`Error fetching child events for parentEventId ${parentEventId}:`, error);
+        throw error;
+      }
+      
+      if (!data || data.length === 0) {
+        api.debug(`No child events found for parentEventId: ${parentEventId}`);
+        return [];
+      }
+      
+      const transformedEvents = data.map(event => this.transformEvent(event));
+      api.debug(`Successfully transformed ${transformedEvents.length} child events for parentEventId: ${parentEventId}`);
+      
+      return transformedEvents;
+    } catch (error) {
+      api.error(`Error in getChildEventsByParentId for ${parentEventId}:`, error);
+      throw error;
+    }
+  }
+  
+  /**
    * Transform database event to EventType
    * This function handles both the old schema (camelCase) and new schema (snake_case) fields
    * and deals with potentially missing or malformed data
@@ -547,34 +598,13 @@ export class EventsSchemaService {
         // Status and feature flags
         isPurchasableIndividually: data.is_purchasable_individually || null,
         
-        // Additional fields not in EventType interface but used elsewhere
-        // These will be type-ignored or extended later
-        category: isValidValue(data.category) ? data.category : null,
-        event_start: data.event_start || '', // Keep snake_case version for compatibility
-        event_end: data.event_end || null,
-        created_at: data.created_at, // Keep snake_case version
-        is_multi_day: !!data.is_multi_day,
-        parent_event_id: isValidValue(data.parent_event_id) ? data.parent_event_id: null,
-        event_includes: Array.isArray(data.event_includes) ? data.event_includes: null,
-        important_information: Array.isArray(data.important_information) ? data.important_information: null,
-        is_purchasable_individually: !!data.is_purchasable_individually,
-        image_url: isValidValue(data.image_url) ? data.image_url: null,
-        isPublished: data.is_published !== undefined ? !!data.is_published : !!data.featured,
-        status: data.is_published ? "Published" : "Draft",
-        organizerName: isValidValue(data.organizer_name) ? data.organizer_name : null,
-        organizerContact: isValidValue(data.organizer_contact) ? data.organizer_contact : null,
-        degreeType: isValidValue(data.degree_type) ? data.degree_type : null,
+        // Additional event details with snake_case to camelCase mapping
         dressCode: isValidValue(data.dress_code) ? data.dress_code : null,
         regalia: isValidValue(data.regalia) ? data.regalia : null,
-        regaliaDescription: isValidValue(data.regalia_description) ? data.regalia_description : null,
-        sections: isValidValue(data.sections) ? data.sections : null,
-        attendance: isValidValue(data.attendance) ? data.attendance : null,
-        documents: isValidValue(data.documents) ? data.documents : null,
-        price: formatPrice(data.price),
-        ticketsSold: DEFAULT_EVENT_VALUES.ticketsSold,
-        revenue: DEFAULT_EVENT_VALUES.revenue,
-        relatedEventIds: Array.isArray(data.related_events) ? data.related_events : null,
-      } as EventType & Record<string, any>; // Allow additional properties
+        category: isValidValue(data.type) ? data.type : null, // 'type' field is used as category
+        status: data.is_published ? "Published" : "Draft",
+        organizerName: isValidValue(data.organizer_name) ? data.organizer_name : null,
+      };
       
       // Note: eligibility requirements would be in sections but not directly on EventType
       

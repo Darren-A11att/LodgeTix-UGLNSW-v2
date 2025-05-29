@@ -16,8 +16,7 @@ export const OneColumnStepLayout: React.FC<OneColumnStepLayoutProps> = ({
 }) => {
   return (
     <div className={cn(
-      "w-full mx-0 space-y-5 px-2 sm:px-0",
-      "sm:mx-auto md:py-5",
+      "w-full space-y-6",
       className
     )}>
       {children}

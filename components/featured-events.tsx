@@ -1,11 +1,25 @@
 import Link from "next/link"
-import { getFeaturedEvents } from "@/lib/event-facade"
+import { getFeaturedEvents, getEventByIdOrSlug } from "@/lib/event-facade"
 import { EventCard } from "@/components/event-card"
 import { formatCurrency } from "@/lib/formatters"
 
 export async function FeaturedEvents() {
   // Fetch featured events from Supabase (or mock data, depending on feature flag)
   const events = await getFeaturedEvents()
+  
+  // Fetch parent event details for child events
+  const eventsWithParentInfo = await Promise.all(
+    events.map(async (event) => {
+      if (event.parentEventId) {
+        const parentEvent = await getEventByIdOrSlug(event.parentEventId);
+        return {
+          ...event,
+          parentEventSlug: parentEvent?.slug || null
+        };
+      }
+      return event;
+    })
+  );
   
   return (
     <section className="py-16">
@@ -17,11 +31,11 @@ export async function FeaturedEvents() {
           </Link>
         </div>
         
-        {events.length === 0 ? (
+        {eventsWithParentInfo.length === 0 ? (
           <p className="text-center text-gray-500">No featured events available at this time.</p>
         ) : (
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {events.slice(0, 3).map((event) => (
+            {eventsWithParentInfo.slice(0, 3).map((event) => (
               <EventCard
                 key={event.id}
                 id={event.id}
@@ -32,6 +46,8 @@ export async function FeaturedEvents() {
                 location={event.location}
                 imageUrl={event.imageUrl}
                 price={event.price || formatCurrency(0)}
+                parentEventId={event.parentEventId || null}
+                parentEventSlug={'parentEventSlug' in event ? event.parentEventSlug : null}
               />
             ))}
           </div>

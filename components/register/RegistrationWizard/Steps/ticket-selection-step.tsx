@@ -9,29 +9,33 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import { Checkbox } from "@/components/ui/checkbox"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
-import { Package, Check, User, UserPlus, ShoppingCart, XCircle, ChevronLeft, ChevronRight, Loader2 } from "lucide-react"
+import { Package, Check, User, UserPlus, ShoppingCart, XCircle, ChevronLeft, ChevronRight, Loader2, Users } from "lucide-react"
 import type { Attendee, Ticket, MasonAttendee, GuestAttendee, PartnerAttendee } from "@/lib/registration-types"
 import { v7 as uuidv7 } from "uuid"
 import { SectionHeader } from "../Shared/SectionHeader"
 import { AlertModal } from "@/components/ui/alert-modal"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 import { TwoColumnStepLayout } from "../Layouts/TwoColumnStepLayout"
 import { getTicketSummaryData } from '../Summary/summary-data/ticket-summary-data';
 import { SummaryRenderer } from '../Summary/SummaryRenderer';
 import { getEventTicketsService, type TicketDefinition, type EventPackage } from '@/lib/services/event-tickets-service'
 import { api } from '@/lib/api-logger'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { createClient } from '@/utils/supabase/client'
 
 // Define AttendeeType for eligibility checking, leveraging existing types
 export type AttendeeType = Attendee['type'];
 
-// Define the parent event ID for Grand Proclamation 2025
-const GRAND_PROCLAMATION_PARENT_ID = "307c2d85-72d5-48cf-ac94-082ca2a5d23d"
+// Remove hardcoded parent event ID - we should always use the eventId from props/store
 
-function TicketSelectionStep() {
+const TicketSelectionStep: React.FC = () => {
   const allStoreAttendees = useRegistrationStore((s) => s.attendees);
   const updateAttendeeStore = useRegistrationStore((s) => s.updateAttendee);
   const updatePackageSelection = useRegistrationStore((s) => s.updatePackageSelection);
   const packages = useRegistrationStore((s) => s.packages);
   const eventId = useRegistrationStore((s) => s.eventId);
+  const registrationType = useRegistrationStore((s) => s.registrationType);
+  const lodgeTicketOrder = useRegistrationStore((s) => s.lodgeTicketOrder);
 
   // State for dynamic ticket and package data
   const [ticketTypes, setTicketTypes] = useState<TicketDefinition[]>([])
@@ -47,21 +51,40 @@ function TicketSelectionStep() {
         setTicketsError(null)
         
         const service = getEventTicketsService()
+        const supabase = createClient()
         
-        // Use the eventId from the store if available, otherwise use Grand Proclamation
-        const targetEventId = eventId || GRAND_PROCLAMATION_PARENT_ID
+        // Always use the eventId from the store - it should be set from the route
+        if (!eventId) {
+          throw new Error('Event ID is required for ticket selection')
+        }
+        const targetEventId = eventId
         
         api.debug(`Fetching tickets for event: ${targetEventId}`)
         
-        // Check if this is the parent event or a child event
-        if (targetEventId === GRAND_PROCLAMATION_PARENT_ID) {
+        // Always check if this is a parent event first
+        const { data: eventData } = await supabase
+          .from('events')
+          .select('id, parent_event_id')
+          .eq('id', targetEventId)
+          .single()
+        
+        const isParentEvent = eventData && !eventData.parent_event_id
+        
+        // Check if this is a parent event
+        if (isParentEvent) {
           // Fetch child events and their tickets
           const childEventsData = await service.getChildEventsWithTicketsAndPackages(targetEventId)
           
-          // Aggregate all tickets from child events
+          // Aggregate all tickets from child events with event info
           const allTickets: TicketDefinition[] = []
           childEventsData.forEach(eventData => {
-            allTickets.push(...eventData.tickets)
+            // Add event context to each ticket
+            const ticketsWithEventInfo = eventData.tickets.map(ticket => ({
+              ...ticket,
+              event_title: eventData.event.title,
+              event_slug: eventData.event.slug
+            }))
+            allTickets.push(...ticketsWithEventInfo)
           })
           
           // Use packages from the first result (they're the same for all child events)
@@ -100,7 +123,48 @@ function TicketSelectionStep() {
   const additionalAttendees = allStoreAttendees.filter(a => !a.isPrimary) as unknown as (MasonAttendee | GuestAttendee | PartnerAttendee)[];
 
   // --- Derive currentTickets for UI display from store state ---
-  const derivedCurrentTickets: Ticket[] = allStoreAttendees.flatMap(attendee => {
+  const derivedCurrentTickets: Ticket[] = (() => {
+    // For lodge bulk orders, create tickets based on bulk selection
+    if (registrationType === 'lodge' && lodgeTicketOrder && packages['lodge-bulk']) {
+      const bulkSelection = packages['lodge-bulk'];
+      const tickets: Ticket[] = [];
+      
+      if (bulkSelection.ticketDefinitionId) {
+        const packageInfo = ticketPackages.find(p => p.id === bulkSelection.ticketDefinitionId);
+        if (packageInfo) {
+          // Create a bulk ticket for the package
+          tickets.push({
+            id: `lodge-bulk-${packageInfo.id}`,
+            name: `${packageInfo.name} × ${lodgeTicketOrder.totalTickets} attendees`,
+            price: packageInfo.price * lodgeTicketOrder.totalTickets,
+            description: packageInfo.description || "",
+            attendeeId: 'lodge-bulk',
+            isPackage: true,
+            includedTicketTypes: packageInfo.includes,
+          });
+        }
+      } else if (bulkSelection.selectedEvents && bulkSelection.selectedEvents.length > 0) {
+        // Create bulk tickets for individual selections
+        bulkSelection.selectedEvents.forEach(eventId => {
+          const ticketTypeInfo = ticketTypes.find(t => t.id === eventId);
+          if (ticketTypeInfo) {
+            tickets.push({
+              id: `lodge-bulk-${ticketTypeInfo.id}`,
+              name: `${ticketTypeInfo.name} × ${lodgeTicketOrder.totalTickets} attendees`,
+              price: ticketTypeInfo.price * lodgeTicketOrder.totalTickets,
+              description: ticketTypeInfo.description || "",
+              attendeeId: 'lodge-bulk',
+              isPackage: false,
+            });
+          }
+        });
+      }
+      
+      return tickets;
+    }
+    
+    // Original logic for individual attendees
+    return allStoreAttendees.flatMap((attendee) => {
     const attendeeIdentifier = (attendee as any).attendeeId;
     if (!attendeeIdentifier) return [];
 
@@ -140,7 +204,8 @@ function TicketSelectionStep() {
       return individualTickets;
     }
     return [];
-  });
+    });
+  })();
 
   // Main log for the tickets processed for UI rendering
   console.log("!!!!!!!!!!!! TICKET SELECTION STEP: FINAL DERIVED TICKETS FOR UI !!!!!!!!!!!!", JSON.stringify(derivedCurrentTickets, null, 2));
@@ -159,6 +224,7 @@ function TicketSelectionStep() {
   })
 
   const [expandedAttendee, setExpandedAttendee] = useState<string | null>(null)
+  const [activeTab, setActiveTab] = useState<string>('same-for-all')
 
   // Create a helper function to order attendees so partners appear after their associated Mason or Guest
   const getOrderedAttendees = (primary: MasonAttendee | GuestAttendee | undefined, additional: (MasonAttendee | GuestAttendee | PartnerAttendee)[], all: any[]): Attendee[] => {
@@ -230,6 +296,12 @@ function TicketSelectionStep() {
   };
 
   const handleContinue = () => {
+    // For lodge registrations with bulk orders, skip individual ticket validation
+    if (registrationType === 'lodge' && lodgeTicketOrder) {
+      goToNextStep();
+      return;
+    }
+    
     if (ensureAllAttendeesHaveTickets()) {
       goToNextStep();
     } else {
@@ -358,9 +430,26 @@ function TicketSelectionStep() {
 
   // Calculate the total order amount
   const orderTotalAmount = currentTickets.reduce((sum, ticket) => sum + ticket.price, 0);
+  
+  // For lodge registrations, check if bulk selection has been made
+  const hasLodgeBulkSelection = registrationType === 'lodge' && lodgeTicketOrder && 
+    (packages['lodge-bulk']?.ticketDefinitionId || 
+     (packages['lodge-bulk']?.selectedEvents && packages['lodge-bulk'].selectedEvents.length > 0));
 
   // Render summary content for right column - using simplified component
   const renderSummaryContent = () => {
+    // For lodge bulk orders, show different summary
+    if (registrationType === 'lodge' && lodgeTicketOrder) {
+      const summaryData = getTicketSummaryData({
+        currentTickets,
+        orderTotalAmount,
+        attendees: allStoreAttendees,
+        lodgeTicketOrder // Pass lodge order info
+      });
+      
+      return <SummaryRenderer {...summaryData} />;
+    }
+    
     const summaryData = getTicketSummaryData({
       currentTickets,
       orderTotalAmount,
@@ -387,7 +476,7 @@ function TicketSelectionStep() {
           </div>
         </div>
       </TwoColumnStepLayout>
-    )
+    );
   }
 
   // Show error state
@@ -414,9 +503,390 @@ function TicketSelectionStep() {
           </div>
         </div>
       </TwoColumnStepLayout>
-    )
+    );
   }
 
+  // For lodge registrations, render tabbed interface
+  if (registrationType === 'lodge') {
+    // Create placeholder attendees based on lodge ticket order if not already created
+    const attendeeCount = lodgeTicketOrder?.totalTickets || 0;
+    
+    // If no attendees but we have a lodge order, we're in bulk order mode
+    const isBulkMode = attendeeCount > 0 && allStoreAttendees.length === 1;
+    
+    return (
+      <TwoColumnStepLayout
+        summaryContent={renderSummaryContent()}
+        summaryTitle="Step Summary"
+        currentStep={3}
+        totalSteps={6}
+        stepName="Ticket Selection"
+      >
+        <div className="space-y-6">
+          {/* Show lodge order info */}
+          {lodgeTicketOrder && (
+            <Alert className="border-blue-200 bg-blue-50">
+              <AlertDescription>
+                <div className="flex items-center gap-2">
+                  <Users className="h-4 w-4" />
+                  <span>
+                    Selecting tickets for {lodgeTicketOrder?.tableCount || 0} table{(lodgeTicketOrder?.tableCount || 0) > 1 ? 's' : ''} 
+                    ({lodgeTicketOrder?.totalTickets || 0} attendees total)
+                  </span>
+                </div>
+              </AlertDescription>
+            </Alert>
+          )}
+          
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+            <TabsList className="grid w-full grid-cols-2">
+              <TabsTrigger value="same-for-all">Same Tickets for All</TabsTrigger>
+              <TabsTrigger value="individual" disabled={isBulkMode}>
+                Individual Tickets {isBulkMode && "(Attendee details required)"}
+              </TabsTrigger>
+            </TabsList>
+            
+            <TabsContent value="same-for-all" className="space-y-6 mt-6">
+              {/* Same Tickets for All tab content */}
+              <div className="space-y-4">
+                <div className="text-sm text-gray-600 mb-4">
+                  Select packages or individual tickets that will be applied to all {lodgeTicketOrder?.totalTickets || 0} attendees.
+                </div>
+                
+                {/* Package options */}
+                <div>
+                  <h3 className="font-semibold text-masonic-navy mb-3">Ticket Packages</h3>
+                  <div className="grid gap-4 md:grid-cols-3">
+                    {ticketPackages
+                      .filter(pkg => pkg.eligibleAttendeeTypes.includes('mason' as AttendeeType))
+                      .map((pkg) => {
+                        // Check if this package is selected for bulk order
+                        const isSelected = isBulkMode 
+                          ? packages['lodge-bulk']?.ticketDefinitionId === pkg.id
+                          : allStoreAttendees.length > 0 && allStoreAttendees.every(attendee => 
+                              packages[attendee.attendeeId]?.ticketDefinitionId === pkg.id
+                            );
+                        
+                        return (
+                          <Card
+                            key={pkg.id}
+                            className={`cursor-pointer border-2 transition-all ${
+                              isSelected
+                                ? "border-masonic-gold bg-masonic-lightgold/10"
+                                : "border-gray-200 hover:border-masonic-lightgold"
+                            }`}
+                            onClick={() => {
+                              if (isBulkMode) {
+                                // For bulk mode, store selection under a special key
+                                updatePackageSelection('lodge-bulk', { 
+                                  ticketDefinitionId: pkg.id, 
+                                  selectedEvents: pkg.includes 
+                                });
+                              } else {
+                                // Apply to all attendees
+                                allStoreAttendees.forEach(attendee => {
+                                  handleSelectPackage(attendee.attendeeId, pkg.id);
+                                });
+                              }
+                            }}
+                          >
+                            <CardContent className="p-4">
+                          <div className="flex justify-between items-start mb-2">
+                            <h4 className="font-medium">{pkg.name}</h4>
+                            <Badge className="bg-masonic-navy">${pkg.price}</Badge>
+                          </div>
+                          <p className="text-sm text-gray-600 mb-3">{pkg.description}</p>
+                          <div className="text-xs text-gray-500">
+                            <div className="flex items-center gap-1 mb-1">
+                              <Package className="h-3 w-3" />
+                              <span>Includes:</span>
+                            </div>
+                            <ul className="space-y-1 pl-4">
+                              {pkg.includes.map((id) => {
+                                const ticket = ticketTypes.find((t) => t.id === id);
+                                return ticket ? (
+                                  <li key={id} className="flex items-center gap-1">
+                                    <Check className="h-3 w-3 text-green-600" />
+                                    <span>{ticket.name}</span>
+                                  </li>
+                                ) : null
+                              })}
+                            </ul>
+                          </div>
+                            </CardContent>
+                          </Card>
+                        );
+                      })}
+                  </div>
+                </div>
+
+                {/* Individual tickets table */}
+                <div>
+                  <h3 className="font-semibold text-masonic-navy mb-3">Individual Tickets</h3>
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="w-[50px]"></TableHead>
+                        <TableHead>Ticket</TableHead>
+                        <TableHead>Description</TableHead>
+                        <TableHead className="text-right">Availability</TableHead>
+                        <TableHead className="text-right">Price</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {ticketTypes
+                        .filter(ticket => ticket.eligibleAttendeeTypes.includes('mason' as AttendeeType))
+                        .map((ticket) => (
+                        <TableRow key={ticket.id}>
+                          <TableCell>
+                            <Checkbox
+                              id={`all-${ticket.id}`}
+                              disabled={ticket.status !== 'Active' || ticket.available_count === 0}
+                              checked={
+                                isBulkMode 
+                                  ? (packages['lodge-bulk']?.selectedEvents || []).includes(ticket.id)
+                                  : allStoreAttendees.length > 0 && allStoreAttendees.every(attendee => 
+                                      isIndividualTicketDirectlySelected(attendee.attendeeId, ticket.id)
+                                    )
+                              }
+                              onCheckedChange={() => {
+                                if (isBulkMode) {
+                                  // Handle bulk mode selection
+                                  const currentSelection = packages['lodge-bulk'] || { ticketDefinitionId: null, selectedEvents: [] };
+                                  const isCurrentlySelected = currentSelection.selectedEvents.includes(ticket.id);
+                                  
+                                  let newSelectedEvents = currentSelection.ticketDefinitionId 
+                                    ? [] // Clear if switching from package
+                                    : [...currentSelection.selectedEvents];
+                                  
+                                  if (isCurrentlySelected) {
+                                    newSelectedEvents = newSelectedEvents.filter(id => id !== ticket.id);
+                                  } else {
+                                    if (!newSelectedEvents.includes(ticket.id)) {
+                                      newSelectedEvents.push(ticket.id);
+                                    }
+                                  }
+                                  
+                                  updatePackageSelection('lodge-bulk', { 
+                                    ticketDefinitionId: null, 
+                                    selectedEvents: newSelectedEvents 
+                                  });
+                                } else {
+                                  // Original logic for individual attendees
+                                  const isCurrentlySelected = allStoreAttendees.length > 0 && 
+                                    allStoreAttendees.every(attendee => 
+                                      isIndividualTicketDirectlySelected(attendee.attendeeId, ticket.id)
+                                    );
+                                  
+                                  allStoreAttendees.forEach(attendee => {
+                                    if (isCurrentlySelected) {
+                                      // Deselect for all
+                                      const currentSelection = packages[attendee.attendeeId] || { ticketDefinitionId: null, selectedEvents: [] };
+                                      const newSelectedEvents = currentSelection.selectedEvents.filter(id => id !== ticket.id);
+                                      updatePackageSelection(attendee.attendeeId, { 
+                                        ticketDefinitionId: null, 
+                                        selectedEvents: newSelectedEvents 
+                                      });
+                                    } else {
+                                      // Select for all
+                                      handleToggleIndividualTicket(attendee.attendeeId, ticket.id);
+                                    }
+                                  });
+                                }
+                              }}
+                            />
+                          </TableCell>
+                          <TableCell className="font-medium">{ticket.name}</TableCell>
+                          <TableCell>{ticket.description || 'No description available'}</TableCell>
+                          <TableCell className="text-right">
+                            {ticket.status !== 'Active' ? (
+                              <span className="text-gray-500">Inactive</span>
+                            ) : ticket.available_count === null ? (
+                              <span className="text-green-600">Unlimited</span>
+                            ) : ticket.available_count === 0 ? (
+                              <span className="text-red-600">Sold Out</span>
+                            ) : (
+                              <span className="text-gray-600">{ticket.available_count} left</span>
+                            )}
+                          </TableCell>
+                          <TableCell className="text-right">${ticket.price}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+            </TabsContent>
+            
+            <TabsContent value="individual" className="space-y-6 mt-6">
+              {/* Individual Tickets tab content */}
+              <div className="space-y-4">
+                {isBulkMode ? (
+                  <Alert className="border-yellow-300 bg-yellow-50">
+                    <AlertDescription>
+                      Individual ticket selection requires attendee details to be provided first. 
+                      Please continue with "Same Tickets for All" or provide attendee details in the previous step.
+                    </AlertDescription>
+                  </Alert>
+                ) : (
+                  <>
+                    <div className="text-sm text-gray-600 mb-4">
+                      Select tickets individually for each delegate.
+                    </div>
+                    
+                    <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead className="w-[250px]">Delegate</TableHead>
+                      <TableHead>Tickets</TableHead>
+                      <TableHead className="text-right w-[100px]">Total</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {eligibleAttendees.map((attendee: any) => {
+                      const attendeeTickets = getAttendeeTickets(attendee.attendeeId);
+                      const attendeeTotal = getAttendeeTicketTotal(attendee.attendeeId);
+                      
+                      return (
+                        <TableRow key={attendee.attendeeId}>
+                          <TableCell>
+                            <div>
+                              <div className="font-medium">
+                                {attendee.title} {attendee.firstName} {attendee.lastName}
+                              </div>
+                              <div className="text-sm text-gray-500">
+                                {attendee.attendeeType === "Mason" || attendee.attendeeType?.toLowerCase() === "mason" 
+                                  ? (attendee.grandRank || attendee.rank || 'Mason')
+                                  : attendee.isPartner 
+                                    ? `Partner of ${attendee.partnerFirstName || 'Attendee'}` 
+                                    : attendee.relationship || 'Guest'}
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="space-y-2">
+                              {/* Packages dropdown */}
+                              <div>
+                                <select
+                                  className="w-full border rounded-md px-3 py-2 text-sm"
+                                  value={packages[attendee.attendeeId]?.ticketDefinitionId || ''}
+                                  onChange={(e) => {
+                                    if (e.target.value) {
+                                      handleSelectPackage(attendee.attendeeId, e.target.value);
+                                    } else {
+                                      updatePackageSelection(attendee.attendeeId, { 
+                                        ticketDefinitionId: null, 
+                                        selectedEvents: [] 
+                                      });
+                                    }
+                                  }}
+                                >
+                                  <option value="">Select a package...</option>
+                                  {ticketPackages
+                                    .filter(pkg => {
+                                      const mappedType = attendee.attendeeType?.toLowerCase() || '';
+                                      const effectiveType = mappedType === 'mason' ? 'mason' : 'guest';
+                                      return pkg.eligibleAttendeeTypes.includes(effectiveType as AttendeeType);
+                                    })
+                                    .map(pkg => (
+                                      <option key={pkg.id} value={pkg.id}>
+                                        {pkg.name} - ${pkg.price}
+                                      </option>
+                                    ))}
+                                </select>
+                              </div>
+                              
+                              {/* Individual tickets checkboxes */}
+                              <div className="space-y-1">
+                                {ticketTypes
+                                  .filter(ticket => {
+                                    const mappedType = attendee.attendeeType?.toLowerCase() || '';
+                                    const effectiveType = mappedType === 'mason' ? 'mason' : 'guest';
+                                    return ticket.eligibleAttendeeTypes.includes(effectiveType as AttendeeType);
+                                  })
+                                  .map(ticket => (
+                                    <label key={ticket.id} className="flex items-center gap-2 text-sm">
+                                      <Checkbox
+                                        checked={isIndividualTicketDirectlySelected(attendee.attendeeId, ticket.id)}
+                                        onCheckedChange={() => handleToggleIndividualTicket(attendee.attendeeId, ticket.id)}
+                                        disabled={!!packages[attendee.attendeeId]?.ticketDefinitionId || ticket.status !== 'Active' || ticket.available_count === 0}
+                                      />
+                                      <span className={cn(
+                                        packages[attendee.attendeeId]?.ticketDefinitionId || ticket.status !== 'Active' || ticket.available_count === 0 ? "text-gray-400" : ""
+                                      )}>
+                                        {ticket.name} - ${ticket.price}
+                                        {ticket.status !== 'Active' ? (
+                                          <span className="text-gray-500 text-xs ml-1">(Inactive)</span>
+                                        ) : ticket.available_count !== null && ticket.available_count === 0 ? (
+                                          <span className="text-red-500 text-xs ml-1">(Sold Out)</span>
+                                        ) : null}
+                                      </span>
+                                    </label>
+                                  ))}
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-right font-medium">
+                            ${attendeeTotal}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
+                  </TableBody>
+                  <tfoot>
+                    <TableRow>
+                      <TableCell colSpan={2} className="text-right font-semibold">
+                        Grand Total
+                      </TableCell>
+                      <TableCell className="text-right font-bold text-lg">
+                        ${orderTotalAmount}
+                      </TableCell>
+                    </TableRow>
+                  </tfoot>
+                </Table>
+                  </>
+                )}
+              </div>
+            </TabsContent>
+          </Tabs>
+          
+          <div className="flex justify-between">
+            <Button
+              variant="outline"
+              onClick={handlePrevious}
+              className="gap-2 border-masonic-navy text-masonic-navy hover:bg-masonic-lightblue"
+            >
+              <ChevronLeft className="w-4 h-4" />
+              Back
+            </Button>
+            <Button
+              onClick={handleContinue}
+              disabled={
+                registrationType === 'lodge' && lodgeTicketOrder
+                  ? !packages['lodge-bulk']?.ticketDefinitionId && (!packages['lodge-bulk']?.selectedEvents || packages['lodge-bulk'].selectedEvents.length === 0)
+                  : !ensureAllAttendeesHaveTickets() || currentTickets.length === 0
+              }
+              className="gap-2 bg-masonic-navy hover:bg-masonic-blue"
+            >
+              Continue
+              <ChevronRight className="w-4 h-4" />
+            </Button>
+          </div>
+
+          <AlertModal
+            isOpen={alertModalOpen}
+            onClose={() => setAlertModalOpen(false)}
+            title={alertModalData.title}
+            description={alertModalData.description}
+            variant={alertModalData.variant}
+            actionLabel="OK"
+          />
+        </div>
+      </TwoColumnStepLayout>
+    );
+  }
+  
+  // Default behavior for non-lodge registrations
   return (
     <TwoColumnStepLayout
       summaryContent={renderSummaryContent()}
@@ -511,11 +981,16 @@ function TicketSelectionStep() {
                                     </div>
                                     <ul className="space-y-1 pl-4">
                                       {pkg.includes.map((id) => {
-                                        const ticket = ticketTypes.find((t) => t.id === id)
+                                        const ticket = ticketTypes.find((t) => t.id === id);
                                         return ticket ? (
-                                          <li key={id} className="flex items-center gap-1">
-                                            <Check className="h-3 w-3 text-green-600" />
-                                            <span>{ticket.name}</span>
+                                          <li key={id} className="flex items-start gap-1">
+                                            <Check className="h-3 w-3 text-green-600 mt-0.5" />
+                                            <div>
+                                              <span>{ticket.name}</span>
+                                              {ticket.event_title && (
+                                                <span className="text-xs text-gray-400 block">{ticket.event_title}</span>
+                                              )}
+                                            </div>
                                           </li>
                                         ) : null
                                       })}
@@ -536,6 +1011,7 @@ function TicketSelectionStep() {
                                 <TableHead className="w-[50px]"></TableHead>
                                 <TableHead>Ticket</TableHead>
                                 <TableHead>Description</TableHead>
+                                <TableHead className="text-right">Availability</TableHead>
                                 <TableHead className="text-right">Price</TableHead>
                               </TableRow>
                             </TableHeader>
@@ -556,12 +1032,31 @@ function TicketSelectionStep() {
                                   <TableCell>
                                     <Checkbox
                                       id={`${attendee.attendeeId}-${ticket.id}`}
+                                      disabled={ticket.status !== 'Active' || ticket.available_count === 0}
                                       checked={isIndividualTicketDirectlySelected(attendee.attendeeId, ticket.id)}
                                       onCheckedChange={() => handleToggleIndividualTicket(attendee.attendeeId, ticket.id)}
                                     />
                                   </TableCell>
-                                  <TableCell className="font-medium">{ticket.name}</TableCell>
+                                  <TableCell>
+                                    <div>
+                                      <div className="font-medium">{ticket.name}</div>
+                                      {ticket.event_title && (
+                                        <div className="text-xs text-gray-500">{ticket.event_title}</div>
+                                      )}
+                                    </div>
+                                  </TableCell>
                                   <TableCell>{ticket.description || 'No description available'}</TableCell>
+                                  <TableCell className="text-right">
+                                    {ticket.status !== 'Active' ? (
+                                      <span className="text-gray-500 text-sm">Inactive</span>
+                                    ) : ticket.available_count === null ? (
+                                      <span className="text-green-600 text-sm">Unlimited</span>
+                                    ) : ticket.available_count === 0 ? (
+                                      <span className="text-red-600 text-sm">Sold Out</span>
+                                    ) : (
+                                      <span className="text-gray-600 text-sm">{ticket.available_count} left</span>
+                                    )}
+                                  </TableCell>
                                   <TableCell className="text-right">${ticket.price}</TableCell>
                                 </TableRow>
                               ))}
@@ -699,7 +1194,7 @@ function TicketSelectionStep() {
         />
       </div>
     </TwoColumnStepLayout>
-  )
+  );
 }
 
 export default TicketSelectionStep;

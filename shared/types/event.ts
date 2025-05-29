@@ -28,6 +28,13 @@ export interface EventType {
   longitude: number | null;                // For mapping
   isPurchasableIndividually: boolean | null; // Can this event be bought outside a package?
   createdAt: string;                       // Timestamp
+  
+  // --- Event Details ---
+  dressCode?: string | null;               // Dress code requirement
+  regalia?: string | null;                 // Regalia requirement
+  category?: string | null;                // Event category
+  status?: string;                         // Publication status
+  organizerName?: string | null;           // Event organizer name
 
   // --- Deprecated Raw Fields (Commented Out) ---
   // date?: string | null;          // Use eventStart

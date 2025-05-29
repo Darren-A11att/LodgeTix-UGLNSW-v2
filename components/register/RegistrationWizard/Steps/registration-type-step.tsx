@@ -130,12 +130,8 @@ export function RegistrationTypeStep() {
       return;
     }
     
-    // Show draft recovery modal if we have an incomplete registration with data
-    if (hasIncompleteRegistration && hasFilledData && !draftRecoveryHandled) {
-      console.log('Showing draft recovery modal on mount - detected incomplete registration');
-      setShowDraftModal(true);
-      // Don't set selected type yet - let user choose
-    }
+    // Don't show draft recovery modal on mount - it should only appear when user selects a type
+    // The modal will be triggered in handleSelectType when appropriate
   }, [draftRecoveryHandled]);
   
   // Debug - log the current state of the registration store
@@ -232,13 +228,25 @@ export function RegistrationTypeStep() {
     // Check if we're already on the selected type with existing data
     const isSelectingCurrentType = currentDraftType === type;
     
+    // Check if the registration is completed
+    const isRegistrationCompleted = confirmationNumber !== null || currentState.status === 'completed';
+    
+    // If registration is completed, always start new - never show draft modal
+    if (isRegistrationCompleted) {
+      console.log("Completed registration detected - clearing and starting new");
+      storeClearRegistration();
+      setSelectedType(type);
+      storeSetRegistrationType(type);
+      initializeAttendees(type);
+      const goToNextStep = useRegistrationStore.getState().goToNextStep;
+      goToNextStep();
+      return;
+    }
+    
     // Simplified draft detection:
     // Show modal if there's an incomplete registration (draft)
     // But don't show it if the user is selecting the same type they already have
-    // And don't show it for completed registrations
     const hasIncompleteDraft = currentDraftType !== null && 
-                               confirmationNumber === null && 
-                               currentState.status !== 'completed' &&
                                (hasExistingAttendees || currentStep > 1 || hasFilledData) &&
                                !isSelectingCurrentType; // Don't show modal if selecting the same type
     
@@ -282,7 +290,7 @@ export function RegistrationTypeStep() {
       const goToNextStep = useRegistrationStore.getState().goToNextStep;
       goToNextStep();
     }
-  }, [storeSetRegistrationType, initializeAttendees, setDraftRecoveryHandled]);
+  }, [storeSetRegistrationType, initializeAttendees, setDraftRecoveryHandled, storeClearRegistration]);
 
   const handleContinueDraft = () => {
     setShowDraftModal(false);
@@ -334,6 +342,7 @@ export function RegistrationTypeStep() {
     }
     setPendingRegistrationType(null);
   };
+
 
   return (
     <OneColumnStepLayout>
@@ -451,6 +460,7 @@ export function RegistrationTypeStep() {
           </AlertDialogContent>
         </AlertDialog>
       )}
+
     </OneColumnStepLayout>
   );
 }

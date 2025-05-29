@@ -1,18 +1,15 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useRegistrationStore } from '@/lib/registrationStore';
 import { IndividualsForm } from '../../Forms/attendee/IndividualsForm';
 import { LodgesForm } from '../../Forms/attendee/LodgesForm';
-import { DelegationsForm } from '../../Forms/attendee/DelegationsForm';
+import { GrandLodgesForm } from '../../Forms/attendee/GrandLodgesForm';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import TermsAndConditions from '../../Functions/TermsAndConditions';
 import { TwoColumnStepLayout } from '../Layouts/TwoColumnStepLayout';
 import { OneColumnStepLayout } from '../Layouts/OneColumnStepLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { getAttendeeSummaryData } from '../Summary/summary-data/attendee-summary-data';
-import { SummaryRenderer } from '../Summary/SummaryRenderer';
-import formSaveManager from '@/lib/formSaveManager';
 
 interface AttendeeDetailsProps {
   agreeToTerms: boolean;
@@ -29,7 +26,7 @@ const AttendeeDetails: React.FC<AttendeeDetailsProps> = ({
   prevStep,
   validationErrors,
 }) => {
-  const { registrationType, attendees } = useRegistrationStore();
+  const { registrationType, goToNextStep, goToPrevStep } = useRegistrationStore();
   const [showErrors, setShowErrors] = useState(false);
   
   // Local validation function since it doesn't exist in the store
@@ -39,54 +36,16 @@ const AttendeeDetails: React.FC<AttendeeDetailsProps> = ({
     return true;
   }, []);
   
-  // NO defaults - users must explicitly select all values
-  // Log attendee data for debugging purposes only
-  useEffect(() => {
-    console.log('AttendeeDetails - Component mounted');
-    const store = useRegistrationStore.getState();
-    
-    // Get current attendees directly from store for logging only
-    const currentAttendees = store.attendees || [];
-    
-    if (currentAttendees.length > 0) {
-      console.log(`Found ${currentAttendees.length} attendees in store`);
-      console.log('Terms agreed:', store.agreeToTerms ? 'Yes' : 'No');
-    } else {
-      console.log('No attendees found in store');
-    }
-  }, []);
-  
   const handleContinue = useCallback(() => {
-    // First, ensure all form data is saved
-    formSaveManager.saveBeforeNavigation().then(() => {
-      // Simple validation - no defaults, no special handling
-      const isValid = validateAllAttendees();
-      
-      // Log for debugging purposes only
-      console.log("AttendeeDetails - Continue clicked with validationErrors:", validationErrors);
-      console.log("AttendeeDetails - agreeToTerms:", agreeToTerms); 
-      console.log("AttendeeDetails - Button should be disabled:", validationErrors.length > 0 || !agreeToTerms);
-      
-      // Ensure terms agreement is saved to the store
-      try {
-        const store = useRegistrationStore.getState();
-        if (store && store.setAgreeToTerms) {
-          store.setAgreeToTerms(agreeToTerms);
-        }
-      } catch (e) {
-        console.error("Error updating terms agreement in store:", e);
-      }
-      
-      // Show errors if validation fails or terms not agreed
-      if (!isValid || !agreeToTerms) {
-        setShowErrors(true);
-        return;
-      }
-      
-      // Proceed to next step
-      nextStep();
-    });
-  }, [validateAllAttendees, agreeToTerms, nextStep, validationErrors]);
+    const isValid = validateAllAttendees();
+    
+    if (!isValid || !agreeToTerms) {
+      setShowErrors(true);
+      return;
+    }
+    
+    nextStep();
+  }, [validateAllAttendees, agreeToTerms, nextStep]);
 
   const renderForm = () => {
     switch (registrationType) {
@@ -99,11 +58,20 @@ const AttendeeDetails: React.FC<AttendeeDetailsProps> = ({
           />
         );
       
-      case 'delegation':
+      case 'lodge':
         return (
-          <DelegationsForm
-            delegationType="GrandLodge"
-            maxDelegates={10}
+          <LodgesForm
+            minMembers={3}
+            maxMembers={20}
+            allowPartners={true}
+            onComplete={handleContinue}
+          />
+        );
+      
+      case 'delegation':
+        // Official Delegation goes directly to GrandLodgesForm
+        return (
+          <GrandLodgesForm
             onComplete={handleContinue}
           />
         );
@@ -113,39 +81,50 @@ const AttendeeDetails: React.FC<AttendeeDetailsProps> = ({
     }
   };
 
-  const renderNavAndTerms = () => (
+  // Render the attendee summary content for the right column
+  const renderSummaryContent = () => (
     <>
+      <Card>
+        <CardHeader>
+          <CardTitle>Registration Summary</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-sm text-gray-600 mb-4">
+            Complete the attendee details form on the left. This information will be used for your registration.
+          </p>
+          <div className="space-y-4">
+            <div>
+              <h3 className="text-sm font-medium">Registration Type</h3>
+              <p className="text-sm capitalize">{registrationType || 'Not selected'}</p>
+            </div>
+            <div>
+              <h3 className="text-sm font-medium">Next Steps</h3>
+              <ul className="text-sm list-disc pl-5 space-y-1">
+                <li>Complete all required attendee information</li>
+                <li>Agree to the terms and conditions</li>
+                <li>Proceed to ticket selection</li>
+              </ul>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </>
+  );
+
+  // Determine which layout to use based on registration type
+  const useOneColumnLayout = registrationType === 'delegation';
+
+  const formContent = (
+    <div className="space-y-8">
+      {/* Form content */}
+      {renderForm()}
+
       {/* Terms and conditions */}
       <div className="mt-8 border border-slate-200 rounded-md bg-slate-50">
         <TermsAndConditions
           checked={agreeToTerms}
-          onChange={(checked) => {
-            // First save all form data before updating terms agreement
-            formSaveManager.saveOnTermsAgreement(checked);
-            // Then update local state
-            onAgreeToTermsChange(checked);
-          }}
+          onChange={onAgreeToTermsChange}
         />
-      </div>
-
-      {/* Navigation buttons - visible on all screen sizes */}
-      <div className="flex justify-between pt-6 border-t border-gray-200">
-        <Button 
-          variant="outline" 
-          onClick={prevStep}
-          className="gap-2"
-        >
-          <ChevronLeft className="w-4 h-4" />
-          Back
-        </Button>
-        <Button
-          onClick={handleContinue}
-          disabled={validationErrors.length > 0 || !agreeToTerms}
-          className="gap-2"
-        >
-          Continue
-          <ChevronRight className="w-4 h-4" />
-        </Button>
       </div>
 
       {/* Validation errors */}
@@ -163,53 +142,51 @@ const AttendeeDetails: React.FC<AttendeeDetailsProps> = ({
           </AlertDescription>
         </Alert>
       )}
-    </>
+
+      {/* Navigation buttons */}
+      <div className="flex justify-between">
+        <Button
+          variant="outline"
+          onClick={prevStep}
+          className="gap-2 border-masonic-navy text-masonic-navy hover:bg-masonic-lightblue"
+        >
+          <ChevronLeft className="w-4 h-4" />
+          Back
+        </Button>
+        <Button
+          onClick={handleContinue}
+          disabled={validationErrors.length > 0 || !agreeToTerms}
+          className="gap-2 bg-masonic-navy hover:bg-masonic-blue"
+        >
+          Continue
+          <ChevronRight className="w-4 h-4" />
+        </Button>
+      </div>
+    </div>
   );
 
-  // Use the simple attendee summary without header (StepSummary handles progress)
-  const renderSummaryContent = () => {
-    const summaryData = getAttendeeSummaryData({
-      attendees,
-      registrationType
-    });
-    
-    return <SummaryRenderer {...summaryData} />;
-  };
-
-  // Render Lodge registration with OneColumnStepLayout
-  if (registrationType === 'lodge') {
+  // Use OneColumnStepLayout for delegations, TwoColumnStepLayout for individual
+  if (useOneColumnLayout) {
     return (
-      <OneColumnStepLayout className="max-w-5xl">
-        <div className="space-y-8 pb-20 sm:pb-10">
-          {/* Form content */}
-          <LodgesForm
-            minMembers={3}
-            maxMembers={20}
-            allowPartners={true}
-            onComplete={handleContinue}
-          />
-          
-          {renderNavAndTerms()}
-        </div>
+      <OneColumnStepLayout
+        currentStep={2}
+        totalSteps={6}
+        stepName="Attendee Details"
+      >
+        {formContent}
       </OneColumnStepLayout>
     );
   }
 
-  // Other registration types use TwoColumnStepLayout
   return (
     <TwoColumnStepLayout
       summaryContent={renderSummaryContent()}
-      summaryTitle="Step Summary"
+      summaryTitle="Registration Information"
       currentStep={2}
       totalSteps={6}
       stepName="Attendee Details"
     >
-      <div className="space-y-8 pb-20 sm:pb-10">
-        {/* Form content */}
-        {renderForm()}
-        
-        {renderNavAndTerms()}
-      </div>
+      {formContent}
     </TwoColumnStepLayout>
   );
 };

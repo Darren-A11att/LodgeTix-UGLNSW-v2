@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useEffect, useCallback, Suspense, lazy } from 'react'
+import React, { useState, useEffect, useCallback, Suspense, lazy, useRef } from 'react'
 import { useRegistrationStore, selectCurrentStep, selectRegistrationType, selectConfirmationNumber, selectAttendees, selectLastSaved, selectDraftId, selectDraftRecoveryHandled, selectAnonymousSessionEstablished } from '../../../lib/registrationStore'
 import { RegistrationStepIndicator } from "./Shared/registration-step-indicator"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -32,11 +32,20 @@ const ConfirmationStep = lazy(() => import('./Steps/confirmation-step'))
 
 export interface RegistrationWizardProps {
   eventId?: string; // Event ID for the registration, passed from the page
+  eventSlug?: string; // Event slug for navigation
+  parentSlug?: string; // Parent event slug for navigation
+  registrationId?: string; // Registration ID from URL
 }
 
-// Helper to check for non-empty string
-const isNonEmpty = (value: string | undefined | null): boolean => {
-  return typeof value === 'string' && value.trim() !== '';
+// Helper to check for non-empty value
+const isNonEmpty = (value: string | number | undefined | null): boolean => {
+  if (typeof value === 'string') {
+    return value.trim() !== '';
+  }
+  if (typeof value === 'number') {
+    return true;
+  }
+  return false;
 };
 
 // Basic email validation
@@ -147,16 +156,16 @@ const validateAttendeeData = (attendees: ReturnType<typeof selectAttendees>): st
 
     // Contact Info for relevant types
     if (normalizedType === 'Mason' || normalizedType === 'Guest') {
-      // Debug output for contact preference validation
-      console.log(`CONTACT DEBUG for ${descriptiveLabel}:`, {
-        type: normalizedType,
-        contactPreference: attendee.contactPreference || "Empty",
-        isPrimary: attendee.isPrimary,
-        email: attendee.primaryEmail,
-        phone: attendee.primaryPhone,
-        isPartner: !!attendee.isPartner,
-        partnerOf: attendee.partnerOf || "None"
-      });
+      // Debug output for contact preference validation - commented out for performance
+      // console.log(`CONTACT DEBUG for ${descriptiveLabel}:`, {
+      //   type: normalizedType,
+      //   contactPreference: attendee.contactPreference || "Empty",
+      //   isPrimary: attendee.isPrimary,
+      //   email: attendee.primaryEmail,
+      //   phone: attendee.primaryPhone,
+      //   isPartner: !!attendee.isPartner,
+      //   partnerOf: attendee.partnerOf || "None"
+      // });
 
       // NO DEFAULT VALUES
       // If contact preference is required but missing, validation will catch it
@@ -196,7 +205,7 @@ const validateAttendeeData = (attendees: ReturnType<typeof selectAttendees>): st
       // 4. Other contact preferences (PrimaryAttendee, ProvideLater) don't need contact fields validated
       else {
         // These valid options skip email/phone validation
-        console.log(`Non-direct contact preference for ${descriptiveLabel}: ${attendee.contactPreference} - skipping contact validation`);
+        // console.log(`Non-direct contact preference for ${descriptiveLabel}: ${attendee.contactPreference} - skipping contact validation`);
         
         // Clear any existing contact field validation errors for this attendee
         errors = errors.filter(err => {
@@ -221,7 +230,7 @@ const validateAttendeeData = (attendees: ReturnType<typeof selectAttendees>): st
   return errors;
 };
 
-export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ eventId }) => {
+export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ eventId, eventSlug, parentSlug, registrationId }) => {
   const currentStep = useRegistrationStore(selectCurrentStep)
   const registrationType = useRegistrationStore(selectRegistrationType)
   const confirmationNumber = useRegistrationStore(selectConfirmationNumber)
@@ -259,9 +268,9 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ eventId 
             localStorage.setItem('lodgetix-registration-storage', backupState);
             
             // Force store rehydration
-            if (useRegistrationStore.persist?.rehydrate) {
-              useRegistrationStore.persist.rehydrate();
-            }
+            const store = useRegistrationStore.getState();
+            // Trigger a re-render by updating a dummy state
+            window.location.reload();
           }
         } catch (error) {
           console.warn('Failed hot reload recovery check:', error);
@@ -361,7 +370,7 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ eventId 
   };
 
   // State for AttendeeDetailsStep props
-  // No defaults - user must explicitly agree to terms
+  // Always default to false - user must explicitly agree to terms
   const [agreeToTerms, setAgreeToTerms] = useState(false)
   const [validationErrors, setValidationErrors] = useState<string[]>([])
 
@@ -369,15 +378,7 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ eventId 
     // Simple direct state update - no defaults, no special handling
     setAgreeToTerms(checked)
     
-    // Simple store update
-    try {
-      const store = useRegistrationStore.getState();
-      if (store && store.setAgreeToTerms) {
-        store.setAgreeToTerms(checked);
-      }
-    } catch (e) {
-      console.error("Error updating terms agreement in store:", e);
-    }
+    // Don't save to store - agreeToTerms should always default to false
     
     // Clear errors related to terms if checked
     if (checked) {
@@ -398,10 +399,13 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ eventId 
   }, [currentStep, allAttendees]); // Add allAttendees to dependencies
 
   // Effect to ensure all attendees have default contact preferences set
+  // Use a ref to track if sync has been done for this step entry
+  const syncDoneRef = useRef(false);
+  
   useEffect(() => {
-    // Only run this on the attendee details step
-    if (currentStep === 2 && allAttendees && allAttendees.length > 0) {
-      console.log("SYNC: Synchronizing default values for all attendees");
+    // Only run this on the attendee details step and if not already synced
+    if (currentStep === 2 && allAttendees && allAttendees.length > 0 && !syncDoneRef.current) {
+      // console.log("SYNC: Synchronizing default values for all attendees");
       const store = useRegistrationStore.getState();
       
       // Process each attendee to ensure they have proper defaults
@@ -412,7 +416,7 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ eventId 
         // Check contact preference
         if (!attendee.contactPreference) {
           const defaultPreference = attendee.isPrimary ? 'Directly' : 'PrimaryAttendee';
-          console.log(`SYNC: Setting default contactPreference for ${attendee.attendeeId} to ${defaultPreference}`);
+          // console.log(`SYNC: Setting default contactPreference for ${attendee.attendeeId} to ${defaultPreference}`);
           updates.contactPreference = defaultPreference;
           needsUpdate = true;
         }
@@ -422,27 +426,42 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ eventId 
           store.updateAttendee(attendee.attendeeId, updates);
         }
       });
+      
+      // Mark sync as done
+      syncDoneRef.current = true;
+    }
+    
+    // Reset sync flag when leaving the step
+    if (currentStep !== 2) {
+      syncDoneRef.current = false;
     }
   }, [currentStep, allAttendees]);
 
   // useEffect to run validations when attendees change or step changes to attendee details
+  // Use debouncing to reduce validation frequency
+  const validationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  
   useEffect(() => {
     if (currentStep === 2) {
       try {
-        // Give time for store updates to complete before validation
-        setTimeout(() => {
+        // Clear any existing timeout
+        if (validationTimeoutRef.current) {
+          clearTimeout(validationTimeoutRef.current);
+        }
+        
+        // Debounce validation by 500ms to reduce frequency
+        validationTimeoutRef.current = setTimeout(() => {
           const errors = validateAttendeeData(allAttendees); // Call it directly
           setValidationErrors(errors);
           
-          // Add debugging to help diagnose validation issues
-          console.log("VALIDATION DEBUG: Current attendee details validation errors:", errors);
-          console.log("VALIDATION DEBUG: agreeToTerms:", agreeToTerms);
-          console.log("VALIDATION DEBUG: Continue button would be disabled:", errors.length > 0 || !agreeToTerms);
-
-          if (errors.length > 0) {
-            console.log("VALIDATION DEBUG: Attendee data:", JSON.stringify(allAttendees, null, 2));
+          // Only log in development and less frequently
+          if (process.env.NODE_ENV === 'development' && errors.length > 0) {
+            // console.log("VALIDATION DEBUG: Current attendee details validation errors:", errors);
+            // console.log("VALIDATION DEBUG: agreeToTerms:", agreeToTerms);
+            // console.log("VALIDATION DEBUG: Continue button would be disabled:", errors.length > 0 || !agreeToTerms);
+            // console.log("VALIDATION DEBUG: Attendee data:", JSON.stringify(allAttendees, null, 2));
           }
-        }, 100);
+        }, 500); // Increased from 100ms to 500ms
       } catch (error) {
         console.error("Error during validation effect:", error);
         // Don't block UI on error - just log it
@@ -454,6 +473,13 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ eventId 
       // For now, let errors persist until the user moves back and then forward, or fixes them.
       // If an error from a previous step should clear when moving away, add logic here.
     }
+    
+    // Cleanup function
+    return () => {
+      if (validationTimeoutRef.current) {
+        clearTimeout(validationTimeoutRef.current);
+      }
+    };
   }, [currentStep, allAttendees, agreeToTerms]);
 
   // Logic to handle step advancement, potentially with validation
@@ -536,8 +562,9 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ eventId 
         primaryAttendee: storeState.attendees.find(att => att.isPrimary),
         additionalAttendees: storeState.attendees.filter(att => !att.isPrimary),
         tickets: storeState.attendees.flatMap(attendee => {
-          if (!attendee.ticket) return []
-          const { ticketDefinitionId, selectedEvents } = attendee.ticket
+          const attendeePackage = storeState.packages[attendee.attendeeId];
+          if (!attendeePackage) return []
+          const { ticketDefinitionId, selectedEvents } = attendeePackage
           
           if (ticketDefinitionId) {
             return [{
@@ -548,7 +575,7 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ eventId 
               price: 0 // Will be calculated server-side
             }]
           } else if (selectedEvents) {
-            return selectedEvents.map(eventId => ({
+            return selectedEvents.map((eventId: string) => ({
               id: `${attendee.attendeeId}-${eventId}`,
               attendeeId: attendee.attendeeId,
               eventTicketId: eventId,
@@ -666,7 +693,7 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ eventId 
 
   // Updated renderStep function - now just returns the content without wrappers
   const renderStepContent = () => {
-    console.log('🎯 renderStepContent called, currentStep:', currentStep);
+    // Remove console.log to reduce noise - console.log('🎯 renderStepContent called, currentStep:', currentStep);
     switch (currentStep) {
       case 1:
         return <RegistrationTypeStep />
@@ -695,7 +722,7 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ eventId 
           </Suspense>
         )
       case 5:
-        console.log('🎯 Rendering payment step (case 5)');
+        // Remove console.log to reduce noise - console.log('🎯 Rendering payment step (case 5)');
         return (
           <Suspense fallback={<StepLoadingFallback />}>
             <PaymentStep onSaveData={saveRegistrationData} />

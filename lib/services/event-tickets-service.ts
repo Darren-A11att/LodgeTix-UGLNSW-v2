@@ -11,16 +11,31 @@ export interface TicketDefinition {
   category?: string
   eligibleAttendeeTypes: AttendeeType[]
   event_id: string | null
+  event_title?: string // Add event title for display
+  event_slug?: string // Add event slug for reference
   is_active: boolean | null
+  total_capacity: number | null // null means unlimited
+  available_count: number | null // null means unlimited
+  reserved_count: number
+  sold_count: number
+  status: string
 }
 
 export interface EventPackage {
   id: string
   name: string
-  price: number
+  price: number // Final price after discount
+  original_price: number | null // Sum of all included ticket prices
+  discount_percentage: number | null // Discount percentage (0-100)
+  discount_amount: number | null // Calculated discount amount
+  package_type: 'multi_buy' | 'bulk_buy' | null // Auto-determined package type
+  quantity: number | null // Total number of tickets in package
   description: string | null
   includes: string[] // ticket definition IDs
+  includes_description?: string[] | null // Human-readable descriptions
   eligibleAttendeeTypes: AttendeeType[]
+  parent_event_id: string | null
+  created_at?: string
 }
 
 export interface EventWithTicketsAndPackages {
@@ -87,6 +102,14 @@ export class EventTicketsService {
           name,
           description,
           includes_description,
+          price,
+          original_price,
+          discount_percentage,
+          discount_amount,
+          package_type,
+          quantity,
+          parent_event_id,
+          created_at,
           eventpackagetickets (
             event_ticket_id,
             quantity
@@ -181,6 +204,14 @@ export class EventTicketsService {
           name,
           description,
           includes_description,
+          price,
+          original_price,
+          discount_percentage,
+          discount_amount,
+          package_type,
+          quantity,
+          parent_event_id,
+          created_at,
           eventpackagetickets (
             event_ticket_id,
             quantity
@@ -239,7 +270,12 @@ export class EventTicketsService {
       category,
       eligibleAttendeeTypes: eligibleTypes,
       event_id: ticket.event_id,
-      is_active: ticket.is_active
+      is_active: ticket.is_active,
+      total_capacity: ticket.total_capacity,
+      available_count: ticket.available_count,
+      reserved_count: ticket.reserved_count || 0,
+      sold_count: ticket.sold_count || 0,
+      status: ticket.status || 'Active'
     }
   }
   
@@ -276,18 +312,24 @@ export class EventTicketsService {
         }
       }
       
-      // Determine actual package price (might have a discount)
-      // For now, we'll calculate based on individual ticket prices
-      // In a real implementation, you might have a separate price field on the package
-      const packagePrice = Math.round(totalPrice * 0.9) // 10% discount for packages
+      // Use the actual price from the database (already includes any discounts)
+      const packagePrice = pkg.price || totalPrice // Fallback to calculated price if not set
       
       transformed.push({
         id: pkg.id,
         name: pkg.name,
         price: packagePrice,
+        original_price: pkg.original_price || totalPrice,
+        discount_percentage: pkg.discount_percentage,
+        discount_amount: pkg.discount_amount,
+        package_type: pkg.package_type,
+        quantity: pkg.quantity,
         description: pkg.description || `Includes ${includedTicketIds.length} events`,
         includes: includedTicketIds,
-        eligibleAttendeeTypes: Array.from(eligibleTypes)
+        includes_description: pkg.includes_description,
+        eligibleAttendeeTypes: Array.from(eligibleTypes),
+        parent_event_id: pkg.parent_event_id,
+        created_at: pkg.created_at
       })
     }
     
@@ -302,4 +344,30 @@ export function getEventTicketsService(): EventTicketsService {
 
 export function getServerEventTicketsService(): EventTicketsService {
   return new EventTicketsService(true)
+}
+
+// Simplified function to get tickets for a specific event
+export async function getEventTickets(eventId: string) {
+  const service = getServerEventTicketsService()
+  try {
+    const supabase = getSupabaseClient(true)
+    
+    // Get tickets for this specific event
+    const { data: tickets, error } = await supabase
+      .from('ticket_definitions')
+      .select('*')
+      .eq('event_id', eventId)
+      .eq('is_active', true)
+      .order('price', { ascending: true })
+    
+    if (error) {
+      api.error('Error fetching event tickets:', error)
+      return []
+    }
+    
+    return tickets || []
+  } catch (error) {
+    api.error('Error in getEventTickets:', error)
+    return []
+  }
 }

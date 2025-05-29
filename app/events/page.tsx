@@ -5,8 +5,10 @@ import { formatCurrency } from "@/lib/formatters"
 export default async function EventsPage() {
   const events = await getEvents()
   
-  // Filter for published events only
-  const publishedEvents = events.filter(event => event.isPublished)
+  // Filter for published parent events only (no parent_event_id)
+  const publishedEvents = events.filter(event => 
+    event.isPublished && !event.parent_event_id
+  )
   
   return (
     <div className="min-h-screen bg-gray-50">

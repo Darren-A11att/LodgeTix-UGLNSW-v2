@@ -24,27 +24,19 @@ export const WizardShellLayout: React.FC<WizardShellLayoutProps> = ({
 
   if (!isMounted) {
     return (
-      <div className={cn(
-        "w-full sm:container sm:mx-auto sm:max-w-6xl px-0 sm:px-4 md:py-5 flex flex-col h-full",
-        className
-      )}>
-        <main className="flex-1 py-2 sm:py-4">
-          {/* Loading skeleton */}
-          <div className="w-full py-8 animate-pulse">
-            <div className="h-8 bg-slate-200 rounded w-1/3 mx-auto mb-4"></div>
-            <div className="h-4 bg-slate-200 rounded w-1/2 mx-auto mb-3"></div>
-            <div className="h-4 bg-slate-200 rounded w-2/3 mx-auto mb-3"></div>
-          </div>
-        </main>
+      <div className={cn("flex flex-col h-full", className)}>
+        {/* Loading skeleton */}
+        <div className="w-full py-8 animate-pulse">
+          <div className="h-8 bg-slate-200 rounded w-1/3 mx-auto mb-4"></div>
+          <div className="h-4 bg-slate-200 rounded w-1/2 mx-auto mb-3"></div>
+          <div className="h-4 bg-slate-200 rounded w-2/3 mx-auto mb-3"></div>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className={cn(
-      "w-full sm:container sm:mx-auto sm:max-w-6xl px-0 sm:px-4 md:py-5 flex flex-col h-full",
-      className
-    )}>
+    <div className={cn("flex flex-col h-full", className)}>
       {/* Header section */}
       {header && (
         <header className="py-4 flex-shrink-0">
@@ -53,7 +45,7 @@ export const WizardShellLayout: React.FC<WizardShellLayoutProps> = ({
       )}
 
       {/* Main body section */}
-      <main className="flex-1 py-2 sm:py-4">
+      <main className="flex-1">
         {children}
       </main>
       

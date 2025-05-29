@@ -68,11 +68,11 @@ export type Attendee = MasonAttendee | GuestAttendee | PartnerAttendee
 // Legacy type to support components during migration
 export type UnifiedAttendeeData = {
   attendeeId: string
-  id: string
+  id?: string
   firstName: string
   lastName: string
   attendeeType: "Mason" | "Guest" | "Partner"
-  type: "mason" | "guest" | "partner"
+  type?: "mason" | "guest" | "partner"
   title?: string
   masonicTitle?: MasonicTitle
   mobile?: string
@@ -89,9 +89,9 @@ export type UnifiedAttendeeData = {
   guestOfId?: string | null
   isPrimary?: boolean
   // Mason-specific fields
-  grandLodgeId?: string
+  grandLodgeId?: string | number | null
   grandLodgeOrganisationId?: string
-  lodgeId?: string
+  lodgeId?: string | number | null
   lodgeOrganisationId?: string
   lodgeNameNumber?: string
   rank?: string
@@ -100,6 +100,23 @@ export type UnifiedAttendeeData = {
   otherGrandOfficerRole?: string
   grandOfficerDetails?: string
   useSameLodge?: boolean
+  // Additional fields from store
+  orderId?: string
+  eventId?: string
+  firstTime?: boolean
+  postNominals?: string
+  tableAssignment?: string | null
+  notes?: string
+  paymentStatus?: string
+  parentId?: string
+  partnerOf?: string | null
+  grandLodgeName?: string
+  lodgeName?: string
+  createdAt?: string
+  updatedAt?: string
+  relationship?: string
+  suffix?: string
+  isCheckedIn?: boolean
 }
 
 // Legacy type for MasonForm to reference during migration

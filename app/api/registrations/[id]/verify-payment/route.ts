@@ -79,6 +79,7 @@ export async function POST(
         .from("tickets") 
         .update({ 
           ticket_status: "completed",
+          status: "completed",
           updated_at: new Date().toISOString()
         })
         .eq("registration_id", registrationId);

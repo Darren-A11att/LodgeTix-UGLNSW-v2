@@ -376,18 +376,6 @@ export const DelegationsForm: React.FC<DelegationsFormProps> = ({
         </Card>
       </div>
 
-      {/* Action buttons */}
-      <div className="flex justify-between">
-        <Button variant="outline">
-          Save Draft
-        </Button>
-        <Button 
-          onClick={handleComplete}
-          disabled={delegateAttendees.length < minDelegates || !delegationDetails.name || !delegationDetails.grandLodgeId}
-        >
-          Continue to Tickets
-        </Button>
-      </div>
 
       {/* Delegate Type Selection Dialog */}
       {showDelegateTypeDialog && (

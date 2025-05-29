@@ -21,6 +21,10 @@ const nextConfig = {
     maxInactiveAge: 60 * 1000,
     // Number of pages that should be kept simultaneously without being disposed (defaults to 2)
     pagesBufferLength: 2,
+  },
+  // Allow cross-origin requests from IP addresses in development
+  experimental: {
+    allowedDevOrigins: ['192.168.20.51'],
   }
 }
 

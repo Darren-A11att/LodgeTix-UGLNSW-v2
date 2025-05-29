@@ -1,8 +1,8 @@
 #!/usr/bin/env node
-// Script to verify that events migration was successful
+// Script to verify events in database
+// Note: Hard-coded events have been removed from the system
 
 import { createClient } from '@supabase/supabase-js'
-import { getEvents as getHardCodedEvents } from '../lib/event-utils'
 import * as dotenv from 'dotenv'
 import * as path from 'path'
 
@@ -19,12 +19,8 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey, {
   }
 })
 
-async function verifyMigration() {
-  console.log('Verifying event migration...\n')
-  
-  // Get hard-coded events
-  const hardCodedEvents = getHardCodedEvents()
-  console.log(`Found ${hardCodedEvents.length} hard-coded events`)
+async function verifyDatabaseEvents() {
+  console.log('Verifying events in database...\n')
   
   // Get database events
   const { data: dbEvents, error } = await supabase
@@ -39,65 +35,32 @@ async function verifyMigration() {
   
   console.log(`Found ${dbEvents?.length || 0} events in database\n`)
   
-  // Compare each hard-coded event with database
-  let missingCount = 0
-  let mismatchCount = 0
-  
-  for (const hcEvent of hardCodedEvents) {
-    const dbEvent = dbEvents?.find(e => e.slug === hcEvent.slug || e.id === hcEvent.id)
-    
-    if (!dbEvent) {
-      console.error(`❌ Missing: ${hcEvent.title} (${hcEvent.slug})`)
-      missingCount++
-    } else {
-      // Check key fields
-      const mismatches = []
-      
-      if (dbEvent.title !== hcEvent.title) {
-        mismatches.push(`title: "${dbEvent.title}" vs "${hcEvent.title}"`)
-      }
-      
-      if (dbEvent.description !== hcEvent.description) {
-        mismatches.push('description differs')
-      }
-      
-      if (mismatches.length > 0) {
-        console.warn(`⚠️  Mismatch: ${hcEvent.title}`)
-        console.warn(`   Issues: ${mismatches.join(', ')}`)
-        mismatchCount++
-      } else {
-        console.log(`✅ Verified: ${hcEvent.title}`)
-      }
-    }
-  }
-  
-  console.log('\n=== Verification Summary ===')
-  console.log(`Total hard-coded events: ${hardCodedEvents.length}`)
-  console.log(`Total database events: ${dbEvents?.length || 0}`)
-  console.log(`Missing events: ${missingCount}`)
-  console.log(`Mismatched events: ${mismatchCount}`)
-  
-  if (missingCount === 0 && mismatchCount === 0) {
-    console.log('\n✅ All events successfully migrated!')
-  } else {
-    console.log('\n⚠️  Some issues found - please review above')
-  }
-  
-  // Show database events not in hard-coded list
-  const extraEvents = dbEvents?.filter(db => 
-    !hardCodedEvents.find(hc => hc.slug === db.slug || hc.id === db.id)
-  )
-  
-  if (extraEvents && extraEvents.length > 0) {
-    console.log('\nAdditional events in database:')
-    extraEvents.forEach(event => {
-      console.log(`  - ${event.title} (${event.slug})`)
+  // Display all events
+  if (dbEvents && dbEvents.length > 0) {
+    console.log('Events in database:')
+    dbEvents.forEach(event => {
+      console.log(`  ✅ ${event.title} (${event.slug || event.id})`)
+      console.log(`     - Status: ${event.status || 'N/A'}`)
+      console.log(`     - Date: ${event.date || event.event_start || 'Not set'}`)
+      console.log(`     - Featured: ${event.featured ? 'Yes' : 'No'}`)
     })
+  } else {
+    console.log('⚠️  No events found in database')
+  }
+  
+  console.log('\n=== Database Summary ===')
+  console.log(`Total events: ${dbEvents?.length || 0}`)
+  
+  if (dbEvents && dbEvents.length > 0) {
+    const publishedCount = dbEvents.filter(e => e.status === 'published').length
+    const featuredCount = dbEvents.filter(e => e.featured).length
+    console.log(`Published events: ${publishedCount}`)
+    console.log(`Featured events: ${featuredCount}`)
   }
 }
 
 // Run verification
-verifyMigration()
+verifyDatabaseEvents()
   .then(() => process.exit(0))
   .catch((error) => {
     console.error('Fatal error:', error)

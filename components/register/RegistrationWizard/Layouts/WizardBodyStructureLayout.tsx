@@ -61,7 +61,7 @@ export const WizardBodyStructureLayout: React.FC<WizardBodyStructureLayoutProps>
       </div>
       
       {/* Main content */}
-      <div className="flex-1 mb-6 mx-0 px-0 sm:px-4">
+      <div className="flex-1 mb-6">
         {children}
       </div>
       

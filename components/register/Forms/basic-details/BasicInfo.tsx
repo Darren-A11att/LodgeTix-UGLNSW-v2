@@ -139,6 +139,7 @@ export const BasicInfo = React.memo<SectionProps>(({
               value={data.firstName || ''}
               onChange={(value) => onChange('firstName', value)}
               required={true}
+              updateOnBlur={true}
             />
           </div>
           
@@ -150,6 +151,7 @@ export const BasicInfo = React.memo<SectionProps>(({
               value={data.lastName || ''}
               onChange={(value) => onChange('lastName', value)}
               required={true}
+              updateOnBlur={true}
             />
           </div>
         </div>
@@ -222,6 +224,7 @@ export const BasicInfo = React.memo<SectionProps>(({
             value={data.firstName || ''}
             onChange={(value) => onChange('firstName', value)}
             required={true}
+            updateOnBlur={true}
           />
         </div>
         
@@ -233,6 +236,7 @@ export const BasicInfo = React.memo<SectionProps>(({
             value={data.lastName || ''}
             onChange={(value) => onChange('lastName', value)}
             required={true}
+            updateOnBlur={true}
           />
         </div>
       </div>
@@ -247,9 +251,12 @@ export const BasicInfo = React.memo<SectionProps>(({
     prevProps.data.suffix === nextProps.data.suffix &&
     prevProps.data.rank === nextProps.data.rank &&
     prevProps.type === nextProps.type &&
-    prevProps.isPrimary === nextProps.isPrimary
+    prevProps.isPrimary === nextProps.isPrimary &&
+    prevProps.onChange === nextProps.onChange
   );
 });
+
+BasicInfo.displayName = 'BasicInfo';
 
 // Create wrapper components for backward compatibility
 export const MasonBasicInfo: React.FC<{

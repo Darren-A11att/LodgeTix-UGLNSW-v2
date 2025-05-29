@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState, useMemo } from 'react';
 import { useRegistrationStore } from '@/lib/registrationStore';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -8,7 +8,7 @@ import { Info, ShoppingCart, Users, Package, Check, Building } from 'lucide-reac
 import { cn } from '@/lib/utils';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import formSaveManager from '@/lib/formSaveManager';
-import { useDebouncedCallback } from 'use-debounce';
+import { useAttendeeDataWithDebounce } from './lib/useAttendeeData';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 
@@ -29,7 +29,7 @@ import {
 } from './components';
 
 // Constants for form behavior
-const DEBOUNCE_DELAY = 300;
+const DEBOUNCE_DELAY = 300; // 300ms debounce for store updates - matching MasonForm
 
 // Event and ticket IDs for Grand Proclamation 2025
 const EVENT_IDS = {
@@ -64,34 +64,34 @@ export const LodgesForm: React.FC<LodgesFormProps> = ({
   const { 
     attendees, 
     addMasonAttendee,
-    updateAttendee,
     setLodgeTicketOrder,
   } = useRegistrationStore();
   
-  // Create debounced version of updateAttendee
-  const debouncedUpdateAttendee = useDebouncedCallback(
-    (attendeeId: string, updates: Partial<any>) => {
-      updateAttendee(attendeeId, updates);
-    },
-    DEBOUNCE_DELAY
-  );
+  // State for primary attendee tracking
+  const [primaryAttendeeId, setPrimaryAttendeeId] = useState<string | null>(null);
   
-  // Use the immediate update for critical operations
-  const updateAttendeeImmediate = updateAttendee;
+  // Get the primary attendee from store or find the first one
+  const primaryAttendee = attendees.find(a => a.isPrimary) || attendees[0];
   
+  // Use the same pattern as MasonForm with useAttendeeDataWithDebounce
+  const { 
+    attendee: primaryAttendeeData, 
+    updateField, 
+    updateFieldImmediate,
+    updateMultipleFields,
+    updateMultipleFieldsImmediate 
+  } = useAttendeeDataWithDebounce(primaryAttendee?.attendeeId || '', DEBOUNCE_DELAY);
+  
+  // Local state for UI
   const [selectedGrandLodge, setSelectedGrandLodge] = useState<string>('');
   const [selectedLodge, setSelectedLodge] = useState<string>('');
   const [lodgeName, setLodgeName] = useState('');
-  const [primaryAttendeeId, setPrimaryAttendeeId] = useState<string | null>(null);
   const [tableCount, setTableCount] = useState(1);
   const [tableOrder, setTableOrder] = useState<TableOrder>({
     tableCount: 1,
     totalTickets: TABLE_SIZE,
     totalPrice: TABLE_PRICE
   });
-  
-  // Get the primary attendee
-  const primaryAttendee = attendees.find(a => a.attendeeId === primaryAttendeeId);
 
   // Update table order when count changes
   useEffect(() => {
@@ -104,37 +104,42 @@ export const LodgesForm: React.FC<LodgesFormProps> = ({
   
   // Initialize Grand Lodge and Lodge from primary attendee when loaded
   useEffect(() => {
-    if (primaryAttendee && !selectedGrandLodge && primaryAttendee.grandLodgeId) {
+    if (primaryAttendeeData && !selectedGrandLodge && primaryAttendeeData.grandLodgeId) {
       // Initialize Grand Lodge
-      setSelectedGrandLodge(String(primaryAttendee.grandLodgeId));
+      setSelectedGrandLodge(String(primaryAttendeeData.grandLodgeId));
       
       // Initialize Lodge if available
-      if (primaryAttendee.lodgeId) {
-        setSelectedLodge(String(primaryAttendee.lodgeId));
-        if (primaryAttendee.lodgeNameNumber) {
-          setLodgeName(primaryAttendee.lodgeNameNumber);
+      if (primaryAttendeeData.lodgeId) {
+        setSelectedLodge(String(primaryAttendeeData.lodgeId));
+        if (primaryAttendeeData.lodgeNameNumber) {
+          setLodgeName(primaryAttendeeData.lodgeNameNumber);
         }
       }
     }
-  }, [primaryAttendee, selectedGrandLodge]);
+  }, [primaryAttendeeData, selectedGrandLodge]);
 
-  // One-time initialization
+  // One-time initialization - ensure we have a primary attendee
   const isInitializedRef = React.useRef(false);
   
   useEffect(() => {
-    if (!isInitializedRef.current) {
+    if (!isInitializedRef.current && attendees.length === 0) {
       isInitializedRef.current = true;
       
-      if (!primaryAttendeeId) {
-        const primaryId = addMasonAttendee();
-        updateAttendeeImmediate(primaryId, {
+      const primaryId = addMasonAttendee();
+      setPrimaryAttendeeId(primaryId);
+      
+      // Use immediate update to set initial values
+      setTimeout(() => {
+        const store = useRegistrationStore.getState();
+        store.updateAttendee(primaryId, {
           isPrimary: true,
           attendeeType: 'Mason',
         });
-        setPrimaryAttendeeId(primaryId);
-      }
+      }, 0);
+    } else if (primaryAttendee && !primaryAttendeeId) {
+      setPrimaryAttendeeId(primaryAttendee.attendeeId);
     }
-  }, [primaryAttendeeId, addMasonAttendee, updateAttendeeImmediate]);
+  }, [attendees.length, addMasonAttendee, primaryAttendee, primaryAttendeeId]);
 
   // Update table count
   const handleTableCountChange = useCallback((newCount: number) => {
@@ -161,15 +166,13 @@ export const LodgesForm: React.FC<LodgesFormProps> = ({
       setSelectedLodge(lodgeId);
       setLodgeName(lodgeName);
       
-      if (primaryAttendee) {
-        debouncedUpdateAttendee(primaryAttendee.attendeeId, { 
-          grandLodgeId: selectedGrandLodge ? Number(selectedGrandLodge) : 0,
-          lodgeId: lodgeId ? Number(lodgeId) : 0,
-          lodgeNameNumber: lodgeName,
-        });
+      if (primaryAttendeeData) {
+        updateField('grandLodgeId', selectedGrandLodge ? Number(selectedGrandLodge) : 0);
+        updateField('lodgeId', lodgeId ? Number(lodgeId) : 0);
+        updateField('lodgeNameNumber', lodgeName);
       }
     }
-  }, [primaryAttendee, debouncedUpdateAttendee, selectedGrandLodge, selectedLodge]);
+  }, [primaryAttendeeData, updateField, selectedGrandLodge, selectedLodge]);
 
   // Track if we're initializing from draft to prevent clearing Lodge
   const isInitializingFromDraftRef = React.useRef(true);
@@ -182,8 +185,8 @@ export const LodgesForm: React.FC<LodgesFormProps> = ({
       
       // Check if we should preserve the Lodge selection
       const shouldPreserveLodge = isInitializingFromDraftRef.current && 
-                                 primaryAttendee?.lodgeId && 
-                                 Number(primaryAttendee?.grandLodgeId) === Number(grandLodgeId);
+                                 primaryAttendeeData?.lodgeId && 
+                                 Number(primaryAttendeeData?.grandLodgeId) === Number(grandLodgeId);
       
       // Only clear Lodge selection if:
       // 1. We're not initializing from draft, OR
@@ -193,18 +196,15 @@ export const LodgesForm: React.FC<LodgesFormProps> = ({
         setLodgeName('');
       }
       
-      if (primaryAttendee) {
-        const updates: any = { 
-          grandLodgeId: grandLodgeId ? Number(grandLodgeId) : 0,
-        };
+      if (primaryAttendeeData) {
+        // Use immediate update for critical fields
+        updateFieldImmediate('grandLodgeId', grandLodgeId ? Number(grandLodgeId) : 0);
         
         // Only clear lodge data if we're not preserving it
         if (!shouldPreserveLodge && previousGrandLodge) {
-          updates.lodgeId = 0;
-          updates.lodgeNameNumber = '';
+          updateFieldImmediate('lodgeId', 0);
+          updateFieldImmediate('lodgeNameNumber', '');
         }
-        
-        debouncedUpdateAttendee(primaryAttendee.attendeeId, updates);
       }
       
       // After first initialization, set flag to false
@@ -214,20 +214,16 @@ export const LodgesForm: React.FC<LodgesFormProps> = ({
         }, 1000);
       }
     }
-  }, [primaryAttendee, debouncedUpdateAttendee, selectedGrandLodge]);
+  }, [primaryAttendeeData, updateFieldImmediate, selectedGrandLodge]);
 
   // Field change handler for BookingContactSection
   const handleFieldChange = useCallback((field: string, value: any) => {
-    if (primaryAttendee) {
-      debouncedUpdateAttendee(primaryAttendee.attendeeId, { [field]: value });
-    }
-  }, [debouncedUpdateAttendee, primaryAttendee]);
+    updateField(field, value);
+  }, [updateField]);
 
   const handleFieldChangeImmediate = useCallback((field: string, value: any) => {
-    if (primaryAttendee) {
-      updateAttendeeImmediate(primaryAttendee.attendeeId, { [field]: value });
-    }
-  }, [updateAttendeeImmediate, primaryAttendee]);
+    updateFieldImmediate(field, value);
+  }, [updateFieldImmediate]);
 
   // Validate and complete
   const handleComplete = useCallback(() => {
@@ -247,7 +243,7 @@ export const LodgesForm: React.FC<LodgesFormProps> = ({
         return;
       }
       
-      if (!primaryAttendee || !primaryAttendee.firstName || !primaryAttendee.lastName) {
+      if (!primaryAttendeeData || !primaryAttendeeData.firstName || !primaryAttendeeData.lastName) {
         alert('Please complete the booking contact details');
         return;
       }
@@ -322,83 +318,13 @@ export const LodgesForm: React.FC<LodgesFormProps> = ({
             </div>
             
             {/* Booking Contact Details */}
-            {primaryAttendee && (
-              <div className="space-y-4 border-t pt-6">
-                <h3 className="text-base font-medium">Booking Contact</h3>
-                
-                {/* Name and Title Row - following MasonForm layout */}
-                <div className="grid grid-cols-12 gap-4">
-                  {/* Masonic Title - 2 columns */}
-                  <div className="col-span-2">
-                    <Label>Title *</Label>
-                    <select
-                      className="w-full border rounded-md px-3 py-2"
-                      value={primaryAttendee.title || ''}
-                      onChange={(e) => handleFieldChangeImmediate('title', e.target.value)}
-                    >
-                      <option value="">Select</option>
-                      {MASON_TITLES.map(title => (
-                        <option key={title} value={title}>{title}</option>
-                      ))}
-                    </select>
-                  </div>
-                  
-                  {/* First Name - 4 columns */}
-                  <div className="col-span-4">
-                    <Label>First Name *</Label>
-                    <input
-                      type="text"
-                      className="w-full border rounded-md px-3 py-2"
-                      value={primaryAttendee.firstName || ''}
-                      onChange={(e) => handleFieldChange('firstName', e.target.value)}
-                      required
-                    />
-                  </div>
-                  
-                  {/* Last Name - 4 columns */}
-                  <div className="col-span-4">
-                    <Label>Last Name *</Label>
-                    <input
-                      type="text"
-                      className="w-full border rounded-md px-3 py-2"
-                      value={primaryAttendee.lastName || ''}
-                      onChange={(e) => handleFieldChange('lastName', e.target.value)}
-                      required
-                    />
-                  </div>
-                  
-                  {/* Rank - 2 columns */}
-                  <div className="col-span-2">
-                    <Label>Rank *</Label>
-                    <select
-                      className="w-full border rounded-md px-3 py-2"
-                      value={primaryAttendee.rank || ''}
-                      onChange={(e) => handleFieldChangeImmediate('rank', e.target.value)}
-                    >
-                      <option value="">Select</option>
-                      {MASON_RANKS.map(rank => (
-                        <option key={rank.value} value={rank.value}>{rank.label}</option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-                
-                {/* Grand Officer Fields - show if rank is GL */}
-                {primaryAttendee.rank === 'GL' && (
-                  <GrandOfficerFields
-                    data={primaryAttendee}
-                    onChange={handleFieldChangeImmediate}
-                    required={true}
-                  />
-                )}
-                
-                {/* Contact Information */}
-                <ContactInfo
-                  data={primaryAttendee}
-                  isPrimary={true}
-                  onChange={handleFieldChange}
-                />
-              </div>
+            {primaryAttendeeData && (
+              <BookingContactSection
+                attendee={primaryAttendeeData}
+                onFieldChange={handleFieldChange}
+                onFieldChangeImmediate={handleFieldChangeImmediate}
+                updateOnBlur={true}
+              />
             )}
           </CardContent>
         </Card>
@@ -540,16 +466,6 @@ export const LodgesForm: React.FC<LodgesFormProps> = ({
         </CardContent>
       </Card>
       
-      {/* Complete Button */}
-      <div className="flex justify-end">
-        <Button 
-          size="lg" 
-          onClick={handleComplete}
-          disabled={!selectedGrandLodge || !selectedLodge || !primaryAttendee?.firstName || !primaryAttendee?.lastName}
-        >
-          Continue to Next Step
-        </Button>
-      </div>
     </div>
   );
 };
@@ -619,3 +535,4 @@ export const LodgeFormSummary: React.FC = () => {
     </div>
   );
 };
+

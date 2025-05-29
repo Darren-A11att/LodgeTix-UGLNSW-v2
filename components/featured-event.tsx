@@ -11,9 +11,11 @@ interface FeaturedEventProps {
   location: string
   imageUrl: string
   price: string
+  slug: string
+  parentSlug?: string
 }
 
-export function FeaturedEvent({ title, description, date, location, imageUrl, price }: FeaturedEventProps) {
+export function FeaturedEvent({ title, description, date, location, imageUrl, price, slug, parentSlug }: FeaturedEventProps) {
   return (
     <div className="overflow-hidden rounded-xl bg-white shadow-lg">
       <div className="grid md:grid-cols-2">
@@ -39,9 +41,11 @@ export function FeaturedEvent({ title, description, date, location, imageUrl, pr
           <div className="mb-4 text-xl font-bold">{price}</div>
           <div className="flex flex-wrap gap-3">
             <Button asChild>
-              <Link href="/events/grand-installation/register">Register Now</Link>
+              <Link href={parentSlug ? `/events/${parentSlug}/register` : `/events/${slug}/register`}>Register Now</Link>
             </Button>
-            <Button variant="outline">Learn More</Button>
+            <Button variant="outline" asChild>
+              <Link href={parentSlug ? `/events/${parentSlug}/${slug}` : `/events/${slug}`}>Learn More</Link>
+            </Button>
           </div>
         </div>
       </div>

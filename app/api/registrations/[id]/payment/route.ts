@@ -58,7 +58,7 @@ export async function PUT(
     
     // Check if registration exists - query with tracing
     console.log("Looking up registration with ID:", registrationId);
-    console.log("Executing Supabase query using actual schema names: supabase.from(\"Registrations\").select(\"*\").eq(\"registrationId\", registrationId).single()");
+    console.log("Executing Supabase query: from('registrations').select('*').eq('registration_id', registrationId).single()");
     
     const adminClient = createAdminClient();
     const { data: existingRegistration, error: findError } = await adminClient
@@ -100,7 +100,7 @@ export async function PUT(
       // Import Stripe dynamically to avoid circular dependencies
       const Stripe = (await import('stripe')).default;
       const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-        apiVersion: '2025-04-30.basil',
+        apiVersion: '2024-11-20.acacia',
       });
       
       // Create payment intent with the payment method but don't confirm yet
@@ -144,7 +144,7 @@ export async function PUT(
       );
     }
     
-    // Prepare update data with actual schema column names
+    // Always use direct update approach (RPC function update_payment_status_and_complete not available)
     const updateData = {
       status: requiresAction ? "pending_payment" : "paid",
       payment_status: requiresAction ? "requires_action" : "completed",
@@ -156,7 +156,7 @@ export async function PUT(
     console.log("Update data:", JSON.stringify(updateData, null, 2));
     
     // Update registration record
-    console.log("Executing update query using actual schema names: supabase.from(\"Registrations\").update(updateData).eq(\"registrationId\", registrationId)");
+    console.log("Executing update query: from('registrations').update(updateData).eq('registration_id', registrationId)");
     const { data: updatedRegistration, error: updateError } = await adminClient
       .from('registrations')
       .update(updateData)
@@ -179,7 +179,7 @@ export async function PUT(
     const { data: updatedTickets, error: ticketUpdateError } = await adminClient
       .from("tickets") 
       .update({ 
-        ticket_status: "completed",
+        ticket_status: requiresAction ? "pending" : "completed",
         updated_at: new Date().toISOString()
       })
       .eq("registration_id", registrationId)
@@ -194,26 +194,12 @@ export async function PUT(
       console.log(`Successfully updated ${updatedTickets?.length || 0} tickets to completed status`);
     }
     
-    // Also verify payment status using the Stripe FDW
-    try {
-      console.log("Verifying payment through Stripe FDW...");
-      const { data: stripeVerificationData, error: stripeVerificationError } = await adminClient
-        .rpc('check_payment_intent_status', { payment_intent_id: finalPaymentIntentId });
-
-      if (stripeVerificationError) {
-        console.warn("Warning: Unable to verify payment through Stripe FDW:", stripeVerificationError);
-      } else {
-        console.log("Stripe payment verification result:", stripeVerificationData);
-        
-        // If Stripe says the payment intent is not succeeded, log a warning
-        if (stripeVerificationData && stripeVerificationData.status !== 'succeeded' && !requiresAction) {
-          console.warn(`Warning: Stripe payment status is ${stripeVerificationData.status}, but we're proceeding with the update as requested`);
-        }
-      }
-    } catch (stripeCheckError) {
-      console.warn("Warning: Error when checking Stripe payment status:", stripeCheckError);
-      // Non-blocking error, we'll continue with the update
-    }
+    // Note: Attendees table doesn't have payment_status column
+    // Payment status is tracked at registration level only
+    console.log("Payment status updated at registration level (attendees inherit from registration)");
+    
+    // Note: Stripe FDW verification removed - function doesn't exist in current schema
+    console.log("Stripe payment intent created:", finalPaymentIntentId);
     
     console.log("Registration payment updated successfully");
     
@@ -283,30 +269,9 @@ export async function GET(
     // Store the fetched registration data to use its fields
     const currentRegistration = existingRegistrationData;
 
-    // Verify payment through Stripe FDW
-    let stripePaymentData = null;
-    if (currentRegistration && currentRegistration.stripe_payment_intent_id) {
-      console.log("Verifying payment through Stripe FDW for intent:", currentRegistration.stripe_payment_intent_id);
-      const { data: fdwData, error: fdwError } = await adminClient
-        .rpc('check_payment_intent_status', { payment_intent_id: currentRegistration.stripe_payment_intent_id });
-
-      if (fdwError) {
-        console.warn("Warning: Unable to verify payment through Stripe FDW (GET):", fdwError);
-      } else {
-        stripePaymentData = fdwData;
-        console.log("Stripe payment verification result (GET):", stripePaymentData);
-        
-        // If there's a mismatch between our DB and Stripe, log it
-        if (stripePaymentData && 
-           ((stripePaymentData.status === 'succeeded' && currentRegistration.payment_status !== 'completed') ||
-            (stripePaymentData.status !== 'succeeded' && currentRegistration.payment_status === 'completed'))) {
-          console.warn("Warning: Payment status mismatch between database and Stripe! (GET)");
-          console.warn(`Database: ${currentRegistration.payment_status}, Stripe: ${stripePaymentData.status}`);
-        }
-      }
-    } else {
-      console.log("No Stripe payment intent ID found on registration or registration not found (GET). Skipping Stripe FDW check.");
-    }
+    // Note: Stripe FDW verification removed - function doesn't exist in current schema
+    console.log("Registration found with payment status:", currentRegistration.payment_status);
+    console.log("Stripe payment intent ID:", currentRegistration.stripe_payment_intent_id || 'Not set');
     
     console.log("Registration status check complete (GET)");
     console.groupEnd();
@@ -317,7 +282,7 @@ export async function GET(
       payment_status: currentRegistration.payment_status,
       status: currentRegistration.status,
       stripe_payment_intent_id: currentRegistration.stripe_payment_intent_id,
-      stripePaymentData: stripePaymentData
+      total_amount_paid: currentRegistration.total_amount_paid
     });
   } catch (error: any) {
     console.error("Error checking registration payment status (GET):", error);

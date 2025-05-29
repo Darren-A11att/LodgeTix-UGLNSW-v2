@@ -571,6 +571,13 @@ export type Database = {
           includes_description: string[] | null
           name: string
           parent_event_id: string | null
+          price: number | null
+          original_price: number | null
+          discount_percentage: number | null
+          discount_amount: number | null
+          package_type: 'multi_buy' | 'bulk_buy' | null
+          quantity: number | null
+          includes: Json | null
         }
         Insert: {
           created_at?: string
@@ -579,6 +586,12 @@ export type Database = {
           includes_description?: string[] | null
           name: string
           parent_event_id?: string | null
+          price?: number | null
+          original_price?: number | null
+          discount_percentage?: number | null
+          package_type?: 'multi_buy' | 'bulk_buy' | null
+          quantity?: number | null
+          includes?: Json | null
         }
         Update: {
           created_at?: string
@@ -587,6 +600,12 @@ export type Database = {
           includes_description?: string[] | null
           name?: string
           parent_event_id?: string | null
+          price?: number | null
+          original_price?: number | null
+          discount_percentage?: number | null
+          package_type?: 'multi_buy' | 'bulk_buy' | null
+          quantity?: number | null
+          includes?: Json | null
         }
         Relationships: [
           {
@@ -603,6 +622,45 @@ export type Database = {
             referencedRelation: "formatted_events"
             referencedColumns: ["id"]
           },
+        ]
+      }
+      package_ticket_includes: {
+        Row: {
+          id: string
+          package_id: string
+          ticket_definition_id: string
+          quantity: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          package_id: string
+          ticket_definition_id: string
+          quantity?: number
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          package_id?: string
+          ticket_definition_id?: string
+          quantity?: number
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "package_ticket_includes_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "eventpackages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "package_ticket_includes_ticket_definition_id_fkey"
+            columns: ["ticket_definition_id"]
+            isOneToOne: false
+            referencedRelation: "ticket_definitions"
+            referencedColumns: ["id"]
+          }
         ]
       }
       eventpackagetickets: {

@@ -14,9 +14,11 @@ interface EventCardProps {
   location: string
   imageUrl: string
   price: string
+  parentEventId?: string | null    // Parent event UUID if this is a child event
+  parentEventSlug?: string | null  // Parent event slug for URL construction
 }
 
-export function EventCard({ id, slug, title, description, date, location, imageUrl, price }: EventCardProps) {
+export function EventCard({ id, slug, title, description, date, location, imageUrl, price, parentEventId, parentEventSlug }: EventCardProps) {
   return (
     <Card className="overflow-hidden transition-all hover:shadow-md">
       <div className="relative h-48 w-full">
@@ -38,9 +40,18 @@ export function EventCard({ id, slug, title, description, date, location, imageU
       </CardContent>
       <CardFooter className="flex items-center justify-between border-t p-4">
         <span className="font-bold">{price}</span>
-        <Button asChild size="sm" className="bg-masonic-navy hover:bg-masonic-blue">
-          <Link href={`/events/${slug}?interested=true`}>View Details</Link>
-        </Button>
+        <div className="flex gap-2">
+          <Button asChild size="sm" variant="outline" className="border-masonic-navy text-masonic-navy">
+            <Link href={parentEventSlug ? `/events/${parentEventSlug}/${slug}` : `/events/${slug}`}>
+              View Details
+            </Link>
+          </Button>
+          <Button asChild size="sm" className="bg-masonic-navy hover:bg-masonic-blue">
+            <Link href={parentEventSlug ? `/events/${parentEventSlug}/register` : `/events/${slug}/register`}>
+              Get Tickets
+            </Link>
+          </Button>
+        </div>
       </CardFooter>
     </Card>
   )

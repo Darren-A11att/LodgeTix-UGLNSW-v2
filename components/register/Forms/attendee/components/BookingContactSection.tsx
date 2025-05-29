@@ -13,7 +13,7 @@ interface BookingContactSectionProps {
   required?: boolean;
 }
 
-export const BookingContactSection: React.FC<BookingContactSectionProps> = ({
+export const BookingContactSection: React.FC<BookingContactSectionProps> = React.memo(({
   attendee,
   onFieldChange,
   onFieldChangeImmediate,
@@ -23,6 +23,22 @@ export const BookingContactSection: React.FC<BookingContactSectionProps> = ({
   required = true
 }) => {
   if (!attendee) return null;
+
+  // Since field components now handle their own local state properly,
+  // we can pass the attendee data directly without an additional layer
+  const handleChange = React.useCallback((field: string, value: any) => {
+    // For select fields (title, rank), use immediate update
+    if (field === 'title' || field === 'rank') {
+      if (onFieldChangeImmediate) {
+        onFieldChangeImmediate(field, value);
+      } else {
+        onFieldChange(field, value);
+      }
+    } else {
+      // For text fields, use debounced update
+      onFieldChange(field, value);
+    }
+  }, [onFieldChange, onFieldChangeImmediate]);
 
   return (
     <div className={`pt-4 border-t border-gray-100 ${className}`}>
@@ -38,17 +54,36 @@ export const BookingContactSection: React.FC<BookingContactSectionProps> = ({
           data={attendee}
           type="Mason"
           isPrimary={true}
-          onChange={onFieldChange}
+          onChange={handleChange}
         />
         
         {/* Use the existing ContactInfo component */}
         <ContactInfo 
           data={attendee}
           isPrimary={true}
-          onChange={onFieldChange}
+          onChange={handleChange}
           onChangeImmediate={onFieldChangeImmediate}
         />
       </div>
     </div>
   );
-};
+}, (prevProps, nextProps) => {
+  // Custom comparison to prevent unnecessary re-renders
+  return (
+    prevProps.attendee?.attendeeId === nextProps.attendee?.attendeeId &&
+    prevProps.attendee?.title === nextProps.attendee?.title &&
+    prevProps.attendee?.firstName === nextProps.attendee?.firstName &&
+    prevProps.attendee?.lastName === nextProps.attendee?.lastName &&
+    prevProps.attendee?.rank === nextProps.attendee?.rank &&
+    prevProps.attendee?.primaryEmail === nextProps.attendee?.primaryEmail &&
+    prevProps.attendee?.primaryPhone === nextProps.attendee?.primaryPhone &&
+    prevProps.disabled === nextProps.disabled &&
+    prevProps.updateOnBlur === nextProps.updateOnBlur &&
+    prevProps.className === nextProps.className &&
+    prevProps.required === nextProps.required &&
+    prevProps.onFieldChange === nextProps.onFieldChange &&
+    prevProps.onFieldChangeImmediate === nextProps.onFieldChangeImmediate
+  );
+});
+
+BookingContactSection.displayName = 'BookingContactSection';

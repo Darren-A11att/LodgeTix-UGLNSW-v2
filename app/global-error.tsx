@@ -25,7 +25,14 @@ export default function GlobalError({
               We apologize for the inconvenience. Please try again or contact support if the issue persists.
             </p>
             <button
-              onClick={() => reset()}
+              onClick={() => {
+                if (typeof reset === 'function') {
+                  reset();
+                } else {
+                  // Fallback to page reload if reset is not available
+                  window.location.reload();
+                }
+              }}
               className="inline-block bg-masonic-navy text-white px-6 py-2 rounded-md hover:bg-masonic-navy/90 transition-colors"
             >
               Try again

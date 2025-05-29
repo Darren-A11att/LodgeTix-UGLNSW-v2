@@ -63,6 +63,9 @@ export const BillingDetailsForm: React.FC<BillingDetailsFormProps> = ({
   const [isLoadingStates, setIsLoadingStates] = useState(false);
   const [fetchError, setFetchError] = useState<{countries?: string, states?: string} | null>(null);
   
+  // Track previous billToPrimary value to detect actual changes
+  const [prevBillToPrimary, setPrevBillToPrimary] = useState(false);
+  
   // Placeholder for IP Geolocation data - replace with your actual store access
   // const { ipCountryIsoCode, ipStateName } = useIpGeoStore(state => ({
   //   ipCountryIsoCode: state.ipCountryIsoCode, // e.g., "AU"
@@ -142,77 +145,80 @@ export const BillingDetailsForm: React.FC<BillingDetailsFormProps> = ({
 
   // Handle "Bill to Primary" checkbox changes with immediate store update
   useEffect(() => {
+    // Only process if the checkbox state actually changed
+    if (billToPrimaryWatched === prevBillToPrimary) {
+      return;
+    }
+    
     const currentFormValues = form.getValues();
     let shouldUpdate = false;
     let detailsToSet: BillingDetails;
 
-    if (billToPrimaryWatched && primaryAttendee) {
-      // Check if we need to update - only update if values are different
-      const needsUpdate = 
-        currentFormValues.firstName !== primaryAttendee.firstName ||
-        currentFormValues.lastName !== primaryAttendee.lastName ||
-        currentFormValues.mobileNumber !== primaryAttendee.primaryPhone ||
-        currentFormValues.emailAddress !== primaryAttendee.primaryEmail;
+    if (billToPrimaryWatched && primaryAttendee && !prevBillToPrimary) {
+      // Checkbox was just checked - populate with primary attendee data
+      shouldUpdate = true;
+      detailsToSet = {
+        ...currentFormValues, // Preserve existing address fields
+        billToPrimary: true,
+        firstName: primaryAttendee.firstName || '',
+        lastName: primaryAttendee.lastName || '',
+        mobileNumber: primaryAttendee.primaryPhone || '',
+        emailAddress: primaryAttendee.primaryEmail || '',
+        // Address fields are preserved from currentFormValues
+      };
       
-      if (needsUpdate) {
-        shouldUpdate = true;
-        // When checkbox is checked and we have primary attendee data
-        detailsToSet = {
-          ...currentFormValues, // Preserve existing address fields
-          billToPrimary: true,
-          firstName: primaryAttendee.firstName || '',
-          lastName: primaryAttendee.lastName || '',
-          mobileNumber: primaryAttendee.primaryPhone || '',
-          emailAddress: primaryAttendee.primaryEmail || '',
-          // Address fields are preserved from currentFormValues
-        };
-        
-        // Auto-populate country for Mason with Grand Lodge
-        if (primaryAttendee.attendeeType === 'Mason' && primaryAttendee.grandLodgeId) {
-          console.log('Mason with Grand Lodge detected, fetching country...', primaryAttendee.grandLodgeId);
-          // Fetch Grand Lodge data to get country
-          getAllGrandLodges().then(grandLodges => {
-            const grandLodge = grandLodges.find(gl => gl.id === primaryAttendee.grandLodgeId);
-            if (grandLodge && grandLodge.country) {
-              console.log('Found Grand Lodge country:', grandLodge.country);
-              // Find matching country in the countries list
-              const matchingCountry = countries.find(c => 
-                c.name.toLowerCase() === grandLodge.country.toLowerCase() ||
-                c.iso2.toLowerCase() === grandLodge.country.toLowerCase()
-              );
-              
-              if (matchingCountry) {
-                const countryToSet: ZodCountryType = { 
-                  name: matchingCountry.name, 
-                  isoCode: matchingCountry.iso2, 
-                  id: matchingCountry.id 
-                };
-                form.setValue('country', countryToSet, { shouldValidate: true });
-                console.log('Set country to:', countryToSet.name);
-              }
+      // Auto-populate country for Mason with Grand Lodge
+      if (primaryAttendee.attendeeType === 'Mason' && primaryAttendee.grandLodgeId) {
+        console.log('Mason with Grand Lodge detected, fetching country...', primaryAttendee.grandLodgeId);
+        // Fetch Grand Lodge data to get country
+        getAllGrandLodges().then(grandLodges => {
+          const grandLodge = grandLodges.find(gl => gl.id === primaryAttendee.grandLodgeId);
+          if (grandLodge && grandLodge.country) {
+            console.log('Found Grand Lodge country:', grandLodge.country);
+            // Find matching country in the countries list
+            const matchingCountry = countries.find(c => 
+              c.name.toLowerCase() === grandLodge.country.toLowerCase() ||
+              c.iso2.toLowerCase() === grandLodge.country.toLowerCase()
+            );
+            
+            if (matchingCountry) {
+              const countryToSet: ZodCountryType = { 
+                name: matchingCountry.name, 
+                isoCode: matchingCountry.iso2, 
+                id: matchingCountry.id 
+              };
+              form.setValue('country', countryToSet, { shouldValidate: true });
+              console.log('Set country to:', countryToSet.name);
             }
-          }).catch(err => {
-            console.error('Failed to fetch Grand Lodge data:', err);
-          });
-        }
-        
-        // Log to verify the data being set
-        console.log('Setting billing details from primary:', { 
-          firstName: primaryAttendee.firstName,
-          lastName: primaryAttendee.lastName,
-          mobileNumber: primaryAttendee.primaryPhone, // Log the phone specifically
-          emailAddress: primaryAttendee.primaryEmail 
+          }
+        }).catch(err => {
+          console.error('Failed to fetch Grand Lodge data:', err);
         });
       }
-    } else if (!billToPrimaryWatched && currentFormValues.billToPrimary) {
-      // Only update if we're actually changing from checked to unchecked
+      
+      // Log to verify the data being set
+      console.log('Setting billing details from primary:', { 
+        firstName: primaryAttendee.firstName,
+        lastName: primaryAttendee.lastName,
+        mobileNumber: primaryAttendee.primaryPhone, // Log the phone specifically
+        emailAddress: primaryAttendee.primaryEmail 
+      });
+    } else if (!billToPrimaryWatched && prevBillToPrimary) {
+      // Checkbox was just unchecked - clear the personal details
       shouldUpdate = true;
-      // When checkbox is unchecked - preserve existing data
       detailsToSet = {
-        ...currentFormValues, // Preserve all fields
+        ...currentFormValues, // Preserve address fields
         billToPrimary: false,
+        // Clear personal details
+        firstName: '',
+        lastName: '',
+        mobileNumber: '',
+        emailAddress: '',
       };
     }
+    
+    // Update the previous state tracker
+    setPrevBillToPrimary(billToPrimaryWatched);
 
     // Only proceed with updates if there's an actual change
     if (shouldUpdate && detailsToSet!) {
@@ -261,7 +267,7 @@ export const BillingDetailsForm: React.FC<BillingDetailsFormProps> = ({
       }, 100);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [billToPrimaryWatched, countries]);
+  }, [billToPrimaryWatched, prevBillToPrimary, primaryAttendee, countries]);
 
   // Fetch countries on mount
   useEffect(() => {
@@ -284,6 +290,7 @@ export const BillingDetailsForm: React.FC<BillingDetailsFormProps> = ({
 
   // Pre-select country based on stored billing details or IP geolocation data
   useEffect(() => {
+    // Note: We allow country pre-selection from stored data as it's address-related, not personal info
     // First priority: Load from stored billing details
     if (countries.length > 0 && storeBillingDetails?.country && !form.getValues('country')) {
       // Ensure country is a string before using string methods

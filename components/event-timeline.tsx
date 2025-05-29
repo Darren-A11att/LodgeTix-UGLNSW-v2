@@ -1,5 +1,5 @@
 import { CalendarDays, Clock, Gift, Wallet } from "lucide-react"
-import { Event } from "@/lib/event-utils"
+import type { EventType as Event } from "@/shared/types/event"
 import { formatEventDate, formatEventTime } from "@/lib/formatters"
 import { getEventTimeline } from "@/lib/services/homepage-service"
 

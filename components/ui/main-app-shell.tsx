@@ -70,14 +70,29 @@ export default function MainAppShell({
 
   let pageSpecificActions: React.ReactNode = null
 
-  if (pathname === "/events/grand-installation") {
-    pageSpecificActions = (
-      <Button className="w-full bg-masonic-gold text-masonic-navy hover:bg-masonic-lightgold" asChild>
-        <Link href="/events/grand-installation/register">
-          <TicketIcon className="mr-2 h-4 w-4" /> Get Tickets
-        </Link>
-      </Button>
-    )
+  // Handle dynamic event routes
+  const eventMatch = pathname.match(/^\/events\/([^\/]+)(?:\/([^\/]+))?$/);
+  if (eventMatch) {
+    const [, parentSlug, childSlug] = eventMatch;
+    if (!childSlug) {
+      // We're on a parent event page
+      pageSpecificActions = (
+        <Button className="w-full bg-masonic-gold text-masonic-navy hover:bg-masonic-lightgold" asChild>
+          <Link href={`/events/${parentSlug}/register`}>
+            <TicketIcon className="mr-2 h-4 w-4" /> Get Tickets
+          </Link>
+        </Button>
+      )
+    } else {
+      // We're on a child event page
+      pageSpecificActions = (
+        <Button className="w-full bg-masonic-gold text-masonic-navy hover:bg-masonic-lightgold" asChild>
+          <Link href={`/events/${parentSlug}/${childSlug}/register`}>
+            <TicketIcon className="mr-2 h-4 w-4" /> Get Tickets
+          </Link>
+        </Button>
+      )
+    }
   }
   // Add more else if blocks here for other pages needing specific actions
 

@@ -38,11 +38,11 @@ export const TwoColumnStepLayout: React.FC<TwoColumnStepLayoutProps> = ({
   summaryColumnClassName,
 }) => {
   return (
-    <div className={cn("w-full px-0 md:py-5", className)}>
+    <div className={cn("w-full", className)}>
       {/* Two-column desktop layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-10 gap-5">
+      <div className="grid grid-cols-1 lg:grid-cols-10 gap-6">
         {/* Main Content - full width on mobile, 70% width on desktop */}
-        <div className={cn("px-2 sm:px-0 lg:col-span-7", mainColumnClassName)}>
+        <div className={cn("lg:col-span-7", mainColumnClassName)}>
           {children}
         </div>
         

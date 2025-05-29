@@ -105,11 +105,16 @@ export const TextField: React.FC<FieldProps & {
   updateOnBlur = true // Default to updating store only on blur
 }) => {
   const [localValue, setLocalValue] = useState(value);
+  const [hasFocus, setHasFocus] = useState(false);
   
-  // Update local value when prop value changes from parent
+  // Only update local value from props when:
+  // 1. Component mounts (initial value)
+  // 2. Value changes externally AND field doesn't have focus
   useEffect(() => {
-    setLocalValue(value);
-  }, [value]);
+    if (!hasFocus && value !== localValue) {
+      setLocalValue(value);
+    }
+  }, [value, hasFocus]); // Intentionally not including localValue to prevent loops
 
   // Handle input change locally without propagating to parent/store
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -122,8 +127,14 @@ export const TextField: React.FC<FieldProps & {
     }
   };
   
+  // Handle focus to track when user is actively editing
+  const handleFocus = () => {
+    setHasFocus(true);
+  };
+  
   // When field loses focus, update the store with current value
   const handleBlur = () => {
+    setHasFocus(false);
     if (updateOnBlur && localValue !== value) {
       onChange(localValue);
     }
@@ -136,6 +147,7 @@ export const TextField: React.FC<FieldProps & {
         type={type}
         value={localValue}
         onChange={handleChange}
+        onFocus={handleFocus}
         onBlur={handleBlur}
         placeholder={placeholder}
         maxLength={maxLength}
@@ -153,11 +165,14 @@ export const EmailField: React.FC<FieldProps & {
 }> = ({ label, name, value, onChange, error, required, disabled, placeholder, className, inputClassName, updateOnBlur = true }) => {
   const [localValue, setLocalValue] = useState(value);
   const [localError, setLocalError] = useState('');
+  const [hasFocus, setHasFocus] = useState(false);
   
-  // Update local value when prop value changes
+  // Only update local value from props when field doesn't have focus
   useEffect(() => {
-    setLocalValue(value);
-  }, [value]);
+    if (!hasFocus && value !== localValue) {
+      setLocalValue(value);
+    }
+  }, [value, hasFocus]); // Intentionally not including localValue
   
   // Handle change locally with email formatting
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -179,8 +194,14 @@ export const EmailField: React.FC<FieldProps & {
     }
   };
   
+  // Handle focus
+  const handleFocus = () => {
+    setHasFocus(true);
+  };
+  
   // Update parent on blur
   const handleBlur = () => {
+    setHasFocus(false);
     if (updateOnBlur && localValue !== value) {
       onChange(localValue);
     }
@@ -193,6 +214,7 @@ export const EmailField: React.FC<FieldProps & {
         type="email"
         value={localValue}
         onChange={handleChange}
+        onFocus={handleFocus}
         onBlur={handleBlur}
         placeholder={placeholder || "email@example.com"}
         disabled={disabled}
@@ -223,11 +245,14 @@ export const PhoneField: React.FC<FieldProps & {
 }) => {
   const [localValue, setLocalValue] = useState(value);
   const [localError, setLocalError] = useState('');
+  const [hasFocus, setHasFocus] = useState(false);
   
-  // Update local value when prop value changes
+  // Only update local value from props when field doesn't have focus
   useEffect(() => {
-    setLocalValue(value);
-  }, [value]);
+    if (!hasFocus && value !== localValue) {
+      setLocalValue(value);
+    }
+  }, [value, hasFocus]); // Intentionally not including localValue
 
   // Handle local change with formatting
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -248,8 +273,14 @@ export const PhoneField: React.FC<FieldProps & {
     }
   };
   
+  // Handle focus
+  const handleFocus = () => {
+    setHasFocus(true);
+  };
+  
   // Update parent on blur
   const handleBlur = () => {
+    setHasFocus(false);
     if (updateOnBlur && localValue !== value) {
       onChange(localValue);
     }
@@ -262,6 +293,7 @@ export const PhoneField: React.FC<FieldProps & {
         type="tel"
         value={localValue}
         onChange={handleChange}
+        onFocus={handleFocus}
         onBlur={handleBlur}
         placeholder={placeholder || "0400 000 000"}
         disabled={disabled}
@@ -307,9 +339,6 @@ export const SelectField: React.FC<{
 
   // Handle value change with additional state management
   const handleValueChange = (newValue: string) => {
-    // Log the selection for debugging
-    console.log(`Selection in ${name}:`, newValue);
-    
     // Update local state first
     setLocalValue(newValue);
     
@@ -361,11 +390,14 @@ export const TextareaField: React.FC<FieldProps & {
   updateOnBlur = true // Default to updating store only on blur
 }) => {
   const [localValue, setLocalValue] = useState(value);
+  const [hasFocus, setHasFocus] = useState(false);
   
-  // Update local value when prop value changes
+  // Only update local value from props when field doesn't have focus
   useEffect(() => {
-    setLocalValue(value);
-  }, [value]);
+    if (!hasFocus && value !== localValue) {
+      setLocalValue(value);
+    }
+  }, [value, hasFocus]); // Intentionally not including localValue
   
   // Handle input change locally
   const handleChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -378,8 +410,14 @@ export const TextareaField: React.FC<FieldProps & {
     }
   };
   
+  // Handle focus
+  const handleFocus = () => {
+    setHasFocus(true);
+  };
+  
   // When field loses focus, update parent/store
   const handleBlur = () => {
+    setHasFocus(false);
     if (updateOnBlur && localValue !== value) {
       onChange(localValue);
     }
@@ -391,6 +429,7 @@ export const TextareaField: React.FC<FieldProps & {
         id={name}
         value={localValue}
         onChange={handleChange}
+        onFocus={handleFocus}
         onBlur={handleBlur}
         placeholder={placeholder}
         rows={rows}

@@ -3,11 +3,13 @@ import { UnifiedAttendeeData } from '@/lib/registrationStore';
 interface AttendeeSummaryDataProps {
   attendees: UnifiedAttendeeData[];
   registrationType?: string | null;
+  delegationType?: 'lodge' | 'grandLodge' | 'masonicOrder' | null;
 }
 
 export function getAttendeeSummaryData({ 
   attendees, 
-  registrationType 
+  registrationType,
+  delegationType 
 }: AttendeeSummaryDataProps) {
   // Count attendees by type
   const counts = {
@@ -21,7 +23,12 @@ export function getAttendeeSummaryData({
   const getFormattedRegistrationType = () => {
     if (registrationType === 'individual') return 'Myself & Others';
     if (registrationType === 'lodge') return 'Lodge';
-    if (registrationType === 'delegation') return 'Official Delegation';
+    if (registrationType === 'delegation') {
+      if (delegationType === 'lodge') return 'Lodge Delegation';
+      if (delegationType === 'grandLodge') return 'Grand Lodge Delegation';
+      if (delegationType === 'masonicOrder') return 'Masonic Order Delegation';
+      return 'Official Delegation';
+    }
     return registrationType || 'Not selected';
   };
   
@@ -51,7 +58,7 @@ export function getAttendeeSummaryData({
     // Add rank info
     const rankInfo = [];
     if (attendee.rank) rankInfo.push(attendee.rank);
-    if (attendee.grandRank) rankInfo.push(attendee.grandRank);
+    if (attendee.grandOfficerStatus) rankInfo.push(`${attendee.grandOfficerStatus} Grand Officer`);
     if (rankInfo.length > 0) {
       name += ` (${rankInfo.join(', ')})`;
     }
@@ -87,21 +94,24 @@ export function getAttendeeSummaryData({
   if (counts.masons > 0) {
     summaryItems.push({
       label: 'Masons',
-      value: counts.masons.toString()
+      value: counts.masons.toString(),
+      isHighlight: false
     });
   }
   
   if (counts.guests > 0) {
     summaryItems.push({
       label: 'Guests', 
-      value: counts.guests.toString()
+      value: counts.guests.toString(),
+      isHighlight: false
     });
   }
   
   if (counts.partners > 0) {
     summaryItems.push({
       label: 'Partners',
-      value: counts.partners.toString()
+      value: counts.partners.toString(),
+      isHighlight: false
     });
   }
   
