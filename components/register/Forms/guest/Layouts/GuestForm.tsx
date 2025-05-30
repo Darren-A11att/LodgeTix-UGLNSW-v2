@@ -15,11 +15,45 @@ interface GuestFormProps extends FormProps {
   onRemove?: () => void;
   onRelationshipChange?: (relationship: string) => void;
   isEditMode?: boolean; // Add flag to indicate if we're in edit modal
+  fieldErrors?: Record<string, Record<string, string>>;
 }
 
-export const GuestForm: React.FC<GuestFormProps> = ({ attendeeId, attendeeNumber, isPrimary, onRemove, onRelationshipChange, isEditMode = false }) => {
+export const GuestForm: React.FC<GuestFormProps> = ({ attendeeId, attendeeNumber, isPrimary, onRemove, onRelationshipChange, isEditMode = false, fieldErrors = {} }) => {
   const { attendee, updateField, updateFieldImmediate } = useAttendeeDataWithDebounce(attendeeId);
   const [isMobile, setIsMobile] = useState(false);
+  
+  // Determine the label used for this attendee in validation errors
+  const attendeeLabel = React.useMemo(() => {
+    if (!attendee) return '';
+    
+    // Check if this is a partner
+    if (attendee.isPartner) {
+      // Find the parent attendee to determine partner type
+      const allAttendees = useRegistrationStore.getState().attendees;
+      const parentAttendee = allAttendees.find(a => a.attendeeId === attendee.isPartner);
+      
+      if (parentAttendee) {
+        const masons = allAttendees.filter(a => a.attendeeType === 'Mason' && !a.isPartner);
+        const guests = allAttendees.filter(a => a.attendeeType === 'Guest' && !a.isPartner);
+        
+        if (parentAttendee.attendeeType === 'Mason') {
+          const masonIndex = masons.findIndex(a => a.attendeeId === parentAttendee.attendeeId);
+          return `Mason ${masonIndex + 1}'s Lady/Partner`;
+        } else {
+          const guestIndex = guests.findIndex(a => a.attendeeId === parentAttendee.attendeeId);
+          return `Guest ${guestIndex + 1}'s Partner`;
+        }
+      }
+    }
+    
+    // Not a partner, regular guest
+    const guests = useRegistrationStore.getState().attendees.filter(a => a.attendeeType === 'Guest' && !a.isPartner);
+    const index = guests.findIndex(a => a.attendeeId === attendeeId);
+    return `Guest ${index + 1}`;
+  }, [attendeeId, attendee]);
+  
+  // Get field errors for this specific attendee
+  const attendeeFieldErrors = fieldErrors[attendeeLabel] || {};
   
   // Check for mobile view on component mount
   useEffect(() => {
@@ -60,6 +94,7 @@ export const GuestForm: React.FC<GuestFormProps> = ({ attendeeId, attendeeNumber
                 onChange={(value) => updateField('title', value)}
                 options={titleOptions}
                 required={true}
+                error={attendeeFieldErrors.title}
               />
             </div>
             <div className="col-span-4">
@@ -69,6 +104,7 @@ export const GuestForm: React.FC<GuestFormProps> = ({ attendeeId, attendeeNumber
                 value={attendee.firstName || ''}
                 onChange={(value) => updateField('firstName', value)}
                 required={true}
+                error={attendeeFieldErrors.firstName}
               />
             </div>
             <div className="col-span-4">
@@ -78,6 +114,7 @@ export const GuestForm: React.FC<GuestFormProps> = ({ attendeeId, attendeeNumber
                 value={attendee.lastName || ''}
                 onChange={(value) => updateField('lastName', value)}
                 required={true}
+                error={attendeeFieldErrors.lastName}
               />
             </div>
           </div>
@@ -106,6 +143,7 @@ export const GuestForm: React.FC<GuestFormProps> = ({ attendeeId, attendeeNumber
             type="Guest"
             isPrimary={isPrimary}
             onChange={updateField}
+            fieldErrors={attendeeFieldErrors}
           />
         )}
         
@@ -115,6 +153,7 @@ export const GuestForm: React.FC<GuestFormProps> = ({ attendeeId, attendeeNumber
           isPrimary={isPrimary}
           onChange={updateField}
           onChangeImmediate={updateFieldImmediate}
+          fieldErrors={attendeeFieldErrors}
         />
         
         {/* Additional Info */}

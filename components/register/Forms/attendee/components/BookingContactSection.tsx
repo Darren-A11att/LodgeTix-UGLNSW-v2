@@ -1,45 +1,140 @@
 import React from 'react';
 import { BasicInfo } from '../../basic-details/BasicInfo';
 import { ContactInfo } from '../../basic-details/ContactInfo';
+import { GrandOfficerFields } from '../../mason/utils/GrandOfficerFields';
 import { UnifiedAttendeeData } from '@/lib/registrationStore';
+import { useLodgeRegistrationStore } from '@/lib/lodgeRegistrationStore';
+import { FieldWrapper } from '../../shared/FieldComponents';
+import { Input } from '@/components/ui/input';
+import { Textarea } from '@/components/ui/textarea';
+import { cn } from '@/lib/utils';
 
 interface BookingContactSectionProps {
-  attendee: UnifiedAttendeeData | undefined;
-  onFieldChange: (field: string, value: any) => void;
+  mode?: 'attendee' | 'customer';
+  attendee?: UnifiedAttendeeData | undefined;
+  onFieldChange?: (field: string, value: any) => void;
   onFieldChangeImmediate?: (field: string, value: any) => void;
   disabled?: boolean;
   updateOnBlur?: boolean;
   className?: string;
   required?: boolean;
+  fieldErrors?: Record<string, string>;
 }
 
 export const BookingContactSection: React.FC<BookingContactSectionProps> = React.memo(({
+  mode = 'attendee',
   attendee,
   onFieldChange,
   onFieldChangeImmediate,
   disabled = false,
   updateOnBlur = true,
   className = '',
-  required = true
+  required = true,
+  fieldErrors = {}
 }) => {
-  if (!attendee) return null;
+  // For customer mode, use lodge registration store
+  const { customer, updateCustomer } = useLodgeRegistrationStore();
+  
+  // For attendee mode, require attendee prop
+  if (mode === 'attendee' && !attendee) return null;
 
-  // Since field components now handle their own local state properly,
-  // we can pass the attendee data directly without an additional layer
   const handleChange = React.useCallback((field: string, value: any) => {
-    // For select fields (title, rank), use immediate update
-    if (field === 'title' || field === 'rank') {
-      if (onFieldChangeImmediate) {
-        onFieldChangeImmediate(field, value);
-      } else {
+    if (mode === 'customer') {
+      // Map field names from form components to customer store
+      const fieldMapping: Record<string, string> = {
+        'primaryEmail': 'email',
+        'primaryPhone': 'mobile',
+        // All other fields map directly
+      };
+      
+      const mappedField = fieldMapping[field] || field;
+      updateCustomer({ [mappedField]: value });
+    } else {
+      // Original attendee mode logic
+      const immediateFields = [
+        'title', 
+        'rank', 
+        'grandOfficerStatus', 
+        'presentGrandOfficerRole'
+      ];
+      
+      if (immediateFields.includes(field)) {
+        if (onFieldChangeImmediate) {
+          onFieldChangeImmediate(field, value);
+        } else if (onFieldChange) {
+          onFieldChange(field, value);
+        }
+      } else if (onFieldChange) {
+        // For text fields, use debounced update
         onFieldChange(field, value);
       }
-    } else {
-      // For text fields, use debounced update
-      onFieldChange(field, value);
     }
-  }, [onFieldChange, onFieldChangeImmediate]);
+  }, [mode, onFieldChange, onFieldChangeImmediate, updateCustomer]);
 
+  if (mode === 'customer') {
+    // Customer mode - use same form fields as attendee but store in lodge registration store
+    const customerData = {
+      // Map customer data to UnifiedAttendeeData format for the form components
+      attendeeId: 'lodge-booking-contact',
+      attendeeType: 'Mason' as const,
+      title: customer.title || '',
+      firstName: customer.firstName || '',
+      lastName: customer.lastName || '',
+      suffix: customer.suffix || '',
+      rank: customer.rank || '',
+      grandOfficerStatus: customer.grandOfficerStatus,
+      presentGrandOfficerRole: customer.presentGrandOfficerRole,
+      otherGrandOfficerRole: customer.otherGrandOfficerRole,
+      primaryEmail: customer.email || '',
+      primaryPhone: customer.mobile || '',
+      phone: customer.phone || '',
+      dietaryRequirements: customer.dietaryRequirements || '',
+      additionalInfo: customer.additionalInfo || '',
+      contactPreference: 'Directly' as const,
+      isPrimary: true,
+      isPartner: null,
+      partner: null,
+    } as UnifiedAttendeeData;
+
+    return (
+      <div className={`pt-4 border-t border-gray-100 ${className}`}>
+        <h3 className="text-base font-medium flex items-center gap-2 mb-4">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-5 h-5 text-primary">
+            <path d="M10 8a3 3 0 100-6 3 3 0 000 6zM3.465 14.493a1.23 1.23 0 00.41 1.412A9.957 9.957 0 0010 18c2.31 0 4.438-.784 6.131-2.1.43-.333.604-.903.408-1.41a7.002 7.002 0 00-13.074.003z" />
+          </svg>
+          Booking Contact
+        </h3>
+        <div className="space-y-6">
+          {/* Use the existing BasicInfo component for Mason details */}
+          <BasicInfo 
+            data={customerData}
+            type="Mason"
+            isPrimary={true}
+            onChange={handleChange}
+          />
+          
+          {/* Show Grand Officer fields when rank is GL */}
+          {customer.rank === 'GL' && (
+            <GrandOfficerFields 
+              data={customerData}
+              onChange={handleChange}
+              required={true}
+            />
+          )}
+          
+          {/* Use the existing ContactInfo component */}
+          <ContactInfo 
+            data={customerData}
+            isPrimary={true}
+            onChange={handleChange}
+            onChangeImmediate={onFieldChangeImmediate}
+          />
+        </div>
+      </div>
+    );
+  }
+  
+  // Original attendee mode
   return (
     <div className={`pt-4 border-t border-gray-100 ${className}`}>
       <h3 className="text-base font-medium flex items-center gap-2 mb-4">
@@ -51,15 +146,24 @@ export const BookingContactSection: React.FC<BookingContactSectionProps> = React
       <div className="space-y-6">
         {/* Use the existing BasicInfo component for Mason details */}
         <BasicInfo 
-          data={attendee}
+          data={attendee!}
           type="Mason"
           isPrimary={true}
           onChange={handleChange}
         />
         
+        {/* Show Grand Officer fields when rank is GL */}
+        {attendee!.rank === 'GL' && (
+          <GrandOfficerFields 
+            data={attendee!}
+            onChange={handleChange}
+            required={true}
+          />
+        )}
+        
         {/* Use the existing ContactInfo component */}
         <ContactInfo 
-          data={attendee}
+          data={attendee!}
           isPrimary={true}
           onChange={handleChange}
           onChangeImmediate={onFieldChangeImmediate}
@@ -69,12 +173,30 @@ export const BookingContactSection: React.FC<BookingContactSectionProps> = React
   );
 }, (prevProps, nextProps) => {
   // Custom comparison to prevent unnecessary re-renders
+  if (prevProps.mode !== nextProps.mode) return false;
+  
+  if (prevProps.mode === 'customer' || nextProps.mode === 'customer') {
+    // For customer mode, we rely on store updates
+    return (
+      prevProps.disabled === nextProps.disabled &&
+      prevProps.updateOnBlur === nextProps.updateOnBlur &&
+      prevProps.className === nextProps.className &&
+      prevProps.required === nextProps.required &&
+      JSON.stringify(prevProps.fieldErrors) === JSON.stringify(nextProps.fieldErrors)
+    );
+  }
+  
+  // Original attendee mode comparison
   return (
     prevProps.attendee?.attendeeId === nextProps.attendee?.attendeeId &&
     prevProps.attendee?.title === nextProps.attendee?.title &&
     prevProps.attendee?.firstName === nextProps.attendee?.firstName &&
     prevProps.attendee?.lastName === nextProps.attendee?.lastName &&
     prevProps.attendee?.rank === nextProps.attendee?.rank &&
+    prevProps.attendee?.suffix === nextProps.attendee?.suffix &&
+    prevProps.attendee?.grandOfficerStatus === nextProps.attendee?.grandOfficerStatus &&
+    prevProps.attendee?.presentGrandOfficerRole === nextProps.attendee?.presentGrandOfficerRole &&
+    prevProps.attendee?.otherGrandOfficerRole === nextProps.attendee?.otherGrandOfficerRole &&
     prevProps.attendee?.primaryEmail === nextProps.attendee?.primaryEmail &&
     prevProps.attendee?.primaryPhone === nextProps.attendee?.primaryPhone &&
     prevProps.disabled === nextProps.disabled &&

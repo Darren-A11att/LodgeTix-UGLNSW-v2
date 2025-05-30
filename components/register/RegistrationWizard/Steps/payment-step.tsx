@@ -4,10 +4,11 @@ import React, { useState, useEffect, useMemo, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRegistrationStore, UnifiedAttendeeData, BillingDetailsType, selectAnonymousSessionEstablished } from '../../../../lib/registrationStore';
+import { useLodgeRegistrationStore } from '@/lib/lodgeRegistrationStore';
 import { 
   billingDetailsSchema, 
   type BillingDetails as FormBillingDetailsSchema,
-} from "@/lib/billing-details-schema";
+} from "@/lib/booking-contact-schema";
 import { createClient } from '@/utils/supabase/client';
 
 import { Button } from "@/components/ui/button";
@@ -23,6 +24,14 @@ import { CheckoutFormHandle } from "../payment/CheckoutForm";
 import { PaymentProcessing } from "../payment/PaymentProcessing";
 import { OneColumnStepLayout } from "../Layouts/OneColumnStepLayout";
 import { getEventTicketsService, type TicketDefinition, type EventPackage } from '@/lib/services/event-tickets-service';
+import { calculateStripeFees, formatFeeBreakdown, getFeeDisclaimer, STRIPE_FEE_CONFIG } from '@/lib/utils/stripe-fee-calculator';
+import { Info } from "lucide-react";
+import { 
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface PaymentStepProps {
   eventId?: string;
@@ -57,6 +66,9 @@ function PaymentStep(props: PaymentStepProps) {
   } = useRegistrationStore();
   
   const anonymousSessionEstablished = useRegistrationStore(selectAnonymousSessionEstablished);
+  
+  // Get lodge registration data if applicable
+  const { customer: lodgeCustomer, lodgeDetails } = useLodgeRegistrationStore();
 
   // State for ticket data
   const [ticketTypes, setTicketTypes] = useState<TicketDefinition[]>([]);
@@ -82,6 +94,9 @@ function PaymentStep(props: PaymentStepProps) {
   
   // Ref for payment method component
   const paymentMethodRef = useRef<CheckoutFormHandle>(null);
+  
+  // Track if we've set the business name for lodge
+  const hasSetBusinessName = useRef(false);
 
   // Derive attendee data
   const primaryAttendee = useMemo(() => 
@@ -144,6 +159,8 @@ function PaymentStep(props: PaymentStepProps) {
     
     fetchTicketsAndPackages();
   }, [eventId, storeEventId]);
+
+  // Business name is now set in form initialization for lodge registrations
 
   // Check session on mount
   useEffect(() => {
@@ -365,10 +382,8 @@ function PaymentStep(props: PaymentStepProps) {
     });
   }, [allStoreAttendees, packages, ticketTypes, ticketPackages, isLoadingTickets]);
 
-  // Calculate total amount
-  // IMPORTANT: For packages, we use the package price (which might include discounts)
-  // NOT the sum of individual ticket prices
-  const totalAmount = useMemo(() => {
+  // Calculate subtotal (ticket prices only)
+  const subtotal = useMemo(() => {
     const total = currentTicketsForSummary.reduce((sum, ticket) => {
       const price = ticket.price || 0;
       if (price === 0) {
@@ -377,8 +392,8 @@ function PaymentStep(props: PaymentStepProps) {
       return sum + price;
     }, 0);
     
-    console.log("💰 Total amount calculation:", {
-      total,
+    console.log("💰 Subtotal calculation:", {
+      subtotal: total,
       ticketCount: currentTicketsForSummary.length,
       tickets: currentTicketsForSummary.map(t => ({ 
         name: t.name, 
@@ -394,31 +409,38 @@ function PaymentStep(props: PaymentStepProps) {
     
     // If total is 0 but we have attendees, run debug
     if (total === 0 && allStoreAttendees.length > 0) {
-      console.warn("⚠️ Total is $0 but attendees exist - running debug");
+      console.warn("⚠️ Subtotal is $0 but attendees exist - running debug");
       debugTicketCalculation();
     }
     
     return total;
   }, [currentTicketsForSummary]);
 
+  // Calculate fees and total amount
+  const feeCalculation = useMemo(() => {
+    return calculateStripeFees(subtotal);
+  }, [subtotal]);
+
+  // Total amount including fees
+  const totalAmount = feeCalculation.total;
+
   // Setup form
   const form = useForm<FormBillingDetailsSchema>({
     resolver: zodResolver(billingDetailsSchema),
     defaultValues: {
-      billToPrimary: false,
-      // Don't pre-fill personal details from stored billing unless explicitly needed
-      // This prevents confusion when user hasn't selected "bill to primary"
-      firstName: '',
-      lastName: '',
-      emailAddress: '',
-      mobileNumber: '',
-      // Address fields can be pre-filled from stored data
-      addressLine1: storeBillingDetails?.addressLine1 || '',
-      businessName: storeBillingDetails?.businessName || '',
-      suburb: storeBillingDetails?.city || '',
-      postcode: storeBillingDetails?.postalCode || '',
-      stateTerritory: storeBillingDetails?.stateProvince ? { name: storeBillingDetails.stateProvince } : null,
-      country: storeBillingDetails?.country ? { isoCode: 'AU', name: 'Australia' } : { isoCode: 'AU', name: 'Australia' },
+      billToPrimary: registrationType === 'lodge' ? true : false,
+      // For lodge registrations, use lodge customer data
+      firstName: registrationType === 'lodge' ? lodgeCustomer.firstName : '',
+      lastName: registrationType === 'lodge' ? lodgeCustomer.lastName : '',
+      emailAddress: registrationType === 'lodge' ? lodgeCustomer.email : '',
+      mobileNumber: registrationType === 'lodge' ? lodgeCustomer.mobile : '',
+      // Address fields can be pre-filled from stored data or lodge customer
+      addressLine1: registrationType === 'lodge' ? lodgeCustomer.addressLine1 : (storeBillingDetails?.addressLine1 || ''),
+      businessName: registrationType === 'lodge' ? (lodgeDetails.lodgeName || storeBillingDetails?.businessName || '') : (storeBillingDetails?.businessName || ''),
+      suburb: registrationType === 'lodge' ? lodgeCustomer.city : (storeBillingDetails?.city || ''),
+      postcode: registrationType === 'lodge' ? lodgeCustomer.postcode : (storeBillingDetails?.postalCode || ''),
+      stateTerritory: registrationType === 'lodge' && lodgeCustomer.state ? { name: lodgeCustomer.state } : (storeBillingDetails?.stateProvince ? { name: storeBillingDetails.stateProvince } : null),
+      country: registrationType === 'lodge' && lodgeCustomer.country ? { isoCode: 'AU', name: lodgeCustomer.country } : (storeBillingDetails?.country ? { isoCode: 'AU', name: 'Australia' } : { isoCode: 'AU', name: 'Australia' }),
     }
   });
 
@@ -486,7 +508,9 @@ function PaymentStep(props: PaymentStepProps) {
             primaryAttendee,
             additionalAttendees: otherAttendees,
             tickets: expandedTickets,  // Use expanded tickets
+            subtotal,
             totalAmount,
+            stripeFee: feeCalculation.stripeFee,
             billingDetails: billingData,
             eventId: eventId || storeEventId,
             customerId: user.id
@@ -525,7 +549,9 @@ function PaymentStep(props: PaymentStepProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           paymentMethodId,
-          totalAmount,
+          totalAmount, // This now includes the processing fee
+          subtotal, // Original ticket prices before fees
+          stripeFee: feeCalculation.stripeFee,
           billingDetails: stripeBillingDetails
         }),
       });
@@ -666,13 +692,13 @@ function PaymentStep(props: PaymentStepProps) {
           <div className="flex flex-col md:flex-row gap-6 md:gap-8">
             {/* Left Column - Billing Details (60%) */}
             <div className="flex-1 space-y-6 md:flex-none md:w-[60%]">
-              <h3 className="text-lg font-semibold">Billing Information</h3>
+              <h3 className="text-lg font-semibold">Booking Contact</h3>
               <BillingDetailsForm form={form} primaryAttendee={primaryAttendee ? {
                 firstName: primaryAttendee.firstName || undefined,
                 lastName: primaryAttendee.lastName || undefined,
                 primaryPhone: primaryAttendee.primaryPhone || undefined,
                 primaryEmail: primaryAttendee.primaryEmail || undefined,
-                grandLodgeId: primaryAttendee.grandLodgeId || undefined,
+                grand_lodge_id: primaryAttendee.grand_lodge_id || undefined,
                 attendeeType: primaryAttendee.attendeeType || undefined
               } : null} />
             </div>
@@ -707,6 +733,36 @@ function PaymentStep(props: PaymentStepProps) {
                       ))}
                     </div>
                   )}
+                  
+                  {/* Subtotal */}
+                  <div className="pt-2 space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Subtotal:</span>
+                      <span className="font-medium text-gray-900">${subtotal.toFixed(2)}</span>
+                    </div>
+                    
+                    {/* Processing Fee */}
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600 flex items-center gap-1">
+                        Processing Fee
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger>
+                              <Info className="h-3 w-3 text-gray-400" />
+                            </TooltipTrigger>
+                            <TooltipContent className="max-w-xs">
+                              <p className="text-sm">{getFeeDisclaimer()}</p>
+                              <div className="mt-2 text-xs space-y-1">
+                                <p>• Australian cards: {STRIPE_FEE_CONFIG.domestic.description}</p>
+                                <p>• International cards: {STRIPE_FEE_CONFIG.international.description}</p>
+                              </div>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      </span>
+                      <span className="font-medium text-gray-900">${feeCalculation.stripeFee.toFixed(2)}</span>
+                    </div>
+                  </div>
                   
                   {/* Total */}
                   <div className="border-t-2 border-gray-200 pt-3 mt-3">

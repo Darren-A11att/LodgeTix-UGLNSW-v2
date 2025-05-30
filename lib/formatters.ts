@@ -2,7 +2,7 @@ import { format, parseISO, isValid } from 'date-fns';
 import * as EventTypes from '../shared/types/event.ts';
 import * as TicketTypes from '../shared/types/ticket.ts';
 import * as DayTypes from '../shared/types/day.ts';
-import * as SupabaseTypes from '../../supabase/supabase.types.ts'; // Import generated types namespace
+import * as SupabaseTypes from '@/shared/types/database'; // Import generated types namespace
 
 // Define types for the raw database row inputs using consistent PascalCase
 // These types must match the actual database table names after standardization

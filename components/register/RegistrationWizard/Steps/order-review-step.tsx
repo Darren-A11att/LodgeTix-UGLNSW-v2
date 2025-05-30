@@ -30,6 +30,14 @@ import { SummaryRenderer } from '../Summary/SummaryRenderer';
 import { ticketService, EventTicket, TicketPackage } from '@/lib/api/ticketService';
 import { getEventTicketsService, type TicketDefinition, type EventPackage } from '@/lib/services/event-tickets-service';
 import { api } from '@/lib/api-logger';
+import { ValidationModal } from '@/components/ui/validation-modal';
+import { calculateStripeFees, getFeeDisclaimer, STRIPE_FEE_CONFIG } from '@/lib/utils/stripe-fee-calculator';
+import { 
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 // Define the parent event ID for Grand Proclamation 2025
 const GRAND_PROCLAMATION_PARENT_ID = "307c2d85-72d5-48cf-ac94-082ca2a5d23d";
@@ -222,6 +230,10 @@ function OrderReviewStep() {
   const [isRemoveConfirmOpen, setIsRemoveConfirmOpen] = useState(false);
   const [removingAttendeeId, setRemovingAttendeeId] = useState<string | null>(null);
   
+  // Validation modal state
+  const [showValidationModal, setShowValidationModal] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<{ field: string; message: string }[]>([]);
+  
 
   const getAttendeeTickets = (attendeeId: string) => {
     return currentTickets.filter((ticket) => ticket.attendeeId === attendeeId)
@@ -231,8 +243,46 @@ function OrderReviewStep() {
     return getAttendeeTickets(attendeeId).reduce((sum, ticket) => sum + ticket.price, 0)
   }
 
-  const totalAmount = currentTickets.reduce((sum, ticket) => sum + ticket.price, 0)
+  const subtotal = currentTickets.reduce((sum, ticket) => sum + ticket.price, 0)
+  const feeCalculation = calculateStripeFees(subtotal)
+  const totalAmount = feeCalculation.total
   const totalTickets = currentTickets.length
+
+  // Check if order is valid
+  const isOrderValid = attendeesForDisplay.length > 0 && totalTickets > 0;
+  
+  const handleContinue = () => {
+    const errors: { field: string; message: string }[] = [];
+    
+    if (attendeesForDisplay.length === 0) {
+      errors.push({ field: "Attendees", message: "No attendees found in your order" });
+    }
+    
+    if (totalTickets === 0) {
+      errors.push({ field: "Tickets", message: "No tickets selected for any attendees" });
+    }
+    
+    // Check for attendees without tickets
+    const attendeesWithoutTickets = attendeesForDisplay.filter(attendee => 
+      getAttendeeTickets(attendee.attendeeId).length === 0
+    );
+    
+    if (attendeesWithoutTickets.length > 0) {
+      attendeesWithoutTickets.forEach(attendee => {
+        errors.push({
+          field: `${attendee.firstName} ${attendee.lastName}`,
+          message: "Has no tickets selected"
+        });
+      });
+    }
+    
+    if (errors.length > 0) {
+      setValidationErrors(errors);
+      setShowValidationModal(true);
+    } else {
+      goToNextStep();
+    }
+  };
 
   const getMasonicTitle = (attendee: UnifiedAttendeeData) => {
     return attendee.title || "";
@@ -446,9 +496,37 @@ function OrderReviewStep() {
             })}
           </CardContent>
           <CardFooter className="flex flex-col space-y-4 bg-gray-50 p-6">
-            <div className="flex w-full items-center justify-between rounded-lg bg-masonic-navy p-4 text-white">
-              <span className="text-lg font-bold">Total Amount</span>
-              <span className="text-xl font-bold">${totalAmount.toFixed(2)}</span>
+            {/* Fee Breakdown */}
+            <div className="w-full space-y-2 rounded-lg border border-gray-200 bg-white p-4">
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-gray-600">Subtotal:</span>
+                <span className="font-medium">${subtotal.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between items-center text-sm">
+                <span className="text-gray-600 flex items-center gap-1">
+                  Processing Fee
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger>
+                        <Info className="h-3 w-3 text-gray-400" />
+                      </TooltipTrigger>
+                      <TooltipContent className="max-w-xs">
+                        <p className="text-sm">{getFeeDisclaimer()}</p>
+                        <div className="mt-2 text-xs space-y-1">
+                          <p>• Australian cards: {STRIPE_FEE_CONFIG.domestic.description}</p>
+                          <p>• International cards: {STRIPE_FEE_CONFIG.international.description}</p>
+                        </div>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </span>
+                <span className="font-medium">${feeCalculation.stripeFee.toFixed(2)}</span>
+              </div>
+              <Separator className="my-2" />
+              <div className="flex justify-between items-center font-bold">
+                <span>Total Amount:</span>
+                <span className="text-lg">${totalAmount.toFixed(2)}</span>
+              </div>
             </div>
 
             <Alert className="border-masonic-gold bg-masonic-gold/10">
@@ -467,9 +545,13 @@ function OrderReviewStep() {
                 Previous
               </Button>
               <Button 
-                  onClick={goToNextStep} 
-                  className="bg-masonic-gold text-masonic-navy hover:bg-masonic-lightgold"
-                  disabled={attendeesForDisplay.length === 0 || totalTickets === 0}
+                  onClick={handleContinue} 
+                  variant={isOrderValid ? "default" : "outline"}
+                  className={`${
+                    isOrderValid 
+                      ? "bg-masonic-gold text-masonic-navy hover:bg-masonic-lightgold" 
+                      : "border-masonic-navy text-masonic-navy hover:bg-masonic-lightblue"
+                  }`}
               >
                 <CreditCard className="mr-2 h-4 w-4" />
                 Proceed to Payment
@@ -509,6 +591,14 @@ function OrderReviewStep() {
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
+        
+        <ValidationModal
+          isOpen={showValidationModal}
+          onClose={() => setShowValidationModal(false)}
+          errors={validationErrors}
+          title="Order Review Required"
+          description="Please address the following issues before proceeding to payment:"
+        />
 
       </div>
     </TwoColumnStepLayout>

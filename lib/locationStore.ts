@@ -2,7 +2,7 @@ import { create, StateCreator } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { getAllGrandLodges, GrandLodgeRow } from './api/grandLodges';
 import { getLodgesByGrandLodgeId, LodgeRow, createLodge as createLodgeApi, searchAllLodges as searchAllLodgesApi, getLodgesByStateRegionCode } from './api/lodges';
-import { supabase } from './supabase-browser';
+import { supabase } from "./supabase";
 import { searchGrandLodges as searchGrandLodgesService } from './services/masonic-services';
 
 // --- Define Interfaces First ---
@@ -132,7 +132,7 @@ export interface LocationState {
   searchGrandLodges: (searchTerm: string) => Promise<GrandLodgeRow[]>;
   getLodgesByGrandLodge: (grandLodgeId: string, searchTerm?: string) => Promise<void>; // Changed: updates state, returns void
   searchAllLodgesAction: (term: string) => Promise<void>;
-  createLodge: (lodgeData: Omit<LodgeRow, 'id' | 'created_at' | 'display_name'>) => Promise<LodgeRow | null>; // Keep return for immediate use
+  createLodge: (lodgeData: Omit<LodgeRow, 'lodge_id' | 'created_at' | 'display_name'>) => Promise<LodgeRow | null>; // Keep return for immediate use
   preloadGrandLodgesByCountry: (countryCode: string) => Promise<void>; // Keep preload actions
   preloadGrandLodgesByRegion: (regionCode: string) => Promise<void>;
   preloadLodgesByRegion: (regionCode: string) => Promise<void>;
@@ -506,7 +506,7 @@ export const useLocationStore = create<LocationState>(
           if (grandLodgeId) {
             // For Grand Lodge specific searches, use direct Supabase queries for better performance
             // and to avoid syntax errors with the .or() method
-            const { supabase } = await import('./supabase-browser');
+            const { supabase } = await import('./supabase');
             
             // Create separate queries for text and numeric searches
             const queries = [];
@@ -559,7 +559,7 @@ export const useLocationStore = create<LocationState>(
             } else {
               // Combine all successful results and filter duplicates
               results = queryResults.flatMap(result => result.data || [])
-                .filter((lodge, index, self) => index === self.findIndex(l => l.id === lodge.id));
+                .filter((lodge, index, self) => index === self.findIndex(l => l.lodge_id === lodge.lodge_id));
             }
           } else {
             // For global searches without a specific Grand Lodge, use the RPC method
@@ -592,7 +592,7 @@ export const useLocationStore = create<LocationState>(
         console.log(`[LocationStore] Creating new lodge: ${lodgeData.name}`);
         try {
           const newLodge = await createLodgeApi(lodgeData);
-          console.log(`[LocationStore] Successfully created lodge: ${newLodge.id}`);
+          console.log(`[LocationStore] Successfully created lodge: ${newLodge.lodge_id}`);
           
           // Update currentLodges if we're in the GL context of the new lodge
           const currentGlLodges = get().lodges;

@@ -18,10 +18,11 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { TwoColumnStepLayout } from "../Layouts/TwoColumnStepLayout"
 import { getTicketSummaryData } from '../Summary/summary-data/ticket-summary-data';
 import { SummaryRenderer } from '../Summary/SummaryRenderer';
-import { getEventTicketsService, type TicketDefinition, type EventPackage } from '@/lib/services/event-tickets-service'
+import { type TicketDefinition, type EventPackage } from '@/lib/services/event-tickets-service'
 import { api } from '@/lib/api-logger'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { createClient } from '@/utils/supabase/client'
+import { ValidationModal } from '@/components/ui/validation-modal'
 
 // Define AttendeeType for eligibility checking, leveraging existing types
 export type AttendeeType = Attendee['type'];
@@ -50,7 +51,6 @@ const TicketSelectionStep: React.FC = () => {
         setIsLoadingTickets(true)
         setTicketsError(null)
         
-        const service = getEventTicketsService()
         const supabase = createClient()
         
         // Always use the eventId from the store - it should be set from the route
@@ -61,45 +61,63 @@ const TicketSelectionStep: React.FC = () => {
         
         api.debug(`Fetching tickets for event: ${targetEventId}`)
         
-        // Always check if this is a parent event first
-        const { data: eventData } = await supabase
-          .from('events')
-          .select('id, parent_event_id')
-          .eq('id', targetEventId)
-          .single()
-        
-        const isParentEvent = eventData && !eventData.parent_event_id
-        
-        // Check if this is a parent event
-        if (isParentEvent) {
-          // Fetch child events and their tickets
-          const childEventsData = await service.getChildEventsWithTicketsAndPackages(targetEventId)
-          
-          // Aggregate all tickets from child events with event info
-          const allTickets: TicketDefinition[] = []
-          childEventsData.forEach(eventData => {
-            // Add event context to each ticket
-            const ticketsWithEventInfo = eventData.tickets.map(ticket => ({
-              ...ticket,
-              event_title: eventData.event.title,
-              event_slug: eventData.event.slug
-            }))
-            allTickets.push(...ticketsWithEventInfo)
+        // Call the RPC function to get packages and tickets
+        const { data: rpcData, error: rpcError } = await supabase
+          .rpc('get_event_packages_and_tickets_rpc', {
+            p_event_id: targetEventId,
+            p_include_inactive: false
           })
-          
-          // Use packages from the first result (they're the same for all child events)
-          if (childEventsData.length > 0) {
-            setTicketTypes(allTickets)
-            setTicketPackages(childEventsData[0].packages)
-          }
-        } else {
-          // For a specific event, fetch its tickets and packages
-          const { tickets, packages } = await service.getEventTicketsAndPackages(targetEventId)
-          setTicketTypes(tickets)
-          setTicketPackages(packages)
+        
+        if (rpcError) {
+          api.error('RPC Error fetching tickets and packages:', rpcError)
+          throw new Error(rpcError.message || 'Failed to fetch tickets and packages')
         }
         
-        api.debug(`Loaded ${ticketTypes.length} tickets and ${ticketPackages.length} packages`)
+        if (!rpcData || !rpcData.success) {
+          throw new Error(rpcData?.error || 'Failed to fetch event data')
+        }
+        
+        // Transform RPC response to match our expected format
+        const tickets: TicketDefinition[] = (rpcData.tickets?.data || []).map((ticket: any) => ({
+          id: ticket.id,
+          ticket_definition_id: ticket.id,
+          name: ticket.name,
+          price: ticket.price,
+          description: ticket.description,
+          category: ticket.category || 'general',
+          eligibleAttendeeTypes: ticket.eligible_attendee_types || ['mason', 'guest'],
+          event_id: ticket.event_id,
+          event_title: ticket.event_title || rpcData.event?.event_name,
+          event_slug: ticket.event_slug,
+          is_active: ticket.is_active,
+          total_capacity: ticket.total_capacity,
+          available_count: ticket.available_count,
+          reserved_count: ticket.reserved_count || 0,
+          sold_count: ticket.sold_count || 0,
+          status: ticket.availability_status === 'available' ? 'Active' : ticket.availability_status
+        }))
+        
+        const packages: EventPackage[] = (rpcData.packages?.data || []).map((pkg: any) => ({
+          id: pkg.id,
+          name: pkg.name,
+          price: pkg.price,
+          original_price: pkg.original_price,
+          discount_percentage: pkg.savings_percentage,
+          discount_amount: pkg.savings_amount,
+          package_type: pkg.package_type,
+          quantity: pkg.quantity,
+          description: pkg.description,
+          includes: (pkg.items || []).map((item: any) => item.ticket_id),
+          includes_description: (pkg.items || []).map((item: any) => `${item.ticket_name} x ${item.quantity}`),
+          eligibleAttendeeTypes: pkg.eligible_attendee_types || ['mason', 'guest'],
+          parent_event_id: pkg.event_id,
+          created_at: pkg.created_at
+        }))
+        
+        setTicketTypes(tickets)
+        setTicketPackages(packages)
+        
+        api.debug(`Loaded ${tickets.length} tickets and ${packages.length} packages from RPC`)
       } catch (error) {
         console.error('Full error details:', error)
         api.error('Error fetching tickets and packages:', {
@@ -222,6 +240,10 @@ const TicketSelectionStep: React.FC = () => {
     description: "",
     variant: "default" as "default" | "destructive" | "success" | "warning"
   })
+  
+  // Validation modal state
+  const [showValidationModal, setShowValidationModal] = useState(false)
+  const [validationErrors, setValidationErrors] = useState<{ field: string; message: string }[]>([])
 
   const [expandedAttendee, setExpandedAttendee] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<string>('same-for-all')
@@ -298,18 +320,35 @@ const TicketSelectionStep: React.FC = () => {
   const handleContinue = () => {
     // For lodge registrations with bulk orders, skip individual ticket validation
     if (registrationType === 'lodge' && lodgeTicketOrder) {
-      goToNextStep();
+      // Check if any tickets are selected
+      const hasSelection = packages['lodge-bulk']?.ticketDefinitionId || 
+        (packages['lodge-bulk']?.selectedEvents && packages['lodge-bulk'].selectedEvents.length > 0);
+      
+      if (hasSelection) {
+        goToNextStep();
+      } else {
+        // Show validation modal for lodge bulk orders
+        setValidationErrors([
+          { field: "Ticket Selection", message: "Please select at least one ticket or package for your lodge members" }
+        ]);
+        setShowValidationModal(true);
+      }
       return;
     }
     
     if (ensureAllAttendeesHaveTickets()) {
       goToNextStep();
     } else {
-      showAlert(
-        "Tickets Required", 
-        "Please ensure each attendee has at least one ticket or a package selected before continuing.",
-        "warning"
-      );
+      // Build list of attendees without tickets
+      const attendeesWithoutTickets = eligibleAttendees
+        .filter(attendee => getAttendeeTickets((attendee as any).attendeeId).length === 0)
+        .map(attendee => ({
+          field: `${attendee.firstName} ${attendee.lastName}`,
+          message: "Requires at least one ticket or package selection"
+        }));
+      
+      setValidationErrors(attendeesWithoutTickets);
+      setShowValidationModal(true);
     }
   }
 
@@ -602,15 +641,26 @@ const TicketSelectionStep: React.FC = () => {
                               <span>Includes:</span>
                             </div>
                             <ul className="space-y-1 pl-4">
-                              {pkg.includes.map((id) => {
-                                const ticket = ticketTypes.find((t) => t.id === id);
-                                return ticket ? (
-                                  <li key={id} className="flex items-center gap-1">
+                              {pkg.includes_description && pkg.includes_description.length > 0 ? (
+                                // Use the descriptive text if available
+                                pkg.includes_description.map((desc, idx) => (
+                                  <li key={idx} className="flex items-center gap-1">
                                     <Check className="h-3 w-3 text-green-600" />
-                                    <span>{ticket.name}</span>
+                                    <span>{desc}</span>
                                   </li>
-                                ) : null
-                              })}
+                                ))
+                              ) : (
+                                // Fallback to looking up ticket names
+                                pkg.includes.map((id) => {
+                                  const ticket = ticketTypes.find((t) => t.id === id);
+                                  return ticket ? (
+                                    <li key={id} className="flex items-center gap-1">
+                                      <Check className="h-3 w-3 text-green-600" />
+                                      <span>{ticket.name}</span>
+                                    </li>
+                                  ) : null
+                                })
+                              )}
                             </ul>
                           </div>
                             </CardContent>
@@ -861,12 +911,20 @@ const TicketSelectionStep: React.FC = () => {
             </Button>
             <Button
               onClick={handleContinue}
-              disabled={
+              variant={
                 registrationType === 'lodge' && lodgeTicketOrder
-                  ? !packages['lodge-bulk']?.ticketDefinitionId && (!packages['lodge-bulk']?.selectedEvents || packages['lodge-bulk'].selectedEvents.length === 0)
-                  : !ensureAllAttendeesHaveTickets() || currentTickets.length === 0
+                  ? (packages['lodge-bulk']?.ticketDefinitionId || (packages['lodge-bulk']?.selectedEvents && packages['lodge-bulk'].selectedEvents.length > 0)) ? "default" : "outline"
+                  : (ensureAllAttendeesHaveTickets() && currentTickets.length > 0) ? "default" : "outline"
               }
-              className="gap-2 bg-masonic-navy hover:bg-masonic-blue"
+              className={`gap-2 ${
+                registrationType === 'lodge' && lodgeTicketOrder
+                  ? (packages['lodge-bulk']?.ticketDefinitionId || (packages['lodge-bulk']?.selectedEvents && packages['lodge-bulk'].selectedEvents.length > 0))
+                    ? "bg-masonic-navy hover:bg-masonic-blue text-white"
+                    : "border-masonic-navy text-masonic-navy hover:bg-masonic-lightblue"
+                  : (ensureAllAttendeesHaveTickets() && currentTickets.length > 0)
+                    ? "bg-masonic-navy hover:bg-masonic-blue text-white"
+                    : "border-masonic-navy text-masonic-navy hover:bg-masonic-lightblue"
+              }`}
             >
               Continue
               <ChevronRight className="w-4 h-4" />
@@ -880,6 +938,14 @@ const TicketSelectionStep: React.FC = () => {
             description={alertModalData.description}
             variant={alertModalData.variant}
             actionLabel="OK"
+          />
+          
+          <ValidationModal
+            isOpen={showValidationModal}
+            onClose={() => setShowValidationModal(false)}
+            errors={validationErrors}
+            title="Tickets Required"
+            description="Please ensure each attendee has at least one ticket or package selected before continuing:"
           />
         </div>
       </TwoColumnStepLayout>
@@ -980,20 +1046,31 @@ const TicketSelectionStep: React.FC = () => {
                                       <span>Includes:</span>
                                     </div>
                                     <ul className="space-y-1 pl-4">
-                                      {pkg.includes.map((id) => {
-                                        const ticket = ticketTypes.find((t) => t.id === id);
-                                        return ticket ? (
-                                          <li key={id} className="flex items-start gap-1">
+                                      {pkg.includes_description && pkg.includes_description.length > 0 ? (
+                                        // Use the descriptive text if available
+                                        pkg.includes_description.map((desc, idx) => (
+                                          <li key={idx} className="flex items-start gap-1">
                                             <Check className="h-3 w-3 text-green-600 mt-0.5" />
-                                            <div>
-                                              <span>{ticket.name}</span>
-                                              {ticket.event_title && (
-                                                <span className="text-xs text-gray-400 block">{ticket.event_title}</span>
-                                              )}
-                                            </div>
+                                            <span>{desc}</span>
                                           </li>
-                                        ) : null
-                                      })}
+                                        ))
+                                      ) : (
+                                        // Fallback to looking up ticket names
+                                        pkg.includes.map((id) => {
+                                          const ticket = ticketTypes.find((t) => t.id === id);
+                                          return ticket ? (
+                                            <li key={id} className="flex items-start gap-1">
+                                              <Check className="h-3 w-3 text-green-600 mt-0.5" />
+                                              <div>
+                                                <span>{ticket.name}</span>
+                                                {ticket.event_title && (
+                                                  <span className="text-xs text-gray-400 block">{ticket.event_title}</span>
+                                                )}
+                                              </div>
+                                            </li>
+                                          ) : null
+                                        })
+                                      )}
                                     </ul>
                                   </div>
                                 </CardContent>
@@ -1176,8 +1253,12 @@ const TicketSelectionStep: React.FC = () => {
           </Button>
           <Button
             onClick={handleContinue}
-            disabled={!ensureAllAttendeesHaveTickets() || currentTickets.length === 0}
-            className="gap-2 bg-masonic-navy hover:bg-masonic-blue"
+            variant={(ensureAllAttendeesHaveTickets() && currentTickets.length > 0) ? "default" : "outline"}
+            className={`gap-2 ${
+              (ensureAllAttendeesHaveTickets() && currentTickets.length > 0)
+                ? "bg-masonic-navy hover:bg-masonic-blue text-white"
+                : "border-masonic-navy text-masonic-navy hover:bg-masonic-lightblue"
+            }`}
           >
             Continue
             <ChevronRight className="w-4 h-4" />
@@ -1191,6 +1272,14 @@ const TicketSelectionStep: React.FC = () => {
           description={alertModalData.description}
           variant={alertModalData.variant}
           actionLabel="OK"
+        />
+        
+        <ValidationModal
+          isOpen={showValidationModal}
+          onClose={() => setShowValidationModal(false)}
+          errors={validationErrors}
+          title="Tickets Required"
+          description="Please ensure each attendee has at least one ticket or package selected before continuing:"
         />
       </div>
     </TwoColumnStepLayout>

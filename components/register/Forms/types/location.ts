@@ -1,6 +1,6 @@
 // Location-related types for Grand Lodge and Lodge selection
 export interface GrandLodgeRow {
-  id: string;
+  grand_lodge_id: string;
   name: string;
   country: string;
   state_province: string | null;
@@ -11,7 +11,7 @@ export interface GrandLodgeRow {
 }
 
 export interface LodgeRow {
-  id: string;
+  lodge_id: string;
   grand_lodge_id: string;
   name: string;
   number: number | null;

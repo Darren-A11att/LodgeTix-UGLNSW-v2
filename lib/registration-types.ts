@@ -89,9 +89,9 @@ export type UnifiedAttendeeData = {
   guestOfId?: string | null
   isPrimary?: boolean
   // Mason-specific fields
-  grandLodgeId?: string | number | null
+  grand_lodge_id?: string | number | null
   grandLodgeOrganisationId?: string
-  lodgeId?: string | number | null
+  lodge_id?: string | number | null
   lodgeOrganisationId?: string
   lodgeNameNumber?: string
   rank?: string

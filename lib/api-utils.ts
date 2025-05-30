@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase-browser'
+import { supabase } from "@/lib/supabase"
 import { NextApiRequest, NextApiResponse } from 'next'
 
 /**

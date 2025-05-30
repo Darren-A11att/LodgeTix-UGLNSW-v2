@@ -1,6 +1,6 @@
-import React, { useCallback, useEffect, useState, useMemo } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { useRegistrationStore } from '@/lib/registrationStore';
-import { Button } from '@/components/ui/button';
+import { useLodgeRegistrationStore } from '@/lib/lodgeRegistrationStore';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
@@ -8,16 +8,8 @@ import { Info, ShoppingCart, Users, Package, Check, Building } from 'lucide-reac
 import { cn } from '@/lib/utils';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import formSaveManager from '@/lib/formSaveManager';
-import { useAttendeeDataWithDebounce } from './lib/useAttendeeData';
-import { Checkbox } from '@/components/ui/checkbox';
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 
 // Import form components
-import { BasicInfo } from '../basic-details/BasicInfo';
-import { ContactInfo } from '../basic-details/ContactInfo';
-import { GrandOfficerFields } from '../mason/utils/GrandOfficerFields';
-import { GrandOfficerDropdown } from '../shared/GrandOfficerDropdown';
-import { MASON_TITLES, MASON_RANKS, GRAND_OFFICER_ROLES } from '../attendee/utils/constants';
 import { GrandLodgeSelection } from '../mason/lib/GrandLodgeSelection';
 import { LodgeSelection } from '../mason/lib/LodgeSelection';
 
@@ -25,7 +17,6 @@ import { LodgeSelection } from '../mason/lib/LodgeSelection';
 import {
   BookingContactSection,
   AttendeeCounter,
-  LodgeSelectionCard,
 } from './components';
 
 // Constants for form behavior
@@ -47,6 +38,7 @@ interface LodgesFormProps {
   maxTables?: number;
   onComplete?: () => void;
   className?: string;
+  fieldErrors?: Record<string, Record<string, string>>;
 }
 
 interface TableOrder {
@@ -60,34 +52,29 @@ export const LodgesForm: React.FC<LodgesFormProps> = ({
   maxTables = 10,
   onComplete,
   className,
+  fieldErrors = {},
 }) => {
   const { 
-    attendees, 
-    addMasonAttendee,
     setLodgeTicketOrder,
   } = useRegistrationStore();
   
-  // State for primary attendee tracking
-  const [primaryAttendeeId, setPrimaryAttendeeId] = useState<string | null>(null);
+  const {
+    customer,
+    lodgeDetails,
+    tableOrder,
+    updateCustomer,
+    updateLodgeDetails,
+    updateTableOrder,
+    isValid,
+    getValidationErrors,
+  } = useLodgeRegistrationStore();
   
-  // Get the primary attendee from store or find the first one
-  const primaryAttendee = attendees.find(a => a.isPrimary) || attendees[0];
+  // Get field errors for customer fields
+  const customerFieldErrors = fieldErrors['customer'] || {};
   
-  // Use the same pattern as MasonForm with useAttendeeDataWithDebounce
-  const { 
-    attendee: primaryAttendeeData, 
-    updateField, 
-    updateFieldImmediate,
-    updateMultipleFields,
-    updateMultipleFieldsImmediate 
-  } = useAttendeeDataWithDebounce(primaryAttendee?.attendeeId || '', DEBOUNCE_DELAY);
-  
-  // Local state for UI
-  const [selectedGrandLodge, setSelectedGrandLodge] = useState<string>('');
-  const [selectedLodge, setSelectedLodge] = useState<string>('');
-  const [lodgeName, setLodgeName] = useState('');
+  // Local state for UI only
   const [tableCount, setTableCount] = useState(1);
-  const [tableOrder, setTableOrder] = useState<TableOrder>({
+  const [calculatedTableOrder, setCalculatedTableOrder] = useState<TableOrder>({
     tableCount: 1,
     totalTickets: TABLE_SIZE,
     totalPrice: TABLE_PRICE
@@ -95,51 +82,12 @@ export const LodgesForm: React.FC<LodgesFormProps> = ({
 
   // Update table order when count changes
   useEffect(() => {
-    setTableOrder({
+    setCalculatedTableOrder({
       tableCount,
       totalTickets: tableCount * TABLE_SIZE,
       totalPrice: tableCount * TABLE_PRICE
     });
   }, [tableCount]);
-  
-  // Initialize Grand Lodge and Lodge from primary attendee when loaded
-  useEffect(() => {
-    if (primaryAttendeeData && !selectedGrandLodge && primaryAttendeeData.grandLodgeId) {
-      // Initialize Grand Lodge
-      setSelectedGrandLodge(String(primaryAttendeeData.grandLodgeId));
-      
-      // Initialize Lodge if available
-      if (primaryAttendeeData.lodgeId) {
-        setSelectedLodge(String(primaryAttendeeData.lodgeId));
-        if (primaryAttendeeData.lodgeNameNumber) {
-          setLodgeName(primaryAttendeeData.lodgeNameNumber);
-        }
-      }
-    }
-  }, [primaryAttendeeData, selectedGrandLodge]);
-
-  // One-time initialization - ensure we have a primary attendee
-  const isInitializedRef = React.useRef(false);
-  
-  useEffect(() => {
-    if (!isInitializedRef.current && attendees.length === 0) {
-      isInitializedRef.current = true;
-      
-      const primaryId = addMasonAttendee();
-      setPrimaryAttendeeId(primaryId);
-      
-      // Use immediate update to set initial values
-      setTimeout(() => {
-        const store = useRegistrationStore.getState();
-        store.updateAttendee(primaryId, {
-          isPrimary: true,
-          attendeeType: 'Mason',
-        });
-      }, 0);
-    } else if (primaryAttendee && !primaryAttendeeId) {
-      setPrimaryAttendeeId(primaryAttendee.attendeeId);
-    }
-  }, [attendees.length, addMasonAttendee, primaryAttendee, primaryAttendeeId]);
 
   // Update table count
   const handleTableCountChange = useCallback((newCount: number) => {
@@ -160,112 +108,56 @@ export const LodgesForm: React.FC<LodgesFormProps> = ({
     }
   }, [minTables, maxTables, setLodgeTicketOrder]);
 
-  // Update lodge details for primary attendee
+  // Update lodge details
   const handleLodgeChange = useCallback((lodgeId: string, lodgeName: string) => {
-    if (selectedLodge !== lodgeId) {
-      setSelectedLodge(lodgeId);
-      setLodgeName(lodgeName);
-      
-      if (primaryAttendeeData) {
-        updateField('grandLodgeId', selectedGrandLodge ? Number(selectedGrandLodge) : 0);
-        updateField('lodgeId', lodgeId ? Number(lodgeId) : 0);
-        updateField('lodgeNameNumber', lodgeName);
-      }
-    }
-  }, [primaryAttendeeData, updateField, selectedGrandLodge, selectedLodge]);
+    updateLodgeDetails({
+      lodge_id: lodgeId,
+      lodgeName,
+    });
+  }, [updateLodgeDetails]);
 
-  // Track if we're initializing from draft to prevent clearing Lodge
-  const isInitializingFromDraftRef = React.useRef(true);
-  
-  // Update Grand Lodge for primary attendee
+  // Update Grand Lodge
   const handleGrandLodgeChange = useCallback((grandLodgeId: string) => {
-    if (selectedGrandLodge !== grandLodgeId) {
-      const previousGrandLodge = selectedGrandLodge;
-      setSelectedGrandLodge(grandLodgeId);
-      
-      // Check if we should preserve the Lodge selection
-      const shouldPreserveLodge = isInitializingFromDraftRef.current && 
-                                 primaryAttendeeData?.lodgeId && 
-                                 Number(primaryAttendeeData?.grandLodgeId) === Number(grandLodgeId);
-      
-      // Only clear Lodge selection if:
-      // 1. We're not initializing from draft, OR
-      // 2. We're actually changing to a different Grand Lodge
-      if (!shouldPreserveLodge && previousGrandLodge) {
-        setSelectedLodge('');
-        setLodgeName('');
-      }
-      
-      if (primaryAttendeeData) {
-        // Use immediate update for critical fields
-        updateFieldImmediate('grandLodgeId', grandLodgeId ? Number(grandLodgeId) : 0);
-        
-        // Only clear lodge data if we're not preserving it
-        if (!shouldPreserveLodge && previousGrandLodge) {
-          updateFieldImmediate('lodgeId', 0);
-          updateFieldImmediate('lodgeNameNumber', '');
-        }
-      }
-      
-      // After first initialization, set flag to false
-      if (isInitializingFromDraftRef.current) {
-        setTimeout(() => {
-          isInitializingFromDraftRef.current = false;
-        }, 1000);
-      }
-    }
-  }, [primaryAttendeeData, updateFieldImmediate, selectedGrandLodge]);
+    updateLodgeDetails({
+      grand_lodge_id: grandLodgeId,
+      // Clear lodge when grand lodge changes
+      lodge_id: '',
+      lodgeName: '',
+    });
+  }, [updateLodgeDetails]);
 
-  // Field change handler for BookingContactSection
-  const handleFieldChange = useCallback((field: string, value: any) => {
-    updateField(field, value);
-  }, [updateField]);
-
-  const handleFieldChangeImmediate = useCallback((field: string, value: any) => {
-    updateFieldImmediate(field, value);
-  }, [updateFieldImmediate]);
+  // No field change handlers needed - BookingContactSection will use lodge store directly
 
   // Validate and complete
   const handleComplete = useCallback(() => {
-    formSaveManager.saveBeforeNavigation().then(() => {
-      if (!selectedGrandLodge) {
-        alert('Please select a Grand Lodge');
-        return;
-      }
-      
-      if (!selectedLodge) {
-        alert('Please select a Lodge');
-        return;
-      }
-      
-      if (tableCount < minTables) {
-        alert(`At least ${minTables} table${minTables > 1 ? 's' : ''} must be ordered`);
-        return;
-      }
-      
-      if (!primaryAttendeeData || !primaryAttendeeData.firstName || !primaryAttendeeData.lastName) {
-        alert('Please complete the booking contact details');
-        return;
-      }
-      
-      // Store final table order
-      if (setLodgeTicketOrder) {
-        setLodgeTicketOrder({
-          tableCount,
-          totalTickets: tableCount * TABLE_SIZE,
-          galaDinnerTickets: tableCount * TABLE_SIZE,
-          ceremonyTickets: tableCount * TABLE_SIZE,
-          eventId: EVENT_IDS.GRAND_PROCLAMATION,
-          galaDinnerEventId: EVENT_IDS.GALA_DINNER,
-          ceremonyEventId: EVENT_IDS.CEREMONY,
-        });
-      }
-      
-      if (onComplete) {
-        onComplete();
-      }
-    });
-  }, [selectedGrandLodge, selectedLodge, tableCount, minTables, primaryAttendee, onComplete, setLodgeTicketOrder]);
+    if (!isValid()) {
+      const errors = getValidationErrors();
+      alert('Please complete all required fields:\n' + errors.join('\n'));
+      return;
+    }
+    
+    if (tableCount < minTables) {
+      alert(`At least ${minTables} table${minTables > 1 ? 's' : ''} must be ordered`);
+      return;
+    }
+    
+    // Store final table order
+    if (setLodgeTicketOrder) {
+      setLodgeTicketOrder({
+        tableCount,
+        totalTickets: tableCount * TABLE_SIZE,
+        galaDinnerTickets: tableCount * TABLE_SIZE,
+        ceremonyTickets: tableCount * TABLE_SIZE,
+        eventId: EVENT_IDS.GRAND_PROCLAMATION,
+        galaDinnerEventId: EVENT_IDS.GALA_DINNER,
+        ceremonyEventId: EVENT_IDS.CEREMONY,
+      });
+    }
+    
+    if (onComplete) {
+      onComplete();
+    }
+  }, [isValid, getValidationErrors, tableCount, minTables, onComplete, setLodgeTicketOrder]);
 
   return (
     <div className={cn("space-y-6", className)}>
@@ -286,10 +178,10 @@ export const LodgesForm: React.FC<LodgesFormProps> = ({
             <div className="grid md:grid-cols-2 gap-6">
               <div className="space-y-2">
                 <GrandLodgeSelection 
-                  value={selectedGrandLodge}
+                  value={lodgeDetails.grand_lodge_id}
                   onChange={handleGrandLodgeChange}
                 />
-                {!selectedGrandLodge && (
+                {!lodgeDetails.grand_lodge_id && (
                   <p className="text-amber-600 text-xs mt-1 flex items-center gap-1">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
                       <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a.75.75 0 000 1.5h.253a.25.25 0 01.244.304l-.459 2.066A1.75 1.75 0 0010.747 15H11a.75.75 0 000-1.5h-.253a.25.25 0 01-.244-.304l.459-2.066A1.75 1.75 0 009.253 9H9z" clipRule="evenodd" />
@@ -301,12 +193,12 @@ export const LodgesForm: React.FC<LodgesFormProps> = ({
               
               <div className="space-y-2">
                 <LodgeSelection 
-                  grandLodgeId={selectedGrandLodge}
-                  value={selectedLodge}
+                  grand_lodge_id={lodgeDetails.grand_lodge_id}
+                  value={lodgeDetails.lodge_id}
                   onChange={(lodgeId, lodgeName) => handleLodgeChange(lodgeId, lodgeName ?? '')}
-                  disabled={!selectedGrandLodge}
+                  disabled={!lodgeDetails.grand_lodge_id}
                 />
-                {selectedGrandLodge && !selectedLodge && (
+                {lodgeDetails.grand_lodge_id && !lodgeDetails.lodge_id && (
                   <p className="text-amber-600 text-xs mt-1 flex items-center gap-1">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
                       <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a.75.75 0 000 1.5h.253a.25.25 0 01.244.304l-.459 2.066A1.75 1.75 0 0010.747 15H11a.75.75 0 000-1.5h-.253a.25.25 0 01-.244-.304l.459-2.066A1.75 1.75 0 009.253 9H9z" clipRule="evenodd" />
@@ -318,14 +210,7 @@ export const LodgesForm: React.FC<LodgesFormProps> = ({
             </div>
             
             {/* Booking Contact Details */}
-            {primaryAttendeeData && (
-              <BookingContactSection
-                attendee={primaryAttendeeData}
-                onFieldChange={handleFieldChange}
-                onFieldChangeImmediate={handleFieldChangeImmediate}
-                updateOnBlur={true}
-              />
-            )}
+            <BookingContactSection mode="customer" fieldErrors={customerFieldErrors} />
           </CardContent>
         </Card>
       </div>
@@ -333,7 +218,7 @@ export const LodgesForm: React.FC<LodgesFormProps> = ({
       {/* Table Order Section */}
       <Card className={cn(
         "border-2 border-primary/20 transition-opacity duration-300",
-        !selectedLodge && "opacity-70"
+        !lodgeDetails.lodge_id && "opacity-70"
       )}>
         <CardHeader className="py-4 px-6 border-b border-gray-200">
           <div className="flex items-center justify-between">
@@ -405,7 +290,7 @@ export const LodgesForm: React.FC<LodgesFormProps> = ({
                   min={minTables}
                   max={maxTables}
                   onChange={handleTableCountChange}
-                  disabled={!selectedLodge}
+                  disabled={!lodgeDetails.lodge_id}
                 />
                 <p className="text-sm text-gray-600 mt-2">
                   {tableCount} {tableCount === 1 ? 'table' : 'tables'} = {tableCount * TABLE_SIZE} attendees
@@ -423,7 +308,7 @@ export const LodgesForm: React.FC<LodgesFormProps> = ({
                   </div>
                   <div className="flex justify-between items-center text-sm text-gray-500">
                     <span>Total Attendees</span>
-                    <span>{tableOrder.totalTickets} people</span>
+                    <span>{calculatedTableOrder.totalTickets} people</span>
                   </div>
                 </div>
 
@@ -431,11 +316,11 @@ export const LodgesForm: React.FC<LodgesFormProps> = ({
                   <div className="text-sm text-gray-600">
                     <div className="flex justify-between">
                       <span>Ceremony Tickets</span>
-                      <span>{tableOrder.totalTickets} × $50</span>
+                      <span>{calculatedTableOrder.totalTickets} × $50</span>
                     </div>
                     <div className="flex justify-between">
                       <span>Gala Dinner Tickets</span>
-                      <span>{tableOrder.totalTickets} × $145</span>
+                      <span>{calculatedTableOrder.totalTickets} × $145</span>
                     </div>
                   </div>
                 </div>
@@ -444,22 +329,10 @@ export const LodgesForm: React.FC<LodgesFormProps> = ({
                   <div className="flex justify-between items-center">
                     <span className="text-lg font-semibold">Total Amount</span>
                     <span className="text-2xl font-bold text-primary">
-                      ${tableOrder.totalPrice.toLocaleString()}
+                      ${calculatedTableOrder.totalPrice.toLocaleString()}
                     </span>
                   </div>
                 </div>
-              </div>
-
-              {/* Attendee Allocation Note */}
-              <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-                <h4 className="font-medium text-amber-900 mb-2 flex items-center gap-2">
-                  <Users className="w-4 h-4" />
-                  Attendee Details
-                </h4>
-                <p className="text-sm text-amber-800">
-                  Attendee names and details will be requested closer to the event date.
-                  All attendees will automatically inherit your lodge information.
-                </p>
               </div>
             </div>
           </div>
@@ -472,10 +345,9 @@ export const LodgesForm: React.FC<LodgesFormProps> = ({
 
 // Summary view for lodge table orders
 export const LodgeFormSummary: React.FC = () => {
-  const { attendees, lodgeTicketOrder } = useRegistrationStore();
+  const { billingDetails, lodgeTicketOrder } = useRegistrationStore();
   
-  const primaryAttendee = attendees.find(a => a.isPrimary);
-  const lodgeDetails = primaryAttendee?.lodgeNameNumber || 'Lodge';
+  const lodgeDetails = billingDetails?.businessName || 'Lodge';
 
   if (!lodgeTicketOrder) {
     return null;
@@ -491,8 +363,14 @@ export const LodgeFormSummary: React.FC = () => {
             <div>
               <p className="font-medium text-lg">{lodgeDetails}</p>
               <p className="text-sm text-gray-600">
-                Contact: {primaryAttendee?.title} {primaryAttendee?.firstName} {primaryAttendee?.lastName}
+                Contact: {billingDetails?.title} {billingDetails?.firstName} {billingDetails?.lastName}
               </p>
+              {billingDetails?.email && (
+                <p className="text-sm text-gray-600">Email: {billingDetails.email}</p>
+              )}
+              {billingDetails?.phone && (
+                <p className="text-sm text-gray-600">Phone: {billingDetails.phone}</p>
+              )}
             </div>
             
             <div className="border-t pt-3 space-y-2">
@@ -525,13 +403,6 @@ export const LodgeFormSummary: React.FC = () => {
           </div>
         </CardContent>
       </Card>
-
-      <Alert className="border-amber-200 bg-amber-50">
-        <Info className="h-4 w-4 text-amber-600" />
-        <AlertDescription className="text-amber-700 text-sm">
-          Attendee details can be allocated to these tickets at any time before the event.
-        </AlertDescription>
-      </Alert>
     </div>
   );
 };

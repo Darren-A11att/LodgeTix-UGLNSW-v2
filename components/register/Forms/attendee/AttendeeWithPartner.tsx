@@ -22,6 +22,7 @@ interface AttendeeWithPartnerProps extends FormProps {
   allowPartner?: boolean;
   className?: string;
   onRemove?: () => void;
+  fieldErrors?: Record<string, Record<string, string>>;
 }
 
 export const AttendeeWithPartner: React.FC<AttendeeWithPartnerProps> = ({ 
@@ -31,6 +32,7 @@ export const AttendeeWithPartner: React.FC<AttendeeWithPartnerProps> = ({
   allowPartner = true,
   className,
   onRemove,
+  fieldErrors = {},
 }) => {
   const { attendee, partner, hasPartner, togglePartner, updatePartnerRelationship } = usePartnerManager(attendeeId);
 
@@ -61,6 +63,7 @@ export const AttendeeWithPartner: React.FC<AttendeeWithPartnerProps> = ({
           attendeeNumber={attendeeNumber}
           isPrimary={isPrimary}
           onRemove={onRemove}
+          fieldErrors={fieldErrors}
         />
       </Suspense>
 
@@ -100,6 +103,7 @@ export const AttendeeWithPartner: React.FC<AttendeeWithPartnerProps> = ({
               attendeeNumber={attendeeNumber + 1}
               isPrimary={false}
               onRelationshipChange={(relationship) => updatePartnerRelationship(relationship as any)}
+              fieldErrors={fieldErrors}
             />
           </Suspense>
         </>

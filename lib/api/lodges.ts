@@ -1,4 +1,4 @@
-import { supabase } from '../supabase-browser';
+import { supabase } from "../supabase";
 import { Database } from '../../shared/types/supabase';
 
 // Explicitly type based on your Database schema definitions
@@ -236,7 +236,7 @@ export async function searchAllLodges(
     // Combine and deduplicate results
     const combinedResults = [...(textResults || []), ...numberResults];
     const uniqueResults = combinedResults.filter((lodge, index, self) => 
-      index === self.findIndex(l => l.id === lodge.id)
+      index === self.findIndex(l => l.lodge_id === lodge.lodge_id)
     );
     
     console.log(`[searchAllLodges] Direct queries returned ${uniqueResults.length} results`);

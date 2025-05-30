@@ -4,7 +4,8 @@ import { api } from '@/lib/api-logger'
 import type { AttendeeType } from '@/components/register/RegistrationWizard/Steps/ticket-selection-step'
 
 export interface TicketDefinition {
-  id: string
+  id: string // This will map to ticket_definition_id from the database
+  ticket_definition_id?: string // Include both for compatibility
   name: string
   price: number
   description: string | null
@@ -53,6 +54,92 @@ export class EventTicketsService {
   
   constructor(isServer: boolean = false) {
     this.supabase = getSupabaseClient(isServer)
+  }
+  
+  /**
+   * Get the minimum ticket price for an event
+   * Returns null if no tickets are found or all tickets are free
+   */
+  async getMinimumTicketPrice(eventId: string): Promise<number | null> {
+    try {
+      const { data: tickets, error } = await this.supabase
+        .from('ticket_definitions')
+        .select('price')
+        .eq('event_id', eventId)
+        .eq('is_active', true)
+        .gt('price', 0) // Only consider tickets with price > 0
+        .order('price', { ascending: true })
+        .limit(1)
+      
+      if (error) {
+        api.error(`Error fetching minimum ticket price for event ${eventId}:`, error)
+        return null
+      }
+      
+      if (!tickets || tickets.length === 0) {
+        // No paid tickets found
+        return null
+      }
+      
+      return tickets[0].price
+    } catch (error) {
+      api.error(`Error in getMinimumTicketPrice for event ${eventId}:`, error)
+      return null
+    }
+  }
+  
+  /**
+   * Get minimum ticket prices for multiple events
+   * Returns a map of event ID to minimum price
+   */
+  async getMinimumTicketPricesForEvents(eventIds: string[]): Promise<Map<string, number | null>> {
+    const priceMap = new Map<string, number | null>()
+    
+    if (eventIds.length === 0) {
+      return priceMap
+    }
+    
+    try {
+      // Get all active tickets for the given events
+      const { data: tickets, error } = await this.supabase
+        .from('ticket_definitions')
+        .select('event_id, price')
+        .in('event_id', eventIds)
+        .eq('is_active', true)
+        .gt('price', 0)
+        .order('price', { ascending: true })
+      
+      if (error) {
+        api.error('Error fetching minimum ticket prices for events:', error)
+        // Return empty map on error
+        eventIds.forEach(id => priceMap.set(id, null))
+        return priceMap
+      }
+      
+      // Process tickets to find minimum price per event
+      const eventPrices = new Map<string, number>()
+      
+      if (tickets && tickets.length > 0) {
+        tickets.forEach(ticket => {
+          const currentMin = eventPrices.get(ticket.event_id)
+          if (currentMin === undefined || ticket.price < currentMin) {
+            eventPrices.set(ticket.event_id, ticket.price)
+          }
+        })
+      }
+      
+      // Set prices for all requested events
+      eventIds.forEach(id => {
+        priceMap.set(id, eventPrices.get(id) || null)
+      })
+      
+      return priceMap
+    } catch (error) {
+      api.error('Error in getMinimumTicketPricesForEvents:', error)
+      // Return null for all events on error
+      eventIds.forEach(id => priceMap.set(id, null))
+      return priceMap
+    }
   }
   
   /**
@@ -263,7 +350,8 @@ export class EventTicketsService {
     }
     
     return {
-      id: ticket.id,
+      id: ticket.ticket_definition_id || ticket.id, // Use ticket_definition_id as the id
+      ticket_definition_id: ticket.ticket_definition_id || ticket.id,
       name: ticket.name,
       price: ticket.price,
       description: ticket.description,

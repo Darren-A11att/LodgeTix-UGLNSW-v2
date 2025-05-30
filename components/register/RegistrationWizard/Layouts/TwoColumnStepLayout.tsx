@@ -41,7 +41,7 @@ export const TwoColumnStepLayout: React.FC<TwoColumnStepLayoutProps> = ({
     <div className={cn("w-full", className)}>
       {/* Two-column desktop layout */}
       <div className="grid grid-cols-1 lg:grid-cols-10 gap-6">
-        {/* Main Content - full width on mobile, 70% width on desktop */}
+        {/* Main Content - full width on mobile, 80% width on desktop */}
         <div className={cn("lg:col-span-7", mainColumnClassName)}>
           {children}
         </div>

@@ -16,6 +16,7 @@ interface IndividualsFormProps {
   allowPartners?: boolean;
   onComplete?: () => void;
   className?: string;
+  fieldErrors?: Record<string, Record<string, string>>;
 }
 
 export const IndividualsForm: React.FC<IndividualsFormProps> = ({
@@ -23,6 +24,7 @@ export const IndividualsForm: React.FC<IndividualsFormProps> = ({
   allowPartners = true,
   onComplete,
   className,
+  fieldErrors = {},
 }) => {
   const { 
     attendees, 
@@ -191,6 +193,7 @@ export const IndividualsForm: React.FC<IndividualsFormProps> = ({
                     isPrimary={isPrimary}
                     allowPartner={allowPartners}
                     onRemove={!isPrimary ? () => handleRemoveAttendee(attendee.attendeeId) : undefined}
+                    fieldErrors={fieldErrors}
                   />
                 </CardContent>
               )}

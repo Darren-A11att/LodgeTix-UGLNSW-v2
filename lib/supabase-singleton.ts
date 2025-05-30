@@ -2,7 +2,7 @@
 // This file ensures we never create duplicate Supabase client instances
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
-import { Database } from '@/supabase/supabase';
+import { Database } from '@/shared/types/database';
 import { api } from '@/lib/api-logger';
 
 // Environment variables
@@ -275,7 +275,7 @@ export function table(tableName: string, isServer = false) {
   }
   // Normalize the table name to its snake_case version regardless of input case
   const normalizedName = 
-    DB_TABLE_NAMES[tableName as keyof typeof DB_TABLE_NAMES] || tableName.toLowerCase();
+    supabaseTables[tableName as keyof typeof supabaseTables] || tableName.toLowerCase();
   // console.log(`Accessing table via singleton: "${normalizedName}" (original input: "${tableName}")`); // Optional: for debugging
   return client.from(normalizedName as keyof Database['public']['Tables']);
 }
@@ -283,6 +283,9 @@ export function table(tableName: string, isServer = false) {
 // Export getter function for browser client to prevent multiple instances
 // This ensures the client is only created when actually needed
 export const getSupabase = () => getBrowserClient();
+
+// Export server client getter with alternate name for backward compatibility
+export const getSupabaseAdmin = getServerClient;
 
 // For backward compatibility, export the getter as 'supabase'
 // Note: Consumers should ideally use getBrowserClient() directly

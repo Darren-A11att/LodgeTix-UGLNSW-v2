@@ -1,7 +1,7 @@
 import { AdminApiService, AdminApiResponse, QueryParams } from './adminApiService';
 import { supabaseTables } from '../../supabase';
 import * as TicketTypes from '../../../shared/types/ticket';
-import * as SupabaseTypes from '../../../../supabase/supabase.types';
+import * as SupabaseTypes from '@/shared/types/database';
 
 type DbTicketDefinition = SupabaseTypes.Database['public']['Tables']['ticket_definitions']['Row'];
 type DbTicketTypePriceTier = SupabaseTypes.Database['public']['Tables']['ticket_type_price_tiers']['Row'];

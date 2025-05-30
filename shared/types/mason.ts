@@ -2,7 +2,7 @@ import { AttendeeTicket } from './register'; // Import shared ticket type
 
 // Interface for Lodge data (can be expanded based on DB schema)
 export interface Lodge {
-  id: string; // Typically UUID
+  lodge_id: string; // Typically UUID
   name: string;
   number: string | null;
   location?: string | null; // e.g., City, State
@@ -11,7 +11,7 @@ export interface Lodge {
 
 // Interface for Grand Lodge data (can be expanded based on DB schema)
 export interface GrandLodge {
-  id: string; // Typically UUID
+  grand_lodge_id: string; // Typically UUID
   name: string; // e.g., "Grand Lodge of NSW & ACT"
   short_name?: string | null; // e.g., "GLNSWACT"
   jurisdiction_country?: string; // e.g., "AU"
@@ -29,9 +29,9 @@ export interface MasonData {
   rank: string;
   phone: string;
   email: string;
-  lodgeId: string | null; // Foreign key to lodges table
+  lodge_id: string | null; // Foreign key to lodges table
   lodgeName?: string; // Denormalized/fetched for display
-  grandLodgeId: string | null; // Foreign key to grand_lodges table
+  grand_lodge_id: string | null; // Foreign key to grand_lodges table
   grandLodgeName?: string; // Denormalized/fetched for display
   dietary: string;
   specialNeeds: string;
@@ -47,5 +47,5 @@ export interface MasonData {
   
   // Fields for pending lodge creation (UI state)
   isPendingNewLodge?: boolean; 
-  pendingLodgeDetails?: { name: string; number: string; grandLodgeId: string | null } | null;
+  pendingLodgeDetails?: { name: string; number: string; grand_lodge_id: string | null } | null;
 } 

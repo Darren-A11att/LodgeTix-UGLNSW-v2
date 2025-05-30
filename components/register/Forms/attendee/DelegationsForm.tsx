@@ -14,7 +14,7 @@ import { Input } from '@/components/ui/input';
 import { GrandLodgeSelection } from '../mason/lib/GrandLodgeSelection';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import formSaveManager from '@/lib/formSaveManager';
-import { useDebouncedCallback } from 'use-debounce';
+import { useAttendeeDataWithDebounce } from './lib/useAttendeeData';
 
 interface DelegationsFormProps {
   delegationType?: 'GrandLodge' | 'MasonicGoverningBody';
@@ -24,6 +24,9 @@ interface DelegationsFormProps {
   onComplete?: () => void;
   className?: string;
 }
+
+// Constants
+const DEBOUNCE_DELAY = 300; // Changed from implicit 500ms to explicit 300ms
 
 export const DelegationsForm: React.FC<DelegationsFormProps> = ({
   delegationType = 'GrandLodge',
@@ -44,10 +47,10 @@ export const DelegationsForm: React.FC<DelegationsFormProps> = ({
   
   const [delegationDetails, setDelegationDetails] = useState<{
     name: string;
-    grandLodgeId?: string;
+    grand_lodge_id?: string;
   }>({
     name: '',
-    grandLodgeId: undefined,
+    grand_lodge_id: undefined,
   });
 
   // Filter to only show delegates (not partners)
@@ -60,10 +63,10 @@ export const DelegationsForm: React.FC<DelegationsFormProps> = ({
 
   // Update delegation grand lodge when head changes
   useEffect(() => {
-    if (headOfDelegation && headOfDelegation.grandLodgeId) {
+    if (headOfDelegation && headOfDelegation.grand_lodge_id) {
       setDelegationDetails(prev => ({
         ...prev,
-        grandLodgeId: headOfDelegation.grandLodgeId,
+        grand_lodge_id: headOfDelegation.grand_lodge_id,
       }));
     }
   }, [headOfDelegation]);
@@ -77,9 +80,9 @@ export const DelegationsForm: React.FC<DelegationsFormProps> = ({
     const newDelegateId = isMasonDelegate ? addMasonAttendee() : addGuestAttendee();
     
     // Auto-populate grand lodge from delegation
-    if (delegationDetails.grandLodgeId) {
+    if (delegationDetails.grand_lodge_id) {
       updateAttendee(newDelegateId, {
-        grandLodgeId: delegationDetails.grandLodgeId,
+        grand_lodge_id: delegationDetails.grand_lodge_id,
         contactPreference: 'PrimaryAttendee',
       });
     }
@@ -92,11 +95,11 @@ export const DelegationsForm: React.FC<DelegationsFormProps> = ({
 
   // Handle grand lodge change for entire delegation
   const handleGrandLodgeChange = useCallback((grandLodgeId: string) => {
-    setDelegationDetails(prev => ({ ...prev, grandLodgeId }));
+    setDelegationDetails(prev => ({ ...prev, grand_lodge_id: grandLodgeId }));
     
     // Update all delegates with new grand lodge
     delegateAttendees.forEach(delegate => {
-      updateAttendee(delegate.attendeeId, { grandLodgeId });
+      updateAttendee(delegate.attendeeId, { grand_lodge_id: grandLodgeId });
     });
   }, [delegateAttendees, updateAttendee]);
 
@@ -124,7 +127,7 @@ export const DelegationsForm: React.FC<DelegationsFormProps> = ({
         return;
       }
       
-      if (!delegationDetails.grandLodgeId) {
+      if (!delegationDetails.grand_lodge_id) {
         alert('Please select a Grand Lodge');
         return;
       }
@@ -153,19 +156,14 @@ export const DelegationsForm: React.FC<DelegationsFormProps> = ({
   }, []);
 
   const [showDelegateTypeDialog, setShowDelegateTypeDialog] = useState(false);
-  
-  // Debounce the add delegate button to prevent rapid clicks
-  const debouncedShowDialog = useDebouncedCallback(() => {
-    setShowDelegateTypeDialog(true);
-  }, 300);
 
   // Handle delegate type selection
   const handleDelegateTypeSelection = useCallback((type: 'Mason' | 'Guest') => {
     const newDelegateId = type === 'Mason' ? addMasonAttendee() : addGuestAttendee();
     
-    if (delegationDetails.grandLodgeId) {
+    if (delegationDetails.grand_lodge_id) {
       updateAttendee(newDelegateId, {
-        grandLodgeId: delegationDetails.grandLodgeId,
+        grand_lodge_id: delegationDetails.grand_lodge_id,
         contactPreference: 'PrimaryAttendee',
       });
     }
@@ -205,7 +203,7 @@ export const DelegationsForm: React.FC<DelegationsFormProps> = ({
           <div>
             <Label>Grand Lodge</Label>
             <GrandLodgeSelection 
-              value={delegationDetails.grandLodgeId || ''}
+              value={delegationDetails.grand_lodge_id || ''}
               onChange={handleGrandLodgeChange}
             />
           </div>
@@ -213,7 +211,7 @@ export const DelegationsForm: React.FC<DelegationsFormProps> = ({
       </Card>
 
       {/* Delegation info alert */}
-      {delegationDetails.name && delegationDetails.grandLodgeId && (
+      {delegationDetails.name && delegationDetails.grand_lodge_id && (
         <Alert>
           <Shield className="h-4 w-4" />
           <AlertDescription>
@@ -238,7 +236,7 @@ export const DelegationsForm: React.FC<DelegationsFormProps> = ({
                 {delegateAttendees.length} delegate{delegateAttendees.length !== 1 ? 's' : ''}
               </Badge>
               <Button
-                onClick={debouncedShowDialog}
+                onClick={() => setShowDelegateTypeDialog(true)}
                 disabled={delegateAttendees.length >= maxDelegates}
                 size="sm"
               >

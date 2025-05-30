@@ -15,10 +15,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 interface MasonLodgeInfoProps {
   attendeeId: string;
   isPrimary: boolean;
-  grandLodgeId?: string;
-  lodgeId?: string;
-  onGrandLodgeChange: (grandLodgeId: string) => void;
-  onLodgeChange: (lodgeId: string, lodgeNameNumber?: string) => void;
+  grand_lodge_id?: string;
+  lodge_id?: string;
+  onGrandLodgeChange: (grand_lodge_id: string) => void;
+  onLodgeChange: (lodge_id: string, lodgeNameNumber?: string) => void;
   
   // Use same lodge functionality (for non-primary masons)
   showUseSameLodge?: boolean;
@@ -38,8 +38,8 @@ interface MasonLodgeInfoProps {
 const MasonLodgeInfo: React.FC<MasonLodgeInfoProps> = ({
   attendeeId,
   isPrimary,
-  grandLodgeId,
-  lodgeId,
+  grand_lodge_id,
+  lodge_id,
   onGrandLodgeChange,
   onLodgeChange,
   showUseSameLodge = false,
@@ -131,7 +131,7 @@ const MasonLodgeInfo: React.FC<MasonLodgeInfoProps> = ({
         const userLocation = await getUserLocation();
         
         // Check if we got a value during async wait (prevents race conditions)
-        if (grandLodgeId) {
+        if (grand_lodge_id) {
           setIsInitialized(true);
           return;
         }
@@ -155,13 +155,13 @@ const MasonLodgeInfo: React.FC<MasonLodgeInfoProps> = ({
         }
         
         // Check again if we got a value during async wait
-        if (grandLodgeId) {
+        if (grand_lodge_id) {
           setIsInitialized(true);
           return;
         }
         
         // Set default based on location - but only if no value is already set
-        if (userLocation?.country && !grandLodgeId) {
+        if (userLocation?.country && !grand_lodge_id) {
           let defaultGrandLodge: GrandLodgeRow | undefined;
           
           // Try to find a default Grand Lodge with more specific matching for Australia
@@ -202,7 +202,7 @@ const MasonLodgeInfo: React.FC<MasonLodgeInfoProps> = ({
             setSelectedGrandLodge(defaultGrandLodge);
             setGrandLodgeInputValue(defaultGrandLodge.name);
             // Call onChange last
-            onGrandLodgeChange(defaultGrandLodge.id);
+            onGrandLodgeChange(defaultGrandLodge.grand_lodge_id);
             setIsInitialized(true);
           }
         }
@@ -212,13 +212,13 @@ const MasonLodgeInfo: React.FC<MasonLodgeInfoProps> = ({
     };
 
     // Only initialize if not already loading and no value is set yet
-    if (!grandLodgeId && !isLoadingGrandLodges) {
+    if (!grand_lodge_id && !isLoadingGrandLodges) {
       initializeGrandLodge();
-    } else if (grandLodgeId) {
+    } else if (grand_lodge_id) {
       // If value already exists, consider it initialized
       setIsInitialized(true);
     }
-  }, [fetchInitialGrandLodges, searchGrandLodges, getUserLocation, grandLodges, grandLodgeId, onGrandLodgeChange, isLoadingGrandLodges, isInitialized]);
+  }, [fetchInitialGrandLodges, searchGrandLodges, getUserLocation, grandLodges, grand_lodge_id, onGrandLodgeChange, isLoadingGrandLodges, isInitialized]);
 
   // Load selected grand lodge data when value changes or grandLodges are loaded
   useEffect(() => {
@@ -228,13 +228,13 @@ const MasonLodgeInfo: React.FC<MasonLodgeInfoProps> = ({
     // Track if we're currently processing to avoid recursive updates
     let isProcessing = false;
     
-    if (grandLodgeId && grandLodges.length > 0) {
+    if (grand_lodge_id && grandLodges.length > 0) {
       isProcessing = true;
       
       try {
         // Only update if we don't already have the right selection
-        if (!selectedGrandLodge || selectedGrandLodge.id !== grandLodgeId) {
-          const grandLodge = grandLodges.find(gl => gl.id === grandLodgeId);
+        if (!selectedGrandLodge || selectedGrandLodge.grand_lodge_id !== grand_lodge_id) {
+          const grandLodge = grandLodges.find(gl => gl.grand_lodge_id === grand_lodge_id);
           if (grandLodge) {
             setSelectedGrandLodge(grandLodge);
             setGrandLodgeInputValue(grandLodge.name);
@@ -244,20 +244,20 @@ const MasonLodgeInfo: React.FC<MasonLodgeInfoProps> = ({
       } finally {
         isProcessing = false;
       }
-    } else if (!grandLodgeId && selectedGrandLodge !== null) {
+    } else if (!grand_lodge_id && selectedGrandLodge !== null) {
       // Clear selection if value is empty/null and user is not typing
       setSelectedGrandLodge(null);
       setGrandLodgeInputValue('');
     }
-  }, [grandLodgeId, grandLodges, selectedGrandLodge]);
+  }, [grand_lodge_id, grandLodges, selectedGrandLodge]);
 
   // Load lodges when grand lodge changes
   useEffect(() => {
-    if (grandLodgeId && lodges.length === 0 && !isLoadingLodges) {
-      console.log(`[MasonLodgeInfo] Loading lodges for Grand Lodge ID: ${grandLodgeId}`);
-      getLodgesByGrandLodge(grandLodgeId);
+    if (grand_lodge_id && lodges.length === 0 && !isLoadingLodges) {
+      console.log(`[MasonLodgeInfo] Loading lodges for Grand Lodge ID: ${grand_lodge_id}`);
+      getLodgesByGrandLodge(grand_lodge_id);
     }
-  }, [grandLodgeId, getLodgesByGrandLodge, lodges.length, isLoadingLodges]);
+  }, [grand_lodge_id, getLodgesByGrandLodge, lodges.length, isLoadingLodges]);
 
   // Handle "use same lodge" checkbox
   const handleUseSameLodgeChange = useCallback((checked: boolean) => {
@@ -265,22 +265,22 @@ const MasonLodgeInfo: React.FC<MasonLodgeInfoProps> = ({
       onUseSameLodgeChange(checked);
     }
     
-    if (checked && primaryMason?.grandLodgeId && primaryMason?.lodgeId) {
+    if (checked && primaryMason?.grand_lodge_id && primaryMason?.lodge_id) {
       // Force the selection to match the primary mason
-      if (grandLodgeId !== primaryMason.grandLodgeId) {
-        onGrandLodgeChange(primaryMason.grandLodgeId);
+      if (grand_lodge_id !== primaryMason.grand_lodge_id) {
+        onGrandLodgeChange(primaryMason.grand_lodge_id);
       }
       
-      if (lodgeId !== primaryMason.lodgeId) {
-        onLodgeChange(primaryMason.lodgeId, primaryMason.lodgeNameNumber);
+      if (lodge_id !== primaryMason.lodge_id) {
+        onLodgeChange(primaryMason.lodge_id, primaryMason.lodgeNameNumber);
       }
     }
-  }, [onUseSameLodgeChange, primaryMason, grandLodgeId, lodgeId, onGrandLodgeChange, onLodgeChange]);
+  }, [onUseSameLodgeChange, primaryMason, grand_lodge_id, lodge_id, onGrandLodgeChange, onLodgeChange]);
 
   // Effect to load lodges for initial lodge selection
   useEffect(() => {
-    if (lodgeId && !selectedLodge && lodges.length > 0) {
-      const lodge = lodges.find(l => l.id === lodgeId);
+    if (lodge_id && !selectedLodge && lodges.length > 0) {
+      const lodge = lodges.find(l => l.lodge_id === lodge_id);
       if (lodge) {
         setSelectedLodge(lodge);
         const displayValue = lodge.display_name || `${lodge.name} No. ${lodge.number || 'N/A'}`;
@@ -288,7 +288,7 @@ const MasonLodgeInfo: React.FC<MasonLodgeInfoProps> = ({
         lodgeNameRef.current = displayValue;
       }
     }
-  }, [lodgeId, selectedLodge, lodges]);
+  }, [lodge_id, selectedLodge, lodges]);
 
   // Grand Lodge filter and handlers
   const filterLocalGrandLodges = useCallback((query: string): GrandLodgeRow[] => {
@@ -442,17 +442,17 @@ const MasonLodgeInfo: React.FC<MasonLodgeInfoProps> = ({
     setGrandLodgeInputValue(option.name);
     
     // Notify parent
-    onGrandLodgeChange(option.id);
+    onGrandLodgeChange(option.grand_lodge_id);
     
     // When Grand Lodge changes, clear lodge selection
-    if (selectedLodge && selectedLodge.grand_lodge_id !== option.id) {
+    if (selectedLodge && selectedLodge.grand_lodge_id !== option.grand_lodge_id) {
       setSelectedLodge(null);
       setLodgeInputValue('');
       onLodgeChange('', '');
     }
     
     // Load lodges for this grand lodge
-    getLodgesByGrandLodge(option.id);
+    getLodgesByGrandLodge(option.grand_lodge_id);
   }, [onGrandLodgeChange, getLodgesByGrandLodge, selectedLodge, onLodgeChange]);
 
   // Lodge input handler
@@ -462,7 +462,7 @@ const MasonLodgeInfo: React.FC<MasonLodgeInfoProps> = ({
     
     // Only search if grand lodge is selected and value is long enough
     if (selectedGrandLodge?.id && value.length > 2) {
-      searchLodges(value, selectedGrandLodge.id);
+      searchLodges(value, selectedGrandLodge.grand_lodge_id);
     }
     
     // Reset typing flag
@@ -489,7 +489,7 @@ const MasonLodgeInfo: React.FC<MasonLodgeInfoProps> = ({
     lodgeNameRef.current = displayValue;
     
     // Notify parent
-    onLodgeChange(option.id, displayValue);
+    onLodgeChange(option.lodge_id, displayValue);
   }, [onLodgeChange]);
 
   // Create new lodge
@@ -519,7 +519,7 @@ const MasonLodgeInfo: React.FC<MasonLodgeInfoProps> = ({
       const newLodge = await createLodge({
         name: newLodgeName,
         number: parseInt(newLodgeNumber) || null,
-        grand_lodge_id: selectedGrandLodge.id,
+        grand_lodge_id: selectedGrandLodge.grand_lodge_id,
         display_name: `${newLodgeName} No. ${newLodgeNumber || 'N/A'}`,
         region_code: regionCode || null,
         district: null,
@@ -527,7 +527,7 @@ const MasonLodgeInfo: React.FC<MasonLodgeInfoProps> = ({
       });
       
       if (newLodge) {
-        console.log(`[MasonLodgeInfo] Successfully created lodge: ${newLodge.id}`);
+        console.log(`[MasonLodgeInfo] Successfully created lodge: ${newLodge.lodge_id}`);
         handleLodgeSelect(newLodge);
         setIsCreatingLodgeUI(false);
         setShowCreateDialog(false);
@@ -585,12 +585,12 @@ const MasonLodgeInfo: React.FC<MasonLodgeInfoProps> = ({
       return "Select Grand Lodge first";
     }
     
-    if (!selectedGrandLodge.id) {
+    if (!selectedGrandLodge.grand_lodge_id) {
       return "Search Lodge name, number, town...";
     }
     
     // Check if we have cached lodges for this Grand Lodge - safely
-    const cacheForGl = lodgeCacheRef.current?.byGrandLodge?.[selectedGrandLodge.id];
+    const cacheForGl = lodgeCacheRef.current?.byGrandLodge?.[selectedGrandLodge.grand_lodge_id];
     const hasCachedLodges = cacheForGl?.data?.length > 0;
     
     if (hasCachedLodges) {
@@ -603,7 +603,7 @@ const MasonLodgeInfo: React.FC<MasonLodgeInfoProps> = ({
   return (
     <div className={className || "mb-4"}>
       {/* Render "Use same lodge" checkbox for non-primary masons */}
-      {showUseSameLodge && primaryMason?.grandLodgeId && primaryMason?.lodgeNameNumber && (
+      {showUseSameLodge && primaryMason?.grand_lodge_id && primaryMason?.lodgeNameNumber && (
         <div className="mb-3">
           <div className="flex items-center space-x-2">
             <Checkbox
@@ -640,7 +640,7 @@ const MasonLodgeInfo: React.FC<MasonLodgeInfoProps> = ({
               onSelect={handleGrandLodgeSelect}
               options={grandLodges}
               getOptionLabel={(gl) => gl.name}
-              getOptionValue={(gl) => gl.id}
+              getOptionValue={(gl) => gl.grand_lodge_id}
               renderOption={renderGrandLodgeOption}
               placeholder={getGrandLodgePlaceholder()}
               searchFunction={grandLodgeSearchFunction}
@@ -730,17 +730,17 @@ const MasonLodgeInfo: React.FC<MasonLodgeInfoProps> = ({
                 onChange={handleLodgeInputChange}
                 onSelect={handleLodgeSelect}
                 onCreateNew={handleInitiateLodgeCreation}
-                options={lodges.filter(l => l.grand_lodge_id === selectedGrandLodge?.id)}
+                options={lodges.filter(l => l.grand_lodge_id === selectedGrandLodge?.grand_lodge_id)}
                 getOptionLabel={(lodge) => lodge.display_name || `${lodge.name} No. ${lodge.number || 'N/A'}`}
-                getOptionValue={(lodge) => lodge.id}
+                getOptionValue={(lodge) => lodge.lodge_id}
                 renderOption={renderLodgeOption}
                 placeholder={getLodgePlaceholder()}
                 searchFunction={async (query) => {
-                  if (!selectedGrandLodge?.id || query.length < 2) return [];
+                  if (!selectedGrandLodge?.grand_lodge_id || query.length < 2) return [];
                   
                   try {
                     console.log(`[MasonLodgeInfo] Searching lodges with query: ${query}`);
-                    const results = await searchLodges(query, selectedGrandLodge.id);
+                    const results = await searchLodges(query, selectedGrandLodge.grand_lodge_id);
                     return results;
                   } catch (error) {
                     console.error('[MasonLodgeInfo] Lodge search error:', error);
@@ -750,7 +750,7 @@ const MasonLodgeInfo: React.FC<MasonLodgeInfoProps> = ({
                 searchAsYouType={true}
                 minSearchLength={2}
                 debounceMs={300}
-                disabled={disabled || !selectedGrandLodge?.id}
+                disabled={disabled || !selectedGrandLodge?.grand_lodge_id}
                 isLoading={isLoadingLodges}
                 className="mt-1"
                 required={isPrimary}
@@ -875,13 +875,13 @@ export const MasonLodgeField: React.FC<{
   errors?: Record<string, string>;
   primaryMason?: MasonAttendee;
 }> = ({ mason, updateAttendee, errors, primaryMason }) => {
-  const handleGrandLodgeChange = useCallback((grandLodgeId: string) => {
-    updateAttendee({ grandLodgeId });
+  const handleGrandLodgeChange = useCallback((grand_lodge_id: string) => {
+    updateAttendee({ grand_lodge_id });
   }, [updateAttendee]);
 
-  const handleLodgeChange = useCallback((lodgeId: string, lodgeNameNumber?: string) => {
+  const handleLodgeChange = useCallback((lodge_id: string, lodgeNameNumber?: string) => {
     updateAttendee({ 
-      lodgeId,
+      lodge_id,
       lodgeNameNumber: lodgeNameNumber || '' 
     });
   }, [updateAttendee]);
@@ -890,15 +890,15 @@ export const MasonLodgeField: React.FC<{
     if (checked && primaryMason) {
       updateAttendee({ 
         useSameLodge: true,
-        grandLodgeId: primaryMason.grandLodgeId,
-        lodgeId: primaryMason.lodgeId,
+        grand_lodge_id: primaryMason.grand_lodge_id,
+        lodge_id: primaryMason.lodge_id,
         lodgeNameNumber: primaryMason.lodgeNameNumber 
       });
     } else {
       updateAttendee({
         useSameLodge: false,
-        grandLodgeId: '',
-        lodgeId: '',
+        grand_lodge_id: '',
+        lodge_id: '',
         lodgeNameNumber: ''
       });
     }
@@ -908,16 +908,16 @@ export const MasonLodgeField: React.FC<{
     <MasonLodgeInfo
       attendeeId={mason.attendeeId}
       isPrimary={mason.isPrimary || false}
-      grandLodgeId={mason.grandLodgeId}
-      lodgeId={mason.lodgeId}
+      grand_lodge_id={mason.grand_lodge_id}
+      lodge_id={mason.lodge_id}
       onGrandLodgeChange={handleGrandLodgeChange}
       onLodgeChange={handleLodgeChange}
       showUseSameLodge={!mason.isPrimary && !!primaryMason}
       useSameLodge={mason.useSameLodge || false}
       onUseSameLodgeChange={handleUseSameLodgeChange}
       primaryMason={primaryMason}
-      grandLodgeError={errors?.grandLodgeId}
-      lodgeError={errors?.lodgeId}
+      grandLodgeError={errors?.grand_lodge_id}
+      lodgeError={errors?.lodge_id}
     />
   );
 };

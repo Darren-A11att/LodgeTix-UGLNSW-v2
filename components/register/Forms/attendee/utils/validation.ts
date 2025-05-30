@@ -120,11 +120,11 @@ export const validateAttendee = (attendee: AttendeeData): ValidationResult => {
     
     // Lodge validation
     if (attendee.isPrimary) {
-      if (!attendee.grandLodgeId) {
-        errors.push({ field: 'grandLodgeId', message: 'Grand Lodge is required' });
+      if (!attendee.grand_lodge_id) {
+        errors.push({ field: 'grand_lodge_id', message: 'Grand Lodge is required' });
       }
-      if (!attendee.lodgeId && !attendee.lodgeNameNumber) {
-        errors.push({ field: 'lodgeId', message: 'Lodge is required' });
+      if (!attendee.lodge_id && !attendee.lodgeNameNumber) {
+        errors.push({ field: 'lodge_id', message: 'Lodge is required' });
       }
     }
   }

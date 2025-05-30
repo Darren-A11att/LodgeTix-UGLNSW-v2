@@ -64,7 +64,7 @@ interface FieldProps {
 }
 
 // Base field wrapper
-const FieldWrapper: React.FC<{
+export const FieldWrapper: React.FC<{
   label: string;
   name: string;
   required?: boolean;
@@ -74,7 +74,7 @@ const FieldWrapper: React.FC<{
 }> = ({ label, name, required, error, className, children }) => {
   return (
     <div className={cn("space-y-1", className)}>
-      <Label htmlFor={name}>
+      <Label htmlFor={name} className={cn(error && "text-red-500")}>
         {label}
         {required && <span className="text-red-500 ml-1">*</span>}
       </Label>

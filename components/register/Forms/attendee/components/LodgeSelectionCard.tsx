@@ -55,7 +55,7 @@ export const LodgeSelectionCard: React.FC<LodgeSelectionCardProps> = ({
             <div className="space-y-2">
               <div className="relative">
                 <LodgeSelection 
-                  grandLodgeId={selectedGrandLodge}
+                  grand_lodge_id={selectedGrandLodge}
                   value={selectedLodge}
                   onChange={(lodgeId, lodgeName) => onLodgeChange(lodgeId, lodgeName ?? '')}
                   disabled={!selectedGrandLodge || disabled}

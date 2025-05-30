@@ -32,7 +32,9 @@ export interface PackageSelectionType {
 
 // Placeholder type for billing details
 // TODO: Define the actual structure needed
+// Booking Contact type (maps to customers table)
 export interface BillingDetailsType {
+  title?: string;
   firstName: string;
   lastName: string;
   email: string;
@@ -46,6 +48,9 @@ export interface BillingDetailsType {
   businessName?: string;
   businessNumber?: string;
 }
+
+// Alias for clarity - will transition to BookingContactType
+export type BookingContactType = BillingDetailsType;
 
 // --- State Interface ---
 export interface RegistrationState {
@@ -165,8 +170,8 @@ const createDefaultAttendee = (
     firstTime: attendeeType === 'Mason' ? false : undefined, // Only relevant for Mason
     rank: attendeeType === 'Mason' ? '' : undefined, // Only relevant for Mason
     postNominals: attendeeType === 'Mason' ? '' : undefined, // Only relevant for Mason
-    grandLodgeId: attendeeType === 'Mason' ? null : undefined,
-    lodgeId: attendeeType === 'Mason' ? null : undefined,
+    grand_lodge_id: attendeeType === 'Mason' ? null : undefined,
+    lodge_id: attendeeType === 'Mason' ? null : undefined,
     tableAssignment: null,
     notes: '',
     paymentStatus: 'pending',
@@ -392,13 +397,22 @@ export const useRegistrationStore = create<RegistrationState>(
       },
 
       updateAttendee: (attendeeId, updatedData) => {
+        // Log grand_lodge_id updates specifically
+        if ('grand_lodge_id' in updatedData) {
+          console.log(`[Store] Updating attendee ${attendeeId} grand_lodge_id to:`, updatedData.grand_lodge_id);
+        }
+        
         set(state => ({
           attendees: state.attendees.map(att => 
             att.attendeeId === attendeeId ? { ...att, ...updatedData, updatedAt: new Date().toISOString() } : att // Add updatedAt timestamp
           )
         }));
-        // Debounce/Throttle logic will be handled in the UI component calling this
-        // console.log(`[Store] Updated attendee ${attendeeId}`, updatedData); // DEBUG: Can be noisy
+        
+        // Log the result if it was a grand_lodge_id update
+        if ('grand_lodge_id' in updatedData) {
+          const updatedAttendee = get().attendees.find(a => a.attendeeId === attendeeId);
+          console.log(`[Store] After update, attendee ${attendeeId} grand_lodge_id is:`, updatedAttendee?.grand_lodge_id);
+        }
       },
 
       removeAttendee: (attendeeIdToRemove) => {

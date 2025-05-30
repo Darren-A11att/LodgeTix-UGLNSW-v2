@@ -48,13 +48,13 @@ export function transformToRPCAttendeesData(attendees: UnifiedAttendeeData[], ev
   
   return attendees.map(attendee => {
     // Handle useSameLodge - inherit from primary attendee
-    let finalGrandLodgeId = attendee.grandLodgeId;
-    let finalLodgeId = attendee.lodgeId;
+    let finalGrandLodgeId = attendee.grand_lodge_id;
+    let finalLodgeId = attendee.lodge_id;
     let finalLodgeNameNumber = attendee.lodgeNameNumber;
     
     if (attendee.useSameLodge && primaryAttendee && !attendee.isPrimary) {
-      finalGrandLodgeId = primaryAttendee.grandLodgeId || finalGrandLodgeId;
-      finalLodgeId = primaryAttendee.lodgeId || finalLodgeId;
+      finalGrandLodgeId = primaryAttendee.grand_lodge_id || finalGrandLodgeId;
+      finalLodgeId = primaryAttendee.lodge_id || finalLodgeId;
       finalLodgeNameNumber = primaryAttendee.lodgeNameNumber || finalLodgeNameNumber;
     }
     

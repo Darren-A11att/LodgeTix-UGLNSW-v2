@@ -17,7 +17,7 @@ interface GrandLodgeSelectionProps {
 }
 
 interface GrandLodgeOption {
-  id: string;
+  grand_lodge_id: string;
   name: string;
   country: string | null;
   abbreviation: string | null;
@@ -56,13 +56,15 @@ export const GrandLodgeSelection: React.FC<GrandLodgeSelectionProps> = ({
       setSelectedGrandLodge(null);
       setInputValue('');
       onChange('', undefined);
+      console.log('[GrandLodgeSelection] Cleared grand lodge selection');
       return;
     }
     
     // Normal flow when grandLodge is not null
     setSelectedGrandLodge(grandLodge);
     setInputValue(grandLodge.name);
-    onChange(grandLodge.id, grandLodge.organisationid);
+    onChange(grandLodge.grand_lodge_id, grandLodge.organisationid);
+    console.log('[GrandLodgeSelection] Selected grand lodge:', grandLodge.name, 'ID:', grandLodge.grand_lodge_id);
   }, [onChange]);
 
   // Get better default placeholder based on user's location from IP
@@ -169,7 +171,7 @@ export const GrandLodgeSelection: React.FC<GrandLodgeSelectionProps> = ({
             setSelectedGrandLodge(defaultGrandLodge);
             setInputValue(defaultGrandLodge.name);
             // Call onChange last
-            onChange(defaultGrandLodge.id, defaultGrandLodge.organisationid);
+            onChange(defaultGrandLodge.grand_lodge_id, defaultGrandLodge.organisationid);
             setIsInitialized(true);
           }
         }
@@ -192,6 +194,8 @@ export const GrandLodgeSelection: React.FC<GrandLodgeSelectionProps> = ({
     // React Hooks must be called at the top level - not inside conditionals or loops
     // Create the ref outside the effect instead
     
+    console.log('[GrandLodgeSelection] Value prop changed:', value, 'Grand lodges available:', grandLodges.length);
+    
     // Skip if user is actively typing
     if (userIsTypingRef.current) return;
     
@@ -203,14 +207,15 @@ export const GrandLodgeSelection: React.FC<GrandLodgeSelectionProps> = ({
       
       try {
         // Find the grand lodge by ID
-        const grandLodge = grandLodges.find(gl => gl.id === value);
+        const grandLodge = grandLodges.find(gl => gl.grand_lodge_id === value);
         if (grandLodge) {
           // Always update if we found a matching grand lodge, even if IDs match
           // This ensures proper rehydration from drafts
+          console.log('[GrandLodgeSelection] Found grand lodge for value:', grandLodge.name);
           setSelectedGrandLodge(grandLodge);
           setInputValue(grandLodge.name);
           setIsInitialized(true);
-        } else if (!selectedGrandLodge || selectedGrandLodge.id !== value) {
+        } else if (!selectedGrandLodge || selectedGrandLodge.grand_lodge_id !== value) {
           // If we can't find the grand lodge in our current list but have a value,
           // keep the value and clear the display (grand lodge data might load later)
           console.log(`[GrandLodgeSelection] Grand Lodge with ID ${value} not found in current list`);
@@ -222,6 +227,7 @@ export const GrandLodgeSelection: React.FC<GrandLodgeSelectionProps> = ({
       }
     } else if (!value && selectedGrandLodge !== null && !userIsTypingRef.current) {
       // Clear selection if value is empty/null and user is not typing
+      console.log('[GrandLodgeSelection] Clearing selection - value is empty');
       setSelectedGrandLodge(null);
       setInputValue('');
     }
@@ -353,7 +359,7 @@ export const GrandLodgeSelection: React.FC<GrandLodgeSelectionProps> = ({
     } else if (selectedGrandLodge) {
       // If there's a selected lodge but input doesn't match it,
       // keep the ID in sync
-      onChange(selectedGrandLodge.id, selectedGrandLodge.organisationid);
+      onChange(selectedGrandLodge.grand_lodge_id, selectedGrandLodge.organisationid);
     }
   }, [searchGrandLodges, filterLocalOptions, ipData?.country_name, selectedGrandLodge, onChange]);
 
@@ -403,20 +409,20 @@ export const GrandLodgeSelection: React.FC<GrandLodgeSelectionProps> = ({
 
   return (
     <div className={className}>
-      <Label htmlFor="grand-lodge">
+      <Label htmlFor="grand_lodge">
         Grand Lodge
         {required && <span className="text-red-500 ml-1">*</span>}
       </Label>
       
       <AutocompleteInput<GrandLodgeOption>
-        id="grand-lodge"
-        name="grand-lodge"
+        id="grand_lodge"
+        name="grand_lodge"
         value={inputValue}
         onChange={handleInputChange}
         onSelect={handleSelect}
         options={grandLodges}
         getOptionLabel={(gl) => gl.name}
-        getOptionValue={(gl) => gl.id}
+        getOptionValue={(gl) => gl.grand_lodge_id}
         renderOption={renderOption}
         placeholder={getGrandLodgePlaceholder()}
         searchFunction={searchFunction}

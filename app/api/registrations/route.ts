@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { v4 as uuidv4 } from "uuid";
 import { createClient } from '@/utils/supabase/server';
-import { Tables, TablesInsert, Database } from "@/supabase/supabase";
+import { Tables, TablesInsert, Database } from "@/shared/types/database";
 import { createRegistrationViaRPC, USE_RPC_REGISTRATION } from '@/lib/api/registration-rpc';
 
 export async function POST(request: Request) {
@@ -190,10 +190,37 @@ export async function POST(request: Request) {
       const customerRecord = {
         id: customerId,
         user_id: customerId, // Link to auth user
+        
+        // Basic contact info from booking contact
         email: billingDetails?.emailAddress || primaryAttendee?.primaryEmail || null,
         first_name: billingDetails?.firstName || primaryAttendee?.firstName || null,
         last_name: billingDetails?.lastName || primaryAttendee?.lastName || null,
         phone: billingDetails?.mobileNumber || primaryAttendee?.primaryPhone || null,
+        business_name: billingDetails?.businessName || null,
+        
+        // Physical address from booking contact
+        address_line1: billingDetails?.addressLine1 || null,
+        address_line2: billingDetails?.addressLine2 || null,
+        city: billingDetails?.suburb || null,
+        state: billingDetails?.stateTerritory?.name || null,
+        postal_code: billingDetails?.postcode || null,
+        country: billingDetails?.country?.name || null,
+        
+        // Billing address (same as physical for now)
+        billing_organisation_name: billingDetails?.businessName || null,
+        billing_email: billingDetails?.emailAddress || null,
+        billing_phone: billingDetails?.mobileNumber || null,
+        billing_street_address: billingDetails?.addressLine1 || null,
+        billing_city: billingDetails?.suburb || null,
+        billing_state: billingDetails?.stateTerritory?.name || null,
+        billing_postal_code: billingDetails?.postcode || null,
+        billing_country: billingDetails?.country?.name || null,
+        
+        // Customer type based on registration type
+        customer_type: finalRegistrationType === 'lodge' ? 'lodge' : 
+                      finalRegistrationType === 'officials' ? 'grandlodge' : 
+                      'individual',
+        
         created_at: new Date().toISOString()
       };
       
@@ -244,15 +271,36 @@ export async function POST(request: Request) {
     } else {
       console.log("Customer already exists");
       
-      // Update customer with latest billing details if provided
+      // Update customer with latest booking contact details if provided
       if (billingDetails && (billingDetails.emailAddress || billingDetails.firstName || billingDetails.lastName || billingDetails.mobileNumber)) {
-        console.log("Updating existing customer with latest billing details");
+        console.log("Updating existing customer with latest booking contact details");
         const updateData: any = {};
         
+        // Basic contact info
         if (billingDetails.emailAddress) updateData.email = billingDetails.emailAddress;
         if (billingDetails.firstName) updateData.first_name = billingDetails.firstName;
         if (billingDetails.lastName) updateData.last_name = billingDetails.lastName;
         if (billingDetails.mobileNumber) updateData.phone = billingDetails.mobileNumber;
+        if (billingDetails.businessName) updateData.business_name = billingDetails.businessName;
+        
+        // Physical address
+        if (billingDetails.addressLine1) updateData.address_line1 = billingDetails.addressLine1;
+        if (billingDetails.addressLine2) updateData.address_line2 = billingDetails.addressLine2;
+        if (billingDetails.suburb) updateData.city = billingDetails.suburb;
+        if (billingDetails.postcode) updateData.postal_code = billingDetails.postcode;
+        if (billingDetails.stateTerritory?.name) updateData.state = billingDetails.stateTerritory.name;
+        if (billingDetails.country?.name) updateData.country = billingDetails.country.name;
+        
+        // Also update billing address fields
+        if (billingDetails.businessName) updateData.billing_organisation_name = billingDetails.businessName;
+        if (billingDetails.emailAddress) updateData.billing_email = billingDetails.emailAddress;
+        if (billingDetails.mobileNumber) updateData.billing_phone = billingDetails.mobileNumber;
+        if (billingDetails.addressLine1) updateData.billing_street_address = billingDetails.addressLine1;
+        if (billingDetails.suburb) updateData.billing_city = billingDetails.suburb;
+        if (billingDetails.stateTerritory?.name) updateData.billing_state = billingDetails.stateTerritory.name;
+        if (billingDetails.postcode) updateData.billing_postal_code = billingDetails.postcode;
+        if (billingDetails.country?.name) updateData.billing_country = billingDetails.country.name;
+        
         updateData.updated_at = new Date().toISOString();
         
         const { error: updateError } = await userClient
@@ -261,7 +309,7 @@ export async function POST(request: Request) {
           .eq("id", customerId);
         
         if (updateError) {
-          console.warn("Failed to update customer billing details:", updateError);
+          console.warn("Failed to update customer booking contact details:", updateError);
           // Don't fail the registration if update fails
         }
       }
@@ -393,13 +441,13 @@ export async function POST(request: Request) {
         attendee.contactPreference?.toLowerCase() === 'directly';
       
       // Handle useSameLodge - inherit from primary attendee
-      let finalGrandLodgeId = attendee.grandLodgeId;
-      let finalLodgeId = attendee.lodgeId;
+      let finalGrandLodgeId = attendee.grand_lodge_id;
+      let finalLodgeId = attendee.lodge_id;
       let finalLodgeNameNumber = attendee.lodgeNameNumber;
       
       if (attendee.useSameLodge && primaryAttendee && !attendee.isPrimary) {
-        finalGrandLodgeId = primaryAttendee.grandLodgeId || finalGrandLodgeId;
-        finalLodgeId = primaryAttendee.lodgeId || finalLodgeId;
+        finalGrandLodgeId = primaryAttendee.grand_lodge_id || finalGrandLodgeId;
+        finalLodgeId = primaryAttendee.lodge_id || finalLodgeId;
         finalLodgeNameNumber = primaryAttendee.lodgeNameNumber || finalLodgeNameNumber;
       }
       

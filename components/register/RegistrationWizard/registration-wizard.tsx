@@ -83,12 +83,19 @@ const normalizeAttendeeType = (type: string): string => {
 // For now, assuming it's available via registrationStore imports or globally
 const validateAttendeeData = (attendees: ReturnType<typeof selectAttendees>): string[] => {
   let errors: string[] = []; // Changed from const to let
+  
+  console.log('[Validation] Starting validation for', attendees?.length || 0, 'attendees');
+  console.log('[Validation] Attendees data:', JSON.stringify(attendees, null, 2));
+  
   if (!attendees || attendees.length === 0) {
     // This should ideally be handled by ensuring a primary attendee exists.
     // errors.push("At least one attendee (Primary Mason) is required.");
     return errors; // If no attendees, no validation errors from fields. Handled by AttendeeDetails component structure.
   }
 
+  // Get registration type to handle lodge registrations differently
+  const registrationType = useRegistrationStore.getState().registrationType;
+  
   const getMasonOrderLabel = (attendee: any, allMasons: any[]) => {
     if (attendee.isPrimary) return "Primary Mason";
     const nonPrimaryMasons = allMasons.filter(m => !m.isPrimary);
@@ -105,11 +112,26 @@ const validateAttendeeData = (attendees: ReturnType<typeof selectAttendees>): st
   const guests = attendees.filter(att => normalizeAttendeeType(att.attendeeType) === 'Guest');
 
   attendees.forEach((attendee) => {
+    // For lodge registrations, only validate the primary (booking contact)
+    if (registrationType === 'lodge' && !attendee.isPrimary) {
+      return; // Skip validation for non-primary attendees in lodge registrations
+    }
     let descriptiveLabel = "";
     const normalizedType = normalizeAttendeeType(attendee.attendeeType);
 
     if (normalizedType === 'Mason') {
       descriptiveLabel = getMasonOrderLabel(attendee, masons);
+      // Debug log for primary mason validation
+      if (attendee.isPrimary) {
+        console.log('[Validation] Validating Primary Mason:', {
+          attendeeId: attendee.attendeeId,
+          grand_lodge_id: attendee.grand_lodge_id,
+          lodge_id: attendee.lodge_id,
+          rank: attendee.rank,
+          firstName: attendee.firstName,
+          lastName: attendee.lastName
+        });
+      }
     } else if (normalizedType === 'LadyPartner') {
       const masonOwner = attendees.find(m => m.attendeeId === attendee.partnerOf);
       const masonOwnerLabel = masonOwner ? getMasonOrderLabel(masonOwner, masons) + "'s" : "Associated Mason's";
@@ -134,8 +156,17 @@ const validateAttendeeData = (attendees: ReturnType<typeof selectAttendees>): st
     // Mason specific
     if (normalizedType === 'Mason') {
       if (!isNonEmpty(attendee.rank)) errors.push(`${descriptiveLabel}: Rank is required.`);
-      if (!isNonEmpty(attendee.grandLodgeId)) errors.push(`${descriptiveLabel}: Grand Lodge is required.`);
-      if (!isNonEmpty(attendee.lodgeId) && !isNonEmpty(attendee.lodgeNameNumber)) errors.push(`${descriptiveLabel}: Lodge is required.`);
+      
+      // Debug grand lodge validation
+      const hasGrandLodgeId = isNonEmpty(attendee.grand_lodge_id);
+      console.log(`[Validation] ${descriptiveLabel} grand_lodge_id check:`, {
+        value: attendee.grand_lodge_id,
+        isNonEmpty: hasGrandLodgeId,
+        type: typeof attendee.grand_lodge_id
+      });
+      
+      if (!hasGrandLodgeId) errors.push(`${descriptiveLabel}: Grand Lodge is required.`);
+      if (!isNonEmpty(attendee.lodge_id) && !isNonEmpty(attendee.lodgeNameNumber)) errors.push(`${descriptiveLabel}: Lodge is required.`);
       // There is no membershipNumber field in this application
     } else if (normalizedType === 'LadyPartner' || normalizedType === 'GuestPartner') { // Check if partner
       // Partner specific validation (treat as Guest generally, plus relationship)
@@ -390,13 +421,19 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ eventId,
   const runValidations = React.useCallback(() => {
     let errors: string[] = [];
     if (currentStep === 2) { // Assuming step 2 is AttendeeDetails
-      errors = validateAttendeeData(allAttendees);
+      // For lodge registrations, we don't validate attendees since they use customer model
+      if (registrationType === 'lodge') {
+        // Lodge validation is handled by the LodgeRegistrationStore
+        errors = []; // No attendee validation for lodge registrations
+      } else {
+        errors = validateAttendeeData(allAttendees);
+      }
       // The agreeToTerms check is handled directly by the button's disabled state in AttendeeDetails.tsx
       // No need to add a specific error message for it here if the button handles it.
     }
     setValidationErrors(errors);
     return errors.length === 0;
-  }, [currentStep, allAttendees]); // Add allAttendees to dependencies
+  }, [currentStep, allAttendees, registrationType]); // Add allAttendees and registrationType to dependencies
 
   // Effect to ensure all attendees have default contact preferences set
   // Use a ref to track if sync has been done for this step entry
@@ -655,8 +692,8 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ eventId,
         // Change title to "Lodge Details" if registration type is 'lodge'
         if (registrationType === 'lodge') {
           return {
-            title: "Lodge Details",
-            description: "Please provide information for all lodge members"
+            title: "Lodge Registration & Payment",
+            description: "Complete your lodge table booking and payment"
           }
         }
         return {
@@ -694,6 +731,24 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ eventId,
   // Updated renderStep function - now just returns the content without wrappers
   const renderStepContent = () => {
     // Remove console.log to reduce noise - console.log('🎯 renderStepContent called, currentStep:', currentStep);
+    
+    // Special handling for lodge registration - one step process
+    if (registrationType === 'lodge' && currentStep === 2) {
+      const LodgeRegistrationStep = lazy(() => import('./Steps/LodgeRegistrationStep').then(module => ({
+        default: module.LodgeRegistrationStep
+      })));
+      
+      return (
+        <Suspense fallback={<StepLoadingFallback />}>
+          <LodgeRegistrationStep 
+            eventId={eventId!} 
+            eventSlug={eventSlug}
+            parentSlug={parentSlug}
+          />
+        </Suspense>
+      );
+    }
+    
     switch (currentStep) {
       case 1:
         return <RegistrationTypeStep />

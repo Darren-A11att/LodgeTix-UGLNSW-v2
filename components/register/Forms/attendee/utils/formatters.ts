@@ -137,7 +137,7 @@ export const formatAttendeeSummary = (attendee: AttendeeData): string => {
   
   if (attendee.attendeeType === 'Mason') {
     const lodgeInfo = attendee.lodgeNameNumber || 
-                     (attendee.lodgeId ? formatLodgeDisplay(attendee.lodgeId, null) : '');
+                     (attendee.lodge_id ? formatLodgeDisplay(attendee.lodge_id, null) : '');
     return lodgeInfo ? `${name} - ${lodgeInfo}` : name;
   }
   

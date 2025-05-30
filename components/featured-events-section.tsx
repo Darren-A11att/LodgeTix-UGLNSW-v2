@@ -1,27 +1,85 @@
 import Link from "next/link"
-import { getFeaturedEvents } from "@/lib/services/homepage-service"
-import { getEventByIdOrSlug } from "@/lib/event-facade"
 import { EventCard } from "@/components/event-card"
+import { formatCurrency } from "@/lib/formatters"
+import { EventRPCService } from "@/lib/api/event-rpc-service"
 
 export async function FeaturedEventsSection() {
-  // Fetch featured events from Supabase
-  const featuredEvents = await getFeaturedEvents();
+  // Initialize RPC service
+  const eventService = new EventRPCService(true); // server-side
   
-  // Fetch parent event details for child events
-  const eventsWithParentInfo = await Promise.all(
-    featuredEvents.map(async (event) => {
-      if (event.parent_event_id) {
-        const parentEvent = await getEventByIdOrSlug(event.parent_event_id);
-        return {
-          ...event,
-          parentEventSlug: parentEvent?.slug || null
-        };
-      }
-      return event;
-    })
-  );
-  
-  // Default events to use if we don't have any from Supabase
+  try {
+    // Fetch featured events with all necessary data in one query
+    const events = await eventService.getFeaturedEvents(3);
+    
+    // Transform data for EventCard component
+    const eventsForDisplay = events.map(event => ({
+      id: event.event_id,
+      slug: event.slug,
+      title: event.title,
+      description: event.description,
+      date: new Date(event.event_start).toLocaleDateString('en-AU', {
+        weekday: 'long',
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      }),
+      location: event.location,
+      imageUrl: event.image_url || '/placeholder.svg',
+      price: event.min_price > 0 
+        ? `From ${formatCurrency(event.min_price)}` 
+        : event.has_free_tickets 
+          ? 'Free' 
+          : 'View pricing',
+      parentEventId: event.parent_event_id,
+      parentEventSlug: event.parent_slug,
+      // Additional metadata
+      isSoldOut: event.is_sold_out,
+      ticketsAvailable: event.total_capacity - event.tickets_sold
+    }));
+    
+    // If no events from database, use defaults
+    if (eventsForDisplay.length === 0) {
+      return <FeaturedEventsFallback />;
+    }
+    
+    return (
+      <section className="py-16">
+        <div className="container mx-auto px-4">
+          <div className="mb-8 flex items-center justify-between">
+            <h2 className="text-3xl font-bold">Featured Events</h2>
+            <Link href="/events" className="text-blue-800 hover:underline">
+              View all
+            </Link>
+          </div>
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {eventsForDisplay.map((event) => (
+              <EventCard
+                key={event.id}
+                id={event.id}
+                slug={event.slug}
+                title={event.title}
+                description={event.description}
+                date={event.date}
+                location={event.location}
+                imageUrl={event.imageUrl}
+                price={event.price}
+                parentEventId={event.parentEventId || null}
+                parentEventSlug={event.parentEventSlug || null}
+              />
+            ))}
+          </div>
+        </div>
+      </section>
+    );
+  } catch (error) {
+    console.error('Failed to load featured events:', error);
+    // Fallback to static content on error
+    return <FeaturedEventsFallback />;
+  }
+}
+
+// Fallback component with default events
+function FeaturedEventsFallback() {
   const defaultEvents = [
     {
       id: "1",
@@ -55,9 +113,6 @@ export async function FeaturedEventsSection() {
     }
   ];
 
-  // Use events from Supabase if available, otherwise use defaults
-  const events = eventsWithParentInfo.length > 0 ? eventsWithParentInfo : defaultEvents;
-
   return (
     <section className="py-16">
       <div className="container mx-auto px-4">
@@ -68,7 +123,7 @@ export async function FeaturedEventsSection() {
           </Link>
         </div>
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {events.map((event) => (
+          {defaultEvents.map((event) => (
             <EventCard
               key={event.id}
               id={event.id}
@@ -79,8 +134,8 @@ export async function FeaturedEventsSection() {
               location={event.location}
               imageUrl={event.imageUrl}
               price={event.price}
-              parentEventId={event.parent_event_id || null}
-              parentEventSlug={'parentEventSlug' in event ? event.parentEventSlug : null}
+              parentEventId={null}
+              parentEventSlug={null}
             />
           ))}
         </div>

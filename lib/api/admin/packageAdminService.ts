@@ -1,6 +1,6 @@
 import { AdminApiService, AdminApiResponse, QueryParams } from './adminApiService';
 import { supabaseTables } from '../../supabase';
-import * as SupabaseTypes from '../../../../supabase/supabase.types';
+import * as SupabaseTypes from '@/shared/types/database';
 
 // Type definitions for package-related operations
 type DbPackage = SupabaseTypes.Database['public']['Tables']['packages']['Row'];

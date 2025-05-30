@@ -8,7 +8,7 @@ import { Info, ShoppingCart, Users, Package, Check, Building, Plus, X, UserPlus 
 import { cn } from '@/lib/utils';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import formSaveManager from '@/lib/formSaveManager';
-import { useDebouncedCallback } from 'use-debounce';
+import { useAttendeeDataWithDebounce } from './lib/useAttendeeData';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
@@ -36,7 +36,7 @@ import { AttendeeData } from './types';
 import { generateUUID } from '@/lib/uuid-slug-utils';
 
 // Constants for form behavior
-const DEBOUNCE_DELAY = 500; // Increased from 300ms to reduce re-renders
+const DEBOUNCE_DELAY = 300; // Changed from 500ms to consistent 300ms
 
 // Event and ticket IDs for Grand Proclamation 2025
 const EVENT_IDS = {
@@ -91,16 +91,6 @@ export const GrandLodgesForm: React.FC<GrandLodgesFormProps> = ({
     setLodgeTicketOrder,
   } = useRegistrationStore();
   
-  // Create debounced version of updateAttendee
-  const debouncedUpdateAttendee = useDebouncedCallback(
-    (attendeeId: string, updates: Partial<any>) => {
-      updateAttendee(attendeeId, updates);
-    },
-    DEBOUNCE_DELAY
-  );
-  
-  // Use the immediate update for critical operations
-  const updateAttendeeImmediate = updateAttendee;
   
   const [selectedGrandLodge, setSelectedGrandLodge] = useState<string>('');
   const [primaryAttendeeId, setPrimaryAttendeeId] = useState<string | null>(null);
@@ -116,6 +106,15 @@ export const GrandLodgesForm: React.FC<GrandLodgesFormProps> = ({
   const [showAddMemberDialog, setShowAddMemberDialog] = useState(false);
   const [editingMember, setEditingMember] = useState<DelegationMember | null>(null);
   const [delegationOrder, setDelegationOrder] = useState(1);
+  const [delegationTypeTab, setDelegationTypeTab] = useState<'grandLodge' | 'masonicOrder'>('grandLodge');
+  
+  // One-time initialization - move useRef before other hooks to maintain order
+  const isInitializedRef = React.useRef(false);
+  
+  // Get update functions for primary attendee - hooks must always be called
+  const attendeeDataResult = useAttendeeDataWithDebounce(primaryAttendeeId || '', DEBOUNCE_DELAY);
+  const updateField = primaryAttendeeId ? attendeeDataResult.updateField : () => {};
+  const updateFieldImmediate = primaryAttendeeId ? attendeeDataResult.updateFieldImmediate : () => {};
   
   // Get the primary attendee
   const primaryAttendee = attendees.find(a => a.attendeeId === primaryAttendeeId);
@@ -131,14 +130,11 @@ export const GrandLodgesForm: React.FC<GrandLodgesFormProps> = ({
   
   // Initialize Grand Lodge from primary attendee when loaded
   useEffect(() => {
-    if (primaryAttendee && !selectedGrandLodge && primaryAttendee.grandLodgeId) {
+    if (primaryAttendee && !selectedGrandLodge && primaryAttendee.grand_lodge_id) {
       // Initialize Grand Lodge
-      setSelectedGrandLodge(String(primaryAttendee.grandLodgeId));
+      setSelectedGrandLodge(String(primaryAttendee.grand_lodge_id));
     }
   }, [primaryAttendee, selectedGrandLodge]);
-
-  // One-time initialization
-  const isInitializedRef = React.useRef(false);
   
   useEffect(() => {
     if (!isInitializedRef.current) {
@@ -146,14 +142,14 @@ export const GrandLodgesForm: React.FC<GrandLodgesFormProps> = ({
       
       if (!primaryAttendeeId) {
         const primaryId = addMasonAttendee();
-        updateAttendeeImmediate(primaryId, {
+        updateAttendee(primaryId, {
           isPrimary: true,
           attendeeType: 'Mason',
         });
         setPrimaryAttendeeId(primaryId);
       }
     }
-  }, [primaryAttendeeId, addMasonAttendee, updateAttendeeImmediate]);
+  }, [primaryAttendeeId, addMasonAttendee, updateAttendee]);
 
   // Update table count (for register delegation)
   const handleTableCountChange = useCallback((newCount: number) => {
@@ -198,14 +194,11 @@ export const GrandLodgesForm: React.FC<GrandLodgesFormProps> = ({
     if (selectedGrandLodge !== grandLodgeId) {
       setSelectedGrandLodge(grandLodgeId);
       
-      if (primaryAttendee) {
-        const updates: any = { 
-          grandLodgeId: grandLodgeId ? Number(grandLodgeId) : 0,
-        };
-        debouncedUpdateAttendee(primaryAttendee.attendeeId, updates);
+      if (primaryAttendeeId) {
+        updateFieldImmediate('grand_lodge_id', grandLodgeId ? Number(grandLodgeId) : 0);
       }
     }
-  }, [primaryAttendee, debouncedUpdateAttendee, selectedGrandLodge]);
+  }, [primaryAttendeeId, updateFieldImmediate, selectedGrandLodge]);
 
   // Add delegation member functions
   const addDelegationMember = useCallback((type: 'Mason' | 'Guest' | 'Partner', partnerOfId?: string) => {
@@ -215,8 +208,8 @@ export const GrandLodgesForm: React.FC<GrandLodgesFormProps> = ({
       title: type === 'Mason' ? 'Bro' : type === 'Guest' ? 'Mr' : 'Mrs',
       firstName: '',
       lastName: '',
-      grandRank: type === 'Mason' ? 'GKL' : undefined,
-      isGrandOfficer: type === 'Mason',
+      grandRank: type === 'Mason' ? '' : undefined,
+      isGrandOfficer: false,
       grandOffice: '',
       relationship: type === 'Partner' ? 'Wife' : undefined,
       partnerOf: partnerOfId,
@@ -246,22 +239,30 @@ export const GrandLodgesForm: React.FC<GrandLodgesFormProps> = ({
   // Use primaryAttendeeId instead of primaryAttendee to reduce dependency changes
   const handleFieldChange = useCallback((field: string, value: any) => {
     if (primaryAttendeeId) {
-      debouncedUpdateAttendee(primaryAttendeeId, { [field]: value });
+      updateField(field, value);
     }
-  }, [debouncedUpdateAttendee, primaryAttendeeId]);
+  }, [updateField, primaryAttendeeId]);
 
   const handleFieldChangeImmediate = useCallback((field: string, value: any) => {
     if (primaryAttendeeId) {
-      updateAttendeeImmediate(primaryAttendeeId, { [field]: value });
+      updateFieldImmediate(field, value);
     }
-  }, [updateAttendeeImmediate, primaryAttendeeId]);
+  }, [updateFieldImmediate, primaryAttendeeId]);
 
   // Validate and complete
   const handleComplete = useCallback(() => {
     formSaveManager.saveBeforeNavigation().then(() => {
-      if (!selectedGrandLodge) {
-        alert('Please select a Grand Lodge');
-        return;
+      // Validate based on delegation type tab
+      if (delegationTypeTab === 'grandLodge') {
+        if (!selectedGrandLodge) {
+          alert('Please select a Grand Lodge');
+          return;
+        }
+      } else if (delegationTypeTab === 'masonicOrder') {
+        if (!primaryAttendee?.organisationName || !primaryAttendee?.organisationAbbreviation || !primaryAttendee?.organisationKnownAs) {
+          alert('Please complete all Masonic Order fields');
+          return;
+        }
       }
       
       if (!primaryAttendee || !primaryAttendee.firstName || !primaryAttendee.lastName) {
@@ -304,8 +305,7 @@ export const GrandLodgesForm: React.FC<GrandLodgesFormProps> = ({
         
         // Validate all members have required fields
         const invalidMembers = delegationMembers.filter(member => 
-          !member.firstName || !member.lastName || !member.title ||
-          (member.type === 'Mason' && (!member.grandRank || !member.grandOffice))
+          !member.firstName || !member.lastName || !member.title
         );
         
         if (invalidMembers.length > 0) {
@@ -325,7 +325,7 @@ export const GrandLodgesForm: React.FC<GrandLodgesFormProps> = ({
               rank: 'GL',
               grandOfficerStatus: 'Present',
               presentGrandOfficerRole: member.grandOffice,
-              grandLodgeId: Number(selectedGrandLodge),
+              grand_lodge_id: Number(selectedGrandLodge),
               contactPreference: 'PrimaryAttendee',
               isPrimary: index === 0 && !primaryAttendeeId
             });
@@ -356,47 +356,121 @@ export const GrandLodgesForm: React.FC<GrandLodgesFormProps> = ({
         }
       }
     });
-  }, [selectedGrandLodge, primaryAttendee, activeTab, ticketCount, delegationMembers, onComplete, setLodgeTicketOrder, addMasonAttendee, addGuestAttendee, addPartnerAttendee, updateAttendee, primaryAttendeeId]);
+  }, [selectedGrandLodge, primaryAttendee, activeTab, ticketCount, delegationMembers, onComplete, setLodgeTicketOrder, addMasonAttendee, addGuestAttendee, addPartnerAttendee, updateAttendee, primaryAttendeeId, delegationTypeTab]);
 
   return (
     <div className={cn("space-y-6", className)}>
-      {/* Grand Lodge Selection with integrated Booking Contact */}
+      {/* Grand Lodge/Masonic Order Selection with integrated Booking Contact */}
       <div className="relative">
         <Card className="border-2 border-primary/20">
           <CardHeader className="bg-primary/5 border-b border-primary/10">
             <CardTitle className="flex items-center gap-2 text-primary">
               <Building className="w-5 h-5" />
-              Grand Lodge Details
+              {delegationTypeTab === 'grandLodge' ? 'Grand Lodge Details' : 'Masonic Order Details'}
             </CardTitle>
             <p className="text-sm text-gray-600 mt-1">
               These details will be applied to all members in this registration
             </p>
           </CardHeader>
-          <CardContent className="space-y-6 pt-6">
-            {/* Grand Lodge Selection Field - No Lodge selection needed for Grand Lodges */}
-            <div className="space-y-2">
-              <GrandLodgeSelection 
-                value={selectedGrandLodge}
-                onChange={handleGrandLodgeChange}
-              />
-              {!selectedGrandLodge && (
-                <p className="text-amber-600 text-xs mt-1 flex items-center gap-1">
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
-                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a.75.75 0 000 1.5h.253a.25.25 0 01.244.304l-.459 2.066A1.75 1.75 0 0010.747 15H11a.75.75 0 000-1.5h-.253a.25.25 0 01-.244-.304l.459-2.066A1.75 1.75 0 009.253 9H9z" clipRule="evenodd" />
-                  </svg>
-                  Required to proceed
-                </p>
-              )}
-            </div>
-            
-            {/* Booking Contact Details */}
-            {primaryAttendee && (
-              <BookingContactDetails
-                primaryAttendee={primaryAttendee}
-                handleFieldChange={handleFieldChange}
-                handleFieldChangeImmediate={handleFieldChangeImmediate}
-              />
-            )}
+          <CardContent className="p-0">
+            <Tabs value={delegationTypeTab} onValueChange={(value) => setDelegationTypeTab(value as 'grandLodge' | 'masonicOrder')}>
+              <TabsList className="grid w-full grid-cols-2 rounded-none border-b">
+                <TabsTrigger value="grandLodge">Grand Lodge</TabsTrigger>
+                <TabsTrigger value="masonicOrder">Masonic Order</TabsTrigger>
+              </TabsList>
+              
+              <TabsContent value="grandLodge" className="p-6 space-y-6 mt-0">
+                {/* Grand Lodge Selection Field - No Lodge selection needed for Grand Lodges */}
+                <div className="space-y-2">
+                  <GrandLodgeSelection 
+                    value={selectedGrandLodge}
+                    onChange={handleGrandLodgeChange}
+                  />
+                  {!selectedGrandLodge && (
+                    <p className="text-amber-600 text-xs mt-1 flex items-center gap-1">
+                      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
+                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a.75.75 0 000 1.5h.253a.25.25 0 01.244.304l-.459 2.066A1.75 1.75 0 0010.747 15H11a.75.75 0 000-1.5h-.253a.25.25 0 01-.244-.304l.459-2.066A1.75 1.75 0 009.253 9H9z" clipRule="evenodd" />
+                      </svg>
+                      Required to proceed
+                    </p>
+                  )}
+                </div>
+                
+                {/* Booking Contact Details */}
+                {primaryAttendee && (
+                  <BookingContactSection
+                    mode="attendee"
+                    attendee={primaryAttendee}
+                    onFieldChange={handleFieldChange}
+                    onFieldChangeImmediate={handleFieldChangeImmediate}
+                  />
+                )}
+              </TabsContent>
+              
+              <TabsContent value="masonicOrder" className="p-6 space-y-6 mt-0">
+                {/* Masonic Order Fields */}
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+                  {/* Formal Name - Long width (spans 6 columns) */}
+                  <div className="md:col-span-6 space-y-2">
+                    <Label htmlFor="formal-name">Formal Name</Label>
+                    <Input
+                      id="formal-name"
+                      type="text"
+                      value={primaryAttendee?.organisationName || ''}
+                      onChange={(e) => handleFieldChange('organisationName', e.target.value)}
+                      placeholder="Enter formal name of Masonic Order"
+                      className="w-full"
+                    />
+                  </div>
+                  
+                  {/* Abbreviation - Short width (spans 2 columns) */}
+                  <div className="md:col-span-2 space-y-2">
+                    <Label htmlFor="abbreviation">Abbreviation</Label>
+                    <Input
+                      id="abbreviation"
+                      type="text"
+                      value={primaryAttendee?.organisationAbbreviation || ''}
+                      onChange={(e) => handleFieldChange('organisationAbbreviation', e.target.value)}
+                      placeholder="e.g. SRIA"
+                      className="w-full"
+                    />
+                  </div>
+                  
+                  {/* Known As - Medium width (spans 4 columns) */}
+                  <div className="md:col-span-4 space-y-2">
+                    <Label htmlFor="known-as">Known As</Label>
+                    <Input
+                      id="known-as"
+                      type="text"
+                      value={primaryAttendee?.organisationKnownAs || ''}
+                      onChange={(e) => handleFieldChange('organisationKnownAs', e.target.value)}
+                      placeholder="Common or shortened name"
+                      className="w-full"
+                    />
+                  </div>
+                </div>
+                
+                {/* Validation message if any field is empty */}
+                {(!primaryAttendee?.organisationName || !primaryAttendee?.organisationAbbreviation || !primaryAttendee?.organisationKnownAs) && (
+                  <p className="text-amber-600 text-xs mt-1 flex items-center gap-1">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
+                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a.75.75 0 000 1.5h.253a.25.25 0 01.244.304l-.459 2.066A1.75 1.75 0 0010.747 15H11a.75.75 0 000-1.5h-.253a.25.25 0 01-.244-.304l.459-2.066A1.75 1.75 0 009.253 9H9z" clipRule="evenodd" />
+                    </svg>
+                    All Masonic Order fields are required to proceed
+                  </p>
+                )}
+                
+                {/* Booking Contact Details */}
+                {primaryAttendee && (
+                  <BookingContactSection
+                    mode="attendee"
+                    attendee={primaryAttendee}
+                    onFieldChange={handleFieldChange}
+                    onFieldChangeImmediate={handleFieldChangeImmediate}
+                  />
+                )}
+              </TabsContent>
+            </Tabs>
           </CardContent>
         </Card>
       </div>
@@ -587,8 +661,8 @@ export const GrandLodgesForm: React.FC<GrandLodgesFormProps> = ({
                       <TableHead>Title</TableHead>
                       <TableHead>First Name</TableHead>
                       <TableHead>Last Name</TableHead>
-                      <TableHead>Grand Rank</TableHead>
-                      <TableHead>Grand Office</TableHead>
+                      <TableHead>Rank</TableHead>
+                      <TableHead>Office</TableHead>
                       <TableHead>Relationship</TableHead>
                       <TableHead className="w-20">Actions</TableHead>
                     </TableRow>
@@ -719,27 +793,20 @@ const DelegationMemberRow: React.FC<{
         <TableCell>
           {member.type === 'Mason' ? (
             <Input
-              value={member.grandRank || 'GKL'}
+              value={member.grandRank || ''}
               onChange={(e) => onUpdate(member.id, { grandRank: e.target.value })}
-              placeholder="GKL"
-              className="w-20"
+              placeholder="Rank"
+              className="w-24"
             />
           ) : '-'}
         </TableCell>
         <TableCell>
           {member.type === 'Mason' ? (
-            <AutocompleteInput
-              id={`grand-office-${member.id}`}
-              name="grandOffice"
+            <Input
               value={member.grandOffice || ''}
-              onChange={(value) => onUpdate(member.id, { grandOffice: value })}
-              options={grandOfficeOptions}
-              getOptionLabel={(option) => option.label}
-              getOptionValue={(option) => option.value}
-              placeholder="Select or type"
+              onChange={(e) => onUpdate(member.id, { grandOffice: e.target.value })}
+              placeholder="Office"
               className="w-40"
-              allowCreate={true}
-              createNewText="Use"
             />
           ) : '-'}
         </TableCell>
@@ -819,7 +886,7 @@ export const GrandLodgeFormSummary: React.FC = () => {
   const { attendees, lodgeTicketOrder } = useRegistrationStore();
   
   const primaryAttendee = attendees.find(a => a.isPrimary);
-  const grandLodgeName = primaryAttendee?.grandLodgeId ? 'Grand Lodge' : 'Grand Lodge';
+  const grandLodgeName = primaryAttendee?.grand_lodge_id ? 'Grand Lodge' : 'Grand Lodge';
 
   if (!lodgeTicketOrder) {
     return null;

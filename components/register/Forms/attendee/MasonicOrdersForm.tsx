@@ -8,7 +8,7 @@ import { Info, ShoppingCart, Users, Package, Check, Building, Plus, X, UserPlus 
 import { cn } from '@/lib/utils';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import formSaveManager from '@/lib/formSaveManager';
-import { useDebouncedCallback } from 'use-debounce';
+import { useAttendeeDataWithDebounce } from './lib/useAttendeeData';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
@@ -35,7 +35,7 @@ import { AttendeeData } from './types';
 import { generateUUID } from '@/lib/uuid-slug-utils';
 
 // Constants for form behavior
-const DEBOUNCE_DELAY = 500; // Increased from 300ms to reduce re-renders
+const DEBOUNCE_DELAY = 300; // Changed from 500ms to consistent 300ms
 
 // Event and ticket IDs for Grand Proclamation 2025
 const EVENT_IDS = {
@@ -90,17 +90,6 @@ export const MasonicOrdersForm: React.FC<MasonicOrdersFormProps> = ({
     setLodgeTicketOrder,
   } = useRegistrationStore();
   
-  // Create debounced version of updateAttendee
-  const debouncedUpdateAttendee = useDebouncedCallback(
-    (attendeeId: string, updates: Partial<any>) => {
-      updateAttendee(attendeeId, updates);
-    },
-    DEBOUNCE_DELAY
-  );
-  
-  // Use the immediate update for critical operations
-  const updateAttendeeImmediate = updateAttendee;
-  
   const [selectedGrandLodge, setSelectedGrandLodge] = useState<string>('');
   const [primaryAttendeeId, setPrimaryAttendeeId] = useState<string | null>(null);
   const [tableCount, setTableCount] = useState(1);
@@ -118,6 +107,15 @@ export const MasonicOrdersForm: React.FC<MasonicOrdersFormProps> = ({
   
   // Get the primary attendee
   const primaryAttendee = attendees.find(a => a.attendeeId === primaryAttendeeId);
+  
+  // Use the hook for primary attendee data management
+  const { 
+    attendee: primaryAttendeeData, 
+    updateField, 
+    updateFieldImmediate,
+    updateMultipleFields,
+    updateMultipleFieldsImmediate 
+  } = useAttendeeDataWithDebounce(primaryAttendeeId || '', DEBOUNCE_DELAY);
 
   // Update table order when count changes
   useEffect(() => {
@@ -130,9 +128,9 @@ export const MasonicOrdersForm: React.FC<MasonicOrdersFormProps> = ({
   
   // Initialize Grand Lodge from primary attendee when loaded
   useEffect(() => {
-    if (primaryAttendee && !selectedGrandLodge && primaryAttendee.grandLodgeId) {
+    if (primaryAttendee && !selectedGrandLodge && primaryAttendee.grand_lodge_id) {
       // Initialize Grand Lodge (acting as Masonic Order)
-      setSelectedGrandLodge(String(primaryAttendee.grandLodgeId));
+      setSelectedGrandLodge(String(primaryAttendee.grand_lodge_id));
     }
   }, [primaryAttendee, selectedGrandLodge]);
 
@@ -145,14 +143,14 @@ export const MasonicOrdersForm: React.FC<MasonicOrdersFormProps> = ({
       
       if (!primaryAttendeeId) {
         const primaryId = addMasonAttendee();
-        updateAttendeeImmediate(primaryId, {
+        updateAttendee(primaryId, {
           isPrimary: true,
           attendeeType: 'Mason',
         });
         setPrimaryAttendeeId(primaryId);
       }
     }
-  }, [primaryAttendeeId, addMasonAttendee, updateAttendeeImmediate]);
+  }, [primaryAttendeeId, addMasonAttendee, updateAttendee]);
 
   // Update table count (for register delegation)
   const handleTableCountChange = useCallback((newCount: number) => {
@@ -197,14 +195,11 @@ export const MasonicOrdersForm: React.FC<MasonicOrdersFormProps> = ({
     if (selectedGrandLodge !== grandLodgeId) {
       setSelectedGrandLodge(grandLodgeId);
       
-      if (primaryAttendee) {
-        const updates: any = { 
-          grandLodgeId: grandLodgeId ? Number(grandLodgeId) : 0,
-        };
-        debouncedUpdateAttendee(primaryAttendee.attendeeId, updates);
+      if (primaryAttendeeId) {
+        updateFieldImmediate('grand_lodge_id', grandLodgeId ? Number(grandLodgeId) : 0);
       }
     }
-  }, [primaryAttendee, debouncedUpdateAttendee, selectedGrandLodge]);
+  }, [primaryAttendeeId, updateFieldImmediate, selectedGrandLodge]);
 
   // Add delegation member functions
   const addDelegationMember = useCallback((type: 'Mason' | 'Guest' | 'Partner', partnerOfId?: string) => {
@@ -242,18 +237,17 @@ export const MasonicOrdersForm: React.FC<MasonicOrdersFormProps> = ({
   }));
 
   // Field change handler for BookingContactSection
-  // Use primaryAttendeeId instead of primaryAttendee to reduce dependency changes
   const handleFieldChange = useCallback((field: string, value: any) => {
     if (primaryAttendeeId) {
-      debouncedUpdateAttendee(primaryAttendeeId, { [field]: value });
+      updateField(field, value);
     }
-  }, [debouncedUpdateAttendee, primaryAttendeeId]);
+  }, [updateField, primaryAttendeeId]);
 
   const handleFieldChangeImmediate = useCallback((field: string, value: any) => {
     if (primaryAttendeeId) {
-      updateAttendeeImmediate(primaryAttendeeId, { [field]: value });
+      updateFieldImmediate(field, value);
     }
-  }, [updateAttendeeImmediate, primaryAttendeeId]);
+  }, [updateFieldImmediate, primaryAttendeeId]);
 
   // Validate and complete
   const handleComplete = useCallback(() => {
@@ -263,7 +257,7 @@ export const MasonicOrdersForm: React.FC<MasonicOrdersFormProps> = ({
         return;
       }
       
-      if (!primaryAttendee || !primaryAttendee.firstName || !primaryAttendee.lastName) {
+      if (!primaryAttendeeData || !primaryAttendeeData.firstName || !primaryAttendeeData.lastName) {
         alert('Please complete the booking contact details');
         return;
       }
@@ -324,7 +318,7 @@ export const MasonicOrdersForm: React.FC<MasonicOrdersFormProps> = ({
               rank: 'GL',
               grandOfficerStatus: 'Present',
               presentGrandOfficerRole: member.grandOffice,
-              grandLodgeId: Number(selectedGrandLodge),
+              grand_lodge_id: Number(selectedGrandLodge),
               contactPreference: 'PrimaryAttendee',
               isPrimary: index === 0 && !primaryAttendeeId
             });
@@ -389,9 +383,9 @@ export const MasonicOrdersForm: React.FC<MasonicOrdersFormProps> = ({
             </div>
             
             {/* Booking Contact Details */}
-            {primaryAttendee && (
+            {primaryAttendeeData && (
               <BookingContactDetails
-                primaryAttendee={primaryAttendee}
+                primaryAttendee={primaryAttendeeData}
                 handleFieldChange={handleFieldChange}
                 handleFieldChangeImmediate={handleFieldChangeImmediate}
               />
@@ -818,7 +812,7 @@ export const MasonicOrderFormSummary: React.FC = () => {
   const { attendees, lodgeTicketOrder } = useRegistrationStore();
   
   const primaryAttendee = attendees.find(a => a.isPrimary);
-  const masonicOrderName = primaryAttendee?.grandLodgeId ? 'Masonic Order' : 'Masonic Order';
+  const masonicOrderName = primaryAttendee?.grand_lodge_id ? 'Masonic Order' : 'Masonic Order';
 
   if (!lodgeTicketOrder) {
     return null;

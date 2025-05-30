@@ -15,19 +15,43 @@ export function getTicketSummaryData({
 }: TicketSummaryDataProps) {
   // Group tickets by attendee
   const ticketsByAttendee = attendees.reduce((acc, attendee) => {
-    const attendeeId = attendee.attendeeId;
-    acc[attendeeId] = currentTickets.filter(ticket => ticket.attendeeId === attendeeId);
+    // Handle both direct attendeeId and nested attendeeId properties
+    const attendeeId = (attendee as any).attendeeId || attendee.attendeeId;
+    if (attendeeId) {
+      acc[attendeeId] = currentTickets.filter(ticket => ticket.attendeeId === attendeeId);
+    }
     return acc;
-  }, {} as Record<string, Array<{name: string; price: number}>>);
+  }, {} as Record<string, Array<{name: string; price: number; attendeeId?: string}>>);
   
   // Get attendee name by ID
   const getAttendeeName = (attendeeId: string) => {
-    const attendee = attendees.find(a => a.attendeeId === attendeeId);
+    const attendee = attendees.find(a => {
+      const id = (a as any).attendeeId || a.attendeeId;
+      return id === attendeeId;
+    });
     return attendee ? `${attendee.firstName} ${attendee.lastName}` : 'Unknown Attendee';
   };
   
   // Build summary sections
   const sections = [];
+  
+  // First show attendee information if available but no tickets selected
+  if (attendees.length > 0 && currentTickets.length === 0) {
+    // Show attendees who need tickets
+    const attendeeItems = attendees.map(attendee => {
+      const name = `${attendee.firstName || ''} ${attendee.lastName || ''}`.trim() || 'Unnamed Attendee';
+      const type = attendee.attendeeType || 'Guest';
+      return {
+        label: name,
+        value: `${type} - No tickets selected`
+      };
+    });
+    
+    sections.push({
+      title: 'Attendees Requiring Tickets',
+      items: attendeeItems
+    });
+  }
   
   // Handle lodge bulk orders differently
   if (lodgeTicketOrder && currentTickets.some(t => t.attendeeId === 'lodge-bulk')) {
@@ -55,14 +79,14 @@ export function getTicketSummaryData({
     // Add attendee sections for individual selections
     Object.entries(ticketsByAttendee).forEach(([attendeeId, tickets]) => {
       if (tickets.length > 0) {
-        const attendeeTotal = tickets.reduce((sum: number, ticket: {name: string; price: number}) => sum + ticket.price, 0);
+        const attendeeTotal = tickets.reduce((sum: number, ticket: any) => sum + (ticket.price || 0), 0);
         
         sections.push({
           title: getAttendeeName(attendeeId),
           items: [
-            ...tickets.map((ticket: {name: string; price: number}) => ({
-              label: ticket.name,
-              value: formatCurrency(ticket.price)
+            ...tickets.map((ticket: any) => ({
+              label: ticket.name || 'Unknown Ticket',
+              value: formatCurrency(ticket.price || 0)
             })),
             {
               label: 'Subtotal',
@@ -99,6 +123,6 @@ export function getTicketSummaryData({
   return {
     sections,
     footer,
-    emptyMessage: 'No tickets selected yet'
+    emptyMessage: attendees.length === 0 ? 'No attendees added yet' : 'No tickets selected yet'
   };
 }

@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabase-browser"
+import { supabase } from "@/lib/supabase"
 import type { GrandLodge, Lodge, CreateLodgeData } from "@/lib/types/masonic-types"
 
 /**
@@ -135,7 +135,7 @@ export async function getLodgeById(id: string): Promise<Lodge | null> {
     const { data, error } = await supabase
       .from("lodges")
       .select("*, grand_lodges(*)")
-      .eq("id", id)
+      .eq("lodge_id", id)
       .single()
 
     if (error) {
@@ -158,7 +158,7 @@ export async function getGrandLodgeById(id: string): Promise<GrandLodge | null> 
     const { data, error } = await supabase
       .from("grand_lodges")
       .select("*")
-      .eq("id", id)
+      .eq("grand_lodge_id", id)
       .single()
 
     if (error) {

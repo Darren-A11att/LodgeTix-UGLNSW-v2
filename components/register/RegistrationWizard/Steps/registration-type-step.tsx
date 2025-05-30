@@ -48,15 +48,15 @@ const REGISTRATION_TYPES: RegistrationType[] = [
   {
     id: 'lodge',
     title: 'Lodge Registration',
-    description: 'Register on behalf of your Lodge, including multiple members and guests',
+    description: 'Purchase tables on behalf of your Lodge for the Grand Proclamation event',
     icon: Building,
-    minAttendees: 3,
+    minAttendees: 1,
     defaultAttendeeType: 'Mason',
     features: [
-      'Register on behalf of your Lodge',
-      'Add multiple Lodge members and their guests',
-      'Coordinate seating arrangements for your Lodge',
-      'Partners can be added for each member',
+      'Purchase full tables (10 seats per table)',
+      'Booking contact details for communication',
+      'Attendee names provided closer to the event',
+      'Special lodge group pricing available',
     ],
   },
   {
@@ -193,22 +193,18 @@ export function RegistrationTypeStep() {
     const type = REGISTRATION_TYPES.find(t => t.id === typeId);
     if (!type) return;
 
-    // For lodge registration, create initial required members
+    // For lodge registration, we create ZERO attendees
+    // The booking contact info will be stored separately as billing details
     if (typeId === 'lodge') {
-      for (let i = 0; i < type.minAttendees; i++) {
-        const attendeeId = addAttendee('Mason');
-        updateAttendee(attendeeId, {
-          isPrimary: i === 0,
-        });
-      }
-    } 
-    // For other types, create one primary attendee
-    else {
-      const attendeeId = addAttendee(type.defaultAttendeeType);
-      updateAttendee(attendeeId, {
-        isPrimary: true,
-      });
+      // No attendees for lodge registration
+      return;
     }
+
+    // For other registration types, create one primary attendee
+    const attendeeId = addAttendee(type.defaultAttendeeType);
+    updateAttendee(attendeeId, {
+      isPrimary: true,
+    });
   }, [clearAllAttendees, addAttendee, updateAttendee]);
 
   const handleSelectType = useCallback((type: RegistrationType['id']) => {
@@ -286,9 +282,16 @@ export function RegistrationTypeStep() {
       console.log("Initializing new attendees for type:", type);
       initializeAttendees(type);
       
-      // Explicitly move to the next step when a registration type is selected
-      const goToNextStep = useRegistrationStore.getState().goToNextStep;
-      goToNextStep();
+      // For lodge registration, we need to set the current step to 2 directly
+      // since it's a one-step process after registration type
+      if (type === 'lodge') {
+        const setCurrentStep = useRegistrationStore.getState().setCurrentStep;
+        setCurrentStep(2);
+      } else {
+        // Explicitly move to the next step when a registration type is selected
+        const goToNextStep = useRegistrationStore.getState().goToNextStep;
+        goToNextStep();
+      }
     }
   }, [storeSetRegistrationType, initializeAttendees, setDraftRecoveryHandled, storeClearRegistration]);
 

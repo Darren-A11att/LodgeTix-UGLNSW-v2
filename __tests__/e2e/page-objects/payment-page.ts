@@ -40,7 +40,7 @@ export class PaymentPage {
     this.errorMessage = page.locator('[data-testid="payment-error"]');
   }
 
-  async fillBillingDetails(billingDetails: {
+  async fillBookingContactDetails(billingDetails: {
     name: string;
     email: string;
     phone: string;
@@ -79,8 +79,8 @@ export class PaymentPage {
   }
 
   async completePurchase() {
-    // Fill in test billing details
-    await this.fillBillingDetails({
+    // Fill in test booking contact details
+    await this.fillBookingContactDetails({
       name: 'Test User',
       email: 'test@example.com',
       phone: '0400000000',

@@ -13,7 +13,7 @@ import { InfoIcon, Plus } from 'lucide-react';
 import { AttendeeData } from '../../attendee/types';
 
 interface LodgeSelectionProps {
-  grandLodgeId?: string;
+  grand_lodge_id?: string;
   value?: string;
   onChange: (value: string, lodgeNameNumber?: string, organisationId?: string) => void;
   required?: boolean;
@@ -26,7 +26,7 @@ interface LodgeSelectionProps {
 }
 
 interface LodgeOption {
-  id: string;
+  lodge_id: string;
   name: string;
   number: number | null;
   district: string | null;
@@ -40,7 +40,7 @@ interface LodgeOption {
 }
 
 export const LodgeSelection: React.FC<LodgeSelectionProps> = ({
-  grandLodgeId,
+  grand_lodge_id,
   value,
   onChange,
   required = false,
@@ -87,9 +87,9 @@ export const LodgeSelection: React.FC<LodgeSelectionProps> = ({
   const storeRef = useRef({
     getLodgesByGrandLodge: useLocationStore.getState().getLodgesByGrandLodge,
     // Don't use any dynamic imports inside methods to avoid chunk loading errors
-    searchLodgesByGrandLodge: async (term: string, grandLodgeId: string) => {
+    searchLodgesByGrandLodge: async (term: string, grand_lodge_id: string) => {
       try {
-        if (!term || term.length < 2 || !grandLodgeId) {
+        if (!term || term.length < 2 || !grand_lodge_id) {
           return [];
         }
         
@@ -101,7 +101,7 @@ export const LodgeSelection: React.FC<LodgeSelectionProps> = ({
         
         // First check existing lodges in state for matches
         const matchingLodges = lodges.filter(lodge => {
-          if (lodge.grand_lodge_id !== grandLodgeId) return false;
+          if (lodge.grand_lodge_id !== grand_lodge_id) return false;
           
           const displayName = (lodge.display_name || '').toLowerCase();
           const name = (lodge.name || '').toLowerCase();
@@ -127,7 +127,7 @@ export const LodgeSelection: React.FC<LodgeSelectionProps> = ({
         }
         
         // Check the cached lodges
-        const cachedLodges = lodgeCache?.byGrandLodge?.[grandLodgeId]?.data || [];
+        const cachedLodges = lodgeCache?.byGrandLodge?.[grand_lodge_id]?.data || [];
         
         if (cachedLodges.length > 0) {
           // Filter cached lodges by search term
@@ -158,13 +158,13 @@ export const LodgeSelection: React.FC<LodgeSelectionProps> = ({
         
         // If not in state or cache, search using the store
         // Import supabase client
-        const { supabase } = await import('@/lib/supabase-browser');
+        const { supabase } = await import('@/lib/supabase');
         
         // Search for lodges directly
         const { data, error } = await supabase
           .from('lodges')
           .select('*')
-          .eq('grand_lodge_id', grandLodgeId)
+          .eq('grand_lodge_id', grand_lodge_id)
           .or(`name.ilike.%${term}%,display_name.ilike.%${term}%,district.ilike.%${term}%,meeting_place.ilike.%${term}%`)
           .order('display_name', { ascending: true })
           .limit(20);
@@ -204,31 +204,28 @@ export const LodgeSelection: React.FC<LodgeSelectionProps> = ({
     };
   }, []);
 
-  // Check if we have cached lodges for this grand lodge
-  const hasCachedLodges = useCallback(() => {
-    if (!grandLodgeId) return false;
-    const cache = cacheRef.current?.byGrandLodge?.[grandLodgeId];
-    return cache?.data?.length > 0;
-  }, [grandLodgeId]);
-
-  
   // Create loading flag ref outside the effect
   const loadingLodgesRef = useRef(false);
+  // Track previous grand_lodge_id to detect actual changes
+  const prevGrandLodgeIdRef = useRef<string | undefined>(grand_lodge_id);
+  
+  // Helper function to check if we have cached lodges
+  const hasCachedLodges = () => {
+    if (!grand_lodge_id) return false;
+    const cache = cacheRef.current?.byGrandLodge?.[grand_lodge_id];
+    return cache?.data?.length > 0;
+  };
   
   // Simplified effect to load lodges when grand lodge changes
   useEffect(() => {
-    if (!grandLodgeId) return;
+    if (!grand_lodge_id) return;
     
-    // Check if we already have lodges for this Grand Lodge
-    const hasLodgesInState = lodges.some(l => l.grand_lodge_id === grandLodgeId);
-    const hasCachedLodgesForGl = lodgeCache?.byGrandLodge?.[grandLodgeId]?.data?.length > 0;
-    
-    // Only fetch if we don't have lodges already
-    if (!hasLodgesInState && !hasCachedLodgesForGl && !loadingLodgesRef.current) {
+    // Only fetch if we don't have lodges cached already
+    if (!hasCachedLodges() && !loadingLodgesRef.current) {
       loadingLodgesRef.current = true;
       
       // Use getLodgesByGrandLodge from the store
-      getLodgesByGrandLodge(grandLodgeId)
+      getLodgesByGrandLodge(grand_lodge_id)
         .then(() => {
           loadingLodgesRef.current = false;
         })
@@ -242,26 +239,31 @@ export const LodgeSelection: React.FC<LodgeSelectionProps> = ({
     return () => {
       loadingLodgesRef.current = false;
     };
-  }, [grandLodgeId, lodges, lodgeCache, getLodgesByGrandLodge]);
+  }, [grand_lodge_id, getLodgesByGrandLodge]);
   
-  // Reset lodge selection when grandLodgeId changes
+  // Reset lodge selection when grand_lodge_id changes
   // But only if the lodgeId is not already set in the store
   useEffect(() => {
-    // Clear search cache when grand lodge changes
-    searchCacheRef.current = {};
-    lastSearchQueryRef.current = '';
-    
-    // Don't reset if we already have a valid lodgeId for this grandLodge
-    if (value && grandLodgeId) {
-      // Try to load the lodge data
-      return;
+    // Only reset if grand_lodge_id actually changed
+    if (prevGrandLodgeIdRef.current !== grand_lodge_id) {
+      // Clear search cache when grand lodge changes
+      searchCacheRef.current = {};
+      lastSearchQueryRef.current = '';
+      
+      prevGrandLodgeIdRef.current = grand_lodge_id;
+      
+      // Don't reset if we already have a valid lodgeId for this grandLodge
+      if (value && grand_lodge_id) {
+        // Try to load the lodge data
+        return;
+      }
+      
+      // Otherwise clear selection for a new grandLodge
+      setSelectedLodge(null);
+      setInputValue('');
+      onChange('', '', '');
     }
-    
-    // Otherwise clear selection for a new grandLodge
-    setSelectedLodge(null);
-    setInputValue('');
-    onChange('', '', '');
-  }, [grandLodgeId, onChange, value]);
+  }, [grand_lodge_id]); // Only depend on grand_lodge_id changes
 
   // Handle input change with tracking for user interaction
   const inputChangeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
@@ -321,7 +323,7 @@ export const LodgeSelection: React.FC<LodgeSelectionProps> = ({
       }
       
       // First try to find it in the current lodges list
-      const foundInCurrentList = lodges.find(l => l.id === value);
+      const foundInCurrentList = lodges.find(l => l.lodge_id === value);
       if (foundInCurrentList) {
         setSelectedLodge(foundInCurrentList);
         const displayName = foundInCurrentList.display_name || `${foundInCurrentList.name} No. ${foundInCurrentList.number || 'N/A'}`;
@@ -332,7 +334,7 @@ export const LodgeSelection: React.FC<LodgeSelectionProps> = ({
       }
       
       // Next, try to find it in search results
-      const foundInSearch = allLodgeSearchResults.find(l => l.id === value);
+      const foundInSearch = allLodgeSearchResults.find(l => l.lodge_id === value);
       if (foundInSearch) {
         setSelectedLodge(foundInSearch);
         const displayName = foundInSearch.display_name || `${foundInSearch.name} No. ${foundInSearch.number || 'N/A'}`;
@@ -358,11 +360,11 @@ export const LodgeSelection: React.FC<LodgeSelectionProps> = ({
         // Fetch the lodge by ID directly instead of searching for it
         const fetchLodgeById = async () => {
           try {
-            const { supabase } = await import('@/lib/supabase-browser');
+            const { supabase } = await import('@/lib/supabase');
             const { data, error } = await supabase
               .from('lodges')
               .select('*')
-              .eq('id', value)
+              .eq('lodge_id', value)
               .single();
             
             if (!error && data) {
@@ -409,7 +411,7 @@ export const LodgeSelection: React.FC<LodgeSelectionProps> = ({
       setInputValue(primaryMason.lodgeNameNumber);
       
       // Try to find the lodge in current list for info display
-      const primaryLodge = lodges.find(l => l.id === primaryMason.lodgeId);
+      const primaryLodge = lodges.find(l => l.lodge_id === primaryMason.lodgeId);
       setSelectedLodge(primaryLodge || null);
       
       // Call onChange last to avoid triggering other effects
@@ -453,7 +455,7 @@ export const LodgeSelection: React.FC<LodgeSelectionProps> = ({
     const displayValue = lodge.display_name || `${lodge.name} No. ${lodge.number || 'N/A'}`;
     setInputValue(displayValue);
     lodgeNameRef.current = displayValue;
-    onChange(lodge.id, displayValue, lodge.organisationid);
+    onChange(lodge.lodge_id, displayValue, lodge.organisationid);
     
   }, [onChange]);
 
@@ -464,9 +466,9 @@ export const LodgeSelection: React.FC<LodgeSelectionProps> = ({
   const searchInProgressRef = useRef<Record<string, boolean>>({});
   
   const searchFunction = useCallback(async (query: string) => {
-    if (!grandLodgeId || query.length < 2) return [];
+    if (!grand_lodge_id || query.length < 2) return [];
     
-    console.log(`[LodgeSelection] searchFunction called with query: "${query}", grandLodgeId: ${grandLodgeId}`);
+    console.log(`[LodgeSelection] searchFunction called with query: "${query}", grand_lodge_id: ${grand_lodge_id}`);
     
     // Don't search if the query looks like a UUID (to prevent searching for lodge IDs)
     const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -476,7 +478,7 @@ export const LodgeSelection: React.FC<LodgeSelectionProps> = ({
     }
     
     // Create a cache key based on the query and Grand Lodge ID
-    const cacheKey = `${grandLodgeId}:${query}`;
+    const cacheKey = `${grand_lodge_id}:${query}`;
     
     // Check if we have this query cached
     if (searchCacheRef.current[cacheKey]) {
@@ -495,7 +497,7 @@ export const LodgeSelection: React.FC<LodgeSelectionProps> = ({
       console.log(`[LodgeSelection] Same query as last search, checking local lodges`);
       // Just use current state without triggering new searches
       const currentResults = lodges.filter(l => 
-        l.grand_lodge_id === grandLodgeId && filterLodgeByTerm(l, query)
+        l.grand_lodge_id === grand_lodge_id && filterLodgeByTerm(l, query)
       );
       
       if (currentResults.length > 0) {
@@ -515,7 +517,7 @@ export const LodgeSelection: React.FC<LodgeSelectionProps> = ({
       console.log(`[LodgeSelection] Executing new search for query: "${query}"`);
       // Use our store reference method that was defined at component initialization
       // This avoids any dynamic imports during render
-      const results = await storeRef.current.searchLodgesByGrandLodge(query, grandLodgeId);
+      const results = await storeRef.current.searchLodgesByGrandLodge(query, grand_lodge_id);
       
       console.log(`[LodgeSelection] Search returned ${results.length} results`);
       
@@ -535,18 +537,18 @@ export const LodgeSelection: React.FC<LodgeSelectionProps> = ({
       // Lodge search error
       return [];
     }
-  }, [grandLodgeId, lodges]);
+  }, [grand_lodge_id, lodges]);
 
   // Create new lodge
   const handleCreateLodge = async () => {
-    if (!grandLodgeId || !newLodgeName) return;
+    if (!grand_lodge_id || !newLodgeName) return;
     
     setIsCreating(true);
     try {
       const newLodge = await createLodge({
         name: newLodgeName,
         number: parseInt(newLodgeNumber) || null,
-        grand_lodge_id: grandLodgeId,
+        grand_lodge_id: grand_lodge_id,
         district: null,
         meeting_place: null,
         area_type: null,
@@ -600,7 +602,7 @@ export const LodgeSelection: React.FC<LodgeSelectionProps> = ({
 
   // Get placeholder based on cache status and user location
   const getLodgePlaceholder = useCallback(() => {
-    if (!grandLodgeId) return 'Select a Grand Lodge first';
+    if (!grand_lodge_id) return 'Select a Grand Lodge first';
     
     if (hasCachedLodges()) {
       return 'Select from list or type to search';
@@ -611,7 +613,7 @@ export const LodgeSelection: React.FC<LodgeSelectionProps> = ({
     }
     
     return 'Type to search lodges...';
-  }, [grandLodgeId, hasCachedLodges, ipData]);
+  }, [grand_lodge_id, ipData]);
 
   // Helper function to filter a lodge by search term
   const filterLodgeByTerm = (lodge: LodgeOption, term: string): boolean => {
@@ -636,10 +638,10 @@ export const LodgeSelection: React.FC<LodgeSelectionProps> = ({
   
   // Compute filtered lodge options once to avoid re-computing in multiple places
   const filteredLodgeOptions = useMemo(() => {
-    if (!grandLodgeId) return [];
+    if (!grand_lodge_id) return [];
     
     // First, check if we have lodges in the cache
-    const cachedLodges = lodgeCache?.byGrandLodge?.[grandLodgeId]?.data || [];
+    const cachedLodges = lodgeCache?.byGrandLodge?.[grand_lodge_id]?.data || [];
     
     // If we have cached lodges, prioritize those for initial options
     if (cachedLodges.length > 0) {
@@ -651,11 +653,11 @@ export const LodgeSelection: React.FC<LodgeSelectionProps> = ({
     }
     
     // Otherwise, show the filtered lodges from state
-    const filteredLodges = lodges.filter(l => l.grand_lodge_id === grandLodgeId);
+    const filteredLodges = lodges.filter(l => l.grand_lodge_id === grand_lodge_id);
     
     // Return filtered results
     return filteredLodges;
-  }, [grandLodgeId, lodgeCache, lodges]);
+  }, [grand_lodge_id, lodgeCache, lodges]);
 
   return (
     <div className={className}>
@@ -691,14 +693,14 @@ export const LodgeSelection: React.FC<LodgeSelectionProps> = ({
         onSelect={handleSelect}
         options={filteredLodgeOptions}
         getOptionLabel={(lodge) => lodge.display_name || `${lodge.name} No. ${lodge.number || 'N/A'}`}
-        getOptionValue={(lodge) => lodge.id}
+        getOptionValue={(lodge) => lodge.lodge_id}
         renderOption={renderOption}
         placeholder={getLodgePlaceholder()}
         searchFunction={searchFunction}
         searchAsYouType={true}
         minSearchLength={2}
         debounceMs={800} // Increased debounce time substantially to reduce search frequency
-        disabled={disabled || !grandLodgeId || useSameLodge}
+        disabled={disabled || !grand_lodge_id || useSameLodge}
         isLoading={isLoadingLodges || isLoadingAllLodges}
         className="mt-1"
         allowCreate={true}
@@ -777,7 +779,7 @@ export const LodgeField: React.FC<{
 
   return (
     <LodgeSelection
-      grandLodgeId={mason.grandLodgeId}
+      grand_lodge_id={mason.grand_lodge_id}
       value={mason.lodgeId}
       onChange={handleChange}
       required={true}

@@ -1,6 +1,6 @@
 import { AdminApiService, AdminApiResponse, QueryParams } from './adminApiService';
 import { supabaseTables } from '../../supabase';
-import * as SupabaseTypes from '../../../../supabase/supabase.types';
+import * as SupabaseTypes from '@/shared/types/database';
 
 type DbCustomer = SupabaseTypes.Database['public']['Tables']['Customers']['Row'];
 type DbRegistration = SupabaseTypes.Database['public']['Tables']['registrations']['Row'];

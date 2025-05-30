@@ -1,6 +1,7 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useRegistrationStore } from '@/lib/registrationStore';
+import { useLodgeRegistrationStore } from '@/lib/lodgeRegistrationStore';
 import { IndividualsForm } from '../../Forms/attendee/IndividualsForm';
 import { LodgesForm } from '../../Forms/attendee/LodgesForm';
 import { GrandLodgesForm } from '../../Forms/attendee/GrandLodgesForm';
@@ -10,6 +11,9 @@ import TermsAndConditions from '../../Functions/TermsAndConditions';
 import { TwoColumnStepLayout } from '../Layouts/TwoColumnStepLayout';
 import { OneColumnStepLayout } from '../Layouts/OneColumnStepLayout';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { ValidationModal } from '@/components/ui/validation-modal';
+import { getAttendeeSummaryData } from '../Summary/summary-data/attendee-summary-data';
+import { SummaryRenderer } from '../Summary/SummaryRenderer';
 
 interface AttendeeDetailsProps {
   agreeToTerms: boolean;
@@ -26,26 +30,94 @@ const AttendeeDetails: React.FC<AttendeeDetailsProps> = ({
   prevStep,
   validationErrors,
 }) => {
-  const { registrationType, goToNextStep, goToPrevStep } = useRegistrationStore();
+  const { registrationType, goToNextStep, goToPrevStep, attendees, delegationType } = useRegistrationStore();
+  const { isValid: isLodgeFormValid, getValidationErrors: getLodgeValidationErrors } = useLodgeRegistrationStore();
   const [showErrors, setShowErrors] = useState(false);
+  const [showValidationModal, setShowValidationModal] = useState(false);
+  const [attemptedSubmit, setAttemptedSubmit] = useState(false);
   
-  // Local validation function since it doesn't exist in the store
-  const validateAllAttendees = useCallback(() => {
-    // For now, we'll just assume validation passes
-    // The validation is handled at the registration-wizard.tsx level
-    return true;
-  }, []);
+  // Check if form is valid
+  const isFormValid = useMemo(() => {
+    if (registrationType === 'lodge') {
+      // For lodge registration, use the lodge store validation
+      return isLodgeFormValid() && agreeToTerms;
+    }
+    // For other registration types, use the standard validation
+    return validationErrors.length === 0 && agreeToTerms;
+  }, [registrationType, isLodgeFormValid, validationErrors, agreeToTerms]);
+  
+  // Parse validation errors to create a map of field errors by attendee
+  const fieldErrorsByAttendee = useMemo(() => {
+    const errorMap: Record<string, Record<string, string>> = {};
+    
+    validationErrors.forEach(error => {
+      // Parse error format: "Mason 1: Field Name is required."
+      const match = error.match(/^(.+?):\s*(.+?)(?:\s+is required\.?|\s+is invalid\.?|\.?)$/);
+      if (match) {
+        const [, attendeeLabel, fieldPart] = match;
+        
+        // Extract field name from the error message
+        let fieldName = '';
+        if (fieldPart.includes('Title')) fieldName = 'title';
+        else if (fieldPart.includes('First Name')) fieldName = 'firstName';
+        else if (fieldPart.includes('Last Name')) fieldName = 'lastName';
+        else if (fieldPart.includes('Rank')) fieldName = 'rank';
+        else if (fieldPart.includes('Grand Lodge')) fieldName = 'grand_lodge_id';
+        else if (fieldPart.includes('Lodge')) fieldName = 'lodge_id';
+        else if (fieldPart.includes('Email')) fieldName = 'primaryEmail';
+        else if (fieldPart.includes('Phone')) fieldName = 'primaryPhone';
+        else if (fieldPart.includes('contact preference')) fieldName = 'contactPreference';
+        
+        if (fieldName) {
+          if (!errorMap[attendeeLabel]) {
+            errorMap[attendeeLabel] = {};
+          }
+          errorMap[attendeeLabel][fieldName] = error;
+        }
+      }
+    });
+    
+    return errorMap;
+  }, [validationErrors]);
   
   const handleContinue = useCallback(() => {
-    const isValid = validateAllAttendees();
+    setAttemptedSubmit(true);
     
-    if (!isValid || !agreeToTerms) {
+    if (!isFormValid) {
+      // Show validation modal with errors
+      setShowValidationModal(true);
       setShowErrors(true);
       return;
     }
     
     nextStep();
-  }, [validateAllAttendees, agreeToTerms, nextStep]);
+  }, [isFormValid, nextStep]);
+  
+  // Format validation errors for modal
+  const formatValidationErrors = () => {
+    let errors: string[] = [];
+    
+    if (registrationType === 'lodge') {
+      // For lodge registration, get errors from lodge store
+      errors = getLodgeValidationErrors();
+    } else {
+      // For other registration types, use standard validation errors
+      errors = [...validationErrors];
+    }
+    
+    if (!agreeToTerms) {
+      errors.push('You must agree to the terms and conditions');
+    }
+    
+    return errors.map(error => {
+      // Parse error to extract field name if possible
+      const fieldMatch = error.match(/^(.+?):/);
+      const field = fieldMatch ? fieldMatch[1] : 'Required Field';
+      const message = fieldMatch ? error.substring(fieldMatch[0].length).trim() : error;
+      
+      return { field, message };
+    });
+  };
 
   const renderForm = () => {
     switch (registrationType) {
@@ -55,16 +127,17 @@ const AttendeeDetails: React.FC<AttendeeDetailsProps> = ({
             maxAttendees={10}
             allowPartners={true}
             onComplete={handleContinue}
+            fieldErrors={showErrors ? fieldErrorsByAttendee : {}}
           />
         );
       
       case 'lodge':
         return (
           <LodgesForm
-            minMembers={3}
-            maxMembers={20}
-            allowPartners={true}
+            minTables={1}
+            maxTables={10}
             onComplete={handleContinue}
+            fieldErrors={showErrors ? fieldErrorsByAttendee : {}}
           />
         );
       
@@ -73,6 +146,7 @@ const AttendeeDetails: React.FC<AttendeeDetailsProps> = ({
         return (
           <GrandLodgesForm
             onComplete={handleContinue}
+            fieldErrors={showErrors ? fieldErrorsByAttendee : {}}
           />
         );
       
@@ -82,34 +156,15 @@ const AttendeeDetails: React.FC<AttendeeDetailsProps> = ({
   };
 
   // Render the attendee summary content for the right column
-  const renderSummaryContent = () => (
-    <>
-      <Card>
-        <CardHeader>
-          <CardTitle>Registration Summary</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-gray-600 mb-4">
-            Complete the attendee details form on the left. This information will be used for your registration.
-          </p>
-          <div className="space-y-4">
-            <div>
-              <h3 className="text-sm font-medium">Registration Type</h3>
-              <p className="text-sm capitalize">{registrationType || 'Not selected'}</p>
-            </div>
-            <div>
-              <h3 className="text-sm font-medium">Next Steps</h3>
-              <ul className="text-sm list-disc pl-5 space-y-1">
-                <li>Complete all required attendee information</li>
-                <li>Agree to the terms and conditions</li>
-                <li>Proceed to ticket selection</li>
-              </ul>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-    </>
-  );
+  const renderSummaryContent = () => {
+    const summaryData = getAttendeeSummaryData({
+      attendees,
+      registrationType,
+      delegationType
+    });
+    
+    return <SummaryRenderer {...summaryData} />;
+  };
 
   // Determine which layout to use based on registration type
   const useOneColumnLayout = registrationType === 'delegation';
@@ -127,8 +182,8 @@ const AttendeeDetails: React.FC<AttendeeDetailsProps> = ({
         />
       </div>
 
-      {/* Validation errors */}
-      {showErrors && (validationErrors.length > 0 || !agreeToTerms) && (
+      {/* Validation errors - only show inline if attempted submit and modal is closed */}
+      {showErrors && !showValidationModal && (validationErrors.length > 0 || !agreeToTerms) && (
         <Alert variant="destructive">
           <AlertDescription>
             {validationErrors.length > 0 && (
@@ -155,13 +210,26 @@ const AttendeeDetails: React.FC<AttendeeDetailsProps> = ({
         </Button>
         <Button
           onClick={handleContinue}
-          disabled={validationErrors.length > 0 || !agreeToTerms}
-          className="gap-2 bg-masonic-navy hover:bg-masonic-blue"
+          variant={isFormValid ? "default" : "outline"}
+          className={`gap-2 ${
+            isFormValid 
+              ? "bg-masonic-navy hover:bg-masonic-blue text-white" 
+              : "border-masonic-navy text-masonic-navy hover:bg-masonic-lightblue"
+          }`}
         >
           Continue
           <ChevronRight className="w-4 h-4" />
         </Button>
       </div>
+
+      {/* Validation Modal */}
+      <ValidationModal
+        isOpen={showValidationModal}
+        onClose={() => setShowValidationModal(false)}
+        errors={formatValidationErrors()}
+        title="Please Complete Required Fields"
+        description="The following fields need your attention before continuing:"
+      />
     </div>
   );
 

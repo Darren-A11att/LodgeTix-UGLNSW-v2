@@ -168,21 +168,6 @@ export const BasicInfo = React.memo<SectionProps>(({
               required={true}
             />
           </div>
-          
-          {/* Only show Suffix/Grand Rank when rank is 'GL' */}
-          {data.rank === 'GL' && (
-            <div className="col-span-5">
-              <TextField
-                label="Grand Rank"
-                name="suffix"
-                value={data.suffix || ''}
-                onChange={(value) => onChange('suffix', value)}
-                placeholder="PGRNK"
-                required={isPrimary}
-                maxLength={6}
-              />
-            </div>
-          )}
         </div>
         
         {/* Warning for title/rank mismatches */}

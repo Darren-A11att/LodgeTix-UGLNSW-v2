@@ -25,9 +25,10 @@ const DEBOUNCE_DELAY = 300; // 300ms debounce delay for field updates
 
 interface MasonFormProps extends FormProps {
   onRemove?: () => void;
+  fieldErrors?: Record<string, Record<string, string>>;
 }
 
-export const MasonForm: React.FC<MasonFormProps> = ({ attendeeId, attendeeNumber, isPrimary, onRemove }) => {
+export const MasonForm: React.FC<MasonFormProps> = ({ attendeeId, attendeeNumber, isPrimary, onRemove, fieldErrors = {} }) => {
   // Use custom hook with debounce for field updates
   const { attendee, updateField, updateMultipleFields, updateFieldImmediate } = useAttendeeDataWithDebounce(attendeeId, DEBOUNCE_DELAY);
   const [showDietary, setShowDietary] = useState(false);
@@ -37,6 +38,17 @@ export const MasonForm: React.FC<MasonFormProps> = ({ attendeeId, attendeeNumber
   const primaryMason = useRegistrationStore(state => 
     state.attendees.find(a => a.isPrimary && a.attendeeType === 'Mason')
   );
+  
+  // Determine the label used for this attendee in validation errors
+  const attendeeLabel = useMemo(() => {
+    if (isPrimary) return 'Primary Mason';
+    const masons = useRegistrationStore.getState().attendees.filter(a => a.attendeeType === 'Mason' && !a.isPartner);
+    const index = masons.findIndex(a => a.attendeeId === attendeeId);
+    return `Mason ${index + 1}`;
+  }, [attendeeId, isPrimary]);
+  
+  // Get field errors for this specific attendee
+  const attendeeFieldErrors = fieldErrors[attendeeLabel] || {};
   
   // Initialize useSameLodge state from attendee data
   const [internalUseSameLodge, setInternalUseSameLodge] = useState(false);
@@ -69,7 +81,7 @@ export const MasonForm: React.FC<MasonFormProps> = ({ attendeeId, attendeeNumber
   // Callbacks for complex field updates
   const handleLodgeChange = useCallback((lodgeId: string, lodgeNameNumber?: string, organisationId?: string) => {
     // Use immediate update to prevent data loss during navigation
-    updateFieldImmediate('lodgeId', lodgeId);
+    updateFieldImmediate('lodge_id', lodgeId);
     updateFieldImmediate('lodgeNameNumber', lodgeNameNumber || '');
     if (organisationId) {
       updateFieldImmediate('lodgeOrganisationId', organisationId);
@@ -119,10 +131,19 @@ export const MasonForm: React.FC<MasonFormProps> = ({ attendeeId, attendeeNumber
   
   if (!attendee) return <div className="p-4 text-center">Loading...</div>;
   
+  // Debug log to check attendee data
+  console.log('[MasonForm] Attendee data:', {
+    attendeeId: attendee.attendeeId,
+    isPrimary: attendee.isPrimary,
+    grand_lodge_id: attendee.grand_lodge_id,
+    lodge_id: attendee.lodge_id,
+    useSameLodge: attendee.useSameLodge
+  });
+  
   // Check if we should show "use same lodge" option
   const showSameLodgeOption = !isPrimary && 
                               attendee.attendeeType === 'Mason' && 
-                              primaryMason?.lodgeId;
+                              primaryMason?.lodge_id;
   
   // Title options for Mason
   const titleOptions = MASON_TITLES.map(title => ({ value: title, label: title }));
@@ -149,6 +170,7 @@ export const MasonForm: React.FC<MasonFormProps> = ({ attendeeId, attendeeNumber
               options={titleOptions}
               required={true}
               updateOnBlur={true}
+              error={attendeeFieldErrors.title}
             />
           </div>
           
@@ -160,6 +182,7 @@ export const MasonForm: React.FC<MasonFormProps> = ({ attendeeId, attendeeNumber
               onChange={(value) => updateField('firstName', value)}
               required={true}
               updateOnBlur={true}
+              error={attendeeFieldErrors.firstName}
             />
           </div>
           
@@ -171,6 +194,7 @@ export const MasonForm: React.FC<MasonFormProps> = ({ attendeeId, attendeeNumber
               onChange={(value) => updateField('lastName', value)}
               required={true}
               updateOnBlur={true}
+              error={attendeeFieldErrors.lastName}
             />
           </div>
           
@@ -183,6 +207,7 @@ export const MasonForm: React.FC<MasonFormProps> = ({ attendeeId, attendeeNumber
               options={rankOptions}
               required={true}
               updateOnBlur={true}
+              error={attendeeFieldErrors.rank}
             />
           </div>
         </div>
@@ -211,10 +236,10 @@ export const MasonForm: React.FC<MasonFormProps> = ({ attendeeId, attendeeNumber
                     // Update store value - use updateFieldImmediate to avoid debounce delay
                     updateFieldImmediate('useSameLodge', !!checked);
                     
-                    if (!!checked && primaryMason?.lodgeId && primaryMason?.grandLodgeId) {
+                    if (!!checked && primaryMason?.lodge_id && primaryMason?.grand_lodge_id) {
                       // Update both Grand Lodge and Lodge immediately without debounce
-                      updateFieldImmediate('grandLodgeId', primaryMason.grandLodgeId);
-                      updateFieldImmediate('lodgeId', primaryMason.lodgeId);
+                      updateFieldImmediate('grand_lodge_id', primaryMason.grand_lodge_id);
+                      updateFieldImmediate('lodge_id', primaryMason.lodge_id);
                       updateFieldImmediate('lodgeNameNumber', primaryMason.lodgeNameNumber || '');
                       // Also copy organisationid fields
                       if (primaryMason.grandLodgeOrganisationId) {
@@ -240,24 +265,27 @@ export const MasonForm: React.FC<MasonFormProps> = ({ attendeeId, attendeeNumber
           <div className="grid grid-cols-12 gap-4">
             <div className="col-span-6">
               <GrandLodgeSelection 
-                value={attendee.grandLodgeId}
+                value={attendee.grand_lodge_id}
                 onChange={(value, organisationId) => {
-                  updateFieldImmediate('grandLodgeId', value);
+                  console.log('[MasonForm] Grand Lodge onChange called with:', value, organisationId);
+                  updateFieldImmediate('grand_lodge_id', value);
                   if (organisationId) {
                     updateFieldImmediate('grandLodgeOrganisationId', organisationId);
                   }
                 }}
+                error={attendeeFieldErrors.grand_lodge_id}
               />
             </div>
             
             <div className="col-span-6">
               <LodgeSelection 
-                grandLodgeId={attendee.grandLodgeId}
-                value={attendee.lodgeId}
+                grand_lodge_id={attendee.grand_lodge_id}
+                value={attendee.lodge_id}
                 onChange={handleLodgeChange}
                 required={isPrimary}
                 showUseSameLodge={false} /* Moved to its own row above */
                 primaryMason={primaryMason}
+                error={attendeeFieldErrors.lodge_id}
               />
             </div>
           </div>
@@ -274,6 +302,7 @@ export const MasonForm: React.FC<MasonFormProps> = ({ attendeeId, attendeeNumber
                 onChange={(value) => updateField('primaryEmail', value)}
                 required={true}
                 updateOnBlur={true}
+                error={attendeeFieldErrors.primaryEmail}
               />
             </div>
             <div className="col-span-6">
@@ -284,6 +313,7 @@ export const MasonForm: React.FC<MasonFormProps> = ({ attendeeId, attendeeNumber
                 onChange={(value) => updateField('primaryPhone', value)}
                 required={true}
                 updateOnBlur={true}
+                error={attendeeFieldErrors.primaryPhone}
               />
             </div>
           </div>
@@ -300,6 +330,7 @@ export const MasonForm: React.FC<MasonFormProps> = ({ attendeeId, attendeeNumber
                   options={CONTACT_PREFERENCES}
                   required={true}
                   updateOnBlur={true}
+                  error={attendeeFieldErrors.contactPreference}
                 />
               </div>
               
@@ -325,6 +356,7 @@ export const MasonForm: React.FC<MasonFormProps> = ({ attendeeId, attendeeNumber
                     onChange={(value) => updateField('primaryEmail', value)}
                     required={true}
                     updateOnBlur={true}
+                    error={attendeeFieldErrors.primaryEmail}
                   />
                 </div>
                 <div className="col-span-4">
@@ -335,6 +367,7 @@ export const MasonForm: React.FC<MasonFormProps> = ({ attendeeId, attendeeNumber
                     onChange={(value) => updateField('primaryPhone', value)}
                     required={true}
                     updateOnBlur={true}
+                    error={attendeeFieldErrors.primaryPhone}
                   />
                 </div>
               </div>
@@ -502,10 +535,10 @@ export const MasonForm: React.FC<MasonFormProps> = ({ attendeeId, attendeeNumber
                     // Update store value - use updateFieldImmediate to avoid debounce delay
                     updateFieldImmediate('useSameLodge', !!checked);
                     
-                    if (!!checked && primaryMason?.lodgeId && primaryMason?.grandLodgeId) {
+                    if (!!checked && primaryMason?.lodge_id && primaryMason?.grand_lodge_id) {
                       // Update both Grand Lodge and Lodge immediately without debounce
-                      updateFieldImmediate('grandLodgeId', primaryMason.grandLodgeId);
-                      updateFieldImmediate('lodgeId', primaryMason.lodgeId);
+                      updateFieldImmediate('grand_lodge_id', primaryMason.grand_lodge_id);
+                      updateFieldImmediate('lodge_id', primaryMason.lodge_id);
                       updateFieldImmediate('lodgeNameNumber', primaryMason.lodgeNameNumber || '');
                       // Also copy organisationid fields
                       if (primaryMason.grandLodgeOrganisationId) {
@@ -529,9 +562,9 @@ export const MasonForm: React.FC<MasonFormProps> = ({ attendeeId, attendeeNumber
           {!internalUseSameLodge && (
             <>
               <GrandLodgeSelection 
-                value={attendee.grandLodgeId}
+                value={attendee.grand_lodge_id}
                 onChange={(value, organisationId) => {
-                  updateFieldImmediate('grandLodgeId', value);
+                  updateFieldImmediate('grand_lodge_id', value);
                   if (organisationId) {
                     updateFieldImmediate('grandLodgeOrganisationId', organisationId);
                   }
@@ -539,8 +572,8 @@ export const MasonForm: React.FC<MasonFormProps> = ({ attendeeId, attendeeNumber
               />
               
               <LodgeSelection 
-                grandLodgeId={attendee.grandLodgeId}
-                value={attendee.lodgeId}
+                grand_lodge_id={attendee.grand_lodge_id}
+                value={attendee.lodge_id}
                 onChange={handleLodgeChange}
                 required={isPrimary}
                 showUseSameLodge={false} /* Moved to its own row above */

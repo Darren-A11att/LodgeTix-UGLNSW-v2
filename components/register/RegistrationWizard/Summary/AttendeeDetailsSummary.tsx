@@ -87,8 +87,8 @@ export const AttendeeDetailsSummary: React.FC = () => {
               status: attendees.length >= 1 ? 'success' : 'error'
             },
             { text: 'Grand Lodge information', 
-              met: attendees.some(a => a.grandLodgeId),
-              status: attendees.some(a => a.grandLodgeId) ? 'success' : 'warning'
+              met: attendees.some(a => a.grand_lodge_id),
+              status: attendees.some(a => a.grand_lodge_id) ? 'success' : 'warning'
             }
           ]
         };

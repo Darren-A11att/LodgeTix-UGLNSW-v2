@@ -118,8 +118,8 @@ describe('Validation Utils', () => {
     it('should validate complete Mason attendee', () => {
       const mason = createMockAttendee({
         rank: 'MM',
-        grandLodgeId: 'gl-123',
-        lodgeId: 'lodge-456',
+        grand_lodge_id: 'gl-123',
+        lodge_id: 'lodge-456',
       });
 
       const result = validateAttendee(mason);
@@ -154,15 +154,15 @@ describe('Validation Utils', () => {
       const mason = createMockAttendee({
         isPrimary: true,
         rank: 'MM',
-        grandLodgeId: 'gl-123',
-        lodgeId: null,
+        grand_lodge_id: 'gl-123',
+        lodge_id: null,
         lodgeNameNumber: null,
       });
 
       const result = validateAttendee(mason);
       expect(result.isValid).toBe(false);
       expect(result.errors).toContainEqual({
-        field: 'lodgeId',
+        field: 'lodge_id',
         message: 'Lodge is required',
       });
     });

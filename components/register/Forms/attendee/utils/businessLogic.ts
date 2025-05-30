@@ -86,7 +86,7 @@ export const shouldShowUseSameLodge = (
          attendee.attendeeType === 'Mason' &&
          !!primaryAttendee &&
          primaryAttendee.attendeeType === 'Mason' &&
-         (!!primaryAttendee.lodgeId || !!primaryAttendee.lodgeNameNumber);
+         (!!primaryAttendee.lodge_id || !!primaryAttendee.lodgeNameNumber);
 };
 
 // Partner Logic
@@ -119,14 +119,14 @@ export const handleUseSameLodgeChange = (
 ): Partial<AttendeeData> => {
   if (isChecked && primaryAttendee) {
     return {
-      grandLodgeId: primaryAttendee.grandLodgeId,
-      lodgeId: primaryAttendee.lodgeId,
+      grand_lodge_id: primaryAttendee.grand_lodge_id,
+      lodge_id: primaryAttendee.lodge_id,
       lodgeNameNumber: primaryAttendee.lodgeNameNumber,
     };
   } else {
     return {
-      grandLodgeId: undefined,
-      lodgeId: undefined,
+      grand_lodge_id: undefined,
+      lodge_id: undefined,
       lodgeNameNumber: undefined,
     };
   }
@@ -155,9 +155,9 @@ export const getRequiredFields = (attendee: Partial<AttendeeData>): string[] => 
     
     // Lodge requirements for primary Masons
     if (attendee.isPrimary) {
-      required.push('grandLodgeId');
-      // Either lodgeId or lodgeNameNumber is required
-      required.push('lodgeId|lodgeNameNumber');
+      required.push('grand_lodge_id');
+      // Either lodge_id or lodgeNameNumber is required
+      required.push('lodge_id|lodgeNameNumber');
     }
   }
   

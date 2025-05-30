@@ -2,7 +2,7 @@ import { AdminApiService, AdminApiResponse, QueryParams } from './adminApiServic
 import { supabaseTables } from '../../supabase';
 import * as EventTypes from '../../../shared/types/event';
 import * as TicketTypes from '../../../shared/types/ticket';
-import * as SupabaseTypes from '../../../../supabase/supabase.types';
+import * as SupabaseTypes from '@/shared/types/database';
 
 // Define types for admin operations
 type DbEvent = SupabaseTypes.Database['public']['Tables']['Events']['Row'];

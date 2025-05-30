@@ -41,7 +41,7 @@ export const useAttendeeData = (attendeeId: string) => {
         console.error('[useAttendeeData] Error ensuring up-to-date data:', err);
       }
     }
-  }, [attendeeId]);
+  }, [attendeeId, attendees]);
 
   const attendee = useMemo(
     () => attendees.find((a) => a.attendeeId === attendeeId),
