@@ -11,7 +11,7 @@ export interface Event {
   location: string
   imageUrl: string
   price: string
-  organizer?: string
+  organiser?: string
   category?: string
   status?: "Published" | "Draft" | "Members Only"
   ticketsSold?: number
@@ -53,7 +53,7 @@ export async function getEventByIdOrSlug(idOrSlug: string): Promise<Event | null
   
   // Check if it's a UUID
   if (isUUID(idOrSlug)) {
-    query = query.eq('id', idOrSlug)
+    query = query.eq('event_id', idOrSlug)
   } else {
     query = query.eq('slug', idOrSlug)
   }
@@ -67,7 +67,7 @@ export async function getEventByIdOrSlug(idOrSlug: string): Promise<Event | null
   
   // Transform the data to match our Event interface
   return {
-    id: data.id,
+    id: data.event_id,
     slug: data.slug,
     title: data.title,
     description: data.description,
@@ -75,7 +75,7 @@ export async function getEventByIdOrSlug(idOrSlug: string): Promise<Event | null
     location: data.location || '',
     imageUrl: data.image_url || '/placeholder.svg',
     price: data.price ? `$${data.price}` : '$0',
-    organizer: data.organizer_name,
+    organiser: data.organiser_name,
     category: data.type,
     status: data.is_published ? "Published" : "Draft",
     ticketsSold: 0, // Not available in current schema
@@ -95,8 +95,8 @@ export async function getEventTickets(eventId: string): Promise<Ticket[]> {
   const { data, error } = await supabase
     .from('tickets')
     .select('*')
-    .eq('eventid', eventId)
-    .order('pricepaid', { ascending: true })
+    .eq('event_id', eventId)
+    .order('price_paid', { ascending: true })
   
   if (error) {
     console.error('Error fetching tickets:', error)
@@ -121,7 +121,7 @@ export async function getPublishedEvents(): Promise<Event[]> {
   }
   
   return data.map(event => ({
-    id: event.id,
+    id: event.event_id,
     slug: event.slug,
     title: event.title,
     description: event.description,

@@ -49,7 +49,8 @@ export default async function RegistrationOverviewPage({
 }: {
   params: { registrationId: string }
 }) {
-  const registration = await getRegistration(params.registrationId)
+  const { registrationId } = await params
+  const registration = await getRegistration(registrationId)
 
   if (!registration) {
     notFound()
@@ -115,7 +116,7 @@ export default async function RegistrationOverviewPage({
           <CardContent>
             <p className="text-3xl font-bold">{attendeeCount}</p>
             <Link 
-              href={`/registrations/${params.registrationId}/attendees`}
+              href={`/registrations/${registrationId}/attendees`}
               className="text-sm text-blue-600 hover:underline"
             >
               View all attendees
@@ -133,7 +134,7 @@ export default async function RegistrationOverviewPage({
           <CardContent>
             <p className="text-3xl font-bold">{ticketCount}</p>
             <Link 
-              href={`/registrations/${params.registrationId}/tickets`}
+              href={`/registrations/${registrationId}/tickets`}
               className="text-sm text-blue-600 hover:underline"
             >
               View all tickets
@@ -185,7 +186,7 @@ export default async function RegistrationOverviewPage({
                   </p>
                 </div>
                 <Button variant="outline" size="sm" asChild>
-                  <Link href={`/registrations/${params.registrationId}/attendees/${attendee.attendeeid}`}>
+                  <Link href={`/registrations/${registrationId}/attendees/${attendee.attendeeid}`}>
                     View Details
                   </Link>
                 </Button>
@@ -219,7 +220,7 @@ export default async function RegistrationOverviewPage({
                   </p>
                 </div>
                 <Button variant="outline" size="sm" asChild>
-                  <Link href={`/registrations/${params.registrationId}/tickets/${ticket.id}`}>
+                  <Link href={`/registrations/${registrationId}/tickets/${ticket.id}`}>
                     View Ticket
                   </Link>
                 </Button>

@@ -160,7 +160,7 @@ export interface FormState {
 
   // Add other fields from previous definition if they were missed
   registrationId: string | null;
-  customerId: string | null;
+  contactId: string | null;
   userId: string | null;
   isLoading: boolean;
   error: string | null;

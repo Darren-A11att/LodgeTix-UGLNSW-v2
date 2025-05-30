@@ -24,8 +24,73 @@ const nextConfig = {
   },
   // Allow cross-origin requests from IP addresses in development
   experimental: {
-    allowedDevOrigins: ['192.168.20.51'],
-  }
+    allowedDevOrigins: ['192.168.20.41', '192.168.20.51'],
+  },
+  // Webpack configuration to handle large strings better
+  webpack: (config, { dev, isServer, webpack }) => {
+    // Apply optimizations for all client builds
+    if (!isServer) {
+      // Apply split chunks optimization to reduce bundle sizes
+      config.optimization = {
+        ...config.optimization,
+        splitChunks: {
+          chunks: 'all',
+          cacheGroups: {
+            // Split large libraries into separate chunks
+            recharts: {
+              test: /[\\/]node_modules[\\/]recharts[\\/]/,
+              name: 'recharts',
+              priority: 10,
+            },
+            // Split type definitions into separate chunk
+            types: {
+              test: /[\\/]shared[\\/]types[\\/]/,
+              name: 'types',
+              priority: 5,
+            },
+            default: {
+              minChunks: 2,
+              priority: -20,
+              reuseExistingChunk: true,
+            },
+          },
+        },
+      };
+      
+      // Disable performance hints that trigger warnings
+      config.performance = false;
+    }
+    
+    // Suppress webpack warnings for all builds
+    config.infrastructureLogging = {
+      ...config.infrastructureLogging,
+      level: 'error',
+    };
+    
+    // Filter specific warnings using regex patterns
+    config.ignoreWarnings = [
+      // Ignore the big strings serialization warning
+      /Serializing big strings.*impacts deserialization performance/,
+      // Ignore the pack file cache strategy warnings
+      /webpack\.cache\.PackFileCacheStrategy/,
+      // Ignore ESM dependency graph warnings
+      /Node\.js doesn't offer a \(nice\) way to introspect the ESM dependency graph yet/,
+      // General cache warnings
+      /cache/i,
+    ];
+    
+    // Modify webpack stats to hide warnings
+    config.stats = {
+      ...config.stats,
+      warnings: false,
+      warningsFilter: [
+        /Serializing big strings/,
+        /PackFileCacheStrategy/,
+      ],
+    };
+    
+    return config;
+  },
 }
 
 export default withSentryConfig(nextConfig, {

@@ -23,6 +23,14 @@ import { api } from '@/lib/api-logger'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { createClient } from '@/utils/supabase/client'
 import { ValidationModal } from '@/components/ui/validation-modal'
+import { calculateStripeFees, getFeeModeFromEnv, getFeeDisclaimer } from '@/lib/utils/stripe-fee-calculator'
+import { Info } from "lucide-react"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import { useTicketAvailability } from '@/hooks/use-ticket-availability'
+import { ConnectionStatus } from '@/components/ui/connection-status'
+import { TicketAvailabilityIndicator, TicketAvailabilityBadge } from '@/components/ui/ticket-availability-indicator'
+import { useToast } from '@/hooks/use-toast'
+import { RealtimeErrorBoundary } from '@/components/ui/realtime-error-boundary'
 
 // Define AttendeeType for eligibility checking, leveraging existing types
 export type AttendeeType = Attendee['type'];
@@ -43,6 +51,32 @@ const TicketSelectionStep: React.FC = () => {
   const [ticketPackages, setTicketPackages] = useState<EventPackage[]>([])
   const [isLoadingTickets, setIsLoadingTickets] = useState(true)
   const [ticketsError, setTicketsError] = useState<string | null>(null)
+  const { toast } = useToast()
+  
+  // Real-time ticket availability
+  const { 
+    availability: realtimeAvailability, 
+    isConnected, 
+    connectionStatus,
+    getTicketAvailability,
+    isTicketAvailable 
+  } = useTicketAvailability(eventId, {
+    enabled: true,
+    onLowStock: (ticketName, available) => {
+      toast({
+        title: "Low Stock Alert",
+        description: `${ticketName} - only ${available} tickets left!`,
+        variant: "warning"
+      })
+    },
+    onSoldOut: (ticketName) => {
+      toast({
+        title: "Sold Out",
+        description: `${ticketName} is now sold out`,
+        variant: "destructive"
+      })
+    }
+  })
 
   // Fetch tickets and packages on component mount
   useEffect(() => {
@@ -562,6 +596,13 @@ const TicketSelectionStep: React.FC = () => {
         stepName="Ticket Selection"
       >
         <div className="space-y-6">
+          {/* Connection status indicator */}
+          {isConnected && (
+            <div className="flex justify-end -mt-4 mb-4">
+              <ConnectionStatus status={connectionStatus} showText={true} size="sm" />
+            </div>
+          )}
+          
           {/* Show lodge order info */}
           {lodgeTicketOrder && (
             <Alert className="border-blue-200 bg-blue-50">
@@ -679,7 +720,12 @@ const TicketSelectionStep: React.FC = () => {
                         <TableHead className="w-[50px]"></TableHead>
                         <TableHead>Ticket</TableHead>
                         <TableHead>Description</TableHead>
-                        <TableHead className="text-right">Availability</TableHead>
+                        <TableHead className="text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            Availability
+                            <ConnectionStatus status={connectionStatus} size="sm" />
+                          </div>
+                        </TableHead>
                         <TableHead className="text-right">Price</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -691,7 +737,7 @@ const TicketSelectionStep: React.FC = () => {
                           <TableCell>
                             <Checkbox
                               id={`all-${ticket.id}`}
-                              disabled={ticket.status !== 'Active' || ticket.available_count === 0}
+                              disabled={ticket.status !== 'Active' || !isTicketAvailable(ticket.id)}
                               checked={
                                 isBulkMode 
                                   ? (packages['lodge-bulk']?.selectedEvents || []).includes(ticket.id)
@@ -749,15 +795,25 @@ const TicketSelectionStep: React.FC = () => {
                           <TableCell className="font-medium">{ticket.name}</TableCell>
                           <TableCell>{ticket.description || 'No description available'}</TableCell>
                           <TableCell className="text-right">
-                            {ticket.status !== 'Active' ? (
-                              <span className="text-gray-500">Inactive</span>
-                            ) : ticket.available_count === null ? (
-                              <span className="text-green-600">Unlimited</span>
-                            ) : ticket.available_count === 0 ? (
-                              <span className="text-red-600">Sold Out</span>
-                            ) : (
-                              <span className="text-gray-600">{ticket.available_count} left</span>
-                            )}
+                            <RealtimeErrorBoundary fallback={
+                              <TicketAvailabilityBadge
+                                available={ticket.available_count}
+                                status={ticket.status}
+                              />
+                            }>
+                              {(() => {
+                                const liveData = getTicketAvailability(ticket.id)
+                                const available = liveData?.actualAvailable ?? ticket.available_count
+                                const isSoldOut = liveData?.isSoldOut ?? (ticket.available_count === 0)
+                                
+                                return (
+                                  <TicketAvailabilityBadge
+                                    available={available}
+                                    status={ticket.status}
+                                  />
+                                )
+                              })()}
+                            </RealtimeErrorBoundary>
                           </TableCell>
                           <TableCell className="text-right">${ticket.price}</TableCell>
                         </TableRow>
@@ -859,15 +915,15 @@ const TicketSelectionStep: React.FC = () => {
                                       <Checkbox
                                         checked={isIndividualTicketDirectlySelected(attendee.attendeeId, ticket.id)}
                                         onCheckedChange={() => handleToggleIndividualTicket(attendee.attendeeId, ticket.id)}
-                                        disabled={!!packages[attendee.attendeeId]?.ticketDefinitionId || ticket.status !== 'Active' || ticket.available_count === 0}
+                                        disabled={!!packages[attendee.attendeeId]?.ticketDefinitionId || ticket.status !== 'Active' || !isTicketAvailable(ticket.id)}
                                       />
                                       <span className={cn(
-                                        packages[attendee.attendeeId]?.ticketDefinitionId || ticket.status !== 'Active' || ticket.available_count === 0 ? "text-gray-400" : ""
+                                        packages[attendee.attendeeId]?.ticketDefinitionId || ticket.status !== 'Active' || !isTicketAvailable(ticket.id) ? "text-gray-400" : ""
                                       )}>
                                         {ticket.name} - ${ticket.price}
                                         {ticket.status !== 'Active' ? (
                                           <span className="text-gray-500 text-xs ml-1">(Inactive)</span>
-                                        ) : ticket.available_count !== null && ticket.available_count === 0 ? (
+                                        ) : !isTicketAvailable(ticket.id) ? (
                                           <span className="text-red-500 text-xs ml-1">(Sold Out)</span>
                                         ) : null}
                                       </span>
@@ -962,6 +1018,13 @@ const TicketSelectionStep: React.FC = () => {
       stepName="Ticket Selection"
     >
       <div className="space-y-6">
+        {/* Connection status indicator */}
+        {isConnected && (
+          <div className="flex justify-end -mt-4 mb-4">
+            <ConnectionStatus status={connectionStatus} showText={true} size="sm" />
+          </div>
+        )}
+        
         <div className="space-y-4">
           {eligibleAttendees.map((attendee: any) => (
             <Card key={attendee.attendeeId} className={cn(
@@ -1037,7 +1100,14 @@ const TicketSelectionStep: React.FC = () => {
                                 <CardContent className="p-4">
                                   <div className="flex justify-between items-start mb-2">
                                     <h4 className="font-medium">{pkg.name}</h4>
-                                    <Badge className="bg-masonic-navy">${pkg.price}</Badge>
+                                    <div className="text-right">
+                                      <Badge className="bg-masonic-navy">${pkg.price}</Badge>
+                                      {getFeeModeFromEnv() === 'pass_to_customer' && (
+                                        <p className="text-xs text-gray-500 mt-1">
+                                          +${calculateStripeFees(pkg.price).stripeFee.toFixed(2)} fee
+                                        </p>
+                                      )}
+                                    </div>
                                   </div>
                                   <p className="text-sm text-gray-600 mb-3">{pkg.description}</p>
                                   <div className="text-xs text-gray-500">
@@ -1088,7 +1158,12 @@ const TicketSelectionStep: React.FC = () => {
                                 <TableHead className="w-[50px]"></TableHead>
                                 <TableHead>Ticket</TableHead>
                                 <TableHead>Description</TableHead>
-                                <TableHead className="text-right">Availability</TableHead>
+                                <TableHead className="text-right">
+                                  <div className="flex items-center justify-end gap-2">
+                                    Availability
+                                    {isConnected && <ConnectionStatus status={connectionStatus} size="sm" />}
+                                  </div>
+                                </TableHead>
                                 <TableHead className="text-right">Price</TableHead>
                               </TableRow>
                             </TableHeader>
@@ -1109,7 +1184,7 @@ const TicketSelectionStep: React.FC = () => {
                                   <TableCell>
                                     <Checkbox
                                       id={`${attendee.attendeeId}-${ticket.id}`}
-                                      disabled={ticket.status !== 'Active' || ticket.available_count === 0}
+                                      disabled={ticket.status !== 'Active' || !isTicketAvailable(ticket.id)}
                                       checked={isIndividualTicketDirectlySelected(attendee.attendeeId, ticket.id)}
                                       onCheckedChange={() => handleToggleIndividualTicket(attendee.attendeeId, ticket.id)}
                                     />
@@ -1124,17 +1199,43 @@ const TicketSelectionStep: React.FC = () => {
                                   </TableCell>
                                   <TableCell>{ticket.description || 'No description available'}</TableCell>
                                   <TableCell className="text-right">
-                                    {ticket.status !== 'Active' ? (
-                                      <span className="text-gray-500 text-sm">Inactive</span>
-                                    ) : ticket.available_count === null ? (
-                                      <span className="text-green-600 text-sm">Unlimited</span>
-                                    ) : ticket.available_count === 0 ? (
-                                      <span className="text-red-600 text-sm">Sold Out</span>
-                                    ) : (
-                                      <span className="text-gray-600 text-sm">{ticket.available_count} left</span>
-                                    )}
+                                    <RealtimeErrorBoundary fallback={
+                                      <TicketAvailabilityIndicator
+                                        available={ticket.available_count}
+                                        status={ticket.status}
+                                        showNumbers={true}
+                                        size="sm"
+                                        animate={false}
+                                      />
+                                    }>
+                                      {(() => {
+                                        const liveData = getTicketAvailability(ticket.id)
+                                        const available = liveData?.actualAvailable ?? ticket.available_count
+                                        const previousAvailable = ticket.available_count
+                                        
+                                        return (
+                                          <TicketAvailabilityIndicator
+                                            available={available}
+                                            status={ticket.status}
+                                            showNumbers={true}
+                                            size="sm"
+                                            animate={true}
+                                            previousAvailable={previousAvailable}
+                                          />
+                                        )
+                                      })()}
+                                    </RealtimeErrorBoundary>
                                   </TableCell>
-                                  <TableCell className="text-right">${ticket.price}</TableCell>
+                                  <TableCell className="text-right">
+                                    <div>
+                                      <span>${ticket.price}</span>
+                                      {getFeeModeFromEnv() === 'pass_to_customer' && (
+                                        <p className="text-xs text-gray-500">
+                                          +${calculateStripeFees(ticket.price).stripeFee.toFixed(2)} fee
+                                        </p>
+                                      )}
+                                    </div>
+                                  </TableCell>
                                 </TableRow>
                               ))}
                             </TableBody>
@@ -1158,7 +1259,14 @@ const TicketSelectionStep: React.FC = () => {
                                     <p className="text-xs text-gray-500">{ticket.description}</p>
                                   </div>
                                   <div className="flex items-center gap-3">
-                                    <span className="font-bold">${ticket.price}</span>
+                                    <div className="text-right">
+                                      <span className="font-bold">${ticket.price}</span>
+                                      {getFeeModeFromEnv() === 'pass_to_customer' && (
+                                        <p className="text-xs text-gray-500">
+                                          +${calculateStripeFees(ticket.price).stripeFee.toFixed(2)} fee
+                                        </p>
+                                      )}
+                                    </div>
                                     <Button
                                       variant="ghost"
                                       size="sm"
@@ -1188,9 +1296,33 @@ const TicketSelectionStep: React.FC = () => {
                                   </div>
                                 </div>
                               ))}
-                              <div className="flex justify-between items-center p-2 border-t font-bold">
-                                <span>Total</span>
-                                <span>${getAttendeeTicketTotal(attendee.attendeeId)}</span>
+                              <div className="border-t pt-2 space-y-1">
+                                <div className="flex justify-between items-center px-2 text-sm">
+                                  <span>Subtotal</span>
+                                  <span>${getAttendeeTicketTotal(attendee.attendeeId)}</span>
+                                </div>
+                                {getFeeModeFromEnv() === 'pass_to_customer' && (
+                                  <div className="flex justify-between items-center px-2 text-sm text-gray-600">
+                                    <span className="flex items-center gap-1">
+                                      Processing Fee
+                                      <TooltipProvider>
+                                        <Tooltip>
+                                          <TooltipTrigger>
+                                            <Info className="h-3 w-3" />
+                                          </TooltipTrigger>
+                                          <TooltipContent className="max-w-xs">
+                                            <p className="text-sm">{getFeeDisclaimer()}</p>
+                                          </TooltipContent>
+                                        </Tooltip>
+                                      </TooltipProvider>
+                                    </span>
+                                    <span>${calculateStripeFees(getAttendeeTicketTotal(attendee.attendeeId)).stripeFee.toFixed(2)}</span>
+                                  </div>
+                                )}
+                                <div className="flex justify-between items-center p-2 font-bold">
+                                  <span>Total</span>
+                                  <span>${calculateStripeFees(getAttendeeTicketTotal(attendee.attendeeId)).total.toFixed(2)}</span>
+                                </div>
                               </div>
                             </div>
                           )}

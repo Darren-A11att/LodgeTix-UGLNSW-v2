@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from '@/utils/supabase/admin';
+import { getQRCodeService } from '@/lib/services/qr-code-service';
+import { getPDFService } from '@/lib/services/pdf-service';
 
 /**
  * Endpoint to verify a registration payment status directly with Stripe via FDW
@@ -7,10 +9,10 @@ import { createAdminClient } from '@/utils/supabase/admin';
  */
 export async function POST(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const registrationId = params.id;
+    const { id: registrationId } = await params;
     console.group("🔍 Verify Registration Payment with Stripe FDW");
     console.log("Registration ID:", registrationId);
     
@@ -75,17 +77,50 @@ export async function POST(
       updateData.payment_status = 'completed';
       
       // Also update tickets to completed
-      const { error: ticketUpdateError } = await adminClient
+      const { data: updatedTickets, error: ticketUpdateError } = await adminClient
         .from("tickets") 
         .update({ 
           ticket_status: "completed",
           status: "completed",
           updated_at: new Date().toISOString()
         })
-        .eq("registration_id", registrationId);
+        .eq("registration_id", registrationId)
+        .select();
         
       if (ticketUpdateError) {
         console.error("Error updating tickets:", ticketUpdateError);
+      } else if (updatedTickets) {
+        // Generate QR codes for all tickets
+        const qrCodeService = getQRCodeService();
+        const qrPromises = updatedTickets.map(async (ticket) => {
+          try {
+            const qrData = {
+              ticketId: ticket.id,
+              registrationId: ticket.registration_id,
+              attendeeId: ticket.attendee_id,
+              eventId: ticket.event_id,
+              ticketType: 'General', // You may need to fetch this from event_tickets
+            };
+            
+            const qrUrl = await qrCodeService.generateAndStore(qrData);
+            
+            if (qrUrl) {
+              // Update ticket with QR code URL
+              await adminClient
+                .from('tickets')
+                .update({ qr_code_url: qrUrl })
+                .eq('id', ticket.id);
+            }
+            
+            return qrUrl;
+          } catch (error) {
+            console.error(`Error generating QR code for ticket ${ticket.id}:`, error);
+            return null;
+          }
+        });
+        
+        await Promise.all(qrPromises);
+        console.log(`Generated QR codes for ${updatedTickets.length} tickets`);
       }
     } else if (paymentIntent.status === 'requires_payment_method') {
       updateData.payment_status = 'failed';
@@ -138,10 +173,10 @@ export async function POST(
  */
 export async function GET(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const registrationId = params.id;
+    const { id: registrationId } = await params;
     console.group("🔍 Check Registration Payment with Stripe FDW");
     console.log("Registration ID:", registrationId);
     

@@ -24,14 +24,14 @@ This document analyzes the mapping between our data requirements (based on appli
 ### 2. Missing Fields in Database
 
 #### Events Table
-- `banner_image_url` - Only has `image_url`
-- `long_description` - Only has `description`
-- `location` as simple text - Has location_id reference instead
-- `total_capacity` - Needs aggregation from tickets
-- `min_price` - Needs calculation from tickets
+- `banner_image_url` - Only has `image_url` ** use image_url in the database
+- `long_description` - Only has `description` ** use description in the database
+- `location` as simple text - Has location_id reference instead ** will need to do FK lookup based on location_id same for organiser_id 
+- `total_capacity` - Needs aggregation from tickets ** agreed, have renamed events.max_attendees to events.toal_capacity
+- `min_price` - Needs calculation from tickets ** use a filter
 
 #### Tickets Table  
-- `qr_code` - Not stored in database
+- `qr_code` - Not stored in database 
 - `confirmation_email_sent` - Not tracked
 
 #### Registrations Table

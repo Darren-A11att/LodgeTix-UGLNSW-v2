@@ -72,9 +72,9 @@ export default async function OptimizedParentEventPage({
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
         <div className="absolute bottom-0 left-0 right-0 p-6 text-white md:p-12">
-          <h1 className="mb-2 text-3xl font-bold md:text-5xl">{eventData.title}</h1>
+          <h1 className="mb-2 text-xl font-bold md:text-2xl">{eventData.title}</h1>
           {eventData.subtitle && (
-            <p className="text-lg md:text-xl opacity-90">{eventData.subtitle}</p>
+            <p className="text-lg md:text-2xl opacity-90">{eventData.subtitle}</p>
           )}
         </div>
       </div>

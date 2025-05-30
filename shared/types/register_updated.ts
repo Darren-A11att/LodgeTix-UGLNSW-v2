@@ -153,7 +153,7 @@ export interface TicketData {
  */
 export interface RegistrationData {
   registrationId: string;
-  customerId: string;
+  contactId: string;
   primaryAttendeeId?: string;
   parent_event_id: string;
   registration_type: string;
@@ -343,7 +343,7 @@ export interface FormState {
   
   // Database tracking fields - added in updated version
   registrationId?: string;
-  customerId?: string;
+  contactId?: string;
 }
 
 // ============================================================================
@@ -906,7 +906,7 @@ export function formStateToDbEntities(formState: FormState): {
   // Create registration
   const registration: RegistrationData = {
     registrationId,
-    customerId: formState.customerId || generateUUID(),
+    contactId: formState.contactId || generateUUID(),
     parent_event_id: formState.selectedEventId || '',
     registration_type: formState.registrationType,
     payment_status: 'pending',
@@ -947,7 +947,7 @@ export function dbEntitiesToFormState(
   // Initialize form state with registration data
   const formState: FormState = {
     registrationId: registration.registrationId,
-    customerId: registration.customerId,
+    contactId: registration.contactId,
     registrationType: registration.registration_type as RegistrationType,
     step: 1, // Always start at step 1
     selectedTicket: '',

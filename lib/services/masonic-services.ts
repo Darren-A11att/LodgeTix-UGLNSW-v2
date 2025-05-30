@@ -3,22 +3,42 @@ import type { GrandLodge, Lodge, CreateLodgeData } from "@/lib/types/masonic-typ
 
 /**
  * Search for Grand Lodges with prioritization
- * This uses the existing search_grand_lodges_prioritized function in your database
+ * Queries the grand_lodges table directly with country-based prioritization
  */
 export async function searchGrandLodges(searchTerm: string, userCountry: string = 'Australia'): Promise<GrandLodge[]> {
   try {
+    // Build search query with prioritization
+    const searchQuery = searchTerm.toLowerCase()
+    
     const { data, error } = await supabase
-      .rpc('search_grand_lodges_prioritized', {
-        search_term: searchTerm,
-        user_country: userCountry
-      })
+      .from("grand_lodges")
+      .select("*")
+      .or(`name.ilike.%${searchQuery}%,abbreviation.ilike.%${searchQuery}%,country.ilike.%${searchQuery}%`)
+      .order('country', { ascending: false, nullsFirst: false }) // Sort by country to prioritize
+      .limit(50)
 
     if (error) {
       console.error("Error searching Grand Lodges:", error)
       throw error
     }
 
-    return data || []
+    // Sort results to prioritize user's country
+    const sortedData = data?.sort((a, b) => {
+      // Prioritize exact country match
+      if (a.country === userCountry && b.country !== userCountry) return -1
+      if (b.country === userCountry && a.country !== userCountry) return 1
+      
+      // Then prioritize by name match
+      const aNameMatch = a.name.toLowerCase().includes(searchQuery)
+      const bNameMatch = b.name.toLowerCase().includes(searchQuery)
+      if (aNameMatch && !bNameMatch) return -1
+      if (!aNameMatch && bNameMatch) return 1
+      
+      // Finally sort alphabetically
+      return a.name.localeCompare(b.name)
+    }) || []
+
+    return sortedData
   } catch (error) {
     console.error("Error in searchGrandLodges:", error)
     return []

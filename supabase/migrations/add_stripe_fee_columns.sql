@@ -2,7 +2,8 @@
 ALTER TABLE public.registrations 
 ADD COLUMN IF NOT EXISTS subtotal DECIMAL(10,2),
 ADD COLUMN IF NOT EXISTS stripe_fee DECIMAL(10,2),
-ADD COLUMN IF NOT EXISTS includes_processing_fee BOOLEAN DEFAULT false;
+ADD COLUMN IF NOT EXISTS includes_processing_fee BOOLEAN DEFAULT false,
+ADD COLUMN IF NOT EXISTS platform_fee_amount DECIMAL(10,2);
 
 -- Create a view to show fee breakdown and organization revenue
 CREATE OR REPLACE VIEW public.registration_fee_summary AS
@@ -11,7 +12,7 @@ SELECT
   r.confirmation_number,
   r.subtotal as ticket_subtotal,
   r.stripe_fee as processing_fee,
-  r.total_amount as total_charged,
+  r.total_amount_paid as total_charged,
   r.platform_fee_amount as marketplace_fee,
   (r.subtotal - COALESCE(r.platform_fee_amount, 0)) as organization_receives,
   r.created_at,
@@ -27,4 +28,5 @@ LEFT JOIN organisations o ON e.organiser_id = o.organisation_id;
 COMMENT ON COLUMN public.registrations.subtotal IS 'Original ticket price total before any fees';
 COMMENT ON COLUMN public.registrations.stripe_fee IS 'Stripe processing fee passed to customer';
 COMMENT ON COLUMN public.registrations.includes_processing_fee IS 'Whether the total_amount includes the processing fee';
+COMMENT ON COLUMN public.registrations.platform_fee_amount IS 'Platform/marketplace fee amount for connected accounts';
 COMMENT ON VIEW public.registration_fee_summary IS 'View showing fee breakdown and organization revenue for each registration';

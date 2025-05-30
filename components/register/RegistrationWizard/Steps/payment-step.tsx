@@ -24,7 +24,7 @@ import { CheckoutFormHandle } from "../payment/CheckoutForm";
 import { PaymentProcessing } from "../payment/PaymentProcessing";
 import { OneColumnStepLayout } from "../Layouts/OneColumnStepLayout";
 import { getEventTicketsService, type TicketDefinition, type EventPackage } from '@/lib/services/event-tickets-service';
-import { calculateStripeFees, formatFeeBreakdown, getFeeDisclaimer, STRIPE_FEE_CONFIG } from '@/lib/utils/stripe-fee-calculator';
+import { calculateStripeFees, formatFeeBreakdown, getFeeDisclaimer, getFeeModeFromEnv, getPlatformFeePercentage } from '@/lib/utils/stripe-fee-calculator';
 import { Info } from "lucide-react";
 import { 
   Tooltip,
@@ -513,7 +513,7 @@ function PaymentStep(props: PaymentStepProps) {
             stripeFee: feeCalculation.stripeFee,
             billingDetails: billingData,
             eventId: eventId || storeEventId,
-            customerId: user.id
+            contactId: user.id
           };
 
           const response = await fetch('/api/registrations', {
@@ -753,8 +753,8 @@ function PaymentStep(props: PaymentStepProps) {
                             <TooltipContent className="max-w-xs">
                               <p className="text-sm">{getFeeDisclaimer()}</p>
                               <div className="mt-2 text-xs space-y-1">
-                                <p>• Australian cards: {STRIPE_FEE_CONFIG.domestic.description}</p>
-                                <p>• International cards: {STRIPE_FEE_CONFIG.international.description}</p>
+                                <p>• Australian cards: 1.75% + $0.30</p>
+                                <p>• International cards: 2.9% + $0.30</p>
                               </div>
                             </TooltipContent>
                           </Tooltip>

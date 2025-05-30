@@ -5,7 +5,7 @@ import { getSupabaseClient } from '@/lib/supabase-singleton'
 
 // Define the structure of events in the existing schema (matching actual database)
 interface EventsSchemaRow {
-  id: string
+  event_id: string
   slug: string
   title: string
   subtitle?: string | null
@@ -21,8 +21,8 @@ interface EventsSchemaRow {
   regalia?: string | null
   regalia_description?: string | null
   image_url?: string | null // Using snake_case as in DB
-  organizer_name?: string | null
-  organizer_contact?: any
+  organiser_name?: string | null
+  organiser_contact?: any
   is_published?: boolean | null
   featured?: boolean | null
   sections?: any
@@ -142,7 +142,7 @@ export class EventsSchemaService {
         .select('*');
       
       if (isUUID) {
-        query = query.eq('id', idOrSlug);
+        query = query.eq('event_id', idOrSlug);
       } else {
         query = query.eq('slug', idOrSlug);
       }
@@ -381,7 +381,7 @@ export class EventsSchemaService {
       const { data: event, error: eventError } = await this.supabase
         .from("events") // Use snake_case table name
         .select('related_events')
-        .eq('id', event_id)
+        .eq('event_id', event_id)
         .single();
       
       if (eventError) {
@@ -398,7 +398,7 @@ export class EventsSchemaService {
       const { data, error } = await this.supabase
         .from("events") // Use snake_case table name
         .select('*')
-        .in('id', event.related_events)
+        .in('event_id', event.related_events)
         .order("event_start", { ascending: true });
       
       if (error) {
@@ -526,9 +526,9 @@ export class EventsSchemaService {
    */
   private transformEvent(data: EventsSchemaRow): EventType {
     try {
-      if (!data || !data.id) {
+      if (!data || !data.event_id) {
         api.error('transformEvent received invalid data:', data);
-        throw new Error('Invalid event data received - missing required ID field');
+        throw new Error('Invalid event data received - missing required event_id field');
       }
       
       // Get location data from location field
@@ -553,15 +553,15 @@ export class EventsSchemaService {
             hour12: true 
           });
         } catch (error) {
-          api.warn(`Error formatting date/time for event ${data.id}:`, error);
+          api.warn(`Error formatting date/time for event ${data.event_id}:`, error);
         }
       }
       
       // Format the full event object with proper type handling and defaults
       const event: EventType = {
         // Core required fields with camelCase mapping
-        id: data.id,
-        slug: data.slug || `event-${data.id.slice(0, 8)}`, // Generate slug if missing
+        id: data.event_id,
+        slug: data.slug || `event-${data.event_id.slice(0, 8)}`, // Generate slug if missing
         title: isValidValue(data.title) ? data.title : DEFAULT_EVENT_VALUES.title,
         description: isValidValue(data.description) ? data.description : DEFAULT_EVENT_VALUES.description,
         
@@ -610,7 +610,7 @@ export class EventsSchemaService {
       
       return event;
     } catch (error) {
-      api.error(`Error transforming event data for ID ${data?.id || 'unknown'}:`, error);
+      api.error(`Error transforming event data for ID ${data?.event_id || 'unknown'}:`, error);
       
       // Don't return invalid data - throw the error up the chain
       throw new Error(`Failed to transform event data: ${error instanceof Error ? error.message : 'Unknown error'}`);

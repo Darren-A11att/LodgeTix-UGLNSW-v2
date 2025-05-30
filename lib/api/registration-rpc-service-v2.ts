@@ -67,7 +67,7 @@ export interface CreateRegistrationParamsV2 {
 export interface RegistrationResponseV2 {
   registration_id: string;
   confirmation_number: string;
-  customer_id: string;
+  contact_id: string;
   total_amount: number;
   attendees: Array<{
     attendee_id: string;

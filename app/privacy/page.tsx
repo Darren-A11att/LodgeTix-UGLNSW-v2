@@ -32,7 +32,7 @@ export default function PrivacyPage() {
             <h2>3. Information Sharing</h2>
             <p>
               We do not sell, trade, or otherwise transfer your personal information to third parties.
-              We may share your information with event organizers for the specific events you register for.
+              We may share your information with event organisers for the specific events you register for.
             </p>
 
             <h2>4. Data Security</h2>

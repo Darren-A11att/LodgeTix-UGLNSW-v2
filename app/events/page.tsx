@@ -38,7 +38,7 @@ export default async function EventsPage() {
       eventType: event.event_type
     }));
     
-    // Separate parent and child events for better organization
+    // Separate parent and child events for better organisation
     const parentEvents = eventsForDisplay.filter(e => !e.parentEventId);
     const childEvents = eventsForDisplay.filter(e => e.parentEventId);
     

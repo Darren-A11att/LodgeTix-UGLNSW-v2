@@ -42,7 +42,7 @@ export default function AboutPage() {
           </p>
           <div className="flex flex-col justify-center gap-4 sm:flex-row">
             <Button asChild variant="outline">
-              <Link href="/organizer/signup">Register Your Lodge</Link>
+              <Link href="/organiser/signup">Register Your Lodge</Link>
             </Button>
             <Button asChild className="bg-blue-700 hover:bg-blue-800">
               <Link href="/events">Browse Events</Link>
@@ -82,17 +82,17 @@ export default function AboutPage() {
               <h4 className="mb-4 font-semibold text-white">For Lodges</h4>
               <ul className="space-y-2">
                 <li>
-                  <Link href="/organizer/dashboard" className="hover:text-white">
+                  <Link href="/organiser/dashboard" className="hover:text-white">
                     Lodge Dashboard
                   </Link>
                 </li>
                 <li>
-                  <Link href="/organizer/create-event" className="hover:text-white">
+                  <Link href="/organiser/create-event" className="hover:text-white">
                     Create Event
                   </Link>
                 </li>
                 <li>
-                  <Link href="/organizer/resources" className="hover:text-white">
+                  <Link href="/organiser/resources" className="hover:text-white">
                     Resources
                   </Link>
                 </li>

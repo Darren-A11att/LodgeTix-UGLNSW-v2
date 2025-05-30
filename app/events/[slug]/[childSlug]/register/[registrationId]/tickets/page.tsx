@@ -11,7 +11,7 @@ interface TicketsPageProps {
 }
 
 export default async function TicketsPage({ params }: TicketsPageProps) {
-  const { slug: parentSlug, childSlug, registrationId } = params
+  const { slug: parentSlug, childSlug, registrationId } = await params
   
   // Fetch event data on the server
   const eventData = await getEventByIdOrSlug(childSlug)

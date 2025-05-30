@@ -23,8 +23,8 @@ export interface EventInput {
   dress_code?: string;
   regalia?: string;
   degree_type?: string;
-  organizer_name?: string;
-  organizer_contact?: string;
+  organiser_name?: string;
+  organiser_contact?: string;
   package_info?: {
     package_id?: string;
     discount_percentage?: number;

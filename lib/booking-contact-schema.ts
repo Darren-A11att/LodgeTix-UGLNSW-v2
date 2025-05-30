@@ -45,7 +45,7 @@ export type BookingContact = z.infer<typeof bookingContactSchema>;
 
 // Type that matches the customers table structure
 export interface CustomerRecord {
-  customer_id?: string;
+  contact_id?: string;
   user_id?: string | null;
   organisation_id?: string | null;
   first_name?: string | null;
@@ -70,7 +70,6 @@ export interface CustomerRecord {
   stripe_customer_id?: string | null;
   created_at?: string;
   updated_at?: string;
-  contact_id?: string | null;
   customer_type?: 'individual' | 'company' | 'lodge' | 'grandlodge' | 'masonicorder' | 'other' | null;
 }
 
@@ -78,14 +77,14 @@ export interface CustomerRecord {
 export const mapBookingContactToCustomer = (
   bookingContact: BookingContact,
   additionalData?: {
-    customerId?: string;
+    contactId?: string;
     userId?: string;
     customerType?: CustomerRecord['customer_type'];
     stripeCustomerId?: string;
   }
 ): CustomerRecord => {
   return {
-    customer_id: additionalData?.customerId,
+    contact_id: additionalData?.contactId,
     user_id: additionalData?.userId,
     customer_type: additionalData?.customerType,
     stripe_customer_id: additionalData?.stripeCustomerId,

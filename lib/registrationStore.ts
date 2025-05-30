@@ -225,15 +225,34 @@ const preserveStateInDevelopment = (storeName: string) => {
       return false;
     };
     
-    // Save state periodically and on page events
-    const interval = setInterval(saveState, 2000);
+    // Save state only on beforeunload to prevent excessive logging
     window.addEventListener('beforeunload', saveState);
+    
+    // Also save state periodically but less frequently and with a flag to prevent multiple intervals
+    const intervalKey = `__${storeName}_interval__`;
+    if (!(window as any)[intervalKey]) {
+      (window as any)[intervalKey] = setInterval(() => {
+        try {
+          const currentState = localStorage.getItem('lodgetix-registration-storage');
+          if (currentState) {
+            (window as any)[globalKey] = currentState;
+            // Remove console log to prevent spam
+          }
+        } catch (error) {
+          // Silently fail
+        }
+      }, 30000); // Every 30 seconds instead of 2 seconds
+    }
     
     // Try to restore immediately
     const restored = restoreState();
     
     return () => {
-      clearInterval(interval);
+      const interval = (window as any)[intervalKey];
+      if (interval) {
+        clearInterval(interval);
+        delete (window as any)[intervalKey];
+      }
       window.removeEventListener('beforeunload', saveState);
     };
   }

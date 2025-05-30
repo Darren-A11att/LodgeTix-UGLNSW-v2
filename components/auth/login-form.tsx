@@ -14,8 +14,8 @@ export function LoginForm() {
   const router = useRouter()
   // In the app router, we need to use window.location to get query parameters
   const redirectPath = typeof window !== 'undefined'
-    ? new URLSearchParams(window.location.search).get('redirect') || '/organizer/dashboard'
-    : '/organizer/dashboard'
+    ? new URLSearchParams(window.location.search).get('redirect') || '/organiser/dashboard'
+    : '/organiser/dashboard'
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -72,7 +72,7 @@ export function LoginForm() {
           <div className="flex items-center justify-between">
             <Label htmlFor="password">Password</Label>
             <a
-              href="/organizer/forgot-password"
+              href="/organiser/forgot-password"
               className="text-sm text-masonic-navy hover:underline"
             >
               Forgot password?
@@ -100,7 +100,7 @@ export function LoginForm() {
       <div className="text-center text-sm">
         Don't have an account?{' '}
         <a
-          href="/organizer/signup"
+          href="/organiser/signup"
           className="text-masonic-navy hover:underline"
         >
           Sign up

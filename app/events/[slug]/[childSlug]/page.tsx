@@ -192,15 +192,15 @@ export default async function ChildEventPage({
                 )}
               </Tabs>
 
-              {eventData.organizer_name && (
+              {eventData.organiser_name && (
                 <div className="mb-8">
-                  <h2 className="mb-4 text-2xl font-bold">Organizer</h2>
+                  <h2 className="mb-4 text-2xl font-bold">Organiser</h2>
                   <div className="flex items-center">
                     <div className="mr-4 h-12 w-12 rounded-full bg-gray-200"></div>
                     <div>
-                      <p className="font-medium">{eventData.organizer_name}</p>
-                      {eventData.organizer_contact && (
-                        <p className="text-sm text-gray-500">{eventData.organizer_contact}</p>
+                      <p className="font-medium">{eventData.organiser_name}</p>
+                      {eventData.organiser_contact && (
+                        <p className="text-sm text-gray-500">{eventData.organiser_contact}</p>
                       )}
                     </div>
                   </div>
@@ -332,17 +332,17 @@ export default async function ChildEventPage({
                 <h4 className="mb-4 font-semibold text-white">For Lodges</h4>
                 <ul className="space-y-2">
                   <li>
-                    <Link href="/organizer/dashboard" className="hover:text-white">
+                    <Link href="/organiser/dashboard" className="hover:text-white">
                       Lodge Dashboard
                     </Link>
                   </li>
                   <li>
-                    <Link href="/organizer/create-event" className="hover:text-white">
+                    <Link href="/organiser/create-event" className="hover:text-white">
                       Create Event
                     </Link>
                   </li>
                   <li>
-                    <Link href="/organizer/resources" className="hover:text-white">
+                    <Link href="/organiser/resources" className="hover:text-white">
                       Resources
                     </Link>
                   </li>

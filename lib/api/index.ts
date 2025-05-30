@@ -6,6 +6,12 @@ import { RegistrationAdminService } from './registrationAdminService';
 import { CustomerAdminService } from './customerAdminService';
 import { PackageAdminService } from './packageAdminService';
 
+// Export API types
+export * from './types';
+
+// Export Stripe queries
+export * from './stripe-queries';
+
 // Create singleton instances for use throughout the app
 export const adminApi = new AdminApiService();
 export const eventAdmin = new EventAdminService();

@@ -45,7 +45,7 @@ export const DATABASE_FIELD_MAPPINGS = {
   "parentEventId": "parent_event_id",
   "registrationAvailabilityId": "registration_availability_id",
   "agreeToTerms": "agree_to_terms",
-  "customerId": "customer_id",
+  "contactId": "contact_id",
   "paymentStatus": "payment_status",
   "primaryAttendeeId": "primary_attendee_id",
   "registrationData": "registration_data",

@@ -110,7 +110,7 @@ export async function getEventTimeline() {
       .select('*')
       .eq('is_published', true)
       .gte('event_end', now)
-      .neq('id', mainEvent.id)  // Exclude the main event
+      .neq('event_id', mainEvent.id)  // Exclude the main event
       .order("event_start", { ascending: true })
       .limit(3);
 
@@ -162,7 +162,7 @@ function transformEventData(data: any) {
   if (!data) return null;
   
   // Validate data structure
-  if (typeof data !== 'object' || Array.isArray(data) || !data.id) {
+  if (typeof data !== 'object' || Array.isArray(data) || !data.event_id) {
     api.error('Invalid event data structure in transformEventData:', data);
     return null;
   }
@@ -178,12 +178,12 @@ function transformEventData(data: any) {
   });
 
   return {
-    id: data.id,
-    slug: data.slug || `event-${data.id}`,
+    id: data.event_id,
+    slug: data.slug || `event-${data.event_id}`,
     title: data.title || 'Untitled Event',
     subtitle: data.subtitle || '',
     description: data.description || '',
-    organiser: data.organiser || data.organizer_name || 'TBD',
+    organiser: data.organiser || data.organiser_name || 'TBD',
     location: data.location || 'TBD',
     image_url: data.image_url || null,
     imageUrl: data.image_url || null, // For compatibility with EventCard component

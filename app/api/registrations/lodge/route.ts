@@ -45,21 +45,122 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Create payment intent
-    const paymentIntent = await stripe.paymentIntents.create({
+    // Fetch event and organization data for Stripe Connect
+    const { data: event } = await supabase
+      .from('events')
+      .select(`
+        event_id,
+        title,
+        slug,
+        organiser_id,
+        parent_event_id,
+        organisations!events_organiser_id_fkey(
+          organisation_id,
+          name,
+          stripe_onbehalfof
+        )
+      `)
+      .eq('event_id', eventId)
+      .single();
+      
+    if (!event) {
+      return NextResponse.json(
+        { success: false, error: 'Event not found' },
+        { status: 404 }
+      );
+    }
+    
+    // Check for connected account
+    const connectedAccountId = event.organisations?.stripe_onbehalfof;
+    const organisationName = event.organisations?.name;
+    
+    // Calculate platform fee
+    let applicationFeeAmount = 0;
+    if (connectedAccountId) {
+      const platformFeePercentage = parseFloat(process.env.STRIPE_PLATFORM_FEE_PERCENTAGE || '0.05');
+      applicationFeeAmount = Math.round(amount * platformFeePercentage);
+      console.log(`Platform fee (${platformFeePercentage * 100}%): $${applicationFeeAmount / 100}`);
+    }
+    
+    // Prepare payment intent options
+    const paymentIntentOptions: any = {
       amount,
       currency: 'aud',
       payment_method: paymentMethodId,
       confirmation_method: 'manual',
       confirm: true,
-      return_url: `${process.env.NEXT_PUBLIC_APP_URL}/events/${eventId}/register/success`,
+      return_url: `${process.env.NEXT_PUBLIC_APP_URL}/events/${event.slug || eventId}/register/success`,
       metadata: {
-        eventId,
-        registrationType: 'Lodge',
-        lodgeName: lodgeDetails.lodgeName,
-        tableCount: tableOrder.tableCount.toString(),
+        // Event details
+        event_id: eventId,
+        event_title: event.title?.substring(0, 100) || '',
+        event_slug: event.slug || '',
+        parent_event_id: event.parent_event_id || '',
+        
+        // Organization details
+        organisation_id: event.organisations?.organisation_id || '',
+        organisation_name: organisationName?.substring(0, 100) || '',
+        
+        // Registration type details
+        registration_type: 'Lodge',
+        lodge_name: lodgeDetails.lodgeName?.substring(0, 100) || '',
+        lodge_id: lodgeDetails.lodge_id || '',
+        
+        // Order details
+        table_count: tableOrder.tableCount.toString(),
+        total_tickets: tableOrder.totalTickets.toString(),
+        ceremony_tickets: (tableOrder.ceremonyTickets || 0).toString(),
+        gala_dinner_tickets: (tableOrder.galaDinnerTickets || 0).toString(),
+        
+        // Financial details
+        subtotal: String(amount / 100),
+        platform_fee: String(applicationFeeAmount / 100),
+        
+        // Sub-event details
+        sub_events: JSON.stringify({
+          ceremony: tableOrder.ceremonyEventId || '',
+          galaDinner: tableOrder.galaDinnerEventId || ''
+        }).substring(0, 200),
+        
+        // Timestamps
+        created_at: new Date().toISOString(),
+        environment: process.env.NODE_ENV || 'development'
       },
-    });
+    };
+    
+    // Add Stripe Connect parameters if connected account exists
+    if (connectedAccountId) {
+      // Validate connected account
+      try {
+        const account = await stripe.accounts.retrieve(connectedAccountId);
+        if (!account.charges_enabled) {
+          console.error(`Connected account ${connectedAccountId} cannot accept charges`);
+          return NextResponse.json(
+            { success: false, error: 'The organization\'s payment account is not properly configured' },
+            { status: 400 }
+          );
+        }
+        
+        // Add Connect parameters
+        paymentIntentOptions.on_behalf_of = connectedAccountId;
+        paymentIntentOptions.application_fee_amount = applicationFeeAmount;
+        
+        // Add statement descriptor
+        const statementDescriptor = event.title
+          ?.substring(0, 22)
+          .replace(/[^a-zA-Z0-9 ]/g, '')
+          .trim();
+        if (statementDescriptor) {
+          paymentIntentOptions.statement_descriptor_suffix = statementDescriptor;
+        }
+      } catch (accountError: any) {
+        console.error('Connected account validation failed:', accountError);
+        // Continue without connected account but log the issue
+      }
+    }
+    
+    // Create payment intent
+    const paymentIntent = await stripe.paymentIntents.create(paymentIntentOptions);
 
     if (paymentIntent.status !== 'succeeded' && paymentIntent.status !== 'processing') {
       return NextResponse.json(

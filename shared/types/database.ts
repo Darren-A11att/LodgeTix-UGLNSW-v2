@@ -84,7 +84,7 @@ export type Database = {
           email: string | null
           first_name: string | null
           has_partner: boolean | null
-          is_partner: string | null
+          is_partner: boolean | null
           is_primary: boolean | null
           last_name: string | null
           phone: string | null
@@ -106,7 +106,7 @@ export type Database = {
           email?: string | null
           first_name?: string | null
           has_partner?: boolean | null
-          is_partner?: string | null
+          is_partner?: boolean | null
           is_primary?: boolean | null
           last_name?: string | null
           phone?: string | null
@@ -128,7 +128,7 @@ export type Database = {
           email?: string | null
           first_name?: string | null
           has_partner?: boolean | null
-          is_partner?: string | null
+          is_partner?: boolean | null
           is_primary?: boolean | null
           last_name?: string | null
           phone?: string | null
@@ -415,6 +415,97 @@ export type Database = {
           },
         ]
       }
+      documents: {
+        Row: {
+          created_at: string
+          document_type: string
+          expires_at: string | null
+          generated_at: string
+          id: string
+          metadata: Json
+          registration_id: string | null
+          storage_path: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          document_type: string
+          expires_at?: string | null
+          generated_at?: string
+          id?: string
+          metadata?: Json
+          registration_id?: string | null
+          storage_path: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          document_type?: string
+          expires_at?: string | null
+          generated_at?: string
+          id?: string
+          metadata?: Json
+          registration_id?: string | null
+          storage_path?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "documents_registration_id_fkey"
+            columns: ["registration_id"]
+            isOneToOne: false
+            referencedRelation: "registrations"
+            referencedColumns: ["registration_id"]
+          },
+        ]
+      }
+      email_log: {
+        Row: {
+          created_at: string
+          email_type: string
+          error_message: string | null
+          id: string
+          metadata: Json
+          recipient_email: string
+          registration_id: string | null
+          sent_at: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          email_type: string
+          error_message?: string | null
+          id?: string
+          metadata?: Json
+          recipient_email: string
+          registration_id?: string | null
+          sent_at?: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          email_type?: string
+          error_message?: string | null
+          id?: string
+          metadata?: Json
+          recipient_email?: string
+          registration_id?: string | null
+          sent_at?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "email_log_registration_id_fkey"
+            columns: ["registration_id"]
+            isOneToOne: false
+            referencedRelation: "registrations"
+            referencedColumns: ["registration_id"]
+          },
+        ]
+      }
       display_scopes: {
         Row: {
           created_at: string
@@ -468,6 +559,7 @@ export type Database = {
           reserved_count: number | null
           sold_count: number | null
           status: string | null
+          stripe_price_id: string | null
           total_capacity: number | null
           updated_at: string | null
         }
@@ -484,6 +576,7 @@ export type Database = {
           reserved_count?: number | null
           sold_count?: number | null
           status?: string | null
+          stripe_price_id?: string | null
           total_capacity?: number | null
           updated_at?: string | null
         }
@@ -500,6 +593,7 @@ export type Database = {
           reserved_count?: number | null
           sold_count?: number | null
           status?: string | null
+          stripe_price_id?: string | null
           total_capacity?: number | null
           updated_at?: string | null
         }
@@ -516,6 +610,7 @@ export type Database = {
       events: {
         Row: {
           attendance: Json | null
+          banner_image_url: string | null
           created_at: string
           degree_type: string | null
           description: string | null
@@ -533,6 +628,7 @@ export type Database = {
           is_published: boolean | null
           is_purchasable_individually: boolean | null
           location_id: string | null
+          long_description: string | null
           max_attendees: number | null
           organiser_id: string | null
           parent_event_id: string | null
@@ -544,12 +640,14 @@ export type Database = {
           sections: Json | null
           slug: string
           sold_count: number
+          stripe_product_id: string | null
           subtitle: string | null
           title: string
           type: string | null
         }
         Insert: {
           attendance?: Json | null
+          banner_image_url?: string | null
           created_at?: string
           degree_type?: string | null
           description?: string | null
@@ -567,6 +665,7 @@ export type Database = {
           is_published?: boolean | null
           is_purchasable_individually?: boolean | null
           location_id?: string | null
+          long_description?: string | null
           max_attendees?: number | null
           organiser_id?: string | null
           parent_event_id?: string | null
@@ -578,12 +677,14 @@ export type Database = {
           sections?: Json | null
           slug: string
           sold_count?: number
+          stripe_product_id?: string | null
           subtitle?: string | null
           title: string
           type?: string | null
         }
         Update: {
           attendance?: Json | null
+          banner_image_url?: string | null
           created_at?: string
           degree_type?: string | null
           description?: string | null
@@ -601,6 +702,7 @@ export type Database = {
           is_published?: boolean | null
           is_purchasable_individually?: boolean | null
           location_id?: string | null
+          long_description?: string | null
           max_attendees?: number | null
           organiser_id?: string | null
           parent_event_id?: string | null
@@ -612,6 +714,7 @@ export type Database = {
           sections?: Json | null
           slug?: string
           sold_count?: number
+          stripe_product_id?: string | null
           subtitle?: string | null
           title?: string
           type?: string | null
@@ -1065,6 +1168,8 @@ export type Database = {
         Row: {
           agree_to_terms: boolean | null
           confirmation_number: string | null
+          confirmation_pdf_url: string | null
+          confirmation_sent_at: string | null
           contact_id: string | null
           created_at: string | null
           event_id: string | null
@@ -1074,9 +1179,11 @@ export type Database = {
           registration_data: Json | null
           registration_date: string | null
           registration_id: string
+          registration_metadata: Json | null
           registration_type:
             | Database["public"]["Enums"]["registration_type"]
             | null
+          reminder_sent_at: string | null
           status: string | null
           stripe_payment_intent_id: string | null
           total_amount_paid: number | null
@@ -1086,6 +1193,8 @@ export type Database = {
         Insert: {
           agree_to_terms?: boolean | null
           confirmation_number?: string | null
+          confirmation_pdf_url?: string | null
+          confirmation_sent_at?: string | null
           contact_id?: string | null
           created_at?: string | null
           event_id?: string | null
@@ -1095,9 +1204,11 @@ export type Database = {
           registration_data?: Json | null
           registration_date?: string | null
           registration_id: string
+          registration_metadata?: Json | null
           registration_type?:
             | Database["public"]["Enums"]["registration_type"]
             | null
+          reminder_sent_at?: string | null
           status?: string | null
           stripe_payment_intent_id?: string | null
           total_amount_paid?: number | null
@@ -1107,6 +1218,8 @@ export type Database = {
         Update: {
           agree_to_terms?: boolean | null
           confirmation_number?: string | null
+          confirmation_pdf_url?: string | null
+          confirmation_sent_at?: string | null
           contact_id?: string | null
           created_at?: string | null
           event_id?: string | null
@@ -1116,9 +1229,11 @@ export type Database = {
           registration_data?: Json | null
           registration_date?: string | null
           registration_id?: string
+          registration_metadata?: Json | null
           registration_type?:
             | Database["public"]["Enums"]["registration_type"]
             | null
+          reminder_sent_at?: string | null
           status?: string | null
           stripe_payment_intent_id?: string | null
           total_amount_paid?: number | null
@@ -1153,6 +1268,7 @@ export type Database = {
         Row: {
           attendee_id: string | null
           checked_in_at: string | null
+          confirmation_sent_at: string | null
           created_at: string
           currency: string | null
           event_id: string
@@ -1163,6 +1279,8 @@ export type Database = {
           payment_status: string | null
           price_paid: number
           purchased_at: string | null
+          qr_code_generated_at: string | null
+          qr_code_url: string | null
           registration_id: string | null
           reservation_expires_at: string | null
           reservation_id: string | null
@@ -1177,6 +1295,7 @@ export type Database = {
         Insert: {
           attendee_id?: string | null
           checked_in_at?: string | null
+          confirmation_sent_at?: string | null
           created_at?: string
           currency?: string | null
           event_id: string
@@ -1187,6 +1306,8 @@ export type Database = {
           payment_status?: string | null
           price_paid: number
           purchased_at?: string | null
+          qr_code_generated_at?: string | null
+          qr_code_url?: string | null
           registration_id?: string | null
           reservation_expires_at?: string | null
           reservation_id?: string | null
@@ -1201,6 +1322,7 @@ export type Database = {
         Update: {
           attendee_id?: string | null
           checked_in_at?: string | null
+          confirmation_sent_at?: string | null
           created_at?: string
           currency?: string | null
           event_id?: string
@@ -1211,6 +1333,8 @@ export type Database = {
           payment_status?: string | null
           price_paid?: number
           purchased_at?: string | null
+          qr_code_generated_at?: string | null
+          qr_code_url?: string | null
           registration_id?: string | null
           reservation_expires_at?: string | null
           reservation_id?: string | null
@@ -1415,6 +1539,12 @@ export type Database = {
       }
     }
     Functions: {
+      get_event_location: {
+        Args: {
+          p_event_id: string
+        }
+        Returns: string
+      }
       initialize_event_ticket_availability: {
         Args: Record<PropertyKey, never>
         Returns: undefined
@@ -1466,6 +1596,7 @@ export type Database = {
       price_type: "one_time" | "recurring"
       quote_status: "draft" | "open" | "accepted" | "canceled" | "expired"
       registration_type:
+        | "individual"
         | "individuals"
         | "groups"
         | "officials"
@@ -1646,6 +1777,7 @@ export const Constants = {
       price_type: ["one_time", "recurring"],
       quote_status: ["draft", "open", "accepted", "canceled", "expired"],
       registration_type: [
+        "individual",
         "individuals",
         "groups",
         "officials",

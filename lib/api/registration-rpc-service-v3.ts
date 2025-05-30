@@ -70,7 +70,7 @@ export interface CreateRegistrationParamsV3 {
 export interface RegistrationResponseV3 {
   registration_id: string;
   confirmation_number: string;
-  customer_id: string;
+  contact_id: string;
   customer_contact_id: string;
   total_amount: number;
   attendees: Array<{

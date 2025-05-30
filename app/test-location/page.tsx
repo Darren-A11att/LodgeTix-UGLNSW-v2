@@ -83,7 +83,7 @@ export default function TestLocationPage() {
             <ul className="space-y-2 mt-2">
               <li><strong>Currency:</strong> {ipData.currency || 'N/A'}</li>
               <li><strong>Languages:</strong> {ipData.languages || 'N/A'}</li>
-              <li><strong>Organization:</strong> {ipData.org || 'N/A'}</li>
+              <li><strong>Organisation:</strong> {ipData.org || 'N/A'}</li>
             </ul>
           </div>
         </div>

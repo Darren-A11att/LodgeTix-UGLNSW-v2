@@ -31,7 +31,7 @@ import { ticketService, EventTicket, TicketPackage } from '@/lib/api/ticketServi
 import { getEventTicketsService, type TicketDefinition, type EventPackage } from '@/lib/services/event-tickets-service';
 import { api } from '@/lib/api-logger';
 import { ValidationModal } from '@/components/ui/validation-modal';
-import { calculateStripeFees, getFeeDisclaimer, STRIPE_FEE_CONFIG } from '@/lib/utils/stripe-fee-calculator';
+import { calculateStripeFees, getFeeDisclaimer, getFeeModeFromEnv } from '@/lib/utils/stripe-fee-calculator';
 import { 
   Tooltip,
   TooltipContent,

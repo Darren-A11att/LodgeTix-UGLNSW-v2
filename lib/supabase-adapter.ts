@@ -70,7 +70,8 @@ export const columnNameMap: Record<string, string> = {
   
   // Registration fields
   'registrationType': 'registration_type',
-  'customerId': 'customer_id',
+  'customerId': 'contact_id',
+  'contactId': 'contact_id',
   'registrationStatus': 'registration_status',
   'paymentAmount': 'payment_amount',
   'paymentStatus': 'payment_status',

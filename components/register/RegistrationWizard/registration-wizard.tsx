@@ -625,10 +625,10 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ eventId,
         totalAmount: 0, // Will be calculated server-side
         eventId: eventId,
         billingDetails: storeState.billingDetails,
-        customerId: user.id // Include the authenticated user ID
+        contactId: user.id // Include the authenticated user ID
       }
       
-      console.log("📤 Sending registration data with customerId:", registrationData.customerId)
+      console.log("📤 Sending registration data with contactId:", registrationData.contactId)
       
       // Use the session we already have from above
       const headers: HeadersInit = {

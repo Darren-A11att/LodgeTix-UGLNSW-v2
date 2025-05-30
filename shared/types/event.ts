@@ -34,7 +34,7 @@ export interface EventType {
   regalia?: string | null;                 // Regalia requirement
   category?: string | null;                // Event category
   status?: string;                         // Publication status
-  organizerName?: string | null;           // Event organizer name
+  organiserName?: string | null;           // Event organiser name
 
   // --- Deprecated Raw Fields (Commented Out) ---
   // date?: string | null;          // Use eventStart

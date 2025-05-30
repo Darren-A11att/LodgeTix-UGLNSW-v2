@@ -7,7 +7,7 @@ import { generateUUID } from '@/lib/uuid-slug-utils';
  */
 export function transformToRPCRegistrationData(
   registrationData: RegistrationState,
-  customerId: string,
+  contactId: string,
   eventId: string,
   registrationId?: string,
   rawPayload?: any
@@ -21,7 +21,7 @@ export function transformToRPCRegistrationData(
   
   return {
     registration_id: registrationId || generateUUID(),
-    customer_id: customerId,
+    contact_id: contactId,
     event_id: eventId || registrationData.eventId,
     registration_type: registrationData.registrationType ? (registrationTypeMap[registrationData.registrationType] || registrationData.registrationType) : 'individual',
     status: 'unpaid',
@@ -223,7 +223,7 @@ export function transformToRPCTicketsData(
  */
 export async function createRegistrationViaRPC(
   registrationData: RegistrationState,
-  customerId: string,
+  contactId: string,
   eventId: string,
   ticketTypes: any[] = [],
   ticketPackages: any[] = [],
@@ -240,7 +240,7 @@ export async function createRegistrationViaRPC(
     const rpcData = {
       registration_data: transformToRPCRegistrationData(
         registrationData,
-        customerId,
+        contactId,
         eventId,
         registrationId,
         rawPayload // Pass the complete raw payload for backup

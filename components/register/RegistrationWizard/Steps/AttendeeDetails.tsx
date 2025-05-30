@@ -4,7 +4,7 @@ import { useRegistrationStore } from '@/lib/registrationStore';
 import { useLodgeRegistrationStore } from '@/lib/lodgeRegistrationStore';
 import { IndividualsForm } from '../../Forms/attendee/IndividualsForm';
 import { LodgesForm } from '../../Forms/attendee/LodgesForm';
-import { GrandLodgesForm } from '../../Forms/attendee/GrandLodgesForm';
+import { LodgesForm as GrandLodgesForm } from '../../Forms/attendee/GrandLodgesForm';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import TermsAndConditions from '../../Functions/TermsAndConditions';

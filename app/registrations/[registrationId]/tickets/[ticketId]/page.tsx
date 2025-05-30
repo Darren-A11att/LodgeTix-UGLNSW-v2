@@ -64,7 +64,8 @@ export default async function TicketDetailPage({
 }: {
   params: { registrationId: string; ticketId: string }
 }) {
-  const ticket = await getTicket(params.ticketId, params.registrationId)
+  const { registrationId, ticketId } = await params
+  const ticket = await getTicket(ticketId, registrationId)
 
   if (!ticket) {
     notFound()
@@ -82,7 +83,7 @@ export default async function TicketDetailPage({
         asChild
         className="mb-6"
       >
-        <Link href={`/registrations/${params.registrationId}`}>
+        <Link href={`/registrations/${registrationId}`}>
           <ArrowLeft className="mr-2 h-4 w-4" />
           Back to Registration
         </Link>
@@ -204,7 +205,7 @@ export default async function TicketDetailPage({
               )}
 
               <Button variant="outline" size="sm" asChild className="mt-3">
-                <Link href={`/registrations/${params.registrationId}/attendees/${attendee.attendeeid}`}>
+                <Link href={`/registrations/${registrationId}/attendees/${attendee.attendeeid}`}>
                   View Full Profile
                 </Link>
               </Button>

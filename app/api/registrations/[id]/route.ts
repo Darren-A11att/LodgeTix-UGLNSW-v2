@@ -3,10 +3,10 @@ import { createClient } from '@/utils/supabase/server';
 
 export async function GET(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const registrationId = params.id;
+    const { id: registrationId } = await params;
     
     console.group("📋 Fetch Registration Details");
     console.log("Registration ID:", registrationId);

@@ -31,6 +31,9 @@ import { TwoColumnStepLayout } from "../Layouts/TwoColumnStepLayout"
 import { getConfirmationSummaryData } from '../Summary/summary-data/confirmation-summary-data';
 import { SummaryRenderer } from '../Summary/SummaryRenderer';
 import { useState, useEffect, useMemo } from 'react'
+import { calculateStripeFees, getFeeModeFromEnv, getFeeDisclaimer } from '@/lib/utils/stripe-fee-calculator'
+import { Info } from "lucide-react"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 
 // Placeholder ticket definitions (should be imported from a shared source eventually)
 const ticketTypesMinimal = [
@@ -475,10 +478,43 @@ function ConfirmationStep() {
                   <CardTitle>Order Summary</CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="flex justify-between items-center">
-                    <span>Total attendees: {allAttendees.length}</span>
-                    <span>Total tickets: {totalTickets}</span>
-                    <span className="font-bold text-lg">Total: ${totalAmount.toFixed(2)}</span>
+                  <div className="space-y-3">
+                    <div className="flex justify-between items-center text-sm">
+                      <span>Total attendees:</span>
+                      <span>{allAttendees.length}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-sm">
+                      <span>Total tickets:</span>
+                      <span>{totalTickets}</span>
+                    </div>
+                    <Separator className="my-2" />
+                    <div className="flex justify-between items-center text-sm">
+                      <span>Subtotal:</span>
+                      <span>${totalAmount.toFixed(2)}</span>
+                    </div>
+                    {getFeeModeFromEnv() === 'pass_to_customer' && (
+                      <div className="flex justify-between items-center text-sm text-muted-foreground">
+                        <span className="flex items-center gap-1">
+                          Processing Fee
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger>
+                                <Info className="h-3 w-3" />
+                              </TooltipTrigger>
+                              <TooltipContent className="max-w-xs">
+                                <p className="text-sm">{getFeeDisclaimer()}</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        </span>
+                        <span>${calculateStripeFees(totalAmount).stripeFee.toFixed(2)}</span>
+                      </div>
+                    )}
+                    <Separator className="my-2" />
+                    <div className="flex justify-between items-center">
+                      <span className="font-bold text-lg">Total Paid:</span>
+                      <span className="font-bold text-lg">${calculateStripeFees(totalAmount).total.toFixed(2)}</span>
+                    </div>
                   </div>
                 </CardContent>
               </Card>

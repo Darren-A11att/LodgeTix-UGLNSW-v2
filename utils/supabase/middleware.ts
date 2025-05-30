@@ -55,7 +55,20 @@ export async function updateSession(request: NextRequest) {
   )
 
   // This will refresh the session if it's expired
-  await supabase.auth.getUser()
+  // Wrap in try-catch to handle refresh token errors gracefully
+  try {
+    await supabase.auth.getUser()
+  } catch (error) {
+    // If refresh token is invalid, clear the cookies and continue
+    // This prevents console errors for expired/invalid tokens
+    if (error && typeof error === 'object' && 'code' in error) {
+      if (error.code === 'refresh_token_not_found' || error.code === 'invalid_refresh_token') {
+        // Clear auth cookies to force re-authentication
+        response.cookies.delete('sb-auth-token')
+        response.cookies.delete('sb-refresh-token')
+      }
+    }
+  }
 
   return response
 }

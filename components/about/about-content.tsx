@@ -9,7 +9,7 @@ const defaultContent = [
     id: 'default-mission',
     section: 'mission',
     title: 'Our Mission',
-    description: 'LodgeTix was founded with a simple mission: to make Masonic event management easier and more accessible for Lodges of all sizes. We understand the unique needs of Masonic organizations and have built our platform specifically to address those needs.',
+    description: 'LodgeTix was founded with a simple mission: to make Masonic event management easier and more accessible for Lodges of all sizes. We understand the unique needs of Masonic organisations and have built our platform specifically to address those needs.',
     order: 1,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
@@ -37,7 +37,7 @@ const defaultValues = [
   {
     id: 'default-value-2',
     title: 'Relief',
-    description: 'We aim to relieve the administrative burden on Lodge Secretaries and event organizers.',
+    description: 'We aim to relieve the administrative burden on Lodge Secretaries and event organisers.',
     order: 2,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),

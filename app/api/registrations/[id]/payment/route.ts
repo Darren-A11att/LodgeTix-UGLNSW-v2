@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 import { createClient } from '@/utils/supabase/server';
 import { createAdminClient } from '@/utils/supabase/admin';
+import { buildPaymentIntentMetadata, buildCustomerMetadata } from '@/lib/utils/stripe-metadata';
+import { createOrUpdateStripeCustomer, getChildEventsMetadata } from '@/lib/services/stripe-sync-service';
+import { getDeviceTypeFromRequest, generateSessionId } from '@/lib/utils/device-detection';
+import { getAppVersion } from '@/lib/config/app-version';
+import { getPaymentProcessingData, getPrimaryAttendeeDetails } from '@/lib/api/stripe-queries';
 
 export async function PUT(
   request: Request,
@@ -30,6 +35,8 @@ export async function PUT(
     const {
       paymentMethodId,
       totalAmount,
+      subtotal,
+      stripeFee,
       billingDetails
     } = data;
     
@@ -103,26 +110,185 @@ export async function PUT(
         apiVersion: '2024-11-20.acacia',
       });
       
-      // Create payment intent with the payment method but don't confirm yet
-      const paymentIntent = await stripe.paymentIntents.create({
+      // Fetch complete registration data using optimized query
+      const paymentData = await getPaymentProcessingData(registrationId);
+      
+      if (!paymentData) {
+        throw new Error('Failed to fetch registration details for payment');
+      }
+      
+      // Check for connected account
+      const connectedAccountId = paymentData.organization.stripe_onbehalfof;
+      const organisationName = paymentData.organization.name;
+      
+      // Calculate platform fee
+      let applicationFeeAmount = 0;
+      if (connectedAccountId) {
+        const platformFeePercentage = parseFloat(process.env.STRIPE_PLATFORM_FEE_PERCENTAGE || '0.05');
+        applicationFeeAmount = Math.round(totalAmount * 100 * platformFeePercentage);
+        console.log(`Platform fee (${platformFeePercentage * 100}%): $${applicationFeeAmount / 100}`);
+      }
+      
+      // Get device type from request
+      const deviceType = getDeviceTypeFromRequest(request);
+      
+      // Generate or extract session ID
+      const sessionId = data.sessionId || generateSessionId();
+      
+      // Get child events metadata if parent event
+      let childEventsMetadata: Record<string, string> = {};
+      if (paymentData.event.parent_event_id) {
+        childEventsMetadata = await getChildEventsMetadata(paymentData.event.parent_event_id);
+      } else if (paymentData.child_events && paymentData.child_events.length > 0) {
+        // Build metadata from already fetched child events
+        childEventsMetadata = {
+          child_event_count: String(paymentData.child_events.length),
+          child_event_ids: paymentData.child_events.map(e => e.event_id).join(',').substring(0, 500),
+          child_event_titles: paymentData.child_events.map(e => e.title).join('|').substring(0, 500),
+          child_event_slugs: paymentData.child_events.map(e => e.slug).join(',').substring(0, 500),
+          child_event_dates: paymentData.child_events
+            .map(e => e.event_start ? new Date(e.event_start).toISOString().split('T')[0] : '')
+            .join(',')
+            .substring(0, 500)
+        };
+      }
+      
+      // Count attendees by type
+      const attendeeTypes: Record<string, number> = {};
+      paymentData.attendees.forEach(attendee => {
+        const type = attendee.attendee_type || 'guest';
+        attendeeTypes[type] = (attendeeTypes[type] || 0) + 1;
+      });
+      
+      // Count tickets by type
+      const ticketTypes: Record<string, number> = {};
+      const ticketIds: string[] = [];
+      paymentData.tickets.forEach(ticket => {
+        const ticketName = ticket.event_tickets.title || 'standard';
+        ticketTypes[ticketName] = (ticketTypes[ticketName] || 0) + 1;
+        ticketIds.push(ticket.ticket_id);
+      });
+      
+      // Get primary attendee
+      const primaryAttendee = paymentData.attendees.find(a => a.is_primary_contact) || paymentData.attendees[0];
+      
+      // Build comprehensive metadata
+      const comprehensiveMetadata = buildPaymentIntentMetadata({
+        // Registration
+        registrationId: registrationId,
+        registrationType: (paymentData.registration.registration_type || 'individual') as 'individual' | 'lodge' | 'delegation',
+        confirmationNumber: paymentData.registration.confirmation_number || `REG-${registrationId.substring(0, 8).toUpperCase()}`,
+        
+        // Event
+        parentEventId: paymentData.parent_event?.event_id || paymentData.event.event_id || '',
+        parentEventTitle: paymentData.parent_event?.title || paymentData.event.title || '',
+        parentEventSlug: paymentData.parent_event?.slug || paymentData.event.slug || '',
+        childEventCount: paymentData.child_events?.length || 0,
+        
+        // Organization
+        organisationId: paymentData.organization.organisation_id || '',
+        organisationName: paymentData.organization.name || '',
+        organisationType: paymentData.organization.type,
+        
+        // Attendees
+        totalAttendees: paymentData.registration.attendee_count || 0,
+        primaryAttendeeName: primaryAttendee ? `${primaryAttendee.first_name} ${primaryAttendee.last_name}` : '',
+        primaryAttendeeEmail: primaryAttendee?.email || '',
+        attendeeTypes: attendeeTypes,
+        
+        // Lodge (optional)
+        lodgeId: paymentData.lodge_registration?.lodges?.lodge_id,
+        lodgeName: paymentData.lodge_registration?.lodges?.name,
+        lodgeNumber: paymentData.lodge_registration?.lodges?.number,
+        grandLodgeId: paymentData.lodge_registration?.lodges?.grand_lodges?.grand_lodge_id,
+        
+        // Tickets
+        ticketsCount: paymentData.tickets.length || 0,
+        ticketTypes: ticketTypes,
+        ticketIds: ticketIds,
+        
+        // Financial
+        subtotal: subtotal || paymentData.registration.subtotal || 0,
+        stripeFee: stripeFee || 0,
+        totalAmount: totalAmount,
+        platformFee: applicationFeeAmount / 100,
+        platformFeePercentage: parseFloat(process.env.STRIPE_PLATFORM_FEE_PERCENTAGE || '0.05'),
+        currency: 'aud',
+        
+        // Tracking
+        sessionId: sessionId,
+        referrer: data.referrer,
+        deviceType: deviceType,
+        appVersion: getAppVersion(),
+      });
+      
+      // Merge child events metadata
+      const finalMetadata = {
+        ...comprehensiveMetadata,
+        ...childEventsMetadata
+      };
+      
+      // Create payment intent options
+      const paymentIntentOptions: any = {
         amount: Math.round(totalAmount * 100), // Convert to cents
         currency: 'aud',
         payment_method: paymentMethodId,
         confirmation_method: 'manual',
         confirm: false, // Don't confirm immediately
-        metadata: {
-          registration_id: registrationId,
-          created_at: new Date().toISOString(),
-        },
-      });
+        metadata: finalMetadata,
+      };
+      
+      // Create or update Stripe customer if we have primary attendee with full details
+      // Note: This would require fetching full attendee details with email, phone, etc.
+      // For now, we'll skip customer creation here as it requires more data
+      
+      // Add Stripe Connect parameters if connected account exists
+      if (connectedAccountId) {
+        // Validate connected account
+        try {
+          const account = await stripe.accounts.retrieve(connectedAccountId);
+          if (!account.charges_enabled) {
+            console.error(`Connected account ${connectedAccountId} cannot accept charges`);
+            throw new Error('The organization\'s payment account is not properly configured');
+          }
+          
+          // Add Connect parameters
+          paymentIntentOptions.on_behalf_of = connectedAccountId;
+          paymentIntentOptions.application_fee_amount = applicationFeeAmount;
+          
+          // Add statement descriptor
+          const statementDescriptor = paymentData.event.title
+            ?.substring(0, 22)
+            .replace(/[^a-zA-Z0-9 ]/g, '')
+            .trim();
+          if (statementDescriptor) {
+            paymentIntentOptions.statement_descriptor_suffix = statementDescriptor;
+          }
+        } catch (accountError: any) {
+          console.error('Connected account validation failed:', accountError);
+          // Continue without connected account
+        }
+      }
+      
+      // Create payment intent
+      const paymentIntent = await stripe.paymentIntents.create(paymentIntentOptions);
       
       console.log("Created payment intent:", paymentIntent.id);
       console.log("Payment intent status:", paymentIntent.status);
       
       // Now confirm the payment intent with return URL for 3D Secure
-      const confirmedIntent = await stripe.paymentIntents.confirm(paymentIntent.id, {
-        return_url: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/events/${existingRegistration.event_id}/confirmation?registration_id=${registrationId}`,
-      });
+      const confirmOptions: any = {
+        return_url: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/events/${paymentData.event.slug || existingRegistration.event_id}/register/${registrationId}/confirmation`,
+      };
+      
+      // If using connected account, must specify stripeAccount
+      const stripeAccountOptions = connectedAccountId ? { stripeAccount: connectedAccountId } : {};
+      
+      const confirmedIntent = await stripe.paymentIntents.confirm(
+        paymentIntent.id, 
+        confirmOptions,
+        stripeAccountOptions
+      );
       
       finalPaymentIntentId = confirmedIntent.id;
       
@@ -146,9 +312,12 @@ export async function PUT(
     
     // Always use direct update approach (RPC function update_payment_status_and_complete not available)
     const updateData = {
-      status: requiresAction ? "pending_payment" : "paid",
-      payment_status: requiresAction ? "requires_action" : "completed",
+      status: requiresAction ? "pending_payment" : "completed",
+      payment_status: requiresAction ? "pending" : "completed",
       total_amount_paid: totalAmount,
+      subtotal: subtotal || null,
+      stripe_fee: stripeFee || null,
+      includes_processing_fee: stripeFee ? true : false,
       stripe_payment_intent_id: finalPaymentIntentId,
       updated_at: new Date().toISOString()
     };
@@ -230,10 +399,10 @@ export async function PUT(
 
 export async function GET(
   request: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const registrationId = params.id;
+    const { id: registrationId } = await params;
     console.group("💲 Check Registration Payment Status");
     console.log("Request URL:", request.url);
     console.log("Registration ID:", registrationId);
