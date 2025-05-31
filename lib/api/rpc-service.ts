@@ -155,11 +155,11 @@ export class RPCService {
    * Creates a complete registration with attendees and tickets
    */
   async createRegistration(params: CreateRegistrationParams): Promise<CreateRegistrationResponse> {
-    const { data, error } = await this.supabase.rpc('rpc_create_registration', {
-      p_registration: params.registration,
-      p_customer: params.customer,
-      p_attendees: params.attendees,
-      p_tickets: params.tickets
+    const { data, error } = await this.supabase.rpc('create_registration_with_attendees', {
+      registration: params.registration,
+      customer: params.customer,
+      attendees: params.attendees,
+      tickets: params.tickets
     });
 
     if (error) throw error;
@@ -170,9 +170,9 @@ export class RPCService {
    * Fetches complete event data including location, packages, and tickets
    */
   async getEventFull(eventId: string): Promise<EventFullData | null> {
-    const { data, error } = await this.supabase.rpc('rpc_get_event_full', {
-      p_event_id: eventId
-    });
+    // Note: rpc_get_event_full doesn't exist in current schema
+    // This function needs to be replaced with get_event_with_details or removed
+    throw new Error('rpc_get_event_full is not implemented. Use EventRPCService.getEventDetailData instead.');
 
     if (error) throw error;
     return data as EventFullData | null;
@@ -185,9 +185,11 @@ export class RPCService {
     eventId: string,
     attendeeCount: number = 1
   ): Promise<EventTicketsPackagesData> {
-    const { data, error } = await this.supabase.rpc('rpc_get_event_tickets_packages', {
-      p_event_id: eventId,
-      p_attendee_count: attendeeCount
+    // Note: rpc_get_event_tickets_packages doesn't exist in current schema
+    // This function needs to be replaced with get_eligible_tickets or removed
+    const { data, error } = await this.supabase.rpc('get_eligible_tickets', {
+      event_id: eventId,
+      attendee_type: 'mason' // Default to mason, this should be parameterized
     });
 
     if (error) throw error;
@@ -198,8 +200,8 @@ export class RPCService {
    * Retrieves complete registration data
    */
   async getRegistrationComplete(registrationId: string): Promise<RegistrationCompleteData | null> {
-    const { data, error } = await this.supabase.rpc('rpc_get_registration_complete', {
-      p_registration_id: registrationId
+    const { data, error } = await this.supabase.rpc('get_registration_summary', {
+      registration_id: registrationId
     });
 
     if (error) throw error;
@@ -210,10 +212,10 @@ export class RPCService {
    * Updates payment status after Stripe webhook
    */
   async updatePaymentStatus(params: UpdatePaymentStatusParams): Promise<UpdatePaymentStatusResponse> {
-    const { data, error } = await this.supabase.rpc('rpc_update_payment_status', {
-      p_stripe_payment_intent_id: params.stripe_payment_intent_id,
-      p_payment_status: params.payment_status,
-      p_amount_paid: params.amount_paid
+    const { data, error } = await this.supabase.rpc('complete_payment', {
+      stripe_payment_intent_id: params.stripe_payment_intent_id,
+      payment_status: params.payment_status,
+      amount_paid: params.amount_paid
     });
 
     if (error) throw error;
@@ -226,9 +228,9 @@ export class RPCService {
   async checkTicketAvailability(
     params: CheckTicketAvailabilityParams
   ): Promise<CheckTicketAvailabilityResponse> {
-    const { data, error } = await this.supabase.rpc('rpc_check_ticket_availability', {
-      p_event_id: params.event_id,
-      p_ticket_requests: params.ticket_requests
+    const { data, error } = await this.supabase.rpc('check_ticket_availability', {
+      event_id: params.event_id,
+      ticket_requests: params.ticket_requests
     });
 
     if (error) throw error;

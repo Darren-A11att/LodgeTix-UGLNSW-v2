@@ -382,7 +382,7 @@ export const MasonForm: React.FC<MasonFormProps> = ({ attendeeId, attendeeNumber
               label="Dietary Requirements"
               name="dietaryRequirements"
               value={attendee.dietaryRequirements || ''}
-              onChange={(value) => updateField('dietaryRequirements', value)}
+              onChange={(value) => updateFieldImmediate('dietaryRequirements', value)}
               placeholder="E.g., vegetarian, gluten-free, allergies"
               rows={1}
               maxLength={200}
@@ -399,7 +399,7 @@ export const MasonForm: React.FC<MasonFormProps> = ({ attendeeId, attendeeNumber
               label="Special Needs or Accessibility Requirements"
               name="specialNeeds"
               value={attendee.specialNeeds || ''}
-              onChange={(value) => updateField('specialNeeds', value)}
+              onChange={(value) => updateFieldImmediate('specialNeeds', value)}
               placeholder="Please list any special needs or accessibility requirements"
               rows={1}
               maxLength={500}
@@ -458,7 +458,7 @@ export const MasonForm: React.FC<MasonFormProps> = ({ attendeeId, attendeeNumber
                 label="Grand Rank"
                 name="suffix"
                 value={attendee.suffix || ''}
-                onChange={(value) => updateField('suffix', value)}
+                onChange={(value) => updateFieldImmediate('suffix', value)}
                 placeholder="PGRNK"
                 required={isPrimary}
                 updateOnBlur={true}
@@ -511,7 +511,7 @@ export const MasonForm: React.FC<MasonFormProps> = ({ attendeeId, attendeeNumber
                     label="Other Grand Office"
                     name="otherGrandOfficerRole"
                     value={attendee.otherGrandOfficerRole || ''}
-                    onChange={(value) => updateField('otherGrandOfficerRole', value)}
+                    onChange={(value) => updateFieldImmediate('otherGrandOfficerRole', value)}
                     placeholder="Enter specific role"
                     required={isPrimary}
                     updateOnBlur={true}
@@ -589,7 +589,7 @@ export const MasonForm: React.FC<MasonFormProps> = ({ attendeeId, attendeeNumber
                 label="Email Address"
                 name="primaryEmail"
                 value={attendee.primaryEmail || ''}
-                onChange={(value) => updateField('primaryEmail', value)}
+                onChange={(value) => updateFieldImmediate('primaryEmail', value)}
                 required={true}
                 updateOnBlur={true}
               />
@@ -597,7 +597,7 @@ export const MasonForm: React.FC<MasonFormProps> = ({ attendeeId, attendeeNumber
                 label="Mobile Number"
                 name="primaryPhone"
                 value={attendee.primaryPhone || ''}
-                onChange={(value) => updateField('primaryPhone', value)}
+                onChange={(value) => updateFieldImmediate('primaryPhone', value)}
                 required={true}
                 updateOnBlur={true}
               />
@@ -633,7 +633,7 @@ export const MasonForm: React.FC<MasonFormProps> = ({ attendeeId, attendeeNumber
                       label="Email Address"
                       name="primaryEmail"
                       value={attendee.primaryEmail || ''}
-                      onChange={(value) => updateField('primaryEmail', value)}
+                      onChange={(value) => updateFieldImmediate('primaryEmail', value)}
                       required={true}
                       updateOnBlur={true}
                     />
@@ -643,7 +643,7 @@ export const MasonForm: React.FC<MasonFormProps> = ({ attendeeId, attendeeNumber
                       label="Mobile Number"
                       name="primaryPhone"
                       value={attendee.primaryPhone || ''}
-                      onChange={(value) => updateField('primaryPhone', value)}
+                      onChange={(value) => updateFieldImmediate('primaryPhone', value)}
                       required={true}
                       updateOnBlur={true}
                     />
@@ -668,7 +668,7 @@ export const MasonForm: React.FC<MasonFormProps> = ({ attendeeId, attendeeNumber
                 label="Dietary Requirements"
                 name="dietaryRequirements"
                 value={attendee.dietaryRequirements || ''}
-                onChange={(value) => updateField('dietaryRequirements', value)}
+                onChange={(value) => updateFieldImmediate('dietaryRequirements', value)}
                 placeholder="E.g., vegetarian, gluten-free, allergies"
                 rows={1}
                 maxLength={200}
@@ -702,7 +702,7 @@ export const MasonForm: React.FC<MasonFormProps> = ({ attendeeId, attendeeNumber
                 label="Special Needs or Accessibility Requirements"
                 name="specialNeeds"
                 value={attendee.specialNeeds || ''}
-                onChange={(value) => updateField('specialNeeds', value)}
+                onChange={(value) => updateFieldImmediate('specialNeeds', value)}
                 placeholder="Please list any special needs or accessibility requirements"
                 rows={1}
                 maxLength={500}

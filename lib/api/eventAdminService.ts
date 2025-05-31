@@ -5,8 +5,8 @@ import * as TicketTypes from '../../../shared/types/ticket';
 import * as SupabaseTypes from '@/shared/types/database';
 
 // Define types for admin operations
-type DbEvent = SupabaseTypes.Database['public']['Tables']['Events']['Row'];
-type DbTicketDefinition = SupabaseTypes.Database['public']['Tables']['ticket_definitions']['Row'];
+type DbEvent = SupabaseTypes.Database['public']['Tables']['events']['Row'];
+type DbTicketDefinition = SupabaseTypes.Database['public']['Tables']['event_tickets']['Row'];
 type DbEventCapacity = SupabaseTypes.Database['public']['Tables']['event_capacity']['Row'];
 
 export interface AdminEventDetails extends DbEvent {
@@ -31,7 +31,7 @@ export interface EventCreateRequest {
   type?: string;
   imageUrl?: string;
   isMultiDay?: boolean;
-  parentEventId?: string | null;
+  parent_event_id?: string | null;
   eventIncludes?: string[] | null;
   importantInformation?: string | null;
   isPurchasableIndividually?: boolean;
@@ -74,7 +74,7 @@ export class EventAdminService extends AdminApiService {
       
       // Get ticket definitions
       const { data: ticketDefinitions } = await this.client
-        .from(supabaseTables.ticketDefinitions)
+        .from('event_tickets')
         .select('*')
         .eq('event_id', id);
       
@@ -82,7 +82,7 @@ export class EventAdminService extends AdminApiService {
       const { data: childEvents } = await this.client
         .from(supabaseTables.events)
         .select('*')
-        .eq('parentEventId', id);
+        .eq('parent_event_id', id);
       
       // Combine into detailed response
       const eventDetails: AdminEventDetails = {
@@ -132,18 +132,18 @@ export class EventAdminService extends AdminApiService {
       const { data: childEvents } = await this.client
         .from(supabaseTables.events)
         .select('id')
-        .eq('parentEventId', id);
+        .eq('parent_event_id', id);
       
       if (childEvents && childEvents.length > 0) {
         return { 
           data: null, 
-          error: new Error('Cannot delete event with child events. Delete child events first or update their parentEventId.') 
+          error: new Error('Cannot delete event with child events. Delete child events first or update their parent_event_id.') 
         };
       }
       
       // Check if there are ticket definitions
       const { data: tickets } = await this.client
-        .from(supabaseTables.ticketDefinitions)
+        .from('event_tickets')
         .select('id')
         .eq('event_id', id);
       
@@ -260,7 +260,7 @@ export class EventAdminService extends AdminApiService {
   async getEventTicketDefinitions(eventId: string): Promise<AdminApiResponse<TicketTypes.TicketDefinitionType[]>> {
     try {
       const { data, error } = await this.client
-        .from(supabaseTables.ticketDefinitions)
+        .from('event_tickets')
         .select('*')
         .eq('event_id', eventId);
       

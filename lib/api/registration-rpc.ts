@@ -257,7 +257,9 @@ export async function createRegistrationViaRPC(
     console.log('📝 RPC Registration Data:', JSON.stringify(rpcData, null, 2));
 
     // Call RPC function
-    const { data, error } = await supabase.rpc('create_registration', rpcData);
+    // Note: The old 'create_registration' RPC doesn't exist
+    // This needs to be replaced with 'create_registration_with_attendees'
+    throw new Error('create_registration RPC is deprecated. Use create_registration_with_attendees instead.');
 
     if (error) {
       console.error('❌ RPC Error:', error);

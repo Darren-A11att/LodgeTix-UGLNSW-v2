@@ -21,7 +21,7 @@ interface GrandLodgeOption {
   name: string;
   country: string | null;
   abbreviation: string | null;
-  organisationid?: string;
+  organisation_id?: string;
 }
 
 export const GrandLodgeSelection: React.FC<GrandLodgeSelectionProps> = ({
@@ -63,7 +63,7 @@ export const GrandLodgeSelection: React.FC<GrandLodgeSelectionProps> = ({
     // Normal flow when grandLodge is not null
     setSelectedGrandLodge(grandLodge);
     setInputValue(grandLodge.name);
-    onChange(grandLodge.grand_lodge_id, grandLodge.organisationid);
+    onChange(grandLodge.grand_lodge_id, grandLodge.organisation_id);
     console.log('[GrandLodgeSelection] Selected grand lodge:', grandLodge.name, 'ID:', grandLodge.grand_lodge_id);
   }, [onChange]);
 
@@ -171,7 +171,7 @@ export const GrandLodgeSelection: React.FC<GrandLodgeSelectionProps> = ({
             setSelectedGrandLodge(defaultGrandLodge);
             setInputValue(defaultGrandLodge.name);
             // Call onChange last
-            onChange(defaultGrandLodge.grand_lodge_id, defaultGrandLodge.organisationid);
+            onChange(defaultGrandLodge.grand_lodge_id, defaultGrandLodge.organisation_id);
             setIsInitialized(true);
           }
         }
@@ -359,7 +359,7 @@ export const GrandLodgeSelection: React.FC<GrandLodgeSelectionProps> = ({
     } else if (selectedGrandLodge) {
       // If there's a selected lodge but input doesn't match it,
       // keep the ID in sync
-      onChange(selectedGrandLodge.grand_lodge_id, selectedGrandLodge.organisationid);
+      onChange(selectedGrandLodge.grand_lodge_id, selectedGrandLodge.organisation_id);
     }
   }, [searchGrandLodges, filterLocalOptions, ipData?.country_name, selectedGrandLodge, onChange]);
 

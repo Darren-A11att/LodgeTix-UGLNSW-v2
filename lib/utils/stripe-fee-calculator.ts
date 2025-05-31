@@ -28,6 +28,20 @@ const STRIPE_RATES = {
   }
 } as const;
 
+// Stripe fee configuration with descriptions
+export const STRIPE_FEE_CONFIG = {
+  domestic: {
+    percentage: STRIPE_RATES.domestic.percentage,
+    fixed: STRIPE_RATES.domestic.fixed,
+    description: "1.75% + $0.30 AUD"
+  },
+  international: {
+    percentage: STRIPE_RATES.international.percentage,
+    fixed: STRIPE_RATES.international.fixed,
+    description: "2.9% + $0.30 AUD"
+  }
+} as const;
+
 /**
  * Calculate Stripe transaction fees
  * Note: This uses standard Stripe pricing - actual fees may vary based on:

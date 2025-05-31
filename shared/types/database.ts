@@ -61,8 +61,22 @@ export type Database = {
             foreignKeyName: "attendee_events_attendee_id_fkey"
             columns: ["attendee_id"]
             isOneToOne: false
+            referencedRelation: "attendee_complete_view"
+            referencedColumns: ["attendee_id"]
+          },
+          {
+            foreignKeyName: "attendee_events_attendee_id_fkey"
+            columns: ["attendee_id"]
+            isOneToOne: false
             referencedRelation: "attendees"
             referencedColumns: ["attendee_id"]
+          },
+          {
+            foreignKeyName: "attendee_events_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "event_display_view"
+            referencedColumns: ["event_id"]
           },
           {
             foreignKeyName: "attendee_events_event_id_fkey"
@@ -82,11 +96,13 @@ export type Database = {
           created_at: string
           dietary_requirements: string | null
           email: string | null
+          event_title: string | null
           first_name: string | null
           has_partner: boolean | null
-          is_partner: boolean | null
+          is_partner: string | null
           is_primary: boolean | null
           last_name: string | null
+          person_id: string | null
           phone: string | null
           registration_id: string
           related_attendee_id: string | null
@@ -104,11 +120,13 @@ export type Database = {
           created_at?: string
           dietary_requirements?: string | null
           email?: string | null
+          event_title?: string | null
           first_name?: string | null
           has_partner?: boolean | null
-          is_partner?: boolean | null
+          is_partner?: string | null
           is_primary?: boolean | null
           last_name?: string | null
+          person_id?: string | null
           phone?: string | null
           registration_id: string
           related_attendee_id?: string | null
@@ -126,11 +144,13 @@ export type Database = {
           created_at?: string
           dietary_requirements?: string | null
           email?: string | null
+          event_title?: string | null
           first_name?: string | null
           has_partner?: boolean | null
-          is_partner?: boolean | null
+          is_partner?: string | null
           is_primary?: boolean | null
           last_name?: string | null
+          person_id?: string | null
           phone?: string | null
           registration_id?: string
           related_attendee_id?: string | null
@@ -159,6 +179,20 @@ export type Database = {
             foreignKeyName: "attendees_registration_id_fkey"
             columns: ["registration_id"]
             isOneToOne: false
+            referencedRelation: "registration_detail_view"
+            referencedColumns: ["registration_id"]
+          },
+          {
+            foreignKeyName: "attendees_registration_id_fkey"
+            columns: ["registration_id"]
+            isOneToOne: false
+            referencedRelation: "registration_fee_summary"
+            referencedColumns: ["registration_id"]
+          },
+          {
+            foreignKeyName: "attendees_registration_id_fkey"
+            columns: ["registration_id"]
+            isOneToOne: false
             referencedRelation: "registration_payments"
             referencedColumns: ["registration_id"]
           },
@@ -180,8 +214,87 @@ export type Database = {
             foreignKeyName: "attendees_related_attendee_id_fkey"
             columns: ["related_attendee_id"]
             isOneToOne: false
+            referencedRelation: "attendee_complete_view"
+            referencedColumns: ["attendee_id"]
+          },
+          {
+            foreignKeyName: "attendees_related_attendee_id_fkey"
+            columns: ["related_attendee_id"]
+            isOneToOne: false
             referencedRelation: "attendees"
             referencedColumns: ["attendee_id"]
+          },
+        ]
+      }
+      connected_account_payments: {
+        Row: {
+          amount: number
+          connected_account_id: string
+          created_at: string | null
+          currency: string
+          id: string
+          payment_intent_id: string
+          platform_fee: number | null
+          registration_id: string | null
+          status: string
+        }
+        Insert: {
+          amount: number
+          connected_account_id: string
+          created_at?: string | null
+          currency: string
+          id?: string
+          payment_intent_id: string
+          platform_fee?: number | null
+          registration_id?: string | null
+          status: string
+        }
+        Update: {
+          amount?: number
+          connected_account_id?: string
+          created_at?: string | null
+          currency?: string
+          id?: string
+          payment_intent_id?: string
+          platform_fee?: number | null
+          registration_id?: string | null
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "connected_account_payments_registration_id_fkey"
+            columns: ["registration_id"]
+            isOneToOne: false
+            referencedRelation: "registration_detail_view"
+            referencedColumns: ["registration_id"]
+          },
+          {
+            foreignKeyName: "connected_account_payments_registration_id_fkey"
+            columns: ["registration_id"]
+            isOneToOne: false
+            referencedRelation: "registration_fee_summary"
+            referencedColumns: ["registration_id"]
+          },
+          {
+            foreignKeyName: "connected_account_payments_registration_id_fkey"
+            columns: ["registration_id"]
+            isOneToOne: false
+            referencedRelation: "registration_payments"
+            referencedColumns: ["registration_id"]
+          },
+          {
+            foreignKeyName: "connected_account_payments_registration_id_fkey"
+            columns: ["registration_id"]
+            isOneToOne: false
+            referencedRelation: "registration_summary"
+            referencedColumns: ["registration_id"]
+          },
+          {
+            foreignKeyName: "connected_account_payments_registration_id_fkey"
+            columns: ["registration_id"]
+            isOneToOne: false
+            referencedRelation: "registrations"
+            referencedColumns: ["registration_id"]
           },
         ]
       }
@@ -415,97 +528,6 @@ export type Database = {
           },
         ]
       }
-      documents: {
-        Row: {
-          created_at: string
-          document_type: string
-          expires_at: string | null
-          generated_at: string
-          id: string
-          metadata: Json
-          registration_id: string | null
-          storage_path: string
-          updated_at: string
-        }
-        Insert: {
-          created_at?: string
-          document_type: string
-          expires_at?: string | null
-          generated_at?: string
-          id?: string
-          metadata?: Json
-          registration_id?: string | null
-          storage_path: string
-          updated_at?: string
-        }
-        Update: {
-          created_at?: string
-          document_type?: string
-          expires_at?: string | null
-          generated_at?: string
-          id?: string
-          metadata?: Json
-          registration_id?: string | null
-          storage_path?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "documents_registration_id_fkey"
-            columns: ["registration_id"]
-            isOneToOne: false
-            referencedRelation: "registrations"
-            referencedColumns: ["registration_id"]
-          },
-        ]
-      }
-      email_log: {
-        Row: {
-          created_at: string
-          email_type: string
-          error_message: string | null
-          id: string
-          metadata: Json
-          recipient_email: string
-          registration_id: string | null
-          sent_at: string
-          status: string
-          updated_at: string
-        }
-        Insert: {
-          created_at?: string
-          email_type: string
-          error_message?: string | null
-          id?: string
-          metadata?: Json
-          recipient_email: string
-          registration_id?: string | null
-          sent_at?: string
-          status?: string
-          updated_at?: string
-        }
-        Update: {
-          created_at?: string
-          email_type?: string
-          error_message?: string | null
-          id?: string
-          metadata?: Json
-          recipient_email?: string
-          registration_id?: string | null
-          sent_at?: string
-          status?: string
-          updated_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "email_log_registration_id_fkey"
-            columns: ["registration_id"]
-            isOneToOne: false
-            referencedRelation: "registrations"
-            referencedColumns: ["registration_id"]
-          },
-        ]
-      }
       display_scopes: {
         Row: {
           created_at: string
@@ -602,6 +624,13 @@ export type Database = {
             foreignKeyName: "event_tickets_event_id_fkey"
             columns: ["event_id"]
             isOneToOne: false
+            referencedRelation: "event_display_view"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "event_tickets_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
             referencedRelation: "events"
             referencedColumns: ["event_id"]
           },
@@ -610,7 +639,6 @@ export type Database = {
       events: {
         Row: {
           attendance: Json | null
-          banner_image_url: string | null
           created_at: string
           degree_type: string | null
           description: string | null
@@ -628,7 +656,6 @@ export type Database = {
           is_published: boolean | null
           is_purchasable_individually: boolean | null
           location_id: string | null
-          long_description: string | null
           max_attendees: number | null
           organiser_id: string | null
           parent_event_id: string | null
@@ -647,7 +674,6 @@ export type Database = {
         }
         Insert: {
           attendance?: Json | null
-          banner_image_url?: string | null
           created_at?: string
           degree_type?: string | null
           description?: string | null
@@ -665,7 +691,6 @@ export type Database = {
           is_published?: boolean | null
           is_purchasable_individually?: boolean | null
           location_id?: string | null
-          long_description?: string | null
           max_attendees?: number | null
           organiser_id?: string | null
           parent_event_id?: string | null
@@ -684,7 +709,6 @@ export type Database = {
         }
         Update: {
           attendance?: Json | null
-          banner_image_url?: string | null
           created_at?: string
           degree_type?: string | null
           description?: string | null
@@ -702,7 +726,6 @@ export type Database = {
           is_published?: boolean | null
           is_purchasable_individually?: boolean | null
           location_id?: string | null
-          long_description?: string | null
           max_attendees?: number | null
           organiser_id?: string | null
           parent_event_id?: string | null
@@ -740,6 +763,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "organisations"
             referencedColumns: ["organisation_id"]
+          },
+          {
+            foreignKeyName: "events_parent_event_id_fkey"
+            columns: ["parent_event_id"]
+            isOneToOne: false
+            referencedRelation: "event_display_view"
+            referencedColumns: ["event_id"]
           },
           {
             foreignKeyName: "events_parent_event_id_fkey"
@@ -1033,10 +1063,59 @@ export type Database = {
             foreignKeyName: "memberships_profile_id_fkey"
             columns: ["profile_id"]
             isOneToOne: false
+            referencedRelation: "attendee_complete_view"
+            referencedColumns: ["masonic_profile_id"]
+          },
+          {
+            foreignKeyName: "memberships_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
             referencedRelation: "masonic_profiles"
             referencedColumns: ["masonic_profile_id"]
           },
         ]
+      }
+      organisation_payouts: {
+        Row: {
+          amount: number
+          arrival_date: string
+          created_at: string | null
+          currency: string
+          description: string | null
+          id: string
+          metadata: Json | null
+          method: string | null
+          organisation_stripe_id: string
+          payout_id: string
+          status: string
+        }
+        Insert: {
+          amount: number
+          arrival_date: string
+          created_at?: string | null
+          currency: string
+          description?: string | null
+          id?: string
+          metadata?: Json | null
+          method?: string | null
+          organisation_stripe_id: string
+          payout_id: string
+          status: string
+        }
+        Update: {
+          amount?: number
+          arrival_date?: string
+          created_at?: string | null
+          currency?: string
+          description?: string | null
+          id?: string
+          metadata?: Json | null
+          method?: string | null
+          organisation_stripe_id?: string
+          payout_id?: string
+          status?: string
+        }
+        Relationships: []
       }
       organisations: {
         Row: {
@@ -1050,7 +1129,11 @@ export type Database = {
           postal_code: string | null
           state: string | null
           street_address: string | null
+          stripe_account_status: string | null
+          stripe_capabilities: Json | null
+          stripe_details_submitted: boolean | null
           stripe_onbehalfof: string | null
+          stripe_payouts_enabled: boolean | null
           type: Database["public"]["Enums"]["organisation_type"]
           updated_at: string
           website: string | null
@@ -1066,7 +1149,11 @@ export type Database = {
           postal_code?: string | null
           state?: string | null
           street_address?: string | null
+          stripe_account_status?: string | null
+          stripe_capabilities?: Json | null
+          stripe_details_submitted?: boolean | null
           stripe_onbehalfof?: string | null
+          stripe_payouts_enabled?: boolean | null
           type: Database["public"]["Enums"]["organisation_type"]
           updated_at?: string
           website?: string | null
@@ -1082,7 +1169,11 @@ export type Database = {
           postal_code?: string | null
           state?: string | null
           street_address?: string | null
+          stripe_account_status?: string | null
+          stripe_capabilities?: Json | null
+          stripe_details_submitted?: boolean | null
           stripe_onbehalfof?: string | null
+          stripe_payouts_enabled?: boolean | null
           type?: Database["public"]["Enums"]["organisation_type"]
           updated_at?: string
           website?: string | null
@@ -1152,7 +1243,21 @@ export type Database = {
             foreignKeyName: "packages_event_id_fkey"
             columns: ["event_id"]
             isOneToOne: false
+            referencedRelation: "event_display_view"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "packages_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
             referencedRelation: "events"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "packages_parent_event_id_fkey1"
+            columns: ["parent_event_id"]
+            isOneToOne: false
+            referencedRelation: "event_display_view"
             referencedColumns: ["event_id"]
           },
           {
@@ -1164,28 +1269,67 @@ export type Database = {
           },
         ]
       }
+      platform_transfers: {
+        Row: {
+          amount: number
+          created_at: string | null
+          currency: string
+          description: string | null
+          destination_account: string
+          id: string
+          metadata: Json | null
+          source_transaction: string | null
+          transfer_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string | null
+          currency: string
+          description?: string | null
+          destination_account: string
+          id?: string
+          metadata?: Json | null
+          source_transaction?: string | null
+          transfer_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string | null
+          currency?: string
+          description?: string | null
+          destination_account?: string
+          id?: string
+          metadata?: Json | null
+          source_transaction?: string | null
+          transfer_id?: string
+        }
+        Relationships: []
+      }
       registrations: {
         Row: {
           agree_to_terms: boolean | null
           confirmation_number: string | null
           confirmation_pdf_url: string | null
-          confirmation_sent_at: string | null
+          connected_account_id: string | null
           contact_id: string | null
           created_at: string | null
           event_id: string | null
+          includes_processing_fee: boolean | null
           organisation_id: string | null
           payment_status: Database["public"]["Enums"]["payment_status"] | null
+          platform_fee_amount: number | null
+          platform_fee_id: string | null
           primary_attendee_id: string | null
           registration_data: Json | null
           registration_date: string | null
           registration_id: string
-          registration_metadata: Json | null
           registration_type:
             | Database["public"]["Enums"]["registration_type"]
             | null
-          reminder_sent_at: string | null
           status: string | null
+          stripe_fee: number | null
           stripe_payment_intent_id: string | null
+          subtotal: number | null
           total_amount_paid: number | null
           total_price_paid: number | null
           updated_at: string | null
@@ -1194,23 +1338,26 @@ export type Database = {
           agree_to_terms?: boolean | null
           confirmation_number?: string | null
           confirmation_pdf_url?: string | null
-          confirmation_sent_at?: string | null
+          connected_account_id?: string | null
           contact_id?: string | null
           created_at?: string | null
           event_id?: string | null
+          includes_processing_fee?: boolean | null
           organisation_id?: string | null
           payment_status?: Database["public"]["Enums"]["payment_status"] | null
+          platform_fee_amount?: number | null
+          platform_fee_id?: string | null
           primary_attendee_id?: string | null
           registration_data?: Json | null
           registration_date?: string | null
           registration_id: string
-          registration_metadata?: Json | null
           registration_type?:
             | Database["public"]["Enums"]["registration_type"]
             | null
-          reminder_sent_at?: string | null
           status?: string | null
+          stripe_fee?: number | null
           stripe_payment_intent_id?: string | null
+          subtotal?: number | null
           total_amount_paid?: number | null
           total_price_paid?: number | null
           updated_at?: string | null
@@ -1219,23 +1366,26 @@ export type Database = {
           agree_to_terms?: boolean | null
           confirmation_number?: string | null
           confirmation_pdf_url?: string | null
-          confirmation_sent_at?: string | null
+          connected_account_id?: string | null
           contact_id?: string | null
           created_at?: string | null
           event_id?: string | null
+          includes_processing_fee?: boolean | null
           organisation_id?: string | null
           payment_status?: Database["public"]["Enums"]["payment_status"] | null
+          platform_fee_amount?: number | null
+          platform_fee_id?: string | null
           primary_attendee_id?: string | null
           registration_data?: Json | null
           registration_date?: string | null
           registration_id?: string
-          registration_metadata?: Json | null
           registration_type?:
             | Database["public"]["Enums"]["registration_type"]
             | null
-          reminder_sent_at?: string | null
           status?: string | null
+          stripe_fee?: number | null
           stripe_payment_intent_id?: string | null
+          subtotal?: number | null
           total_amount_paid?: number | null
           total_price_paid?: number | null
           updated_at?: string | null
@@ -1268,7 +1418,6 @@ export type Database = {
         Row: {
           attendee_id: string | null
           checked_in_at: string | null
-          confirmation_sent_at: string | null
           created_at: string
           currency: string | null
           event_id: string
@@ -1279,7 +1428,6 @@ export type Database = {
           payment_status: string | null
           price_paid: number
           purchased_at: string | null
-          qr_code_generated_at: string | null
           qr_code_url: string | null
           registration_id: string | null
           reservation_expires_at: string | null
@@ -1295,7 +1443,6 @@ export type Database = {
         Insert: {
           attendee_id?: string | null
           checked_in_at?: string | null
-          confirmation_sent_at?: string | null
           created_at?: string
           currency?: string | null
           event_id: string
@@ -1306,7 +1453,6 @@ export type Database = {
           payment_status?: string | null
           price_paid: number
           purchased_at?: string | null
-          qr_code_generated_at?: string | null
           qr_code_url?: string | null
           registration_id?: string | null
           reservation_expires_at?: string | null
@@ -1322,7 +1468,6 @@ export type Database = {
         Update: {
           attendee_id?: string | null
           checked_in_at?: string | null
-          confirmation_sent_at?: string | null
           created_at?: string
           currency?: string | null
           event_id?: string
@@ -1333,7 +1478,6 @@ export type Database = {
           payment_status?: string | null
           price_paid?: number
           purchased_at?: string | null
-          qr_code_generated_at?: string | null
           qr_code_url?: string | null
           registration_id?: string | null
           reservation_expires_at?: string | null
@@ -1351,8 +1495,22 @@ export type Database = {
             foreignKeyName: "tickets_attendeeid_fkey"
             columns: ["attendee_id"]
             isOneToOne: false
+            referencedRelation: "attendee_complete_view"
+            referencedColumns: ["attendee_id"]
+          },
+          {
+            foreignKeyName: "tickets_attendeeid_fkey"
+            columns: ["attendee_id"]
+            isOneToOne: false
             referencedRelation: "attendees"
             referencedColumns: ["attendee_id"]
+          },
+          {
+            foreignKeyName: "tickets_eventid_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "event_display_view"
+            referencedColumns: ["event_id"]
           },
           {
             foreignKeyName: "tickets_eventid_fkey"
@@ -1367,6 +1525,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "packages"
             referencedColumns: ["package_id"]
+          },
+          {
+            foreignKeyName: "tickets_registration_id_fkey"
+            columns: ["registration_id"]
+            isOneToOne: false
+            referencedRelation: "registration_detail_view"
+            referencedColumns: ["registration_id"]
+          },
+          {
+            foreignKeyName: "tickets_registration_id_fkey"
+            columns: ["registration_id"]
+            isOneToOne: false
+            referencedRelation: "registration_fee_summary"
+            referencedColumns: ["registration_id"]
           },
           {
             foreignKeyName: "tickets_registration_id_fkey"
@@ -1395,6 +1567,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "event_tickets"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tickets_ticket_type_id_fkey"
+            columns: ["ticket_type_id"]
+            isOneToOne: false
+            referencedRelation: "ticket_availability_view"
+            referencedColumns: ["ticket_type_id"]
           },
         ]
       }
@@ -1432,6 +1611,148 @@ export type Database = {
       }
     }
     Views: {
+      attendee_complete_view: {
+        Row: {
+          attendee_id: string | null
+          attendee_type: Database["public"]["Enums"]["attendee_type"] | null
+          confirmation_number: string | null
+          contact_address_line_1: string | null
+          contact_address_line_2: string | null
+          contact_city: string | null
+          contact_country: string | null
+          contact_id: string | null
+          contact_postcode: string | null
+          contact_preference:
+            | Database["public"]["Enums"]["attendee_contact_preference"]
+            | null
+          contact_state: string | null
+          created_at: string | null
+          dietary_requirements: string | null
+          email: string | null
+          event_end: string | null
+          event_id: string | null
+          event_slug: string | null
+          event_start: string | null
+          event_title: string | null
+          first_name: string | null
+          full_name: string | null
+          grand_lodge_abbreviation: string | null
+          grand_lodge_id: string | null
+          grand_lodge_name: string | null
+          grand_office: string | null
+          grand_officer: string | null
+          grand_rank: string | null
+          has_checked_in: boolean | null
+          has_partner: boolean | null
+          is_partner: string | null
+          is_primary: boolean | null
+          last_name: string | null
+          lodge_abbreviation: string | null
+          lodge_id: string | null
+          lodge_name: string | null
+          lodge_number: number | null
+          lodge_type: Database["public"]["Enums"]["organisation_type"] | null
+          masonic_profile_id: string | null
+          masonic_title: string | null
+          partner_first_name: string | null
+          partner_full_name: string | null
+          partner_last_name: string | null
+          payment_status: Database["public"]["Enums"]["payment_status"] | null
+          phone: string | null
+          rank: string | null
+          registration_id: string | null
+          registration_type:
+            | Database["public"]["Enums"]["registration_type"]
+            | null
+          related_attendee_id: string | null
+          relationship: string | null
+          special_needs: string | null
+          suffix: string | null
+          ticket_count: number | null
+          tickets: Json[] | null
+          title: string | null
+          updated_at: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "attendees_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "auth_user_customer_view"
+            referencedColumns: ["contact_id"]
+          },
+          {
+            foreignKeyName: "attendees_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["contact_id"]
+          },
+          {
+            foreignKeyName: "attendees_registration_id_fkey"
+            columns: ["registration_id"]
+            isOneToOne: false
+            referencedRelation: "registration_detail_view"
+            referencedColumns: ["registration_id"]
+          },
+          {
+            foreignKeyName: "attendees_registration_id_fkey"
+            columns: ["registration_id"]
+            isOneToOne: false
+            referencedRelation: "registration_fee_summary"
+            referencedColumns: ["registration_id"]
+          },
+          {
+            foreignKeyName: "attendees_registration_id_fkey"
+            columns: ["registration_id"]
+            isOneToOne: false
+            referencedRelation: "registration_payments"
+            referencedColumns: ["registration_id"]
+          },
+          {
+            foreignKeyName: "attendees_registration_id_fkey"
+            columns: ["registration_id"]
+            isOneToOne: false
+            referencedRelation: "registration_summary"
+            referencedColumns: ["registration_id"]
+          },
+          {
+            foreignKeyName: "attendees_registration_id_fkey"
+            columns: ["registration_id"]
+            isOneToOne: false
+            referencedRelation: "registrations"
+            referencedColumns: ["registration_id"]
+          },
+          {
+            foreignKeyName: "attendees_related_attendee_id_fkey"
+            columns: ["related_attendee_id"]
+            isOneToOne: false
+            referencedRelation: "attendee_complete_view"
+            referencedColumns: ["attendee_id"]
+          },
+          {
+            foreignKeyName: "attendees_related_attendee_id_fkey"
+            columns: ["related_attendee_id"]
+            isOneToOne: false
+            referencedRelation: "attendees"
+            referencedColumns: ["attendee_id"]
+          },
+          {
+            foreignKeyName: "masonic_profiles_grand_lodge_id_fkey"
+            columns: ["grand_lodge_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["organisation_id"]
+          },
+          {
+            foreignKeyName: "masonic_profiles_lodge_id_fkey"
+            columns: ["lodge_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["organisation_id"]
+          },
+        ]
+      }
       auth_user_customer_view: {
         Row: {
           auth_email: string | null
@@ -1444,6 +1765,128 @@ export type Database = {
           last_name: string | null
           user_created: string | null
           user_type: string | null
+        }
+        Relationships: []
+      }
+      event_display_view: {
+        Row: {
+          attendance: Json | null
+          child_event_count: number | null
+          created_at: string | null
+          degree_type: string | null
+          description: string | null
+          documents: Json | null
+          dress_code: string | null
+          event_end: string | null
+          event_id: string | null
+          event_includes: string[] | null
+          event_start: string | null
+          featured: boolean | null
+          image_url: string | null
+          important_information: string[] | null
+          is_multi_day: boolean | null
+          is_published: boolean | null
+          is_purchasable_individually: boolean | null
+          is_sold_out: boolean | null
+          latitude: number | null
+          location_capacity: number | null
+          location_id: string | null
+          location_string: string | null
+          longitude: number | null
+          max_attendees: number | null
+          min_price: number | null
+          organiser_abbreviation: string | null
+          organiser_id: string | null
+          organiser_name: string | null
+          organiser_type:
+            | Database["public"]["Enums"]["organisation_type"]
+            | null
+          parent_event_id: string | null
+          parent_event_slug: string | null
+          parent_event_title: string | null
+          place_name: string | null
+          postal_code: string | null
+          regalia: string | null
+          regalia_description: string | null
+          related_events: string[] | null
+          reserved_count: number | null
+          sections: Json | null
+          slug: string | null
+          sold_count: number | null
+          state: string | null
+          street_address: string | null
+          subtitle: string | null
+          suburb: string | null
+          tickets_available: number | null
+          tickets_sold: number | null
+          title: string | null
+          total_capacity: number | null
+          type: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "events_locationid_fkey"
+            columns: ["location_id"]
+            isOneToOne: false
+            referencedRelation: "locations"
+            referencedColumns: ["location_id"]
+          },
+          {
+            foreignKeyName: "events_organiser_id_fkey"
+            columns: ["organiser_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["organisation_id"]
+          },
+          {
+            foreignKeyName: "events_parent_event_id_fkey"
+            columns: ["parent_event_id"]
+            isOneToOne: false
+            referencedRelation: "event_display_view"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "events_parent_event_id_fkey"
+            columns: ["parent_event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["event_id"]
+          },
+        ]
+      }
+      event_hierarchy_view: {
+        Row: {
+          children_sold_count: number | null
+          children_total_capacity: number | null
+          direct_child_count: number | null
+          event_end: string | null
+          event_id: string | null
+          event_start: string | null
+          featured: boolean | null
+          image_url: string | null
+          is_in_package: boolean | null
+          is_published: boolean | null
+          is_purchasable_individually: boolean | null
+          level: number | null
+          location_id: string | null
+          max_attendees: number | null
+          organiser_id: string | null
+          packages: Json[] | null
+          parent_event_id: string | null
+          parent_slug: string | null
+          parent_title: string | null
+          parent_type: string | null
+          path: string[] | null
+          path_display: string | null
+          reserved_count: number | null
+          root_event_id: string | null
+          slug: string | null
+          sold_count: number | null
+          subtitle: string | null
+          title: string | null
+          total_available_tickets: number | null
+          total_descendant_count: number | null
+          type: string | null
         }
         Relationships: []
       }
@@ -1483,10 +1926,100 @@ export type Database = {
             foreignKeyName: "memberships_profile_id_fkey"
             columns: ["profile_id"]
             isOneToOne: false
+            referencedRelation: "attendee_complete_view"
+            referencedColumns: ["masonic_profile_id"]
+          },
+          {
+            foreignKeyName: "memberships_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
             referencedRelation: "masonic_profiles"
             referencedColumns: ["masonic_profile_id"]
           },
         ]
+      }
+      registration_detail_view: {
+        Row: {
+          agree_to_terms: boolean | null
+          attendee_count: number | null
+          confirmation_number: string | null
+          contact_id: string | null
+          created_at: string | null
+          customer_email: string | null
+          customer_first_name: string | null
+          customer_last_name: string | null
+          customer_name: string | null
+          customer_phone: string | null
+          event_end: string | null
+          event_id: string | null
+          event_slug: string | null
+          event_start: string | null
+          event_title: string | null
+          event_type: string | null
+          organisation_abbreviation: string | null
+          organisation_id: string | null
+          organisation_name: string | null
+          partner_count: number | null
+          payment_status: Database["public"]["Enums"]["payment_status"] | null
+          primary_attendee_email: string | null
+          primary_attendee_first_name: string | null
+          primary_attendee_id: string | null
+          primary_attendee_last_name: string | null
+          registration_data: Json | null
+          registration_date: string | null
+          registration_id: string | null
+          registration_type:
+            | Database["public"]["Enums"]["registration_type"]
+            | null
+          status: string | null
+          stripe_payment_intent_id: string | null
+          ticket_count: number | null
+          ticket_types: string[] | null
+          total_amount_paid: number | null
+          total_price_paid: number | null
+          total_ticket_amount: number | null
+          updated_at: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "registrations_customer_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "auth_user_customer_view"
+            referencedColumns: ["contact_id"]
+          },
+          {
+            foreignKeyName: "registrations_customer_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["contact_id"]
+          },
+          {
+            foreignKeyName: "registrations_organisation_id_fkey"
+            columns: ["organisation_id"]
+            isOneToOne: false
+            referencedRelation: "organisations"
+            referencedColumns: ["organisation_id"]
+          },
+        ]
+      }
+      registration_fee_summary: {
+        Row: {
+          confirmation_number: string | null
+          connected_account_id: string | null
+          created_at: string | null
+          event_title: string | null
+          marketplace_fee: number | null
+          organization_name: string | null
+          organization_receives: number | null
+          payment_status: Database["public"]["Enums"]["payment_status"] | null
+          processing_fee: number | null
+          registration_id: string | null
+          ticket_subtotal: number | null
+          total_charged: number | null
+        }
+        Relationships: []
       }
       registration_payments: {
         Row: {
@@ -1537,17 +2070,132 @@ export type Database = {
           },
         ]
       }
+      ticket_availability_view: {
+        Row: {
+          active_reservations: number | null
+          actual_available: number | null
+          available_count: number | null
+          created_at: string | null
+          description: string | null
+          eligibility_criteria: Json | null
+          eligibility_rules: Json | null
+          event_end: string | null
+          event_id: string | null
+          event_is_published: boolean | null
+          event_slug: string | null
+          event_start: string | null
+          event_title: string | null
+          has_eligibility_requirements: boolean | null
+          is_active: boolean | null
+          is_sold_out: boolean | null
+          percentage_sold: number | null
+          price: number | null
+          reserved_count: number | null
+          sold_count: number | null
+          status: string | null
+          ticket_category: string | null
+          ticket_type_id: string | null
+          ticket_type_name: string | null
+          total_capacity: number | null
+          updated_at: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "event_tickets_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "event_display_view"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "event_tickets_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["event_id"]
+          },
+        ]
+      }
     }
     Functions: {
-      get_event_location: {
+      calculate_event_pricing: {
+        Args: { p_event_ids: string[] }
+        Returns: Json
+      }
+      check_ticket_availability: {
+        Args: { p_event_id: string }
+        Returns: Json
+      }
+      check_ticket_eligibility: {
         Args: {
-          p_event_id: string
+          p_attendee_type: string
+          p_rank: string
+          p_grand_rank: string
+          p_grand_officer: boolean
+          p_lodge_id: string
+          p_grand_lodge_id: string
+          p_registration_type: string
+          p_eligibility_rules: Json
         }
-        Returns: string
+        Returns: boolean
+      }
+      cleanup_expired_reservations: {
+        Args: Record<PropertyKey, never>
+        Returns: number
+      }
+      complete_payment: {
+        Args: { p_registration_id: string; p_payment_intent_id: string }
+        Returns: Json
+      }
+      create_registration_with_attendees: {
+        Args: { p_registration_data: Json }
+        Returns: Json
+      }
+      expire_ticket_reservations: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
+      find_missing_indexes: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          tablename: string
+          attname: string
+          n_distinct: number
+          correlation: number
+          null_frac: number
+          avg_width: number
+          recommendation: string
+        }[]
+      }
+      get_eligible_tickets: {
+        Args: { p_event_id: string; p_registration_id: string }
+        Returns: Json
+      }
+      get_event_with_details: {
+        Args: { p_event_slug: string }
+        Returns: Json
+      }
+      get_registration_summary: {
+        Args: { p_registration_id: string }
+        Returns: Json
       }
       initialize_event_ticket_availability: {
         Args: Record<PropertyKey, never>
         Returns: undefined
+      }
+      monitor_index_usage: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          schemaname: string
+          tablename: string
+          indexname: string
+          idx_scan: number
+          idx_tup_read: number
+          idx_tup_fetch: number
+          table_size: string
+          index_size: string
+          usage_ratio: number
+        }[]
       }
       recalculate_event_counts: {
         Args: Record<PropertyKey, never>
@@ -1556,6 +2204,10 @@ export type Database = {
       recalculate_event_ticket_counts: {
         Args: Record<PropertyKey, never>
         Returns: undefined
+      }
+      reserve_tickets: {
+        Args: { p_ticket_selections: Json }
+        Returns: Json
       }
     }
     Enums: {
@@ -1593,10 +2245,11 @@ export type Database = {
         | "partially_refunded"
         | "cancelled"
         | "expired"
+        | "Unpaid"
+        | "unpaid"
       price_type: "one_time" | "recurring"
       quote_status: "draft" | "open" | "accepted" | "canceled" | "expired"
       registration_type:
-        | "individual"
         | "individuals"
         | "groups"
         | "officials"
@@ -1773,11 +2426,12 @@ export const Constants = {
         "partially_refunded",
         "cancelled",
         "expired",
+        "Unpaid",
+        "unpaid",
       ],
       price_type: ["one_time", "recurring"],
       quote_status: ["draft", "open", "accepted", "canceled", "expired"],
       registration_type: [
-        "individual",
         "individuals",
         "groups",
         "officials",

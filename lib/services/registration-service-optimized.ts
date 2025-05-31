@@ -225,7 +225,7 @@ export class RegistrationServiceOptimized {
           const client = this.getClient();
           
           const { data, error } = await client.rpc('get_registration_summary', {
-            p_registration_id: registrationId
+            registration_id: registrationId
           });
           
           if (error) {
@@ -272,9 +272,9 @@ export class RegistrationServiceOptimized {
       const client = this.getClient();
       
       const { data, error } = await client.rpc('reserve_tickets', {
-        p_event_id: params.event_id,
-        p_registration_id: params.registration_id,
-        p_ticket_selections: params.ticket_selections
+        event_id: params.event_id,
+        registration_id: params.registration_id,
+        ticket_selections: params.ticket_selections
       });
       
       if (error) throw error;
@@ -301,9 +301,9 @@ export class RegistrationServiceOptimized {
       const client = this.getClient();
       
       const { data, error } = await client.rpc('complete_payment', {
-        p_registration_id: params.registration_id,
-        p_stripe_payment_intent_id: params.stripe_payment_intent_id,
-        p_amount_paid: params.amount_paid
+        stripe_payment_intent_id: params.stripe_payment_intent_id,
+        payment_status: 'completed',
+        amount_paid: params.amount_paid
       });
       
       if (error) throw error;

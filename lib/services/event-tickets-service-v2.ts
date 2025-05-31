@@ -206,8 +206,9 @@ export class EventTicketsServiceV2 {
   }> {
     try {
       // Use the new RPC if available, otherwise fallback to direct queries
-      const { data: rpcData, error: rpcError } = await this.supabase
-        .rpc('rpc_get_event_with_packages', { p_event_id: eventId })
+      // Note: rpc_get_event_with_packages doesn't exist in current schema
+      const rpcData = null
+      const rpcError = new Error('rpc_get_event_with_packages is not implemented')
       
       if (!rpcError && rpcData) {
         return {

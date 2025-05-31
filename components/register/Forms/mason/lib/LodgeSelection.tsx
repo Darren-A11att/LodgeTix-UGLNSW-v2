@@ -36,7 +36,7 @@ interface LodgeOption {
   region_code?: string;
   area_type?: string | null;
   created_at?: string;
-  organisationid?: string;
+  organisation_id?: string;
 }
 
 export const LodgeSelection: React.FC<LodgeSelectionProps> = ({
@@ -296,7 +296,7 @@ export const LodgeSelection: React.FC<LodgeSelectionProps> = ({
     } else if (selectedLodge) {
       // If there's a selected lodge but input doesn't match it,
       // preserve the ID but update the display value
-      onChange(selectedLodge.id, value, selectedLodge.organisationid);
+      onChange(selectedLodge.lodge_id, value, selectedLodge.organisation_id);
     } else {
       // For a partial input with no selection, don't set ID yet
       // but update display value so it persists
@@ -455,7 +455,7 @@ export const LodgeSelection: React.FC<LodgeSelectionProps> = ({
     const displayValue = lodge.display_name || `${lodge.name} No. ${lodge.number || 'N/A'}`;
     setInputValue(displayValue);
     lodgeNameRef.current = displayValue;
-    onChange(lodge.lodge_id, displayValue, lodge.organisationid);
+    onChange(lodge.lodge_id, displayValue, lodge.organisation_id);
     
   }, [onChange]);
 

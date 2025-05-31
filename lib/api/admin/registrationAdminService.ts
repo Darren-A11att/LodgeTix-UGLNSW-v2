@@ -3,7 +3,7 @@ import { supabaseTables } from '../../supabase';
 import * as SupabaseTypes from '@/shared/types/database';
 
 type DbRegistration = SupabaseTypes.Database['public']['Tables']['registrations']['Row'];
-type DbAttendee = SupabaseTypes.Database['public']['Tables']['Attendees']['Row'];
+type DbAttendee = SupabaseTypes.Database['public']['Tables']['attendees']['Row'];
 type DbTicket = SupabaseTypes.Database['public']['Tables']['tickets']['Row'];
 
 export interface RegistrationStatusUpdateRequest {
@@ -61,7 +61,7 @@ export class RegistrationAdminService extends AdminApiService {
         .select(`
           *,
           people(*),
-          MasonicProfiles(*)
+          masonic_profiles(*)
         `)
         .eq("registration_id", id);
       
@@ -70,7 +70,7 @@ export class RegistrationAdminService extends AdminApiService {
         .from(supabaseTables.tickets)
         .select(`
           *,
-          ticket_definitions(*)
+          event_tickets(*)
         `)
         .eq("registration_id", id);
       
@@ -109,14 +109,14 @@ export class RegistrationAdminService extends AdminApiService {
   /**
    * Get attendees for a registration
    */
-  async getRegistrationAttendees(registration_id: string): Promise<AdminApiResponse<DbAttendee[]>> {
+  async getRegistrationAttendees(registrationId: string): Promise<AdminApiResponse<DbAttendee[]>> {
     try {
       const { data, error } = await this.client
         .from(supabaseTables.attendees)
         .select(`
           *,
           people(*),
-          MasonicProfiles(*)
+          masonic_profiles(*)
         `)
         .eq("registration_id", registrationId);
       
@@ -134,13 +134,13 @@ export class RegistrationAdminService extends AdminApiService {
   /**
    * Get tickets for a registration
    */
-  async getRegistrationTickets(registration_id: string): Promise<AdminApiResponse<DbTicket[]>> {
+  async getRegistrationTickets(registrationId: string): Promise<AdminApiResponse<DbTicket[]>> {
     try {
       const { data, error } = await this.client
         .from(supabaseTables.tickets)
         .select(`
           *,
-          ticket_definitions(*)
+          event_tickets(*)
         `)
         .eq("registration_id", registrationId);
       
@@ -158,7 +158,7 @@ export class RegistrationAdminService extends AdminApiService {
   /**
    * Get payment records for a registration
    */
-  async getRegistrationPayments(registration_id: string): Promise<AdminApiResponse<any[]>> {
+  async getRegistrationPayments(registrationId: string): Promise<AdminApiResponse<any[]>> {
     try {
       const { data, error } = await this.client
         .from('stripe.payment_records')
@@ -186,8 +186,8 @@ export class RegistrationAdminService extends AdminApiService {
         .from(supabaseTables.registrations)
         .update({
           status: 'cancelled',
-          cancellationReason: reason,
-          cancelledAt: new Date().toISOString()
+          cancellation_reason: reason,
+          cancelled_at: new Date().toISOString()
         })
         .eq('id', id)
         .select()

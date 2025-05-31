@@ -12,7 +12,18 @@ export function ContentTablesChecker() {
 
   const checkTables = async () => {
     setLoading(true);
-    const tables = ['content', 'content_features', 'content_values'];
+    // Check actual tables that exist in the system
+    const tables = [
+      'events', 
+      'tickets', 
+      'registrations', 
+      'attendees', 
+      'customers',
+      'packages',
+      'organisations',
+      'grand_lodges',
+      'lodges'
+    ];
     const results: Record<string, any> = {};
 
     for (const table of tables) {
@@ -23,12 +34,17 @@ export function ContentTablesChecker() {
           .select('*', { count: 'exact', head: true });
 
         if (error) {
-          results[table] = { exists: false, error: error.message };
+          // Handle specific error types
+          if (error.code === '42P01') {
+            results[table] = { exists: false, error: 'Table does not exist' };
+          } else {
+            results[table] = { exists: false, error: error.message };
+          }
         } else {
           results[table] = { exists: true, count };
         }
       } catch (error: any) {
-        results[table] = { exists: false, error: error.message };
+        results[table] = { exists: false, error: error.message || 'Unknown error' };
       }
     }
 
@@ -42,7 +58,7 @@ export function ContentTablesChecker() {
 
   return (
     <div className="mb-6 rounded-lg border p-4">
-      <h2 className="mb-4 text-xl font-bold">Content Tables Status</h2>
+      <h2 className="mb-4 text-xl font-bold">Database Tables Status</h2>
       
       {loading ? (
         <p>Checking tables...</p>

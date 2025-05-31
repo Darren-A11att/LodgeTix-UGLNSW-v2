@@ -3,7 +3,7 @@ import { supabaseTables } from '../../supabase';
 import * as TicketTypes from '../../../shared/types/ticket';
 import * as SupabaseTypes from '@/shared/types/database';
 
-type DbTicketDefinition = SupabaseTypes.Database['public']['Tables']['ticket_definitions']['Row'];
+type DbTicketDefinition = SupabaseTypes.Database['public']['Tables']['event_tickets']['Row'];
 type DbTicketTypePriceTier = SupabaseTypes.Database['public']['Tables']['ticket_type_price_tiers']['Row'];
 
 export interface TicketDefinitionCreateRequest {
@@ -39,14 +39,14 @@ export class TicketAdminService extends AdminApiService {
    * Get all ticket definitions with filtering and pagination
    */
   async getTicketDefinitions(params: QueryParams = {}): Promise<AdminApiResponse<TicketTypes.TicketDefinitionType[]>> {
-    return this.getItems<TicketTypes.TicketDefinitionType>(supabaseTables.ticketDefinitions, params);
+    return this.getItems<TicketTypes.TicketDefinitionType>('event_tickets', params);
   }
 
   /**
    * Get a single ticket definition by ID
    */
   async getTicketDefinition(id: string): Promise<AdminApiResponse<TicketTypes.TicketDefinitionType>> {
-    return this.getItemById<TicketTypes.TicketDefinitionType>(supabaseTables.ticketDefinitions, id);
+    return this.getItemById<TicketTypes.TicketDefinitionType>('event_tickets', id);
   }
 
   /**
@@ -55,7 +55,7 @@ export class TicketAdminService extends AdminApiService {
   async createTicketDefinition(
     ticketData: TicketDefinitionCreateRequest
   ): Promise<AdminApiResponse<TicketTypes.TicketDefinitionType>> {
-    return this.createItem<TicketTypes.TicketDefinitionType>(supabaseTables.ticketDefinitions, ticketData);
+    return this.createItem<TicketTypes.TicketDefinitionType>('event_tickets', ticketData);
   }
 
   /**
@@ -65,7 +65,7 @@ export class TicketAdminService extends AdminApiService {
     id: string, 
     ticketData: Partial<TicketDefinitionCreateRequest>
   ): Promise<AdminApiResponse<TicketTypes.TicketDefinitionType>> {
-    return this.updateItem<TicketTypes.TicketDefinitionType>(supabaseTables.ticketDefinitions, id, ticketData);
+    return this.updateItem<TicketTypes.TicketDefinitionType>('event_tickets', id, ticketData);
   }
 
   /**
@@ -93,7 +93,7 @@ export class TicketAdminService extends AdminApiService {
         .eq('ticket_definition_id', id);
       
       // Delete the ticket definition
-      return this.deleteItem(supabaseTables.ticketDefinitions, id);
+      return this.deleteItem('event_tickets', id);
     } catch (error: any) {
       console.error(`Error safely deleting ticket definition with ID ${id}:`, error);
       return { data: null, error: new Error(error.message || 'Unknown error') };

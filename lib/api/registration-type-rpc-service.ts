@@ -211,11 +211,21 @@ export class RegistrationTypeRPCService {
   // ========== Individual Registration ==========
   
   async createIndividualRegistration(params: CreateIndividualRegistrationParams) {
-    const { data, error } = await this.supabase.rpc('rpc_create_individual_registration', {
-      p_event_id: params.event_id,
-      p_customer: params.customer,
-      p_attendees: params.attendees,
-      p_tickets: params.tickets
+    // Note: rpc_create_individual_registration doesn't exist in current schema
+    // Use create_registration_with_attendees instead
+    const { data, error } = await this.supabase.rpc('create_registration_with_attendees', {
+      registration: {
+        event_id: params.event_id,
+        registration_type: 'individuals',
+        agree_to_terms: true
+      },
+      customer: params.customer,
+      attendees: params.attendees,
+      tickets: params.tickets.map(t => ({
+        ticket_type_id: t.ticket_type_id,
+        attendee_index: t.attendee_index,
+        is_partner_ticket: false
+      }))
     });
 
     if (error) throw error;
@@ -231,14 +241,9 @@ export class RegistrationTypeRPCService {
   // ========== Lodge Registration ==========
   
   async createLodgeRegistration(params: CreateLodgeRegistrationParams): Promise<LodgeRegistrationResponse> {
-    const { data, error } = await this.supabase.rpc('rpc_create_lodge_registration', {
-      p_event_id: params.event_id,
-      p_grand_lodge_id: params.grand_lodge_id,
-      p_lodge_id: params.lodge_id,
-      p_booking_contact: params.booking_contact,
-      p_table_count: params.table_count,
-      p_notes: params.notes
-    });
+    // Note: rpc_create_lodge_registration doesn't exist in current schema
+    // This needs to be implemented with create_registration_with_attendees
+    throw new Error('rpc_create_lodge_registration is not implemented. Use create_registration_with_attendees.');
 
     if (error) throw error;
     return data as LodgeRegistrationResponse;
@@ -247,14 +252,9 @@ export class RegistrationTypeRPCService {
   // ========== Delegation Registration ==========
   
   async createDelegationRegistration(params: CreateDelegationRegistrationParams): Promise<DelegationRegistrationResponse> {
-    const { data, error } = await this.supabase.rpc('rpc_create_delegation_registration', {
-      p_event_id: params.event_id,
-      p_delegation_name: params.delegation_name,
-      p_grand_lodge_id: params.grand_lodge_id,
-      p_customer: params.customer,
-      p_delegates: params.delegates,
-      p_tickets: params.tickets
-    });
+    // Note: rpc_create_delegation_registration doesn't exist in current schema
+    // This needs to be implemented with create_registration_with_attendees
+    throw new Error('rpc_create_delegation_registration is not implemented. Use create_registration_with_attendees.');
 
     if (error) throw error;
     return data as DelegationRegistrationResponse;
@@ -263,9 +263,9 @@ export class RegistrationTypeRPCService {
   // ========== Enhanced Event Data ==========
   
   async getEventFullV2(eventId: string): Promise<EventFullV2Data | null> {
-    const { data, error } = await this.supabase.rpc('rpc_get_event_full_v2', {
-      p_event_id: eventId
-    });
+    // Note: rpc_get_event_full_v2 doesn't exist in current schema
+    // Use get_event_with_details instead (but it expects a slug, not ID)
+    throw new Error('rpc_get_event_full_v2 is not implemented. Use EventRPCService.getEventDetailData instead.');
 
     if (error) throw error;
     return data as EventFullV2Data | null;

@@ -6,7 +6,7 @@ import * as SupabaseTypes from '@/shared/types/database';
 type DbPackage = SupabaseTypes.Database['public']['Tables']['packages']['Row'];
 type DbPackageEvent = SupabaseTypes.Database['public']['Tables']['package_events']['Row'];
 type DbPackageVas = SupabaseTypes.Database['public']['Tables']['package_vas_options']['Row'];
-type DbEvent = SupabaseTypes.Database['public']['Tables']['Events']['Row'];
+type DbEvent = SupabaseTypes.Database['public']['Tables']['events']['Row'];
 
 /**
  * Extended package details with related information
@@ -181,18 +181,18 @@ export class PackageAdminService extends AdminApiService {
 
       // Check if there are tickets that reference this package
       const { data: tickets, error: ticketsError } = await this.client
-        .from(supabaseTables.ticketDefinitions)
+        .from('event_tickets')
         .select('id')
         .eq('package_id', id);
       
       if (ticketsError) {
-        return { data: null, error: new Error(`Failed to check ticket definitions: ${ticketsError.message}`) };
+        return { data: null, error: new Error(`Failed to check event tickets: ${ticketsError.message}`) };
       }
       
       if (tickets && tickets.length > 0) {
         return { 
           data: null, 
-          error: new Error('Cannot delete package with associated ticket definitions. Remove ticket definitions first.') 
+          error: new Error('Cannot delete package with associated event tickets. Remove event tickets first.') 
         };
       }
       

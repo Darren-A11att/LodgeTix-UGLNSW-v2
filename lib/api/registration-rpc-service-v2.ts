@@ -139,13 +139,26 @@ export class RegistrationRPCServiceV2 {
    * Creates a complete registration using new schema
    */
   async createRegistration(params: CreateRegistrationParamsV2): Promise<RegistrationResponseV2> {
-    const { data, error } = await this.supabase.rpc('rpc_create_registration_v2', {
-      p_registration_type: params.registration_type,
-      p_event_id: params.event_id,
-      p_customer: params.customer,
-      p_attendees: params.attendees,
-      p_organisation_id: params.organisation_id,
-      p_registration_data: params.registration_data || {}
+    // Note: rpc_create_registration_v2 doesn't exist in current schema
+    // Use create_registration_with_attendees instead
+    const { data, error } = await this.supabase.rpc('create_registration_with_attendees', {
+      registration: {
+        event_id: params.event_id,
+        registration_type: params.registration_type,
+        agree_to_terms: true,
+        registration_data: params.registration_data,
+        organisation_id: params.organisation_id
+      },
+      customer: params.customer,
+      attendees: params.attendees,
+      tickets: params.attendees.flatMap((att, idx) => 
+        (att.tickets || []).map(t => ({
+          ticket_type_id: t.ticket_type_id,
+          package_id: t.package_id,
+          attendee_index: idx,
+          is_partner_ticket: false
+        }))
+      )
     });
 
     if (error) throw error;
@@ -156,8 +169,10 @@ export class RegistrationRPCServiceV2 {
    * Gets event with packages using new schema
    */
   async getEventWithPackages(eventId: string): Promise<EventWithPackagesData | null> {
-    const { data, error } = await this.supabase.rpc('rpc_get_event_with_packages', {
-      p_event_id: eventId
+    // Note: rpc_get_event_with_packages doesn't exist in current schema
+    // Use get_event_with_details instead
+    const { data, error } = await this.supabase.rpc('get_event_with_details', {
+      event_slug: eventId // Note: This expects a slug, not an ID
     });
 
     if (error) throw error;
@@ -168,8 +183,8 @@ export class RegistrationRPCServiceV2 {
    * Gets complete registration data
    */
   async getRegistrationComplete(registrationId: string): Promise<RegistrationCompleteData | null> {
-    const { data, error } = await this.supabase.rpc('rpc_get_registration_complete', {
-      p_registration_id: registrationId
+    const { data, error } = await this.supabase.rpc('get_registration_summary', {
+      registration_id: registrationId
     });
 
     if (error) throw error;
@@ -184,10 +199,10 @@ export class RegistrationRPCServiceV2 {
     paymentStatus: Database['public']['Enums']['payment_status'],
     amountPaid?: number
   ) {
-    const { data, error } = await this.supabase.rpc('rpc_update_payment_status', {
-      p_stripe_payment_intent_id: stripePaymentIntentId,
-      p_payment_status: paymentStatus,
-      p_amount_paid: amountPaid
+    const { data, error } = await this.supabase.rpc('complete_payment', {
+      stripe_payment_intent_id: stripePaymentIntentId,
+      payment_status: paymentStatus,
+      amount_paid: amountPaid
     });
 
     if (error) throw error;

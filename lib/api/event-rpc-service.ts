@@ -376,9 +376,9 @@ export class EventRPCService {
    */
   async getRegistrationEventData(eventId: string): Promise<RegistrationEventData | null> {
     const client = await this.getClient();
-    const { data, error } = await client.rpc('get_registration_event_data', {
-      p_event_id: eventId
-    });
+    // Note: get_registration_event_data doesn't exist in current schema
+    // This functionality needs to be replaced with get_event_with_details
+    throw new Error('get_registration_event_data is not implemented. Use getEventDetailData instead.');
     
     if (error) {
       console.error('Error fetching registration event data:', error);

@@ -129,13 +129,26 @@ export class RegistrationRPCServiceV3 {
    * Creates a complete registration with contacts
    */
   async createRegistration(params: CreateRegistrationParamsV3): Promise<RegistrationResponseV3> {
-    const { data, error } = await this.supabase.rpc('rpc_create_registration_v3', {
-      p_registration_type: params.registration_type,
-      p_event_id: params.event_id,
-      p_customer: params.customer,
-      p_attendees: params.attendees,
-      p_organisation_id: params.organisation_id,
-      p_registration_data: params.registration_data || {}
+    // Note: rpc_create_registration_v3 doesn't exist in current schema
+    // Use create_registration_with_attendees instead
+    const { data, error } = await this.supabase.rpc('create_registration_with_attendees', {
+      registration: {
+        event_id: params.event_id,
+        registration_type: params.registration_type,
+        agree_to_terms: true,
+        registration_data: params.registration_data,
+        organisation_id: params.organisation_id
+      },
+      customer: params.customer,
+      attendees: params.attendees,
+      tickets: params.attendees.flatMap((att, idx) => 
+        (att.tickets || []).map(t => ({
+          ticket_type_id: t.ticket_type_id,
+          package_id: t.package_id,
+          attendee_index: idx,
+          is_partner_ticket: false
+        }))
+      )
     });
 
     if (error) throw error;
@@ -146,9 +159,9 @@ export class RegistrationRPCServiceV3 {
    * Gets contact with masonic profile
    */
   async getContactWithProfile(contactId: string): Promise<ContactWithProfile | null> {
-    const { data, error } = await this.supabase.rpc('rpc_get_contact_with_profile', {
-      p_contact_id: contactId
-    });
+    // Note: rpc_get_contact_with_profile doesn't exist in current schema
+    // This functionality would need to be implemented with direct table queries
+    throw new Error('rpc_get_contact_with_profile is not implemented.');
 
     if (error) throw error;
     return data as ContactWithProfile | null;
@@ -162,11 +175,9 @@ export class RegistrationRPCServiceV3 {
     contactData: Partial<Database['public']['Tables']['contacts']['Update']>,
     masonicProfile?: Partial<Database['public']['Tables']['masonic_profiles']['Update']>
   ): Promise<ContactWithProfile | null> {
-    const { data, error } = await this.supabase.rpc('rpc_update_contact_with_profile', {
-      p_contact_id: contactId,
-      p_contact_data: contactData,
-      p_masonic_profile: masonicProfile
-    });
+    // Note: rpc_update_contact_with_profile doesn't exist in current schema
+    // This functionality would need to be implemented with direct table queries
+    throw new Error('rpc_update_contact_with_profile is not implemented.');
 
     if (error) throw error;
     return data as ContactWithProfile | null;
@@ -176,8 +187,10 @@ export class RegistrationRPCServiceV3 {
    * Gets complete registration with contacts
    */
   async getRegistrationComplete(registrationId: string): Promise<RegistrationCompleteV2Data | null> {
-    const { data, error } = await this.supabase.rpc('rpc_get_registration_complete_v2', {
-      p_registration_id: registrationId
+    // Note: rpc_get_registration_complete_v2 doesn't exist in current schema
+    // Use get_registration_summary instead
+    const { data, error } = await this.supabase.rpc('get_registration_summary', {
+      registration_id: registrationId
     });
 
     if (error) throw error;

@@ -185,22 +185,17 @@ export class EventTicketsService {
       const { data: packages, error: packagesError } = await this.supabase
         .from('packages')
         .select(`
-          id,
+          package_id,
           name,
           description,
           includes_description,
-          price,
+          package_price,
           original_price,
-          discount_percentage,
-          discount_amount,
-          package_type,
-          quantity,
+          discount,
+          qty,
           parent_event_id,
           created_at,
-          package_events (
-            event_ticket_id,
-            quantity
-          )
+          included_items
         `)
         .eq('parent_event_id', parentEventId)
       
@@ -287,22 +282,17 @@ export class EventTicketsService {
       const { data: packages, error: packagesError } = await this.supabase
         .from('packages')
         .select(`
-          id,
+          package_id,
           name,
           description,
           includes_description,
-          price,
+          package_price,
           original_price,
-          discount_percentage,
-          discount_amount,
-          package_type,
-          quantity,
+          discount,
+          qty,
           parent_event_id,
           created_at,
-          package_events (
-            event_ticket_id,
-            quantity
-          )
+          included_items
         `)
         .eq('parent_event_id', packageEventId)
       
@@ -374,20 +364,22 @@ export class EventTicketsService {
     const transformed: EventPackage[] = []
     
     for (const pkg of packages) {
-      // Get included ticket IDs from eventpackagetickets
+      // Get included ticket IDs from included_items array
       const includedTicketIds: string[] = []
       let totalPrice = 0
       let eligibleTypes: Set<AttendeeType> = new Set(['mason', 'guest'])
       
-      if (pkg.package_events && Array.isArray(pkg.package_events)) {
-        for (const pt of pkg.package_events) {
-          if (pt.event_ticket_id) {
-            includedTicketIds.push(pt.event_ticket_id)
+      if (pkg.included_items && Array.isArray(pkg.included_items)) {
+        for (const ticketId of pkg.included_items) {
+          if (ticketId) {
+            includedTicketIds.push(ticketId)
             
             // Find the ticket definition to get price and eligibility
-            const ticketDef = allTickets.find(t => t.id === pt.event_ticket_id)
+            const ticketDef = allTickets.find(t => t.id === ticketId)
             if (ticketDef) {
-              totalPrice += ticketDef.price * (pt.quantity || 1)
+              // Use qty field for quantity (default to 1)
+              const quantity = pkg.qty || 1
+              totalPrice += ticketDef.price * quantity
               
               // Update eligible types based on ticket eligibility
               if (ticketDef.eligibility_attendee_types) {
@@ -401,17 +393,17 @@ export class EventTicketsService {
       }
       
       // Use the actual price from the database (already includes any discounts)
-      const packagePrice = pkg.price || totalPrice // Fallback to calculated price if not set
+      const packagePrice = pkg.package_price || totalPrice // Fallback to calculated price if not set
       
       transformed.push({
-        id: pkg.id,
+        id: pkg.package_id,
         name: pkg.name,
         price: packagePrice,
         original_price: pkg.original_price || totalPrice,
-        discount_percentage: pkg.discount_percentage,
-        discount_amount: pkg.discount_amount,
-        package_type: pkg.package_type,
-        quantity: pkg.quantity,
+        discount_percentage: pkg.discount,
+        discount_amount: null, // This field doesn't exist in the database
+        package_type: null, // This field doesn't exist in the database
+        quantity: pkg.qty,
         description: pkg.description || `Includes ${includedTicketIds.length} events`,
         includes: includedTicketIds,
         includes_description: pkg.includes_description,

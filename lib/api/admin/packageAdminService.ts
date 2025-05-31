@@ -6,7 +6,7 @@ import * as SupabaseTypes from '@/shared/types/database';
 type DbPackage = SupabaseTypes.Database['public']['Tables']['packages']['Row'];
 type DbPackageEvent = SupabaseTypes.Database['public']['Tables']['package_events']['Row'];
 type DbPackageVas = SupabaseTypes.Database['public']['Tables']['package_vas_options']['Row'];
-type DbEvent = SupabaseTypes.Database['public']['Tables']['Events']['Row'];
+type DbEvent = SupabaseTypes.Database['public']['Tables']['events']['Row'];
 
 /**
  * Extended package details with related information
@@ -181,18 +181,18 @@ export class PackageAdminService extends AdminApiService {
 
       // Check if there are tickets that reference this package
       const { data: tickets, error: ticketsError } = await this.client
-        .from(supabaseTables.ticketDefinitions)
+        .from('event_tickets')
         .select('id')
         .eq('package_id', id);
       
       if (ticketsError) {
-        return { data: null, error: new Error(`Failed to check ticket definitions: ${ticketsError.message}`) };
+        return { data: null, error: new Error(`Failed to check event tickets: ${ticketsError.message}`) };
       }
       
       if (tickets && tickets.length > 0) {
         return { 
           data: null, 
-          error: new Error('Cannot delete package with associated ticket definitions. Remove ticket definitions first.') 
+          error: new Error('Cannot delete package with associated event tickets. Remove event tickets first.') 
         };
       }
       
@@ -207,7 +207,7 @@ export class PackageAdminService extends AdminApiService {
   /**
    * Add an event to a package
    */
-  async addEventToPackage(package_id: string, eventData: PackageEventAddRequest): Promise<AdminApiResponse<DbPackageEvent>> {
+  async addEventToPackage(packageId: string, eventData: PackageEventAddRequest): Promise<AdminApiResponse<DbPackageEvent>> {
     try {
       const { data, error } = await this.client
         .from(supabaseTables.packageEvents)
@@ -232,7 +232,7 @@ export class PackageAdminService extends AdminApiService {
   /**
    * Remove an event from a package
    */
-  async removeEventFromPackage(package_id: string, event_id: string): Promise<AdminApiResponse<void>> {
+  async removeEventFromPackage(packageId: string, eventId: string): Promise<AdminApiResponse<void>> {
     try {
       const { error } = await this.client
         .from(supabaseTables.packageEvents)
@@ -254,7 +254,7 @@ export class PackageAdminService extends AdminApiService {
   /**
    * Get events in a package
    */
-  async getPackageEvents(package_id: string): Promise<AdminApiResponse<DbEvent[]>> {
+  async getPackageEvents(packageId: string): Promise<AdminApiResponse<DbEvent[]>> {
     try {
       // Get the package event relationships
       const { data: packageEvents, error: eventsError } = await this.client
@@ -297,7 +297,7 @@ export class PackageAdminService extends AdminApiService {
    * Update package capacity
    */
   async updatePackageCapacity(
-    package_id: string, 
+    packageId: string, 
     maxCapacity: number
   ): Promise<AdminApiResponse<any>> {
     try {
@@ -322,7 +322,7 @@ export class PackageAdminService extends AdminApiService {
   /**
    * Get package capacity
    */
-  async getPackageCapacity(package_id: string): Promise<AdminApiResponse<{
+  async getPackageCapacity(packageId: string): Promise<AdminApiResponse<{
     available: number;
     reserved: number;
     sold: number;

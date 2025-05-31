@@ -31,49 +31,39 @@ export const supabaseSchemas = {
 
 // Complete table name mapping (snake_case)
 export const supabaseTables = {
+  // Core tables - these exist in the database
   events: 'events',
   packages: 'packages',
-  packageEvents: 'package_events',
-  ticketDefinitions: 'ticket_definitions',
-  attendeeTicketAssignments: 'attendee_ticket_assignments',
-  valueAddedServices: 'value_added_services',
-  packageVasOptions: 'package_vas_options',
-  eventVasOptions: 'event_vas_options',
-  registrationVas: 'registration_vas',
-  grandLodges: 'grand_lodges',
+  event_tickets: 'event_tickets',
+  grand_lodges: 'grand_lodges',
   lodges: 'lodges',
-  masonicProfiles: 'masonic_profiles',
-  organisationMemberships: 'organisation_memberships',
+  masonic_profiles: 'masonic_profiles',
+  memberships: 'memberships',
   organisations: 'organisations',
   locations: 'locations',
   attendees: 'attendees',
+  attendee_events: 'attendee_events',
   tickets: 'tickets',
-  priceTiers: 'price_tiers',
-  ticketTypePriceTiers: 'ticket_type_price_tiers',
-  feeTypes: 'fee_types',
-  eventFees: 'event_fees',
-  userRoles: 'user_roles',
+  user_roles: 'user_roles',
   registrations: 'registrations',
   customers: 'customers',
-  people: 'people',
-
-  // Stripe Tables (now in 'stripe' schema, ensure snake_case)
-  stripeCustomers: 'stripe_customers',
-  stripeTaxCodes: 'stripe_tax_codes',
-  stripeTaxRates: 'stripe_tax_rates',
-  stripeCoupons: 'stripe_coupons',
-  stripePromotionCodes: 'stripe_promotion_codes',
-  stripeProducts: 'stripe_products',
-  stripeDiscounts: 'stripe_discounts',
-  stripeQuotes: 'stripe_quotes',
-  stripePrices: 'stripe_prices',
-  stripeQuoteLineItems: 'stripe_quote_line_items',
-  stripeInvoices: 'stripe_invoices',
-  stripeInvoiceLineItems: 'stripe_invoice_line_items',
-
-  // Log Tables (now in 'log' schema, ensure snake_case)
-  tableRenameLog: 'table_rename_log',
-  columnRenameLog: 'column_rename_log',
+  contacts: 'contacts',
+  display_scopes: 'display_scopes',
+  eligibility_criteria: 'eligibility_criteria',
+  
+  // Additional tables added by migrations
+  email_log: 'email_log',
+  documents: 'documents',
+  organisation_payouts: 'organisation_payouts',
+  platform_transfers: 'platform_transfers',
+  connected_account_payments: 'connected_account_payments',
+  
+  // Views
+  auth_user_customer_view: 'auth_user_customer_view',
+  memberships_view: 'memberships_view',
+  registration_payments: 'registration_payments',
+  registration_summary: 'registration_summary',
+  registration_fee_summary: 'registration_fee_summary',
 };
 
 /**

@@ -91,7 +91,7 @@ export const GuestForm: React.FC<GuestFormProps> = ({ attendeeId, attendeeNumber
                 label="Title"
                 name="title"
                 value={attendee.title || ''}
-                onChange={(value) => updateField('title', value)}
+                onChange={(value) => updateFieldImmediate('title', value)}
                 options={titleOptions}
                 required={true}
                 error={attendeeFieldErrors.title}
@@ -102,7 +102,7 @@ export const GuestForm: React.FC<GuestFormProps> = ({ attendeeId, attendeeNumber
                 label="First Name"
                 name="firstName"
                 value={attendee.firstName || ''}
-                onChange={(value) => updateField('firstName', value)}
+                onChange={(value) => updateFieldImmediate('firstName', value)}
                 required={true}
                 error={attendeeFieldErrors.firstName}
               />
@@ -112,7 +112,7 @@ export const GuestForm: React.FC<GuestFormProps> = ({ attendeeId, attendeeNumber
                 label="Last Name"
                 name="lastName"
                 value={attendee.lastName || ''}
-                onChange={(value) => updateField('lastName', value)}
+                onChange={(value) => updateFieldImmediate('lastName', value)}
                 required={true}
                 error={attendeeFieldErrors.lastName}
               />
@@ -142,7 +142,7 @@ export const GuestForm: React.FC<GuestFormProps> = ({ attendeeId, attendeeNumber
             data={attendee}
             type="Guest"
             isPrimary={isPrimary}
-            onChange={updateField}
+            onChange={updateFieldImmediate}
             fieldErrors={attendeeFieldErrors}
           />
         )}
@@ -151,7 +151,7 @@ export const GuestForm: React.FC<GuestFormProps> = ({ attendeeId, attendeeNumber
         <ContactInfo 
           data={attendee}
           isPrimary={isPrimary}
-          onChange={updateField}
+          onChange={updateFieldImmediate}
           onChangeImmediate={updateFieldImmediate}
           fieldErrors={attendeeFieldErrors}
         />
@@ -159,7 +159,7 @@ export const GuestForm: React.FC<GuestFormProps> = ({ attendeeId, attendeeNumber
         {/* Additional Info */}
         <AdditionalInfo 
           data={attendee}
-          onChange={updateField}
+          onChange={updateFieldImmediate}
         />
       </div>
     </div>

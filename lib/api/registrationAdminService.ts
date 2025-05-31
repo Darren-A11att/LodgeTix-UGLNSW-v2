@@ -3,7 +3,7 @@ import { supabaseTables } from '../../supabase';
 import * as SupabaseTypes from '@/shared/types/database';
 
 type DbRegistration = SupabaseTypes.Database['public']['Tables']['registrations']['Row'];
-type DbAttendee = SupabaseTypes.Database['public']['Tables']['Attendees']['Row'];
+type DbAttendee = SupabaseTypes.Database['public']['Tables']['attendees']['Row'];
 type DbTicket = SupabaseTypes.Database['public']['Tables']['tickets']['Row'];
 
 export interface RegistrationStatusUpdateRequest {
@@ -52,7 +52,7 @@ export class RegistrationAdminService extends AdminApiService {
       const { data: customer } = await this.client
         .from(supabaseTables.customers)
         .select('*')
-        .eq('id', registration.customerId)
+        .eq('id', registration.contact_id)
         .maybeSingle();
       
       // Get attendees for this registration
@@ -61,18 +61,18 @@ export class RegistrationAdminService extends AdminApiService {
         .select(`
           *,
           people(*),
-          MasonicProfiles(*)
+          masonic_profiles(*)
         `)
-        .eq('registrationId', id);
+        .eq('registration_id', id);
       
       // Get tickets for this registration
       const { data: tickets } = await this.client
         .from(supabaseTables.tickets)
         .select(`
           *,
-          ticket_definitions(*)
+          event_tickets(*)
         `)
-        .eq('registrationId', id);
+        .eq('registration_id', id);
       
       // Get payment records (from Stripe schema)
       const { data: paymentRecords } = await this.client
@@ -116,9 +116,9 @@ export class RegistrationAdminService extends AdminApiService {
         .select(`
           *,
           people(*),
-          MasonicProfiles(*)
+          masonic_profiles(*)
         `)
-        .eq('registrationId', registrationId);
+        .eq('registration_id', registrationId);
       
       if (error) {
         return { data: null, error: new Error(error.message) };
@@ -140,9 +140,9 @@ export class RegistrationAdminService extends AdminApiService {
         .from(supabaseTables.tickets)
         .select(`
           *,
-          ticket_definitions(*)
+          event_tickets(*)
         `)
-        .eq('registrationId', registrationId);
+        .eq('registration_id', registrationId);
       
       if (error) {
         return { data: null, error: new Error(error.message) };
@@ -186,8 +186,8 @@ export class RegistrationAdminService extends AdminApiService {
         .from(supabaseTables.registrations)
         .update({
           status: 'cancelled',
-          cancellationReason: reason,
-          cancelledAt: new Date().toISOString()
+          cancellation_reason: reason,
+          cancelled_at: new Date().toISOString()
         })
         .eq('id', id)
         .select()
@@ -228,7 +228,7 @@ export class RegistrationAdminService extends AdminApiService {
       const { data: registrations, error: registrationsError } = await this.client
         .from(supabaseTables.registrations)
         .select('*')
-        .gt('createdAt', new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString()); // Last 90 days
+        .gt('created_at', new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString()); // Last 90 days
       
       if (registrationsError) {
         return { data: null, error: new Error(registrationsError.message) };
@@ -248,8 +248,8 @@ export class RegistrationAdminService extends AdminApiService {
           else if (reg.status === 'cancelled') cancelled++;
           
           // Add up revenue for completed registrations
-          if (reg.paymentStatus === 'completed' && reg.totalAmountPaid) {
-            totalRevenue += reg.totalAmountPaid;
+          if (reg.payment_status === 'completed' && reg.total_amount_paid) {
+            totalRevenue += reg.total_amount_paid;
           }
         }
       }

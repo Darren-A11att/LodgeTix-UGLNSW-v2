@@ -18,7 +18,7 @@ async function testRPCFunction() {
     console.log('Calling get_event_with_details with slug:', testSlug);
     
     const { data, error } = await supabase.rpc('get_event_with_details', {
-      p_event_slug: testSlug
+      event_slug: testSlug
     });
     
     if (error) {

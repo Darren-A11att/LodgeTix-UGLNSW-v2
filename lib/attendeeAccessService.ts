@@ -25,7 +25,7 @@ export class AttendeeAccessService {
    * @param attendeeId UUID of the attendee
    * @returns Promise resolving to an array of AttendeeAccess records
    */
-  static async getAttendeeAccess(attendee_id: string): Promise<AttendeeAccess[]> {
+  static async getAttendeeAccess(attendeeId: string): Promise<AttendeeAccess[]> {
     try {
       if (!attendeeId) {
         throw new Error('Attendee ID is required');
@@ -53,7 +53,7 @@ export class AttendeeAccessService {
    * @param eventId UUID of the event
    * @returns Promise resolving to an array of AttendeeAccess records
    */
-  static async getEventAttendees(event_id: string): Promise<AttendeeAccess[]> {
+  static async getEventAttendees(eventId: string): Promise<AttendeeAccess[]> {
     try {
       if (!eventId) {
         throw new Error('Event ID is required');
@@ -84,8 +84,8 @@ export class AttendeeAccessService {
    * @returns Promise resolving to a boolean indicating access
    */
   static async checkAttendeeEventAccess(
-    attendee_id: string,
-    event_id: string
+    attendeeId: string,
+    eventId: string
   ): Promise<boolean> {
     try {
       if (!attendeeId || !eventId) {
@@ -93,16 +93,21 @@ export class AttendeeAccessService {
       }
       
       // Use the database function for efficient checking
-      const { data, error } = await supabase.rpc('check_attendee_event_access', {
-        p_attendee_id: attendeeId,
-        p_event_id: eventId
-      });
+      // Note: check_attendee_event_access doesn't exist in current schema
+      // This functionality needs to be implemented with direct table queries
+      const { data, error } = await supabase
+        .from('attendee_access')
+        .select('id')
+        .eq('attendee_id', attendeeId)
+        .eq('event_id', eventId)
+        .eq('is_active', true)
+        .limit(1);
       
       if (error) {
         throw error;
       }
       
-      return !!data; // Convert to boolean
+      return data && data.length > 0; // Convert to boolean
     } catch (error) {
       console.error('Error in checkAttendeeEventAccess:', error);
       return false;
@@ -118,8 +123,8 @@ export class AttendeeAccessService {
    * @returns Promise resolving to a boolean indicating success
    */
   static async addPackageAttendeeAccess(
-    attendee_id: string,
-    package_id: string,
+    attendeeId: string,
+    packageId: string,
     pricePaid: number
   ): Promise<boolean> {
     try {
@@ -128,11 +133,8 @@ export class AttendeeAccessService {
       }
       
       // Use the database function to add access records
-      const { error } = await supabase.rpc('add_package_attendee_access', {
-        p_attendee_id: attendeeId,
-        p_package_id: packageId,
-        p_price_paid: pricePaid
-      });
+      // Note: add_package_attendee_access doesn't exist in current schema
+      throw new Error('add_package_attendee_access RPC is not implemented');
       
       if (error) {
         throw error;

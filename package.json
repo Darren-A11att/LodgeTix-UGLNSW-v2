@@ -32,7 +32,12 @@
     "test:stripe:fees": "ts-node scripts/stripe-connect-tests/test-fee-calculations.ts",
     "test:stripe:all": "ts-node scripts/stripe-connect-tests/run-all-tests.ts",
     "test:stripe:analyze": "ts-node scripts/stripe-connect-tests/analyze-test-results.ts",
-    "test:integration": "tsx scripts/test-integration.ts"
+    "test:integration": "tsx scripts/test-integration.ts",
+    "fields:update": "ts-node scripts/update-fields-to-database.ts",
+    "fields:update:dry": "ts-node scripts/update-fields-to-database.ts --dry-run",
+    "fields:update:simple": "ts-node scripts/update-fields-simple.ts",
+    "fields:validate": "ts-node scripts/validate-field-usage.ts",
+    "fields:generate-helpers": "ts-node scripts/generate-field-helpers.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",
