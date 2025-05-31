@@ -1,0 +1,177 @@
+name: Claude Code Test Generation
+
+on:
+  schedule:
+    # Run weekly on Monday at 9 AM UTC
+    - cron: '0 9 * * 1'
+  workflow_dispatch:
+    inputs:
+      workflow:
+        description: 'Workflow to generate tests for'
+        required: true
+        type: choice
+        options:
+          - registration
+          - ticketing
+          - payment
+          - authentication
+          - all
+
+jobs:
+  analyze-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      changed-files: ${{ steps.changes.outputs.files }}
+      should-generate: ${{ steps.changes.outputs.should-generate }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: Get changed files
+        id: changes
+        run: |
+          # Get files changed in the last week
+          CHANGED_FILES=$(git diff --name-only HEAD~7 HEAD | grep -E '\.(tsx?|jsx?)$' | grep -E '^(app|components|lib)/' || true)
+          
+          if [ -z "$CHANGED_FILES" ]; then
+            echo "should-generate=false" >> $GITHUB_OUTPUT
+          else
+            echo "should-generate=true" >> $GITHUB_OUTPUT
+            echo "files<<EOF" >> $GITHUB_OUTPUT
+            echo "$CHANGED_FILES" >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+          fi
+
+  generate-tests:
+    needs: analyze-changes
+    if: needs.analyze-changes.outputs.should-generate == 'true' || github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      
+      - name: Install dependencies
+        run: |
+          npm ci
+          cd tests/puppeteer && npm ci
+      
+      - name: Setup Claude Code
+        run: |
+          # Note: This is a placeholder for Claude Code installation
+          # In production, you would install Claude Code here
+          echo "Claude Code setup would happen here"
+      
+      - name: Generate test analysis
+        run: |
+          cat > test-generation-prompt.md << 'EOF'
+          # Test Generation Request
+          
+          ## Changed Files
+          ${{ needs.analyze-changes.outputs.changed-files }}
+          
+          ## Workflow Focus
+          ${{ github.event.inputs.workflow || 'all' }}
+          
+          ## Instructions
+          1. Analyze the changed files
+          2. Identify user workflows affected
+          3. Generate comprehensive Puppeteer tests
+          4. Include edge cases and error scenarios
+          5. Add self-healing selectors
+          EOF
+      
+      - name: Run test generator
+        run: |
+          cd tests/puppeteer
+          node -e "
+          const TestGenerator = require('./helpers/test-generator');
+          const generator = new TestGenerator(require('./config/puppeteer.config'));
+          
+          async function generate() {
+            const results = await generator.generateFromExistingTests();
+            console.log('Generated tests:', results);
+            
+            // Generate workflow-specific tests
+            const workflow = '${{ github.event.inputs.workflow }}' || 'registration';
+            
+            const workflowSteps = {
+              registration: [
+                { description: 'Select registration type', navigation: '/register' },
+                { description: 'Fill attendee details', actions: [] },
+                { description: 'Select tickets', actions: [] },
+                { description: 'Complete payment', actions: [] }
+              ],
+              ticketing: [
+                { description: 'Browse events', navigation: '/events' },
+                { description: 'Select event', actions: [] },
+                { description: 'Choose tickets', actions: [] }
+              ]
+            };
+            
+            if (workflowSteps[workflow]) {
+              const workflowTest = await generator.generateWorkflowTest(
+                workflow + ' Workflow',
+                workflowSteps[workflow]
+              );
+              await generator.saveGeneratedTest(workflowTest);
+            }
+          }
+          
+          generate().catch(console.error);
+          "
+      
+      - name: Run selector analysis
+        run: |
+          cd tests/puppeteer
+          node -e "
+          const SelectorMapper = require('./helpers/selector-mapper');
+          const mapper = new SelectorMapper();
+          
+          async function analyze() {
+            const results = await mapper.mapExistingSelectors();
+            console.log('Selector analysis:', results);
+            
+            await mapper.generateMigrationScript();
+          }
+          
+          analyze().catch(console.error);
+          "
+      
+      - name: Create PR with generated tests
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: 'feat: add Claude-generated Puppeteer tests'
+          title: '[Auto] New Puppeteer Tests Generated'
+          body: |
+            ## 🤖 Automated Test Generation
+            
+            This PR contains automatically generated Puppeteer tests based on recent code changes.
+            
+            ### Changed Files Analyzed
+            ```
+            ${{ needs.analyze-changes.outputs.changed-files }}
+            ```
+            
+            ### Generated Tests
+            - New test files in `tests/puppeteer/specs/`
+            - Updated selector mappings
+            - Self-healing configurations
+            
+            ### Next Steps
+            1. Review generated tests
+            2. Run tests locally
+            3. Adjust as needed
+            4. Merge when ready
+            
+            ---
+            *Generated by Claude Code + Puppeteer Integration*
+          branch: auto/puppeteer-tests-${{ github.run_number }}
+          assignees: ${{ github.actor }}
+          reviewers: ${{ github.actor }}

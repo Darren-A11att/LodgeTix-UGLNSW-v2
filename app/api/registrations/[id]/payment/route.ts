@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
 import { createClient } from '@/utils/supabase/server';
-import { createAdminClient } from '@/utils/supabase/admin';
 import { buildPaymentIntentMetadata, buildCustomerMetadata } from '@/lib/utils/stripe-metadata';
 import { createOrUpdateStripeCustomer, getChildEventsMetadata } from '@/lib/services/stripe-sync-service';
 import { getDeviceTypeFromRequest, generateSessionId } from '@/lib/utils/device-detection';
@@ -67,8 +66,8 @@ export async function PUT(
     console.log("Looking up registration with ID:", registrationId);
     console.log("Executing Supabase query: from('registrations').select('*').eq('registration_id', registrationId).single()");
     
-    const adminClient = createAdminClient();
-    const { data: existingRegistration, error: findError } = await adminClient
+    const supabase = await createClient();
+    const { data: existingRegistration, error: findError } = await supabase
       .from('registrations')
       .select("*")
       .eq("registration_id", registrationId)
@@ -326,7 +325,7 @@ export async function PUT(
     
     // Update registration record
     console.log("Executing update query: from('registrations').update(updateData).eq('registration_id', registrationId)");
-    const { data: updatedRegistration, error: updateError } = await adminClient
+    const { data: updatedRegistration, error: updateError } = await supabase
       .from('registrations')
       .update(updateData)
       .eq("registration_id", registrationId)
@@ -345,7 +344,7 @@ export async function PUT(
     
     // Also update related tickets to 'completed' status
     console.log("Updating tickets for registration:", registrationId);
-    const { data: updatedTickets, error: ticketUpdateError } = await adminClient
+    const { data: updatedTickets, error: ticketUpdateError } = await supabase
       .from("tickets") 
       .update({ 
         ticket_status: requiresAction ? "pending" : "completed",
@@ -408,8 +407,8 @@ export async function GET(
     console.log("Registration ID:", registrationId);
     
     // First, check if registration exists
-    const adminClient = createAdminClient();
-    const { data: existingRegistrationData, error: findError } = await adminClient
+    const supabase = await createClient();
+    const { data: existingRegistrationData, error: findError } = await supabase
       .from('registrations')
       .select("*")
       .eq("registration_id", registrationId)

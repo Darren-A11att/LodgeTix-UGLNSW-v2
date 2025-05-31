@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createAdminClient } from '@/utils/supabase/admin';
+import { createClient } from '@/utils/supabase/server';
 import { syncEventToStripeProduct, syncEventTickets } from '@/lib/services/stripe-sync-service';
 
 export async function POST(request: Request) {
@@ -10,10 +10,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Event ID is required' }, { status: 400 });
     }
     
-    const adminClient = createAdminClient();
+    const supabase = await createClient();
     
     // Get event with organization data
-    const { data: event, error } = await adminClient
+    const { data: event, error } = await supabase
       .from('events')
       .select(`
         *,

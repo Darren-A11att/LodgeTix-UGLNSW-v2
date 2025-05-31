@@ -5,6 +5,9 @@ import { Button } from "@/components/ui/button"
 import { MasonicLogo } from "@/components/masonic-logo"
 import { AboutContent } from "@/components/about"
 
+// Mark as dynamic since AboutContent uses server-side data fetching
+export const dynamic = 'force-dynamic'
+
 export default function AboutPage() {
   return (
     <div className="min-h-screen bg-white">

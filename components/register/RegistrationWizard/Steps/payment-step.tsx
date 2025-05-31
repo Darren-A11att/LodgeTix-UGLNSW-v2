@@ -9,7 +9,7 @@ import {
   billingDetailsSchema, 
   type BillingDetails as FormBillingDetailsSchema,
 } from "@/lib/booking-contact-schema";
-import { createClient } from '@/utils/supabase/client';
+import { getBrowserClient } from '@/lib/supabase-singleton';
 
 import { Button } from "@/components/ui/button";
 import { Form } from "@/components/ui/form";
@@ -488,7 +488,7 @@ function PaymentStep(props: PaymentStepProps) {
           registrationId = result.registrationId;
         } else {
           // Direct API call
-          const supabase = createClient();
+          const supabase = getBrowserClient();
           const { data: { user } } = await supabase.auth.getUser();
           
           if (!user) {

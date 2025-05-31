@@ -1,5 +1,5 @@
 import { RealtimeChannel, RealtimePostgresChangesPayload } from '@supabase/supabase-js'
-import { createClient } from '@/utils/supabase/client'
+import { getBrowserClient } from '@/lib/supabase-singleton'
 
 export interface TicketAvailability {
   ticketTypeId: string
@@ -35,7 +35,7 @@ export class TicketAvailabilityManager {
     maxReconnectAttempts: 5
   }
   
-  private supabase = createClient()
+  private supabase = getBrowserClient()
 
   constructor(options?: RealtimeManagerOptions) {
     if (options) {

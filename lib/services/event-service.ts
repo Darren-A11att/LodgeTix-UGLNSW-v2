@@ -1,4 +1,4 @@
-import { getServerClient } from '@/lib/supabase-singleton'
+import { createClient } from '@/utils/supabase/server'
 import { Database } from '@/shared/types/database'
 import { notFound } from 'next/navigation'
 
@@ -42,7 +42,7 @@ function isUUID(str: string): boolean {
 }
 
 export async function getEventByIdOrSlug(idOrSlug: string): Promise<Event | null> {
-  const supabase = getServerClient()
+  const supabase = await createClient()
   
   let query = supabase
     .from('events')
@@ -90,7 +90,7 @@ export async function getEventByIdOrSlug(idOrSlug: string): Promise<Event | null
 }
 
 export async function getEventTickets(eventId: string): Promise<Ticket[]> {
-  const supabase = getServerClient()
+  const supabase = await createClient()
   
   const { data, error } = await supabase
     .from('tickets')
@@ -107,7 +107,7 @@ export async function getEventTickets(eventId: string): Promise<Ticket[]> {
 }
 
 export async function getPublishedEvents(): Promise<Event[]> {
-  const supabase = getServerClient()
+  const supabase = await createClient()
   
   const { data, error } = await supabase
     .from('events')

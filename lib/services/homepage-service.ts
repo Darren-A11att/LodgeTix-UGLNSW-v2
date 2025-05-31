@@ -1,25 +1,7 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient } from '@/utils/supabase/server';
 import { api } from '@/lib/api-logger';
 import { formatEventDate, formatEventTime } from '@/lib/event-facade';
 import type { Database } from '@/shared/types/database';
-
-// Create a server-side Supabase client for server components
-function getServerClient() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  
-  if (!supabaseUrl || !supabaseAnonKey) {
-    console.warn('Missing Supabase environment variables in homepage service');
-    return null;
-  }
-  
-  return createClient<Database>(supabaseUrl, supabaseAnonKey, {
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false,
-    }
-  });
-}
 
 /**
  * Get the next upcoming event (parent or child)
@@ -27,16 +9,12 @@ function getServerClient() {
  */
 export async function getGrandInstallationEvent() {
   try {
-    const supabase = getServerClient();
-    if (!supabase) {
-      api.warn('Supabase client not available');
-      return null;
-    }
+    const supabase = await createClient();
     const now = new Date().toISOString();
     
     // First try to get the soonest upcoming parent event
     const { data: parentEvent, error: parentError } = await supabase
-      .from("events")
+      .from("event_display_view")
       .select('*')
       .is('parent_event_id', null)  // Parent events only
       .eq('is_published', true)      // Published events only
@@ -51,7 +29,7 @@ export async function getGrandInstallationEvent() {
 
     // If no parent event found, get ANY upcoming event
     const { data: anyEvent, error: anyError } = await supabase
-      .from("events")
+      .from("event_display_view")
       .select('*')
       .eq('is_published', true)      // Published events only
       .gte('event_end', now)         // Not yet ended
@@ -76,11 +54,7 @@ export async function getGrandInstallationEvent() {
  */
 export async function getEventTimeline() {
   try {
-    const supabase = getServerClient();
-    if (!supabase) {
-      api.warn('Supabase client not available for timeline');
-      return [];
-    }
+    const supabase = await createClient();
     const mainEvent = await getGrandInstallationEvent();
     
     if (!mainEvent) {
@@ -91,7 +65,7 @@ export async function getEventTimeline() {
     // If it's a parent event, get its children
     if (!mainEvent.parent_event_id) {
       const { data, error } = await supabase
-        .from("events")
+        .from("event_display_view")
         .select('*')
         .eq("parent_event_id", mainEvent.id)
         .eq('is_published', true)
@@ -106,7 +80,7 @@ export async function getEventTimeline() {
     // Otherwise, get upcoming events (excluding the main one)
     const now = new Date().toISOString();
     const { data, error } = await supabase
-      .from("events")
+      .from("event_display_view")
       .select('*')
       .eq('is_published', true)
       .gte('event_end', now)
@@ -131,13 +105,9 @@ export async function getEventTimeline() {
  */
 export async function getFeaturedEvents() {
   try {
-    const supabase = getServerClient();
-    if (!supabase) {
-      api.warn('Supabase client not available for featured events');
-      return [];
-    }
+    const supabase = await createClient();
     const { data, error } = await supabase
-      .from("events")
+      .from("event_display_view")
       .select('*')
       .eq('featured', true)
       .order("event_start", { ascending: true })
@@ -184,7 +154,7 @@ function transformEventData(data: any) {
     subtitle: data.subtitle || '',
     description: data.description || '',
     organiser: data.organiser || data.organiser_name || 'TBD',
-    location: data.location || 'TBD',
+    location: data.location_string || 'TBD',
     image_url: data.image_url || null,
     imageUrl: data.image_url || null, // For compatibility with EventCard component
     date: formattedDate,

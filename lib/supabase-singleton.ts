@@ -8,7 +8,7 @@ import { api } from '@/lib/api-logger';
 // Environment variables
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+// Service role key removed for security - use authenticated clients instead
 
 // Note: Environment variables are validated when creating clients, not at module level
 // This prevents build-time errors when env vars aren't available
@@ -168,98 +168,28 @@ export function getBrowserClient() {
 }
 
 /**
- * Get a server-side Supabase client with service role (singleton pattern)
+ * @deprecated The getServerClient function has been removed for security reasons.
+ * Use createServerClient() from '@/utils/supabase/server' instead.
  */
 export function getServerClient() {
-  if (serverClientInstance) {
-    return serverClientInstance;
-  }
-  
-  // During build time, we might not have all environment variables
-  // Return a mock client similar to the browser client during build
-  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-    if (process.env.NODE_ENV === 'production' && !process.env.VERCEL) {
-      // During local build, return mock client
-      console.warn('Server client requested during build without env vars - returning mock client');
-      
-      let isSingle = false;
-      let isMaybeSingle = false;
-      
-      const mockQueryBuilder = {
-        select: () => mockQueryBuilder,
-        insert: () => mockQueryBuilder,
-        update: () => mockQueryBuilder,
-        delete: () => mockQueryBuilder,
-        upsert: () => mockQueryBuilder,
-        eq: () => mockQueryBuilder,
-        neq: () => mockQueryBuilder,
-        gt: () => mockQueryBuilder,
-        gte: () => mockQueryBuilder,
-        lt: () => mockQueryBuilder,
-        lte: () => mockQueryBuilder,
-        like: () => mockQueryBuilder,
-        ilike: () => mockQueryBuilder,
-        is: () => mockQueryBuilder,
-        in: () => mockQueryBuilder,
-        contains: () => mockQueryBuilder,
-        containedBy: () => mockQueryBuilder,
-        range: () => mockQueryBuilder,
-        overlaps: () => mockQueryBuilder,
-        match: () => mockQueryBuilder,
-        not: () => mockQueryBuilder,
-        or: () => mockQueryBuilder,
-        filter: () => mockQueryBuilder,
-        order: () => mockQueryBuilder,
-        limit: () => mockQueryBuilder,
-        single: () => { isSingle = true; return mockQueryBuilder; },
-        maybeSingle: () => { isMaybeSingle = true; return mockQueryBuilder; },
-        then: (resolve: any) => {
-          if (isSingle || isMaybeSingle) {
-            resolve({ data: null, error: null });
-          } else {
-            resolve({ data: [], error: null });
-          }
-        },
-        catch: () => mockQueryBuilder,
-        finally: (cb: any) => { cb(); return mockQueryBuilder; },
-      };
-
-      return {
-        auth: {
-          getSession: async () => ({ data: { session: null }, error: null }),
-          onAuthStateChange: () => ({ data: { subscription: { unsubscribe: () => {} } } }),
-          signInWithPassword: async () => ({ data: null, error: new Error('Not available during build') }),
-          signOut: async () => ({ error: null }),
-        },
-        from: () => mockQueryBuilder,
-      } as any as SupabaseClient<Database>;
-    }
-    
-    // In production with real deployment, throw error
-    throw new Error('Missing Supabase environment variables for server client');
-  }
-
-  api.debug('Creating new server Supabase client');
-  serverClientInstance = createClient(
-    SUPABASE_URL,
-    SUPABASE_SERVICE_ROLE_KEY,
-    {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false,
-        detectSessionInUrl: false
-      }
-    }
+  throw new Error(
+    'getServerClient() has been removed for security reasons. ' +
+    'Please use createServerClient() from @/utils/supabase/server instead, ' +
+    'which respects Row Level Security (RLS) policies.'
   );
-  
-  return serverClientInstance;
 }
 
 /**
  * Get the appropriate client based on environment
  */
 export function getSupabaseClient(isServer = false) {
-  return isServer ? getServerClient() : getBrowserClient();
+  if (isServer) {
+    throw new Error(
+      'Server-side Supabase client with service role has been removed for security. ' +
+      'Please use createServerClient() from @/utils/supabase/server instead.'
+    );
+  }
+  return getBrowserClient();
 }
 
 /**
@@ -284,8 +214,17 @@ export function table(tableName: string, isServer = false) {
 // This ensures the client is only created when actually needed
 export const getSupabase = () => getBrowserClient();
 
-// Export server client getter with alternate name for backward compatibility
-export const getSupabaseAdmin = getServerClient;
+/**
+ * @deprecated The getSupabaseAdmin function has been removed for security reasons.
+ * Use createServerClient() from '@/utils/supabase/server' instead.
+ */
+export const getSupabaseAdmin = () => {
+  throw new Error(
+    'getSupabaseAdmin() has been removed for security reasons. ' +
+    'Please use createServerClient() from @/utils/supabase/server instead, ' +
+    'which respects Row Level Security (RLS) policies.'
+  );
+};
 
 // For backward compatibility, export the getter as 'supabase'
 // Note: Consumers should ideally use getBrowserClient() directly

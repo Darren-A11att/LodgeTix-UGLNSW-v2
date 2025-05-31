@@ -4,6 +4,7 @@ import '@/styles/globals.css'
 import './disableFastRefreshLogs'
 import { LocationInitializer } from '@/components/location-initializer'
 import { AuthProvider } from '@/contexts/auth-provider'
+import { LayoutWithFooter } from '@/components/ui/layout-with-footer'
 
 export const metadata: Metadata = {
   title: 'Grand Proclamation 2025 | United Grand Lodge of NSW & ACT',
@@ -26,7 +27,9 @@ export default function RootLayout({
       <body>
         <AuthProvider>
           <LocationInitializer />
-          {children}
+          <LayoutWithFooter>
+            {children}
+          </LayoutWithFooter>
         </AuthProvider>
       </body>
     </html>

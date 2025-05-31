@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { useRegistrationStore } from '@/lib/registrationStore';
-import { createClient } from '@/utils/supabase/client';
+import { getBrowserClient } from '@/lib/supabase-singleton';
 import { Loader2 } from 'lucide-react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
@@ -30,7 +30,7 @@ export function SessionGuard({ children }: SessionGuardProps) {
         }
 
         // Check if there's an actual session
-        const supabase = createClient();
+        const supabase = getBrowserClient();
         const { data: { session }, error } = await supabase.auth.getSession();
         
         if (error) {

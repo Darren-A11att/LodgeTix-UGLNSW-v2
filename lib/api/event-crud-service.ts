@@ -71,10 +71,21 @@ export interface CrudResponse {
 }
 
 export class EventCrudService {
-  private client: ReturnType<typeof createClient<Database>>;
+  private client: ReturnType<typeof createClient<Database>> | null = null;
+  private isServer: boolean;
 
   constructor(isServer: boolean = false) {
-    this.client = isServer ? getServerClient() : supabase;
+    this.isServer = isServer;
+    if (!isServer) {
+      this.client = supabase;
+    }
+  }
+
+  private async getClient() {
+    if (!this.client) {
+      this.client = this.isServer ? await createClient() : supabase;
+    }
+    return this.client;
   }
 
   // ============================================
@@ -85,7 +96,8 @@ export class EventCrudService {
    * Create a new event
    */
   async createEvent(event: EventInput): Promise<CrudResponse> {
-    const { data, error } = await this.client.rpc('create_event', {
+    const client = await this.getClient();
+    const { data, error } = await client.rpc('create_event', {
       p_event: event
     });
 
@@ -101,7 +113,8 @@ export class EventCrudService {
    * Update an existing event
    */
   async updateEvent(eventId: string, updates: Partial<EventInput>): Promise<CrudResponse> {
-    const { data, error } = await this.client.rpc('update_event', {
+    const client = await this.getClient();
+    const { data, error } = await client.rpc('update_event', {
       p_event_id: eventId,
       p_updates: updates
     });
@@ -118,7 +131,8 @@ export class EventCrudService {
    * Create or update an event (upsert)
    */
   async upsertEvent(event: EventInput): Promise<CrudResponse> {
-    const { data, error } = await this.client.rpc('upsert_event', {
+    const client = await this.getClient();
+    const { data, error } = await client.rpc('upsert_event', {
       p_event: event
     });
 
@@ -134,7 +148,8 @@ export class EventCrudService {
    * Delete an event
    */
   async deleteEvent(eventId: string, cascade: boolean = false): Promise<CrudResponse> {
-    const { data, error } = await this.client.rpc('delete_event', {
+    const client = await this.getClient();
+    const { data, error } = await client.rpc('delete_event', {
       p_event_id: eventId,
       p_cascade: cascade
     });
@@ -155,7 +170,8 @@ export class EventCrudService {
    * Create a new ticket
    */
   async createTicket(ticket: TicketInput): Promise<CrudResponse> {
-    const { data, error } = await this.client.rpc('create_ticket', {
+    const client = await this.getClient();
+    const { data, error } = await client.rpc('create_ticket', {
       p_ticket: ticket
     });
 
@@ -171,7 +187,8 @@ export class EventCrudService {
    * Update an existing ticket
    */
   async updateTicket(ticketId: string, updates: Partial<TicketInput>): Promise<CrudResponse> {
-    const { data, error } = await this.client.rpc('update_ticket', {
+    const client = await this.getClient();
+    const { data, error } = await client.rpc('update_ticket', {
       p_ticket_id: ticketId,
       p_updates: updates
     });
@@ -188,7 +205,8 @@ export class EventCrudService {
    * Delete a ticket
    */
   async deleteTicket(ticketId: string, force: boolean = false): Promise<CrudResponse> {
-    const { data, error } = await this.client.rpc('delete_ticket', {
+    const client = await this.getClient();
+    const { data, error } = await client.rpc('delete_ticket', {
       p_ticket_id: ticketId,
       p_force: force
     });
@@ -209,7 +227,8 @@ export class EventCrudService {
    * Create multiple tickets for an event
    */
   async createTicketsBatch(eventId: string, tickets: TicketInput[]): Promise<CrudResponse> {
-    const { data, error } = await this.client.rpc('create_tickets_batch', {
+    const client = await this.getClient();
+    const { data, error } = await client.rpc('create_tickets_batch', {
       p_event_id: eventId,
       p_tickets: tickets
     });
@@ -231,7 +250,8 @@ export class EventCrudService {
     newEventStart: string,
     includeTickets: boolean = true
   ): Promise<CrudResponse> {
-    const { data, error } = await this.client.rpc('clone_event', {
+    const client = await this.getClient();
+    const { data, error } = await client.rpc('clone_event', {
       p_source_event_id: sourceEventId,
       p_new_title: newTitle,
       p_new_event_start: newEventStart,
@@ -254,7 +274,8 @@ export class EventCrudService {
     isPublished?: boolean, 
     isFeatured?: boolean
   ): Promise<CrudResponse> {
-    const { data, error } = await this.client.rpc('bulk_update_event_status', {
+    const client = await this.getClient();
+    const { data, error } = await client.rpc('bulk_update_event_status', {
       p_event_ids: eventIds,
       p_is_published: isPublished,
       p_is_featured: isFeatured
@@ -272,7 +293,8 @@ export class EventCrudService {
    * Archive events older than specified date
    */
   async archiveOldEvents(beforeDate?: string): Promise<CrudResponse> {
-    const { data, error } = await this.client.rpc('archive_old_events', {
+    const client = await this.getClient();
+    const { data, error } = await client.rpc('archive_old_events', {
       p_before_date: beforeDate
     });
 

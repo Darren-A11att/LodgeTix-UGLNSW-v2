@@ -1,15 +1,15 @@
-import { getServerClient } from '@/lib/supabase-singleton';
+import { createClient } from '@/utils/supabase/server';
 import { NextResponse } from 'next/server';
 
 export async function GET() {
   try {
     // Get list of all tables in the database
-    const { data: tableData, error: tableError } = await getServerClient()
+    const { data: tableData, error: tableError } = await createClient()
       .rpc('get_tables');
     
     if (tableError) {
       // If RPC function doesn't exist, try an alternative approach
-      const { data, error } = await getServerClient()
+      const { data, error } = await createClient()
         .from('pg_tables')
         .select('tablename')
         .eq('schemaname', 'public');
@@ -51,14 +51,14 @@ export async function POST(request: Request) {
     }
     
     // Execute the provided SQL query
-    const { data, error, status } = await getServerClient().rpc('execute_sql', { sql_query: query });
+    const { data, error, status } = await createClient().rpc('execute_sql', { sql_query: query });
     
     if (error) {
       // If the RPC method doesn't exist, try a different approach
       // Check if the table exists using information_schema
       if (body.tableName) {
         const tableName = body.tableName;
-        const { data: tableCheck, error: tableError } = await getServerClient()
+        const { data: tableCheck, error: tableError } = await createClient()
           .from('information_schema.tables')
           .select('table_name')
           .eq('table_schema', 'public')
@@ -105,7 +105,7 @@ export async function POST(request: Request) {
 
 async function checkTable(tableName: string) {
   try {
-    const { data, error } = await getServerClient()
+    const { data, error } = await createClient()
       .from(tableName)
       .select('*')
       .limit(1);

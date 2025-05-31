@@ -1,4 +1,4 @@
-import { createAdminClient } from '@/utils/supabase/admin';
+import { createClient } from '@/utils/supabase/server';
 import type { Database } from '@/shared/types/database';
 
 /**
@@ -166,11 +166,11 @@ export interface RegistrationWithFullContext {
 export async function getRegistrationWithFullContext(
   registrationId: string
 ): Promise<RegistrationWithFullContext | null> {
-  const adminClient = createAdminClient();
+  const supabase = await createClient();
   
   try {
     // Main registration query with event and organization
-    const { data: registration, error: regError } = await adminClient
+    const { data: registration, error: regError } = await supabase
       .from('registrations')
       .select(`
         *,
@@ -215,7 +215,7 @@ export async function getRegistrationWithFullContext(
     }
     
     // Fetch attendees with masonic profiles
-    const { data: attendees } = await adminClient
+    const { data: attendees } = await supabase
       .from('attendees')
       .select(`
         *,
@@ -237,7 +237,7 @@ export async function getRegistrationWithFullContext(
       .order('is_primary_contact', { ascending: false });
       
     // Fetch tickets with event details
-    const { data: tickets } = await adminClient
+    const { data: tickets } = await supabase
       .from('tickets')
       .select(`
         *,
@@ -260,7 +260,7 @@ export async function getRegistrationWithFullContext(
     // Fetch parent event if exists
     let parentEvent = null;
     if (registration.events.parent_event_id) {
-      const { data: parent } = await adminClient
+      const { data: parent } = await supabase
         .from('events')
         .select(`
           event_id,
@@ -281,7 +281,7 @@ export async function getRegistrationWithFullContext(
     
     // Fetch child events if this is a parent event or has siblings
     const parentId = registration.events.parent_event_id || registration.event_id;
-    const { data: childEvents } = await adminClient
+    const { data: childEvents } = await supabase
       .from('events')
       .select(`
         event_id,
@@ -299,7 +299,7 @@ export async function getRegistrationWithFullContext(
     // Fetch lodge registration details if applicable
     let lodgeRegistration = null;
     if (registration.registration_type === 'lodge') {
-      const { data: lodgeReg } = await adminClient
+      const { data: lodgeReg } = await supabase
         .from('lodge_registrations')
         .select(`
           *,
@@ -355,11 +355,11 @@ export async function getRegistrationWithFullContext(
  * Get all ticket types for an event (including child events)
  */
 export async function getEventTicketTypes(eventId: string) {
-  const adminClient = createAdminClient();
+  const supabase = await createClient();
   
   try {
     // Get parent event ID if this is a child event
-    const { data: event } = await adminClient
+    const { data: event } = await supabase
       .from('events')
       .select('event_id, parent_event_id')
       .eq('event_id', eventId)
@@ -368,7 +368,7 @@ export async function getEventTicketTypes(eventId: string) {
     const parentEventId = event?.parent_event_id || eventId;
     
     // Get all tickets for parent and child events
-    const { data: tickets } = await adminClient
+    const { data: tickets } = await supabase
       .from('event_tickets')
       .select(`
         *,
@@ -396,10 +396,10 @@ export async function getEventTicketTypes(eventId: string) {
  * Get organization by event
  */
 export async function getOrganizationByEvent(eventId: string) {
-  const adminClient = createAdminClient();
+  const supabase = await createClient();
   
   try {
-    const { data } = await adminClient
+    const { data } = await supabase
       .from('events')
       .select(`
         organisations!inner (
@@ -420,11 +420,11 @@ export async function getOrganizationByEvent(eventId: string) {
  * Get registration summary for metadata
  */
 export async function getRegistrationSummary(registrationId: string) {
-  const adminClient = createAdminClient();
+  const supabase = await createClient();
   
   try {
     // Get attendee type breakdown
-    const { data: attendeeStats } = await adminClient
+    const { data: attendeeStats } = await supabase
       .from('attendees')
       .select('attendee_type')
       .eq('registration_id', registrationId);
@@ -435,7 +435,7 @@ export async function getRegistrationSummary(registrationId: string) {
     }, {} as Record<string, number>);
     
     // Get ticket type breakdown
-    const { data: ticketStats } = await adminClient
+    const { data: ticketStats } = await supabase
       .from('tickets')
       .select(`
         event_tickets!inner (
@@ -472,10 +472,10 @@ export async function getRegistrationSummary(registrationId: string) {
  * Get lodge registration details
  */
 export async function getLodgeRegistrationDetails(registrationId: string) {
-  const adminClient = createAdminClient();
+  const supabase = await createClient();
   
   try {
-    const { data } = await adminClient
+    const { data } = await supabase
       .from('registrations')
       .select(`
         *,
@@ -509,11 +509,11 @@ export async function getLodgeRegistrationDetails(registrationId: string) {
  * This is the main function to use for Stripe payment processing
  */
 export async function getPaymentProcessingData(registrationId: string) {
-  const adminClient = createAdminClient();
+  const supabase = await createClient();
   
   try {
     // Check if RPC function exists
-    const { data, error } = await adminClient.rpc('get_payment_processing_data', {
+    const { data, error } = await supabase.rpc('get_payment_processing_data', {
       p_registration_id: registrationId
     });
     
@@ -533,10 +533,10 @@ export async function getPaymentProcessingData(registrationId: string) {
  * Get primary attendee details for Stripe customer creation
  */
 export async function getPrimaryAttendeeDetails(registrationId: string) {
-  const adminClient = createAdminClient();
+  const supabase = await createClient();
   
   try {
-    const { data } = await adminClient
+    const { data } = await supabase
       .from('attendees')
       .select(`
         *,
@@ -562,7 +562,7 @@ export async function getPrimaryAttendeeDetails(registrationId: string) {
   } catch (error) {
     console.error('Error fetching primary attendee:', error);
     // Fallback to first attendee
-    const { data: firstAttendee } = await adminClient
+    const { data: firstAttendee } = await supabase
       .from('attendees')
       .select(`
         *,
@@ -593,11 +593,11 @@ export async function getPrimaryAttendeeDetails(registrationId: string) {
  * Get event hierarchy for metadata
  */
 export async function getEventHierarchy(eventId: string) {
-  const adminClient = createAdminClient();
+  const supabase = await createClient();
   
   try {
     // Get current event
-    const { data: currentEvent } = await adminClient
+    const { data: currentEvent } = await supabase
       .from('events')
       .select('event_id, title, slug, parent_event_id, event_start')
       .eq('event_id', eventId)
@@ -610,7 +610,7 @@ export async function getEventHierarchy(eventId: string) {
     
     // If has parent, get parent and siblings
     if (currentEvent.parent_event_id) {
-      const { data: parent } = await adminClient
+      const { data: parent } = await supabase
         .from('events')
         .select('event_id, title, slug, event_start')
         .eq('event_id', currentEvent.parent_event_id)
@@ -619,7 +619,7 @@ export async function getEventHierarchy(eventId: string) {
       parentEvent = parent;
       
       // Get all children of parent (siblings)
-      const { data: siblings } = await adminClient
+      const { data: siblings } = await supabase
         .from('events')
         .select('event_id, title, slug, event_start')
         .eq('parent_event_id', currentEvent.parent_event_id)
@@ -628,7 +628,7 @@ export async function getEventHierarchy(eventId: string) {
       childEvents = siblings || [];
     } else {
       // This is a parent, get children
-      const { data: children } = await adminClient
+      const { data: children } = await supabase
         .from('events')
         .select('event_id, title, slug, event_start')
         .eq('parent_event_id', eventId)
@@ -652,10 +652,10 @@ export async function getEventHierarchy(eventId: string) {
  * Batch fetch multiple registrations (useful for bulk operations)
  */
 export async function getMultipleRegistrations(registrationIds: string[]) {
-  const adminClient = createAdminClient();
+  const supabase = await createClient();
   
   try {
-    const { data: registrations } = await adminClient
+    const { data: registrations } = await supabase
       .from('registrations')
       .select(`
         *,
@@ -683,10 +683,10 @@ export async function getMultipleRegistrations(registrationIds: string[]) {
  * Get registration with minimal data for quick checks
  */
 export async function getRegistrationMinimal(registrationId: string) {
-  const adminClient = createAdminClient();
+  const supabase = await createClient();
   
   try {
-    const { data } = await adminClient
+    const { data } = await supabase
       .from('registrations')
       .select(`
         registration_id,

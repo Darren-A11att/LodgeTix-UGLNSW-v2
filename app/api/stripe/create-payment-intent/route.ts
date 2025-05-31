@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
-import { createAdminClient } from '@/utils/supabase/admin';
+import { createClient } from '@/utils/supabase/server';
 import { calculateStripeFees } from '@/lib/utils/stripe-fee-calculator';
 import { 
   buildPaymentIntentMetadata, 
@@ -82,11 +82,11 @@ export async function POST(request: Request) {
 
     // Fetch organization data if registrationId or eventId is provided
     if (registrationId || eventId) {
-      const adminClient = createAdminClient();
+      const supabase = await createClient();
       
       if (registrationId) {
         // Fetch comprehensive registration data
-        const { data: registration } = await adminClient
+        const { data: registration } = await supabase
           .from('registrations')
           .select(`
             *,
@@ -177,7 +177,7 @@ export async function POST(request: Request) {
         }
       } else if (eventId) {
         // Fetch from event directly
-        const { data: event } = await adminClient
+        const { data: event } = await supabase
           .from('events')
           .select(`
             event_id,

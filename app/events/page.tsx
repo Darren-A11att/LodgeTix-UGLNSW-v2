@@ -3,6 +3,9 @@ import { EventCard } from "@/components/event-card"
 import { formatCurrency } from "@/lib/formatters"
 import { EventRPCService } from "@/lib/api/event-rpc-service"
 
+// Mark as dynamic since it uses server-side authentication
+export const dynamic = 'force-dynamic'
+
 export default async function EventsPage() {
   // Initialize RPC service
   const eventService = new EventRPCService(true); // server-side

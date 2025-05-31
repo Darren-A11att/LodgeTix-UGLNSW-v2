@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { headers } from 'next/headers';
 import Stripe from 'stripe';
-import { createAdminClient } from '@/utils/supabase/admin';
+import { createClient } from '@/utils/supabase/server';
 import { 
   updateOrganizationConnectStatus, 
   handleAccountDeauthorization,
@@ -151,7 +151,7 @@ async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent)
     return;
   }
   
-  const adminClient = createAdminClient();
+  const supabase = await createClient();
   
   // Update registration with Connect details
   const updateData: any = {
@@ -168,7 +168,7 @@ async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent)
     updateData.platform_fee_amount = applicationFeeAmount ? applicationFeeAmount / 100 : 0;
   }
   
-  const { data: updatedRegistration, error: updateError } = await adminClient
+  const { data: updatedRegistration, error: updateError } = await supabase
     .from('registrations')
     .update(updateData)
     .eq('registration_id', registrationId)
@@ -192,7 +192,7 @@ async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent)
       feePercentage: fees.feePercentage.toFixed(2) + '%'
     });
     
-    const { error: logError } = await adminClient
+    const { error: logError } = await supabase
       .from('connected_account_payments')
       .insert({
         payment_intent_id: paymentIntent.id,
@@ -211,7 +211,7 @@ async function handlePaymentIntentSucceeded(paymentIntent: Stripe.PaymentIntent)
   }
   
   // Update tickets to completed status
-  const { error: ticketError } = await adminClient
+  const { error: ticketError } = await supabase
     .from('tickets')
     .update({
       ticket_status: 'completed',
@@ -241,10 +241,10 @@ async function handlePaymentIntentFailed(paymentIntent: Stripe.PaymentIntent) {
     return;
   }
   
-  const adminClient = createAdminClient();
+  const supabase = await createClient();
   
   // Update registration status
-  const { error: updateError } = await adminClient
+  const { error: updateError } = await supabase
     .from('registrations')
     .update({
       payment_status: 'failed',
@@ -270,10 +270,10 @@ async function handlePaymentIntentRequiresAction(paymentIntent: Stripe.PaymentIn
     return;
   }
   
-  const adminClient = createAdminClient();
+  const supabase = await createClient();
   
   // Update registration status
-  const { error: updateError } = await adminClient
+  const { error: updateError } = await supabase
     .from('registrations')
     .update({
       payment_status: 'pending',
@@ -312,10 +312,10 @@ async function handleAccountUpdated(account: Stripe.Account) {
 async function handleAccountAuthorized(account: Stripe.Account) {
   console.log("✅ Account Authorized:", account.id);
   
-  const adminClient = createAdminClient();
+  const supabase = await createClient();
   
   // Update organization status
-  const { error } = await adminClient
+  const { error } = await supabase
     .from('organisations')
     .update({
       stripe_account_status: 'authorized',
@@ -367,10 +367,10 @@ async function handlePayoutFailed(payout: Stripe.Payout) {
   console.log("❌ Payout Failed:", payout.id);
   console.log("Failure Reason:", payout.failure_message);
   
-  const adminClient = createAdminClient();
+  const supabase = await createClient();
   
   // Update payout status
-  const { error } = await adminClient
+  const { error } = await supabase
     .from('organisation_payouts')
     .update({
       status: 'failed',
@@ -393,10 +393,10 @@ async function handlePayoutFailed(payout: Stripe.Payout) {
 async function handlePayoutPaid(payout: Stripe.Payout) {
   console.log("✅ Payout Paid:", payout.id);
   
-  const adminClient = createAdminClient();
+  const supabase = await createClient();
   
   // Update payout status
-  const { error } = await adminClient
+  const { error } = await supabase
     .from('organisation_payouts')
     .update({
       status: 'paid'
@@ -414,9 +414,9 @@ async function handleTransferCreated(transfer: Stripe.Transfer) {
   console.log("Destination:", transfer.destination);
   
   // Log transfer for reconciliation
-  const adminClient = createAdminClient();
+  const supabase = await createClient();
   
-  const { error } = await adminClient
+  const { error } = await supabase
     .from('platform_transfers')
     .insert({
       transfer_id: transfer.id,
@@ -446,9 +446,9 @@ async function handleApplicationFeeCreated(fee: Stripe.ApplicationFee) {
       const registrationId = charge.metadata?.registration_id;
       
       if (registrationId) {
-        const adminClient = createAdminClient();
+        const supabase = await createClient();
         
-        const { error } = await adminClient
+        const { error } = await supabase
           .from('registrations')
           .update({
             platform_fee_amount: fee.amount / 100,

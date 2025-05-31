@@ -1,4 +1,4 @@
-import { getServerClient } from '@/lib/supabase-singleton';
+import { createClient as createServerClient } from '@/utils/supabase/server';
 import { createClient } from '@/lib/supabase-browser';
 import { Database } from '@/shared/types/database';
 import { cacheManager, CacheKeys } from '@/lib/cache-manager';
@@ -35,7 +35,11 @@ export class StaticDataService {
   private client: ReturnType<typeof createClient<Database>>;
 
   constructor(private isServer: boolean = false) {
-    this.client = this.isServer ? getServerClient() : createClient();
+    // Client will be initialized in async methods
+  }
+
+  private async getClient() {
+    return this.isServer ? await createServerClient() : createClient();
   }
 
   /**
@@ -45,8 +49,9 @@ export class StaticDataService {
     return cacheManager.getOrFetch(
       CacheKeys.GRAND_LODGES,
       async () => {
+        const client = await this.getClient();
         try {
-          const { data, error } = await this.client
+          const { data, error } = await client
             .from('grand_lodges')
             .select('*')
             .order('name', { ascending: true });
@@ -81,8 +86,9 @@ export class StaticDataService {
     return cacheManager.getOrFetch(
       cacheKey,
       async () => {
+        const client = await this.getClient();
         try {
-          let query = this.client
+          let query = client
             .from('lodges')
             .select('*')
             .order('name', { ascending: true });
@@ -122,7 +128,8 @@ export class StaticDataService {
 
     // For search, we don't cache as results vary by search term
     try {
-      let query = this.client
+      const client = await this.getClient();
+      let query = client
         .from('lodges')
         .select('*')
         .or(`name.ilike.%${searchTerm}%,number.ilike.%${searchTerm}%`)
@@ -162,8 +169,9 @@ export class StaticDataService {
     return cacheManager.getOrFetch(
       cacheKey,
       async () => {
+        const client = await this.getClient();
         try {
-          const { data, error } = await this.client
+          const { data, error } = await client
             .from('organisations')
             .select('*')
             .eq('id', id)
@@ -213,6 +221,7 @@ export class StaticDataService {
     return cacheManager.getOrFetch(
       CacheKeys.COUNTRIES,
       async () => {
+        const client = await this.getClient();
         try {
           // In a real implementation, this would come from a database table
           // For now, return a static list of common countries

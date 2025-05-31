@@ -1,4 +1,4 @@
-import { createAdminClient } from '@/utils/supabase/admin';
+import { createClient } from '@/utils/supabase/server';
 import Stripe from 'stripe';
 
 export interface ConnectAccountStatus {
@@ -41,10 +41,10 @@ export async function updateOrganizationConnectStatus(
   accountId: string, 
   account: Stripe.Account
 ) {
-  const adminClient = createAdminClient();
+  const supabase = await createClient();
   const status = parseConnectAccountStatus(account);
   
-  const { error } = await adminClient
+  const { error } = await supabase
     .from('organisations')
     .update({
       stripe_account_status: status.status,
@@ -71,10 +71,10 @@ export async function updateOrganizationConnectStatus(
  * Handle account deauthorization
  */
 export async function handleAccountDeauthorization(accountId: string) {
-  const adminClient = createAdminClient();
+  const supabase = await createClient();
   
   // Update organization status
-  const { error: updateError } = await adminClient
+  const { error: updateError } = await supabase
     .from('organisations')
     .update({
       stripe_account_status: 'deauthorized',
@@ -90,7 +90,7 @@ export async function handleAccountDeauthorization(accountId: string) {
   }
   
   // Mark all pending registrations for this organization as requiring attention
-  const { data: org } = await adminClient
+  const { data: org } = await supabase
     .from('organisations')
     .select('organisation_id')
     .eq('stripe_onbehalfof', accountId)
@@ -98,7 +98,7 @@ export async function handleAccountDeauthorization(accountId: string) {
     
   if (org) {
     // Get events for this organization
-    const { data: events } = await adminClient
+    const { data: events } = await supabase
       .from('events')
       .select('event_id')
       .eq('organiser_id', org.organisation_id);
@@ -107,7 +107,7 @@ export async function handleAccountDeauthorization(accountId: string) {
       const eventIds = events.map(e => e.event_id);
       
       // Update registrations to indicate payment processor issue
-      const { error: regError } = await adminClient
+      const { error: regError } = await supabase
         .from('registrations')
         .update({
           payment_status: 'processor_disconnected',
@@ -127,7 +127,7 @@ export async function handleAccountDeauthorization(accountId: string) {
  * Log payout details for reporting
  */
 export async function logPayoutDetails(payout: Stripe.Payout) {
-  const adminClient = createAdminClient();
+  const supabase = await createClient();
   
   const payoutData = {
     payout_id: payout.id,
@@ -150,7 +150,7 @@ export async function logPayoutDetails(payout: Stripe.Payout) {
     created_at: new Date().toISOString()
   };
   
-  const { error } = await adminClient
+  const { error } = await supabase
     .from('organisation_payouts')
     .upsert(payoutData, {
       onConflict: 'payout_id'

@@ -1,26 +1,8 @@
-import { createClient } from '@supabase/supabase-js';
+import { createClient } from '@/utils/supabase/server';
 import { api } from '@/lib/api-logger';
 import { formatEventDate, formatEventTime } from '@/lib/event-facade';
 import { cacheManager, CacheKeys } from '@/lib/cache-manager';
 import type { Database } from '@/shared/types/database';
-
-// Create a server-side Supabase client for server components
-function getServerClient() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  
-  if (!supabaseUrl || !supabaseAnonKey) {
-    console.warn('Missing Supabase environment variables in homepage service');
-    return null;
-  }
-  
-  return createClient<Database>(supabaseUrl, supabaseAnonKey, {
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false,
-    }
-  });
-}
 
 // Type for event display view data
 interface EventDisplayView {
@@ -61,11 +43,7 @@ export async function getGrandInstallationEvent() {
     cacheKey,
     async () => {
       try {
-        const supabase = getServerClient();
-        if (!supabase) {
-          api.warn('Supabase client not available');
-          return null;
-        }
+        const supabase = await createClient();
         
         const now = new Date().toISOString();
         
@@ -105,11 +83,7 @@ export async function getEventTimeline() {
     cacheKey,
     async () => {
       try {
-        const supabase = getServerClient();
-        if (!supabase) {
-          api.warn('Supabase client not available for timeline');
-          return [];
-        }
+        const supabase = await createClient();
         
         const mainEvent = await getGrandInstallationEvent();
         if (!mainEvent) {
@@ -169,11 +143,7 @@ export async function getFeaturedEvents() {
     cacheKey,
     async () => {
       try {
-        const supabase = getServerClient();
-        if (!supabase) {
-          api.warn('Supabase client not available for featured events');
-          return [];
-        }
+        const supabase = await createClient();
         
         // Single query using the optimized view
         const { data, error } = await supabase
@@ -209,11 +179,7 @@ export async function getPublishedEvents(page: number = 1, limit: number = 12) {
     cacheKey,
     async () => {
       try {
-        const supabase = getServerClient();
-        if (!supabase) {
-          api.warn('Supabase client not available');
-          return { events: [], total: 0 };
-        }
+        const supabase = await createClient();
         
         const offset = (page - 1) * limit;
         

@@ -2,28 +2,14 @@ import Link from "next/link"
 import Image from "next/image"
 import { CalendarDays, MapPin, Share2, TicketIcon } from "lucide-react"
 import { notFound } from "next/navigation"
-import { createClient } from '@supabase/supabase-js'
+import { createClient } from '@/utils/supabase/server'
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { formatCurrency } from "@/lib/formatters"
 
-// Create a server-side Supabase client
-function getServerClient() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  
-  if (!supabaseUrl || !supabaseAnonKey) {
-    throw new Error('Missing Supabase environment variables');
-  }
-  
-  return createClient(supabaseUrl, supabaseAnonKey, {
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false,
-    }
-  });
-}
+// Mark as dynamic since it uses server-side authentication
+export const dynamic = 'force-dynamic'
 
 export default async function FallbackEventPage({ 
   params 
@@ -33,7 +19,7 @@ export default async function FallbackEventPage({
   const { slug } = await params
   
   // Get event data directly from database
-  const supabase = getServerClient();
+  const supabase = await createClient();
   
   // Fetch event from event_display_view which has all calculated fields
   const { data: eventData, error } = await supabase

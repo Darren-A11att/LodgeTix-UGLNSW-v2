@@ -18,10 +18,9 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { TwoColumnStepLayout } from "../Layouts/TwoColumnStepLayout"
 import { getTicketSummaryData } from '../Summary/summary-data/ticket-summary-data';
 import { SummaryRenderer } from '../Summary/SummaryRenderer';
-import { type TicketDefinition, type EventPackage } from '@/lib/services/event-tickets-service'
+import { type TicketDefinition, type EventPackage, getEventTicketsService } from '@/lib/services/event-tickets-service'
 import { api } from '@/lib/api-logger'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { createClient } from '@/utils/supabase/client'
 import { ValidationModal } from '@/components/ui/validation-modal'
 import { calculateStripeFees, getFeeModeFromEnv, getFeeDisclaimer } from '@/lib/utils/stripe-fee-calculator'
 import { Info } from "lucide-react"
@@ -85,8 +84,6 @@ const TicketSelectionStep: React.FC = () => {
         setIsLoadingTickets(true)
         setTicketsError(null)
         
-        const supabase = createClient()
-        
         // Always use the eventId from the store - it should be set from the route
         if (!eventId) {
           throw new Error('Event ID is required for ticket selection')
@@ -95,63 +92,15 @@ const TicketSelectionStep: React.FC = () => {
         
         api.debug(`Fetching tickets for event: ${targetEventId}`)
         
-        // Call the RPC function to get packages and tickets
-        const { data: rpcData, error: rpcError } = await supabase
-          .rpc('get_event_packages_and_tickets_rpc', {
-            p_event_id: targetEventId,
-            p_include_inactive: false
-          })
+        // Use the EventTicketsService to fetch tickets and packages
+        const ticketsService = getEventTicketsService()
+        const { tickets, packages } = await ticketsService.getEventTicketsAndPackages(targetEventId)
         
-        if (rpcError) {
-          api.error('RPC Error fetching tickets and packages:', rpcError)
-          throw new Error(rpcError.message || 'Failed to fetch tickets and packages')
-        }
-        
-        if (!rpcData || !rpcData.success) {
-          throw new Error(rpcData?.error || 'Failed to fetch event data')
-        }
-        
-        // Transform RPC response to match our expected format
-        const tickets: TicketDefinition[] = (rpcData.tickets?.data || []).map((ticket: any) => ({
-          id: ticket.id,
-          ticket_definition_id: ticket.id,
-          name: ticket.name,
-          price: ticket.price,
-          description: ticket.description,
-          category: ticket.category || 'general',
-          eligibleAttendeeTypes: ticket.eligible_attendee_types || ['mason', 'guest'],
-          event_id: ticket.event_id,
-          event_title: ticket.event_title || rpcData.event?.event_name,
-          event_slug: ticket.event_slug,
-          is_active: ticket.is_active,
-          total_capacity: ticket.total_capacity,
-          available_count: ticket.available_count,
-          reserved_count: ticket.reserved_count || 0,
-          sold_count: ticket.sold_count || 0,
-          status: ticket.availability_status === 'available' ? 'Active' : ticket.availability_status
-        }))
-        
-        const packages: EventPackage[] = (rpcData.packages?.data || []).map((pkg: any) => ({
-          id: pkg.id,
-          name: pkg.name,
-          price: pkg.price,
-          original_price: pkg.original_price,
-          discount_percentage: pkg.savings_percentage,
-          discount_amount: pkg.savings_amount,
-          package_type: pkg.package_type,
-          quantity: pkg.quantity,
-          description: pkg.description,
-          includes: (pkg.items || []).map((item: any) => item.ticket_id),
-          includes_description: (pkg.items || []).map((item: any) => `${item.ticket_name} x ${item.quantity}`),
-          eligibleAttendeeTypes: pkg.eligible_attendee_types || ['mason', 'guest'],
-          parent_event_id: pkg.event_id,
-          created_at: pkg.created_at
-        }))
-        
+        // The service already returns data in the correct format
         setTicketTypes(tickets)
         setTicketPackages(packages)
         
-        api.debug(`Loaded ${tickets.length} tickets and ${packages.length} packages from RPC`)
+        api.debug(`Loaded ${tickets.length} tickets and ${packages.length} packages`)
       } catch (error) {
         console.error('Full error details:', error)
         api.error('Error fetching tickets and packages:', {
@@ -168,8 +117,6 @@ const TicketSelectionStep: React.FC = () => {
     fetchTicketsAndPackages()
   }, [eventId])
 
-  // Main log for component input state, matching the desired format
-  console.log("!!!!!!!!!!!! TICKET SELECTION STEP: ALL ATTENDEES INPUT !!!!!!!!!!!!", JSON.stringify(allStoreAttendees, null, 2));
 
   const primaryAttendee = allStoreAttendees.find(a => a.isPrimary) as unknown as MasonAttendee | GuestAttendee | undefined;
   const additionalAttendees = allStoreAttendees.filter(a => !a.isPrimary) as unknown as (MasonAttendee | GuestAttendee | PartnerAttendee)[];
@@ -260,7 +207,6 @@ const TicketSelectionStep: React.FC = () => {
   })();
 
   // Main log for the tickets processed for UI rendering
-  console.log("!!!!!!!!!!!! TICKET SELECTION STEP: FINAL DERIVED TICKETS FOR UI !!!!!!!!!!!!", JSON.stringify(derivedCurrentTickets, null, 2));
 
   const currentTickets = derivedCurrentTickets;
 
@@ -412,14 +358,12 @@ const TicketSelectionStep: React.FC = () => {
 
     if (isCurrentlySelected) {
       // Deselect package
-      console.log(`[TicketSelection] Deselecting package ${packageId} for attendee ${attendeeIdentifier}`);
       updatePackageSelection(attendeeIdentifier, { 
         ticketDefinitionId: null, 
         selectedEvents: [] 
       });
     } else {
       // Select package
-      console.log(`[TicketSelection] Selecting package ${packageId} for attendee ${attendeeIdentifier}`);
       updatePackageSelection(attendeeIdentifier, { 
         ticketDefinitionId: packageId, 
         selectedEvents: selectedPackageInfo.includes // Store included events for clarity/consistency
@@ -458,7 +402,6 @@ const TicketSelectionStep: React.FC = () => {
     }
     
     // Selecting an individual ticket always clears any package
-    console.log(`[TicketSelection] Updating individual tickets for attendee ${attendeeIdentifier}:`, newSelectedEvents);
     updatePackageSelection(attendeeIdentifier, { 
       ticketDefinitionId: null, 
       selectedEvents: newSelectedEvents 

@@ -1,4 +1,4 @@
-import { createClient } from '@/utils/supabase/client';
+import { getBrowserClient } from '@/lib/supabase-singleton';
 import { RegistrationState, UnifiedAttendeeData, BillingDetailsType, PackageSelectionType } from '@/lib/registrationStore';
 import { generateUUID } from '@/lib/uuid-slug-utils';
 
@@ -231,7 +231,7 @@ export async function createRegistrationViaRPC(
   eventTitle?: string
 ) {
   try {
-    const supabase = createClient();
+    const supabase = getBrowserClient();
     
     // Generate registration ID
     const registrationId = generateUUID();

@@ -128,10 +128,21 @@ export interface TicketSelection {
 }
 
 export class PackageCrudService {
-  private client: ReturnType<typeof createClient<Database>>;
+  private client: ReturnType<typeof createClient<Database>> | null = null;
+  private isServer: boolean;
 
   constructor(isServer: boolean = false) {
-    this.client = isServer ? getServerClient() : supabase;
+    this.isServer = isServer;
+    if (!isServer) {
+      this.client = supabase;
+    }
+  }
+
+  private async getClient() {
+    if (!this.client) {
+      this.client = this.isServer ? await createClient() : supabase;
+    }
+    return this.client;
   }
 
   // ============================================
@@ -142,7 +153,8 @@ export class PackageCrudService {
    * Create a new event package
    */
   async createPackage(packageData: PackageInput): Promise<any> {
-    const { data, error } = await this.client.rpc('create_event_package', {
+    const client = await this.getClient();
+    const { data, error } = await client.rpc('create_event_package', {
       p_package: packageData
     });
 
@@ -158,7 +170,8 @@ export class PackageCrudService {
    * Update an existing package
    */
   async updatePackage(packageId: string, updates: PackageUpdateInput): Promise<any> {
-    const { data, error } = await this.client.rpc('update_event_package', {
+    const client = await this.getClient();
+    const { data, error } = await client.rpc('update_event_package', {
       p_package_id: packageId,
       p_updates: updates
     });
@@ -175,7 +188,8 @@ export class PackageCrudService {
    * Delete a package
    */
   async deletePackage(packageId: string, unlinkEvents: boolean = true): Promise<any> {
-    const { data, error } = await this.client.rpc('delete_event_package', {
+    const client = await this.getClient();
+    const { data, error } = await client.rpc('delete_event_package', {
       p_package_id: packageId,
       p_unlink_events: unlinkEvents
     });
@@ -192,7 +206,8 @@ export class PackageCrudService {
    * Create tickets for a package
    */
   async createPackageTickets(packageId: string, tickets: PackageTicketInput[]): Promise<any> {
-    const { data, error } = await this.client.rpc('create_package_tickets', {
+    const client = await this.getClient();
+    const { data, error } = await client.rpc('create_package_tickets', {
       p_package_id: packageId,
       p_tickets: tickets
     });
@@ -209,7 +224,8 @@ export class PackageCrudService {
    * Get detailed package information
    */
   async getPackageDetails(packageId: string): Promise<PackageDetails | null> {
-    const { data, error } = await this.client.rpc('get_package_details', {
+    const client = await this.getClient();
+    const { data, error } = await client.rpc('get_package_details', {
       p_package_id: packageId
     });
 
@@ -231,7 +247,8 @@ export class PackageCrudService {
     attendeeCount: number = 1,
     applyEarlyBird?: boolean
   ): Promise<PriceCalculation> {
-    const { data, error } = await this.client.rpc('calculate_package_price', {
+    const client = await this.getClient();
+    const { data, error } = await client.rpc('calculate_package_price', {
       p_package_id: packageId,
       p_attendee_count: attendeeCount,
       p_apply_early_bird: applyEarlyBird
@@ -253,7 +270,8 @@ export class PackageCrudService {
     attendeeCount: number,
     ticketSelections: TicketSelection[]
   ): Promise<ValidationResult> {
-    const { data, error } = await this.client.rpc('validate_package_purchase', {
+    const client = await this.getClient();
+    const { data, error } = await client.rpc('validate_package_purchase', {
       p_package_id: packageId,
       p_attendee_count: attendeeCount,
       p_ticket_selections: ticketSelections
@@ -275,7 +293,8 @@ export class PackageCrudService {
     newParentEventId: string,
     includeTickets: boolean = true
   ): Promise<any> {
-    const { data, error } = await this.client.rpc('clone_package', {
+    const client = await this.getClient();
+    const { data, error } = await client.rpc('clone_package', {
       p_source_package_id: sourcePackageId,
       p_new_parent_event_id: newParentEventId,
       p_include_tickets: includeTickets

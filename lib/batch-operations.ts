@@ -1,5 +1,5 @@
 import { createClient } from '@/lib/supabase-browser';
-import { getServerClient } from '@/lib/supabase-singleton';
+import { createClient as createServerClient } from '@/utils/supabase/server';
 import { Database } from '@/shared/types/database';
 
 /**
@@ -9,7 +9,11 @@ export class BatchOperations {
   private client: ReturnType<typeof createClient<Database>>;
 
   constructor(private isServer: boolean = false) {
-    this.client = this.isServer ? getServerClient() : createClient();
+    // Client will be initialized in async methods
+  }
+
+  private async getClient() {
+    return this.isServer ? await createServerClient() : createClient();
   }
 
   /**
@@ -21,7 +25,7 @@ export class BatchOperations {
     if (!attendees.length) return [];
 
     try {
-      const { data, error } = await this.client
+      const { data, error } = await client
         .from('attendees')
         .insert(attendees)
         .select();
@@ -51,9 +55,10 @@ export class BatchOperations {
     if (!updates.length) return;
 
     try {
+      const client = await this.getClient();
       // Use Promise.all for parallel updates
       const updatePromises = updates.map(update =>
-        this.client
+        client
           .from('tickets')
           .update({
             status: update.status,
@@ -86,7 +91,7 @@ export class BatchOperations {
     if (!eventIds.length) return [];
 
     try {
-      const { data, error } = await this.client
+      const { data, error } = await client
         .from('event_display_view')
         .select('*')
         .in('event_id', eventIds);
@@ -110,7 +115,7 @@ export class BatchOperations {
     if (!registrationIds.length) return [];
 
     try {
-      const { data, error } = await this.client
+      const { data, error } = await client
         .from('registration_detail_view')
         .select('*')
         .in('registration_id', registrationIds);
@@ -136,7 +141,7 @@ export class BatchOperations {
     if (!tickets.length) return [];
 
     try {
-      const { data, error } = await this.client
+      const { data, error } = await client
         .from('tickets')
         .insert(tickets)
         .select();
@@ -167,9 +172,10 @@ export class BatchOperations {
     if (!updates.length) return;
 
     try {
+      const client = await this.getClient();
       // Use transaction for atomic updates
       const updatePromises = updates.map(({ id, ...data }) =>
-        this.client
+        client
           .from('attendees')
           .update({
             ...data,
@@ -201,7 +207,7 @@ export class BatchOperations {
     try {
       const threshold = new Date(Date.now() - thresholdMinutes * 60 * 1000).toISOString();
       
-      const { data, error } = await this.client
+      const { data, error } = await client
         .from('tickets')
         .delete()
         .eq('status', 'reserved')

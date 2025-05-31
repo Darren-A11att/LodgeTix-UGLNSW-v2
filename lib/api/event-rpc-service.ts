@@ -1,6 +1,6 @@
-import { createClient } from '@supabase/supabase-js'
+import { createClient } from '@/utils/supabase/server'
 import { Database } from '@/shared/types/database'
-import { supabase, getServerClient } from '@/lib/supabase-singleton'
+import { supabase } from '@/lib/supabase-singleton'
 import { getEventDetailDataFallback } from './event-rpc-service-fallback'
 
 // Types for RPC function returns
@@ -153,10 +153,21 @@ export interface RegistrationEventData {
 }
 
 export class EventRPCService {
-  private client: ReturnType<typeof createClient<Database>>;
+  private client: ReturnType<typeof createClient<Database>> | null = null;
+  private isServer: boolean;
 
   constructor(isServer: boolean = false) {
-    this.client = isServer ? getServerClient() : supabase;
+    this.isServer = isServer;
+    if (!isServer) {
+      this.client = supabase;
+    }
+  }
+
+  private async getClient() {
+    if (!this.client) {
+      this.client = this.isServer ? await createClient() : supabase;
+    }
+    return this.client;
   }
 
   /**
@@ -169,7 +180,8 @@ export class EventRPCService {
     featuredOnly?: boolean;
     limit?: number;
   }): Promise<EventCardData[]> {
-    let query = this.client
+    const client = await this.getClient();
+    let query = client
       .from('event_display_view')
       .select(`
         event_id,
@@ -246,9 +258,10 @@ export class EventRPCService {
    */
   async getEventDetailData(eventIdentifier: string): Promise<EventDetailData | null> {
     console.log('[EventRPCService] Calling get_event_with_details with slug:', eventIdentifier);
-    console.log('[EventRPCService] Using client URL:', this.client.supabaseUrl);
+    const client = await this.getClient();
+    console.log('[EventRPCService] Using client URL:', client.supabaseUrl);
     
-    const { data, error } = await this.client.rpc('get_event_with_details', {
+    const { data, error } = await client.rpc('get_event_with_details', {
       p_event_slug: eventIdentifier
     });
     
@@ -362,7 +375,8 @@ export class EventRPCService {
    * @returns Registration event data
    */
   async getRegistrationEventData(eventId: string): Promise<RegistrationEventData | null> {
-    const { data, error } = await this.client.rpc('get_registration_event_data', {
+    const client = await this.getClient();
+    const { data, error } = await client.rpc('get_registration_event_data', {
       p_event_id: eventId
     });
     

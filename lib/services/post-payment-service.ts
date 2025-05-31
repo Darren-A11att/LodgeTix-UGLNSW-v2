@@ -1,6 +1,6 @@
 import { getQRCodeService } from './qr-code-service';
 import { getPDFService, TicketData, ConfirmationData } from './pdf-service';
-import { createAdminClient } from '@/utils/supabase/admin';
+import { createClient } from '@/utils/supabase/server';
 
 export interface PostPaymentData {
   registrationId: string;
@@ -29,10 +29,10 @@ export class PostPaymentService {
     let emailsSent = 0;
     
     try {
-      const adminClient = createAdminClient();
+      const supabase = await createClient();
       
       // Get registration with all related data
-      const { data: registration, error: regError } = await adminClient
+      const { data: registration, error: regError } = await supabase
         .from('registrations')
         .select(`
           *,
@@ -83,7 +83,7 @@ export class PostPaymentService {
       
       // Get event tickets for ticket types
       const ticketIds = registration.tickets.map((t: any) => t.event_ticket_id);
-      const { data: eventTickets } = await adminClient
+      const { data: eventTickets } = await supabase
         .from('event_tickets')
         .select('id, title, ticket_type')
         .in('id', ticketIds);
@@ -114,7 +114,7 @@ export class PostPaymentService {
           
           if (qrUrl) {
             // Update ticket with QR code URL
-            await adminClient
+            await supabase
               .from('tickets')
               .update({ qr_code_url: qrUrl })
               .eq('id', ticket.id);
@@ -218,7 +218,7 @@ export class PostPaymentService {
           pdfsGenerated++;
           
           // Store confirmation URL in registration
-          await adminClient
+          await supabase
             .from('registrations')
             .update({ confirmation_pdf_url: confirmationUrl })
             .eq('registration_id', data.registrationId);
@@ -305,10 +305,10 @@ export class PostPaymentService {
     const regenerated = { qrCodes: 0, pdfs: 0 };
     
     try {
-      const adminClient = createAdminClient();
+      const supabase = await createClient();
       
       // Get registration data
-      const { data: registration, error } = await adminClient
+      const { data: registration, error } = await supabase
         .from('registrations')
         .select(`
           *,
@@ -349,7 +349,7 @@ export class PostPaymentService {
               
               const qrUrl = await qrCodeService.generateAndStore(qrData);
               if (qrUrl) {
-                await adminClient
+                await supabase
                   .from('tickets')
                   .update({ qr_code_url: qrUrl })
                   .eq('id', ticket.id);

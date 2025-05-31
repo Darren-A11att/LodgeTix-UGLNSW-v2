@@ -576,8 +576,8 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ eventId,
       const storeState = useRegistrationStore.getState()
       
       // Get the current user session (anonymous or authenticated)
-      const { createClient } = await import('@/utils/supabase/client')
-      const supabase = createClient()
+      const { getBrowserClient } = await import('@/lib/supabase-singleton')
+      const supabase = getBrowserClient()
       
       // First check the session
       const { data: { session } } = await supabase.auth.getSession()

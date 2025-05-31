@@ -1,4 +1,4 @@
-import { getServerClient } from '@/lib/supabase-singleton'
+import { createClient } from '@/utils/supabase/server'
 import { Database } from '@/shared/types/database'
 import { cacheManager, CacheKeys } from '@/lib/cache-manager'
 import { EventRPCService } from '@/lib/api/event-rpc-service'
@@ -155,7 +155,7 @@ export async function getEventTickets(eventId: string): Promise<Ticket[]> {
     cacheKey,
     async () => {
       try {
-        const supabase = getServerClient();
+        const supabase = await createClient();
         
         // Use ticket availability view for real-time availability
         const { data, error } = await supabase
@@ -241,7 +241,7 @@ export async function getEventHierarchy(eventId: string) {
     cacheKey,
     async () => {
       try {
-        const supabase = getServerClient();
+        const supabase = await createClient();
         
         const { data, error } = await supabase
           .from('event_hierarchy_view')

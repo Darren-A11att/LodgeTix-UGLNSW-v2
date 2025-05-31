@@ -1,7 +1,8 @@
 // Event Service using the existing public.Events table
 import type { EventType } from '@/shared/types/event'
 import { api } from '@/lib/api-logger'
-import { getSupabaseClient } from '@/lib/supabase-singleton'
+import { getBrowserClient } from '@/lib/supabase-singleton'
+import { createClient } from '@/utils/supabase/server'
 
 // Define the structure of events in the existing schema (matching actual database)
 interface EventsSchemaRow {
@@ -34,7 +35,6 @@ interface EventsSchemaRow {
   updated_at?: string // Using snake_case as in DB
   
   // Legacy fields (maintained for backward compatibility)
-  event_id?: string | null
   price?: number | null
   is_purchasable_individually?: boolean | null
   is_multi_day?: boolean | null
@@ -96,24 +96,24 @@ function formatPrice(price: number | undefined | null): string | undefined {
 }
 
 export class EventsSchemaService {
-  private supabase
-  private isConnected: boolean = false
+  private clientPromise: Promise<any> | null = null
+  private isServer: boolean
   
   constructor(isServer: boolean = false) {
-    try {
-      // Use the singleton pattern to get the Supabase client
-      this.supabase = getSupabaseClient(isServer);
-      this.isConnected = true;
-    } catch (error) {
-      api.error('Failed to initialize Supabase client:', error);
-      // Create a dummy client that will throw errors when used
-      this.supabase = {
-        from: () => {
-          throw new Error('Supabase client initialization failed');
-        }
-      };
-      this.isConnected = false;
+    this.isServer = isServer;
+  }
+  
+  private async getClient() {
+    if (!this.clientPromise) {
+      if (this.isServer) {
+        // For server-side, we need to handle the async nature
+        this.clientPromise = createClient();
+      } else {
+        // For client-side, use the browser client
+        this.clientPromise = Promise.resolve(getBrowserClient());
+      }
     }
+    return this.clientPromise;
   }
   
   /**
@@ -126,18 +126,13 @@ export class EventsSchemaService {
       return null;
     }
     
-    // Check connection status
-    if (!this.isConnected) {
-      api.error('Supabase client not connected, cannot fetch event');
-      throw new Error('Database connection error');
-    }
-    
     try {
+      const supabase = await this.getClient();
       const isUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(idOrSlug);
       
       api.debug(`Fetching event by ${isUUID ? 'UUID' : 'slug'}: ${idOrSlug}`);
       
-      let query = this.supabase
+      let query = supabase
         .from("events") // Use snake_case table name
         .select('*');
       
@@ -185,11 +180,6 @@ export class EventsSchemaService {
    * Get all published events
    */
   async getPublishedEvents(): Promise<EventType[]> {
-    // Check connection status
-    if (!this.isConnected) {
-      api.error('Supabase client not connected, cannot fetch published events');
-      throw new Error('Database connection error');
-    }
     
     try {
       api.debug('Fetching published events');
@@ -197,7 +187,8 @@ export class EventsSchemaService {
       // Handle both old and new schema
       // Old schema used 'featured' or 'status' to determine published state
       // New schema uses is_published column
-      const { data, error } = await this.supabase
+      const supabase = await this.getClient();
+      const { data, error } = await supabase
         .from("events") // Use snake_case table name
         .select('*')
         .or('is_published.eq.true, featured.eq.true')
@@ -230,16 +221,12 @@ export class EventsSchemaService {
    * Get featured events
    */
   async getFeaturedEvents(): Promise<EventType[]> {
-    // Check connection status
-    if (!this.isConnected) {
-      api.error('Supabase client not connected, cannot fetch featured events');
-      throw new Error('Database connection error');
-    }
     
     try {
       api.debug('Fetching featured events');
       
-      const { data, error } = await this.supabase
+      const supabase = await this.getClient();
+      const { data, error } = await supabase
         .from("events") // Use snake_case table name
         .select('*')
         .eq('featured', true)
@@ -276,16 +263,12 @@ export class EventsSchemaService {
       return [];
     }
     
-    // Check connection status
-    if (!this.isConnected) {
-      api.error('Supabase client not connected, cannot fetch events by category');
-      throw new Error('Database connection error');
-    }
     
     try {
       api.debug(`Fetching events for category: ${category}`);
       
-      const { data, error } = await this.supabase
+      const supabase = await this.getClient();
+      const { data, error } = await supabase
         .from("events") // Use snake_case table name
         .select('*')
         .eq('type', category)
@@ -321,17 +304,13 @@ export class EventsSchemaService {
       limit = 10;
     }
     
-    // Check connection status
-    if (!this.isConnected) {
-      api.error('Supabase client not connected, cannot fetch upcoming events');
-      throw new Error('Database connection error');
-    }
     
     try {
       const now = new Date().toISOString();
       api.debug(`Fetching upcoming events from ${now}, limit: ${limit}`);
       
-      const { data, error } = await this.supabase
+      const supabase = await this.getClient();
+      const { data, error } = await supabase
         .from("events") // Use snake_case table name
         .select('*')
         .gte("event_start", now)
@@ -368,17 +347,13 @@ export class EventsSchemaService {
       return [];
     }
     
-    // Check connection status
-    if (!this.isConnected) {
-      api.error('Supabase client not connected, cannot fetch related events');
-      throw new Error('Database connection error');
-    }
     
     try {
       api.debug(`Fetching related events for event_id: ${event_id}`);
       
       // First get the event and its related events array
-      const { data: event, error: eventError } = await this.supabase
+      const supabase = await this.getClient();
+      const { data: event, error: eventError } = await supabase
         .from("events") // Use snake_case table name
         .select('related_events')
         .eq('event_id', event_id)
@@ -395,7 +370,7 @@ export class EventsSchemaService {
       }
       
       // Fetch the related events
-      const { data, error } = await this.supabase
+      const { data, error } = await supabase
         .from("events") // Use snake_case table name
         .select('*')
         .in('event_id', event.related_events)
@@ -431,11 +406,6 @@ export class EventsSchemaService {
       return [];
     }
     
-    // Check connection status
-    if (!this.isConnected) {
-      api.error('Supabase client not connected, cannot search events');
-      throw new Error('Database connection error');
-    }
     
     // Sanitize the query for security
     const sanitizedQuery = query.trim().replace(/['";\\]/g, '');
@@ -448,7 +418,8 @@ export class EventsSchemaService {
     try {
       api.debug(`Searching events for query: ${sanitizedQuery}`);
       
-      const { data, error } = await this.supabase
+      const supabase = await this.getClient();
+      const { data, error } = await supabase
         .from("events") // Use snake_case table name
         .select('*')
         .or(`title.ilike.%${sanitizedQuery}%,description.ilike.%${sanitizedQuery}%,location.ilike.%${sanitizedQuery}%`)
@@ -484,16 +455,12 @@ export class EventsSchemaService {
       return [];
     }
     
-    // Check connection status
-    if (!this.isConnected) {
-      api.error('Supabase client not connected, cannot fetch child events');
-      throw new Error('Database connection error');
-    }
     
     try {
       api.debug(`Fetching child events for parentEventId: ${parentEventId}`);
       
-      const { data, error } = await this.supabase
+      const supabase = await this.getClient();
+      const { data, error } = await supabase
         .from("events") // Use snake_case table name
         .select('*')
         .eq('parent_event_id', parentEventId)
@@ -603,7 +570,7 @@ export class EventsSchemaService {
         regalia: isValidValue(data.regalia) ? data.regalia : null,
         category: isValidValue(data.type) ? data.type : null, // 'type' field is used as category
         status: data.is_published ? "Published" : "Draft",
-        organizerName: isValidValue(data.organizer_name) ? data.organizer_name : null,
+        organizerName: isValidValue(data.organiser_name) ? data.organiser_name : null,
       };
       
       // Note: eligibility requirements would be in sections but not directly on EventType

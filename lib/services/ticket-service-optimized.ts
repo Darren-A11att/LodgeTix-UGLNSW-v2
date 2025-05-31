@@ -1,4 +1,4 @@
-import { getServerClient } from '@/lib/supabase-singleton';
+import { createClient as createServerClient } from '@/utils/supabase/server';
 import { createClient } from '@/lib/supabase-browser';
 import { cacheManager, CacheKeys } from '@/lib/cache-manager';
 import { Database } from '@/shared/types/database';
@@ -27,7 +27,11 @@ export class TicketServiceOptimized {
   private client: ReturnType<typeof createClient<Database>>;
 
   constructor(private isServer: boolean = false) {
-    this.client = this.isServer ? getServerClient() : createClient();
+    // Client will be initialized in async methods
+  }
+
+  private async getClient() {
+    return this.isServer ? await createServerClient() : createClient();
   }
 
   /**
@@ -36,7 +40,8 @@ export class TicketServiceOptimized {
    */
   async getEventTickets(eventId: string) {
     try {
-      const { data, error } = await this.client
+      const client = await this.getClient();
+      const { data, error } = await client
         .from('ticket_availability_view')
         .select('*')
         .eq('event_id', eventId)
@@ -61,7 +66,8 @@ export class TicketServiceOptimized {
    */
   async getEligibleTickets(eventId: string, attendeeType: Database['public']['Enums']['attendee_type']) {
     try {
-      const { data, error } = await this.client.rpc('get_eligible_tickets', {
+      const client = await this.getClient();
+      const { data, error } = await client.rpc('get_eligible_tickets', {
         p_event_id: eventId,
         p_attendee_type: attendeeType
       });
@@ -83,7 +89,8 @@ export class TicketServiceOptimized {
    */
   async checkBatchAvailability(ticketIds: string[]) {
     try {
-      const { data, error } = await this.client
+      const client = await this.getClient();
+      const { data, error } = await client
         .from('ticket_availability_view')
         .select('ticket_id, available_quantity, is_available')
         .in('ticket_id', ticketIds);
@@ -121,7 +128,8 @@ export class TicketServiceOptimized {
     }>;
   }) {
     try {
-      const { data, error } = await this.client.rpc('reserve_tickets', {
+      const client = await this.getClient();
+      const { data, error } = await client.rpc('reserve_tickets', {
         p_event_id: params.event_id,
         p_registration_id: params.registration_id,
         p_ticket_selections: params.ticket_selections
@@ -154,7 +162,8 @@ export class TicketServiceOptimized {
     promo_code?: string;
   }) {
     try {
-      const { data, error } = await this.client.rpc('calculate_event_pricing', {
+      const client = await this.getClient();
+      const { data, error } = await client.rpc('calculate_event_pricing', {
         p_event_id: params.event_id,
         p_ticket_selections: params.ticket_selections,
         p_promo_code: params.promo_code || null
@@ -199,7 +208,8 @@ export class TicketServiceOptimized {
    */
   async getEventsTicketAvailability(eventIds: string[]) {
     try {
-      const { data, error } = await this.client
+      const client = await this.getClient();
+      const { data, error } = await client
         .from('ticket_availability_view')
         .select('event_id, sum(available_quantity)')
         .in('event_id', eventIds)
@@ -233,7 +243,7 @@ export class TicketServiceOptimized {
       cacheKey,
       async () => {
         try {
-          const { data, error } = await this.client
+          const { data, error } = await client
             .from('ticket_availability_view')
             .select('*')
             .eq('event_id', eventId);

@@ -1,5 +1,5 @@
 import Stripe from 'stripe';
-import { createAdminClient } from '@/utils/supabase/admin';
+import { createClient } from '@/utils/supabase/server';
 import { 
   buildProductMetadata, 
   buildPriceMetadata,
@@ -23,7 +23,7 @@ const stripe = new Stripe(stripeSecretKey, {
   apiVersion: '2025-04-30.basil',
 });
 
-const adminClient = createAdminClient();
+// Client will be created in each function to ensure proper authentication
 
 /**
  * Sync an event to a Stripe Product
@@ -33,6 +33,8 @@ export async function syncEventToStripeProduct(
   connectedAccountId: string
 ): Promise<string | null> {
   try {
+    const supabase = await createClient();
+    
     // Check if product already exists
     if (event.stripe_product_id) {
       try {
@@ -108,7 +110,7 @@ export async function syncEventToStripeProduct(
     );
     
     // Store Stripe product ID in database
-    const { error } = await adminClient
+    const { error } = await supabase
       .from('events')
       .update({ stripe_product_id: product.id })
       .eq('event_id', event.event_id);
@@ -136,6 +138,8 @@ export async function syncTicketToStripePrice(
   connectedAccountId: string
 ): Promise<string | null> {
   try {
+    const supabase = await createClient();
+    
     // Check if price already exists
     if (ticket.stripe_price_id) {
       try {
@@ -202,7 +206,7 @@ export async function syncTicketToStripePrice(
     );
     
     // Store Stripe price ID in database
-    const { error } = await adminClient
+    const { error } = await supabase
       .from('event_tickets')
       .update({ stripe_price_id: price.id })
       .eq('id', ticket.id);
@@ -305,8 +309,10 @@ export async function syncEventTickets(
   connectedAccountId: string
 ): Promise<void> {
   try {
+    const supabase = await createClient();
+    
     // Get the event
-    const { data: event, error: eventError } = await adminClient
+    const { data: event, error: eventError } = await supabase
       .from('events')
       .select('*')
       .eq('event_id', eventId)
@@ -328,7 +334,7 @@ export async function syncEventTickets(
     }
     
     // Get all tickets for the event
-    const { data: tickets, error: ticketsError } = await adminClient
+    const { data: tickets, error: ticketsError } = await supabase
       .from('event_tickets')
       .select('*')
       .eq('event_id', eventId)
@@ -355,7 +361,8 @@ export async function syncEventTickets(
  * Get aggregated child events data for metadata
  */
 export async function getChildEventsMetadata(parentEventId: string): Promise<Record<string, string>> {
-  const { data: childEvents } = await adminClient
+  const supabase = await createClient();
+  const { data: childEvents } = await supabase
     .from('events')
     .select('event_id, title, slug, event_start')
     .eq('parent_event_id', parentEventId)

@@ -1,8 +1,8 @@
-import { createClient } from '@/utils/supabase/client'
+import { getBrowserClient } from '@/lib/supabase-singleton'
 
 export class ReservationExpiryManager {
   private intervals: Map<string, NodeJS.Timeout> = new Map()
-  private supabase = createClient()
+  private supabase = getBrowserClient()
   
   /**
    * Start monitoring reservations for a specific event

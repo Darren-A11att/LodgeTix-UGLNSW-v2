@@ -299,8 +299,9 @@ export function getEventUrl(event: Event): string {
 /**
  * Helper to format event date
  */
-export function formatEventDate(event: Event): string {
-  const date = event.date || event.eventStart
+export function formatEventDate(event: any): string {
+  // Check both camelCase and snake_case properties
+  const date = event.date || event.eventStart || event.event_start
   if (!date) return 'Date TBD'
   
   try {
@@ -320,8 +321,9 @@ export function formatEventDate(event: Event): string {
 /**
  * Helper to format event time
  */
-export function formatEventTime(event: Event): string {
-  const time = event.time || event.eventStart
+export function formatEventTime(event: any): string {
+  // Check both camelCase and snake_case properties
+  const time = event.time || event.eventStart || event.event_start
   if (!time) return 'Time TBD'
   
   if (event.time && typeof event.time === 'string' && !event.time.includes('T')) {

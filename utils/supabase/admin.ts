@@ -1,25 +1,25 @@
-import { createClient } from '@supabase/supabase-js'
-import { Database } from '@/shared/types/database'
-
 /**
- * Creates a Supabase client that bypasses Row Level Security.
- * ⚠️ WARNING: This should only be used for server-side operations where you've already
- * verified the user's permissions. Never expose this to the client side.
+ * @deprecated The createAdminClient function has been removed for security reasons.
  * 
- * This is a temporary solution until proper RLS policies are configured.
+ * Use createServerClient() from '@/utils/supabase/server' instead, which respects Row Level Security (RLS).
+ * 
+ * For server-side operations:
+ * 1. Use createServerClient() from '@/utils/supabase/server'
+ * 2. Ensure your RLS policies are properly configured
+ * 3. Use the authenticated user's context for all operations
+ * 
+ * If you need to perform operations as a specific user:
+ * - Use Supabase's auth.admin API with proper authentication
+ * - Never bypass RLS in production code
+ * 
+ * Migration guide:
+ * Before: const supabase = createAdminClient()
+ * After:  const supabase = createServerClient()
  */
 export function createAdminClient() {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-  const supabaseServiceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
-  
-  return createClient<Database>(
-    supabaseUrl,
-    supabaseServiceRoleKey,
-    {
-      auth: {
-        persistSession: false,
-        autoRefreshToken: false,
-      }
-    }
+  throw new Error(
+    'createAdminClient() has been removed for security reasons. ' +
+    'Please use createServerClient() from @/utils/supabase/server instead. ' +
+    'If you need to perform admin operations, ensure proper authentication and RLS policies are in place.'
   )
 }

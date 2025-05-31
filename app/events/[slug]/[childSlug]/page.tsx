@@ -9,6 +9,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { EventRPCService } from "@/lib/api/event-rpc-service"
 import { formatCurrency } from "@/lib/formatters"
 
+// Mark as dynamic since it uses server-side authentication
+export const dynamic = 'force-dynamic'
+
 export default async function ChildEventPage({ 
   params 
 }: { 

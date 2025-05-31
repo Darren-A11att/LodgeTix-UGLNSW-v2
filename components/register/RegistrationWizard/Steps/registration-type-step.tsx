@@ -18,7 +18,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { createClient } from '@/utils/supabase/client';
 
 interface RegistrationType {
   id: 'individual' | 'lodge' | 'delegation';

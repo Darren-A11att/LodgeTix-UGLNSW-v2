@@ -63,7 +63,7 @@ export class EventTicketsService {
   async getMinimumTicketPrice(eventId: string): Promise<number | null> {
     try {
       const { data: tickets, error } = await this.supabase
-        .from('ticket_definitions')
+        .from('event_tickets')
         .select('price')
         .eq('event_id', eventId)
         .eq('is_active', true)
@@ -102,7 +102,7 @@ export class EventTicketsService {
     try {
       // Get all active tickets for the given events
       const { data: tickets, error } = await this.supabase
-        .from('ticket_definitions')
+        .from('event_tickets')
         .select('event_id, price')
         .in('event_id', eventIds)
         .eq('is_active', true)
@@ -152,7 +152,7 @@ export class EventTicketsService {
       // 1. Get child events
       const { data: childEvents, error: eventsError } = await this.supabase
         .from('events')
-        .select('id, title, slug')
+        .select('event_id, title, slug')
         .eq('parent_event_id', parentEventId)
         .order('event_start', { ascending: true })
       
@@ -169,9 +169,9 @@ export class EventTicketsService {
       api.debug(`Found ${childEvents.length} child events`)
       
       // 2. Get all tickets for these events
-      const eventIds = childEvents.map(e => e.id)
+      const eventIds = childEvents.map(e => e.event_id)
       const { data: ticketDefs, error: ticketsError } = await this.supabase
-        .from('ticket_definitions')
+        .from('event_tickets')
         .select('*')
         .in('event_id', eventIds)
         .eq('is_active', true)
@@ -231,11 +231,11 @@ export class EventTicketsService {
       // 6. Build result
       const result: EventWithTicketsAndPackages[] = childEvents.map(event => ({
         event: {
-          id: event.id,
+          id: event.event_id,
           title: event.title,
           slug: event.slug
         },
-        tickets: eventTicketsMap.get(event.id) || [],
+        tickets: eventTicketsMap.get(event.event_id) || [],
         packages: transformedPackages // All packages apply to all child events
       }))
       
@@ -261,8 +261,8 @@ export class EventTicketsService {
       // 1. Get the event to check if it has a parent
       const { data: event, error: eventError } = await this.supabase
         .from('events')
-        .select('id, parent_event_id')
-        .eq('id', eventId)
+        .select('event_id, parent_event_id')
+        .eq('event_id', eventId)
         .single()
       
       if (eventError) {
@@ -272,7 +272,7 @@ export class EventTicketsService {
       
       // 2. Get tickets for this event
       const { data: ticketDefs, error: ticketsError } = await this.supabase
-        .from('ticket_definitions')
+        .from('event_tickets')
         .select('*')
         .eq('event_id', eventId)
         .eq('is_active', true)
@@ -350,8 +350,8 @@ export class EventTicketsService {
     }
     
     return {
-      id: ticket.ticket_definition_id || ticket.id, // Use ticket_definition_id as the id
-      ticket_definition_id: ticket.ticket_definition_id || ticket.id,
+      id: ticket.id, // Use the ticket ID
+      ticket_definition_id: ticket.id, // Keep for backward compatibility
       name: ticket.name,
       price: ticket.price,
       description: ticket.description,
@@ -442,7 +442,7 @@ export async function getEventTickets(eventId: string) {
     
     // Get tickets for this specific event
     const { data: tickets, error } = await supabase
-      .from('ticket_definitions')
+      .from('event_tickets')
       .select('*')
       .eq('event_id', eventId)
       .eq('is_active', true)

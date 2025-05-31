@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { createAdminClient } from '@/utils/supabase/admin';
+import { createClient } from '@/utils/supabase/server';
 import { getQRCodeService } from '@/lib/services/qr-code-service';
 import { getPDFService } from '@/lib/services/pdf-service';
 
@@ -27,10 +27,10 @@ export async function POST(
       );
     }
 
-    const adminClient = createAdminClient();
+    const supabase = await createClient();
     
     // First get the registration to check if we have a payment intent
-    const { data: registration, error: findError } = await adminClient
+    const { data: registration, error: findError } = await supabase
       .from('registrations')
       .select("*")
       .eq("registration_id", registrationId)
@@ -77,7 +77,7 @@ export async function POST(
       updateData.payment_status = 'completed';
       
       // Also update tickets to completed
-      const { data: updatedTickets, error: ticketUpdateError } = await adminClient
+      const { data: updatedTickets, error: ticketUpdateError } = await supabase
         .from("tickets") 
         .update({ 
           ticket_status: "completed",
@@ -106,7 +106,7 @@ export async function POST(
             
             if (qrUrl) {
               // Update ticket with QR code URL
-              await adminClient
+              await supabase
                 .from('tickets')
                 .update({ qr_code_url: qrUrl })
                 .eq('id', ticket.id);
@@ -131,7 +131,7 @@ export async function POST(
     }
     
     // Update registration
-    const { data: updatedRegistration, error: updateError } = await adminClient
+    const { data: updatedRegistration, error: updateError } = await supabase
       .from('registrations')
       .update(updateData)
       .eq("registration_id", registrationId)
@@ -181,8 +181,8 @@ export async function GET(
     console.log("Registration ID:", registrationId);
     
     // Get the payment intent ID for this registration
-    const adminClient = createAdminClient();
-    const { data: registrationData, error: registrationError } = await adminClient
+    const supabase = await createClient();
+    const { data: registrationData, error: registrationError } = await supabase
       .from('registrations')
       .select("status, payment_status, stripe_payment_intent_id")
       .eq("registration_id", registrationId)
@@ -208,7 +208,7 @@ export async function GET(
     }
     
     // Get payment status directly from Stripe via FDW
-    const { data: stripeData, error: stripeError } = await adminClient
+    const { data: stripeData, error: stripeError } = await supabase
       .rpc('check_payment_intent_status', { 
         payment_intent_id: registrationData.stripe_payment_intent_id 
       });

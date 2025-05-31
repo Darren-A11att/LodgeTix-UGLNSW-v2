@@ -1,0 +1,213 @@
+name: E2E Tests - Puppeteer
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'app/**'
+      - 'components/**'
+      - 'lib/**'
+      - 'tests/puppeteer/**'
+      - '.github/workflows/e2e-tests.yml'
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      test-suite:
+        description: 'Test suite to run'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - smoke
+          - critical
+          - functional
+          - e2e
+
+env:
+  NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_ANON_KEY }}
+  SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+  NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${{ secrets.STRIPE_PUBLISHABLE_KEY }}
+  STRIPE_SECRET_KEY: ${{ secrets.STRIPE_SECRET_KEY }}
+  NEXT_PUBLIC_BASE_URL: http://localhost:3000
+
+jobs:
+  # Build and cache dependencies
+  setup:
+    runs-on: ubuntu-latest
+    outputs:
+      cache-key: ${{ steps.cache-keys.outputs.key }}
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      
+      - name: Cache node modules
+        id: cache-npm
+        uses: actions/cache@v3
+        with:
+          path: |
+            node_modules
+            tests/puppeteer/node_modules
+          key: ${{ runner.os }}-npm-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            ${{ runner.os }}-npm-
+      
+      - name: Install dependencies
+        if: steps.cache-npm.outputs.cache-hit != 'true'
+        run: |
+          npm ci
+          cd tests/puppeteer && npm ci
+      
+      - name: Build application
+        run: npm run build
+        
+      - name: Cache build
+        uses: actions/cache@v3
+        with:
+          path: .next
+          key: ${{ runner.os }}-nextjs-${{ hashFiles('**/package-lock.json') }}-${{ hashFiles('**.[jt]s', '**.[jt]sx') }}
+          restore-keys: |
+            ${{ runner.os }}-nextjs-${{ hashFiles('**/package-lock.json') }}-
+
+  # Run Puppeteer tests
+  puppeteer-tests:
+    needs: setup
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        test-suite: [smoke, critical, functional, e2e]
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+      
+      - name: Restore dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            node_modules
+            tests/puppeteer/node_modules
+          key: ${{ runner.os }}-npm-${{ hashFiles('**/package-lock.json') }}
+      
+      - name: Restore build
+        uses: actions/cache@v3
+        with:
+          path: .next
+          key: ${{ runner.os }}-nextjs-${{ hashFiles('**/package-lock.json') }}-${{ hashFiles('**.[jt]s', '**.[jt]sx') }}
+      
+      - name: Start application
+        run: |
+          npm run dev &
+          npx wait-on http://localhost:3000 -t 60000
+      
+      - name: Run Puppeteer tests
+        run: |
+          cd tests/puppeteer
+          if [ "${{ github.event.inputs.test-suite }}" = "all" ] || [ -z "${{ github.event.inputs.test-suite }}" ]; then
+            npm run test:${{ matrix.test-suite }}
+          elif [ "${{ github.event.inputs.test-suite }}" = "${{ matrix.test-suite }}" ]; then
+            npm run test:${{ matrix.test-suite }}
+          else
+            echo "Skipping ${{ matrix.test-suite }} tests"
+            exit 0
+          fi
+        env:
+          CI: true
+          PUPPETEER_HEADLESS: true
+      
+      - name: Upload Puppeteer results
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: puppeteer-results-${{ matrix.test-suite }}
+          path: |
+            tests/puppeteer/reports/
+            tests/puppeteer/screenshots/
+          retention-days: 7
+
+  # Generate test report
+  test-report:
+    needs: [puppeteer-tests]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Download all artifacts
+        uses: actions/download-artifact@v3
+        with:
+          path: test-artifacts
+      
+      - name: Generate combined report
+        run: |
+          echo "# E2E Test Results" > test-report.md
+          echo "Date: $(date)" >> test-report.md
+          echo "" >> test-report.md
+          
+          echo "## Puppeteer Tests" >> test-report.md
+          find test-artifacts -name "puppeteer-results-*" -type d | while read dir; do
+            echo "- ${dir##*/}: ✅" >> test-report.md
+          done
+      
+      - name: Upload test report
+        uses: actions/upload-artifact@v3
+        with:
+          name: combined-test-report
+          path: test-report.md
+          retention-days: 30
+
+  # Database test cleanup
+  cleanup-test-data:
+    needs: [puppeteer-tests]
+    runs-on: ubuntu-latest
+    if: always()
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      - name: Clean up test data
+        run: |
+          node -e "
+          const { createClient } = require('@supabase/supabase-js');
+          const supabase = createClient(
+            process.env.NEXT_PUBLIC_SUPABASE_URL,
+            process.env.SUPABASE_SERVICE_ROLE_KEY
+          );
+          
+          async function cleanup() {
+            // Delete test registrations
+            await supabase
+              .from('registrations')
+              .delete()
+              .like('email', '%test%');
+              
+            // Delete test attendees
+            await supabase
+              .from('attendees')
+              .delete()
+              .like('email', '%test%');
+              
+            console.log('Test data cleaned up');
+          }
+          
+          cleanup().catch(console.error);
+          "
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}

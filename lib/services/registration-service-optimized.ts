@@ -1,4 +1,4 @@
-import { getServerClient } from '@/lib/supabase-singleton';
+import { createClient as createServerClient } from '@/utils/supabase/server';
 import { createClient } from '@/lib/supabase-browser';
 import { Database } from '@/shared/types/database';
 import { cacheManager, CacheKeys } from '@/lib/cache-manager';
@@ -68,8 +68,8 @@ export class RegistrationServiceOptimized {
     this.rpcService = new RPCService();
   }
 
-  private getClient() {
-    return this.isServer ? getServerClient() : createClient();
+  private async getClient() {
+    return this.isServer ? await createServerClient() : createClient();
   }
 
   /**
