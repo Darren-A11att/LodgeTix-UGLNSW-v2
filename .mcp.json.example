@@ -28,7 +28,7 @@
         "-y",
         "@supabase/mcp-server-supabase@latest",
         "--access-token",
-        "sbp_099d162c18f0571beb88a71dc10858692b9621fb"
+        "YOUR_SUPABASE_ACCESS_TOKEN_HERE"
       ]
     },
     "claude": {
@@ -62,7 +62,7 @@
       "command": "npx",
       "args": ["-y", "@modelcontextprotocol/server-github"],
       "env": {
-        "GITHUB_PERSONAL_ACCESS_TOKEN": "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"
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "YOUR_GITHUB_PAT_HERE"
       }
     },
     "memory": {
