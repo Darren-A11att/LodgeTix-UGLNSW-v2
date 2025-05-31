@@ -94,18 +94,6 @@ export class TicketAvailabilityManager {
         {
           event: '*',
           schema: 'public',
-          table: 'ticket_availability_view',
-          filter: `event_id=eq.${eventId}`
-        },
-        (payload: RealtimePostgresChangesPayload<any>) => {
-          this.handleAvailabilityChange(eventId, payload)
-        }
-      )
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
           table: 'event_tickets',
           filter: `event_id=eq.${eventId}`
         },
@@ -141,7 +129,7 @@ export class TicketAvailabilityManager {
       console.log(`[TicketAvailability] Loading initial data for event ${eventId}`)
       
       const { data, error } = await this.supabase
-        .from('ticket_availability_view')
+        .from('event_tickets')
         .select('*')
         .eq('event_id', eventId)
         .eq('is_active', true)
@@ -155,21 +143,27 @@ export class TicketAvailabilityManager {
         const availabilityMap = new Map<string, TicketAvailability>()
         
         data.forEach(item => {
+          const actualAvailable = Math.max(0, (item.available_count || 0) - (item.reserved_count || 0))
+          const totalCapacity = item.total_capacity || 0
+          const percentageSold = totalCapacity > 0 
+            ? Math.round(((item.sold_count || 0) / totalCapacity) * 100)
+            : 0
+          
           const availability: TicketAvailability = {
-            ticketTypeId: item.ticket_type_id,
+            ticketTypeId: item.id,
             eventId: item.event_id,
-            ticketTypeName: item.ticket_type_name,
+            ticketTypeName: item.name,
             availableCount: item.available_count || 0,
             reservedCount: item.reserved_count || 0,
             soldCount: item.sold_count || 0,
-            actualAvailable: item.actual_available || 0,
-            percentageSold: item.percentage_sold || 0,
-            isSoldOut: item.is_sold_out || false,
+            actualAvailable: actualAvailable,
+            percentageSold: percentageSold,
+            isSoldOut: actualAvailable === 0 || item.status === 'Sold Out',
             status: item.status || 'Active',
             lastUpdated: item.updated_at || new Date().toISOString()
           }
           
-          availabilityMap.set(item.ticket_type_id, availability)
+          availabilityMap.set(item.id, availability)
         })
         
         this.availabilityCache.set(eventId, availabilityMap)
@@ -182,7 +176,12 @@ export class TicketAvailabilityManager {
   }
 
   private handleAvailabilityChange(eventId: string, payload: RealtimePostgresChangesPayload<any>) {
-    console.log(`[TicketAvailability] Availability change for event ${eventId}:`, payload.eventType)
+    // This method is no longer used since we're subscribing directly to event_tickets
+    // Keeping it for potential future use with a view
+  }
+
+  private handleTicketChange(eventId: string, payload: RealtimePostgresChangesPayload<any>) {
+    console.log(`[TicketAvailability] Ticket change for event ${eventId}:`, payload.eventType)
     
     const cache = this.availabilityCache.get(eventId) || new Map()
     
@@ -190,48 +189,52 @@ export class TicketAvailabilityManager {
       case 'INSERT':
       case 'UPDATE':
         if (payload.new) {
+          const actualAvailable = Math.max(0, (payload.new.available_count || 0) - (payload.new.reserved_count || 0))
+          const totalCapacity = payload.new.total_capacity || 0
+          const percentageSold = totalCapacity > 0 
+            ? Math.round(((payload.new.sold_count || 0) / totalCapacity) * 100)
+            : 0
+          
           const availability: TicketAvailability = {
-            ticketTypeId: payload.new.ticket_type_id,
+            ticketTypeId: payload.new.id,
             eventId: payload.new.event_id,
-            ticketTypeName: payload.new.ticket_type_name,
+            ticketTypeName: payload.new.name,
             availableCount: payload.new.available_count || 0,
             reservedCount: payload.new.reserved_count || 0,
             soldCount: payload.new.sold_count || 0,
-            actualAvailable: payload.new.actual_available || 0,
-            percentageSold: payload.new.percentage_sold || 0,
-            isSoldOut: payload.new.is_sold_out || false,
+            actualAvailable: actualAvailable,
+            percentageSold: percentageSold,
+            isSoldOut: actualAvailable === 0 || payload.new.status === 'Sold Out',
             status: payload.new.status || 'Active',
             lastUpdated: payload.new.updated_at || new Date().toISOString()
           }
           
-          cache.set(payload.new.ticket_type_id, availability)
+          cache.set(payload.new.id, availability)
           
           // Show alerts for low availability
           if (availability.actualAvailable < 10 && availability.actualAvailable > 0) {
-            this.showLowAvailabilityAlert(availability.ticketTypeName, availability.actualAvailable)
-          } else if (availability.isSoldOut && payload.old && !payload.old.is_sold_out) {
-            this.showSoldOutAlert(availability.ticketTypeName)
+            const oldAvailable = payload.old ? Math.max(0, (payload.old.available_count || 0) - (payload.old.reserved_count || 0)) : 0
+            if (oldAvailable >= 10) {
+              this.showLowAvailabilityAlert(availability.ticketTypeName, availability.actualAvailable)
+            }
+          } else if (availability.isSoldOut && payload.old) {
+            const oldAvailable = Math.max(0, (payload.old.available_count || 0) - (payload.old.reserved_count || 0))
+            if (oldAvailable > 0) {
+              this.showSoldOutAlert(availability.ticketTypeName)
+            }
           }
         }
         break
         
       case 'DELETE':
         if (payload.old) {
-          cache.delete(payload.old.ticket_type_id)
+          cache.delete(payload.old.id)
         }
         break
     }
     
     this.availabilityCache.set(eventId, cache)
     this.notifySubscribers(eventId)
-  }
-
-  private handleTicketChange(eventId: string, payload: RealtimePostgresChangesPayload<any>) {
-    console.log(`[TicketAvailability] Ticket change for event ${eventId}:`, payload.eventType)
-    
-    // For direct event_tickets changes, reload the view data
-    // This ensures we get the calculated fields from the view
-    this.loadInitialData(eventId)
   }
 
   private notifySubscribers(eventId: string) {

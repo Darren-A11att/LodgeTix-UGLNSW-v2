@@ -179,7 +179,7 @@ export const MasonForm: React.FC<MasonFormProps> = ({ attendeeId, attendeeNumber
               label="First Name"
               name="firstName"
               value={attendee.firstName || ''}
-              onChange={(value) => updateField('firstName', value)}
+              onChange={(value) => updateFieldImmediate('firstName', value)}
               required={true}
               updateOnBlur={true}
               error={attendeeFieldErrors.firstName}
@@ -191,7 +191,7 @@ export const MasonForm: React.FC<MasonFormProps> = ({ attendeeId, attendeeNumber
               label="Last Name"
               name="lastName"
               value={attendee.lastName || ''}
-              onChange={(value) => updateField('lastName', value)}
+              onChange={(value) => updateFieldImmediate('lastName', value)}
               required={true}
               updateOnBlur={true}
               error={attendeeFieldErrors.lastName}
@@ -299,7 +299,7 @@ export const MasonForm: React.FC<MasonFormProps> = ({ attendeeId, attendeeNumber
                 label="Email Address"
                 name="primaryEmail"
                 value={attendee.primaryEmail || ''}
-                onChange={(value) => updateField('primaryEmail', value)}
+                onChange={(value) => updateFieldImmediate('primaryEmail', value)}
                 required={true}
                 updateOnBlur={true}
                 error={attendeeFieldErrors.primaryEmail}
@@ -310,7 +310,7 @@ export const MasonForm: React.FC<MasonFormProps> = ({ attendeeId, attendeeNumber
                 label="Mobile Number"
                 name="primaryPhone"
                 value={attendee.primaryPhone || ''}
-                onChange={(value) => updateField('primaryPhone', value)}
+                onChange={(value) => updateFieldImmediate('primaryPhone', value)}
                 required={true}
                 updateOnBlur={true}
                 error={attendeeFieldErrors.primaryPhone}
@@ -353,7 +353,7 @@ export const MasonForm: React.FC<MasonFormProps> = ({ attendeeId, attendeeNumber
                     label="Email Address"
                     name="primaryEmail"
                     value={attendee.primaryEmail || ''}
-                    onChange={(value) => updateField('primaryEmail', value)}
+                    onChange={(value) => updateFieldImmediate('primaryEmail', value)}
                     required={true}
                     updateOnBlur={true}
                     error={attendeeFieldErrors.primaryEmail}
@@ -364,7 +364,7 @@ export const MasonForm: React.FC<MasonFormProps> = ({ attendeeId, attendeeNumber
                     label="Mobile Number"
                     name="primaryPhone"
                     value={attendee.primaryPhone || ''}
-                    onChange={(value) => updateField('primaryPhone', value)}
+                    onChange={(value) => updateFieldImmediate('primaryPhone', value)}
                     required={true}
                     updateOnBlur={true}
                     error={attendeeFieldErrors.primaryPhone}
@@ -428,7 +428,7 @@ export const MasonForm: React.FC<MasonFormProps> = ({ attendeeId, attendeeNumber
             label="First Name"
             name="firstName"
             value={attendee.firstName || ''}
-            onChange={(value) => updateField('firstName', value)}
+            onChange={(value) => updateFieldImmediate('firstName', value)}
             required={true}
             updateOnBlur={true}
           />
@@ -437,7 +437,7 @@ export const MasonForm: React.FC<MasonFormProps> = ({ attendeeId, attendeeNumber
             label="Last Name"
             name="lastName"
             value={attendee.lastName || ''}
-            onChange={(value) => updateField('lastName', value)}
+            onChange={(value) => updateFieldImmediate('lastName', value)}
             required={true}
             updateOnBlur={true}
           />

@@ -544,7 +544,7 @@ const TicketSelectionStep: React.FC = () => {
             <div className="flex justify-end -mt-4 mb-4">
               <ConnectionStatus status={connectionStatus} showText={true} size="sm" />
             </div>
-          )}
+          )
           
           {/* Show lodge order info */}
           {lodgeTicketOrder && (

@@ -27,6 +27,7 @@ export function useTicketAvailability(
   const [connectionStatus, setConnectionStatus] = useState<'connecting' | 'connected' | 'disconnected' | 'error' | 'unknown'>('unknown')
   const previousAvailabilityRef = useRef<Map<string, TicketAvailability>>(new Map())
   const unsubscribeRef = useRef<(() => void) | null>(null)
+  const statusIntervalRef = useRef<NodeJS.Timeout | null>(null)
 
   useEffect(() => {
     if (!eventId || !enabled) {
@@ -86,17 +87,13 @@ export function useTicketAvailability(
           const status = ticketAvailabilityManager.getConnectionStatus(eventId)
           setConnectionStatus(status)
           
-          // Set up periodic status check
-          const statusInterval = setInterval(() => {
+          // Set up periodic status check - but less frequently to avoid performance issues
+          statusIntervalRef.current = setInterval(() => {
             if (mounted) {
               const currentStatus = ticketAvailabilityManager.getConnectionStatus(eventId)
               setConnectionStatus(currentStatus)
             }
-          }, 1000)
-          
-          return () => {
-            clearInterval(statusInterval)
-          }
+          }, 5000) // Check every 5 seconds instead of every second
         }
       } catch (error) {
         console.error('[useTicketAvailability] Failed to subscribe:', error)
@@ -121,15 +118,25 @@ export function useTicketAvailability(
 
     return () => {
       mounted = false
+      
+      // Clear status check interval
+      if (statusIntervalRef.current) {
+        clearInterval(statusIntervalRef.current)
+        statusIntervalRef.current = null
+      }
+      
+      // Unsubscribe from ticket availability
       if (unsubscribeRef.current) {
         unsubscribeRef.current()
         unsubscribeRef.current = null
       }
+      
+      // Stop monitoring reservations
       if (eventId) {
         reservationExpiryManager.stopMonitoring(eventId)
       }
     }
-  }, [eventId, enabled, onLowStock, onSoldOut])
+  }, [eventId, enabled]) // Remove onLowStock and onSoldOut from dependencies to avoid re-subscribing
 
   const getTicketAvailability = useCallback((ticketTypeId: string): TicketAvailability | undefined => {
     return availability.get(ticketTypeId)

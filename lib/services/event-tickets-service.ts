@@ -183,7 +183,7 @@ export class EventTicketsService {
       
       // 3. Get packages for the parent event
       const { data: packages, error: packagesError } = await this.supabase
-        .from('eventpackages')
+        .from('packages')
         .select(`
           id,
           name,
@@ -197,7 +197,7 @@ export class EventTicketsService {
           quantity,
           parent_event_id,
           created_at,
-          eventpackagetickets (
+          package_events (
             event_ticket_id,
             quantity
           )
@@ -285,7 +285,7 @@ export class EventTicketsService {
       // 3. Get packages - if this event has a parent, get packages from parent
       const packageEventId = event.parent_event_id || eventId
       const { data: packages, error: packagesError } = await this.supabase
-        .from('eventpackages')
+        .from('packages')
         .select(`
           id,
           name,
@@ -299,7 +299,7 @@ export class EventTicketsService {
           quantity,
           parent_event_id,
           created_at,
-          eventpackagetickets (
+          package_events (
             event_ticket_id,
             quantity
           )
@@ -379,8 +379,8 @@ export class EventTicketsService {
       let totalPrice = 0
       let eligibleTypes: Set<AttendeeType> = new Set(['mason', 'guest'])
       
-      if (pkg.eventpackagetickets && Array.isArray(pkg.eventpackagetickets)) {
-        for (const pt of pkg.eventpackagetickets) {
+      if (pkg.package_events && Array.isArray(pkg.package_events)) {
+        for (const pt of pkg.package_events) {
           if (pt.event_ticket_id) {
             includedTicketIds.push(pt.event_ticket_id)
             
