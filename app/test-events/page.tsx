@@ -26,14 +26,14 @@ export default async function TestEventsPage() {
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         {events.map((event) => (
-          <Card key={event.id} className="overflow-hidden">
+          <Card key={event.event.event_id} className="overflow-hidden">
             <CardHeader>
               <CardTitle>{event.title}</CardTitle>
               <CardDescription>{event.subtitle}</CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-2 text-sm">
-                <p><strong>ID:</strong> {event.id}</p>
+                <p><strong>ID:</strong> {event.event.event_id}</p>
                 <p><strong>Slug:</strong> {event.slug}</p>
                 <p><strong>Category:</strong> {event.category || 'N/A'}</p>
                 <p><strong>Date:</strong> {event.date || event.eventStart}</p>

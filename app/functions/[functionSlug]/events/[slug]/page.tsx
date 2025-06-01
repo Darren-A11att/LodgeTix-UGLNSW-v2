@@ -1,0 +1,229 @@
+import Link from "next/link"
+import Image from "next/image"
+import { CalendarDays, MapPin, Share2, TicketIcon } from "lucide-react"
+import { notFound } from "next/navigation"
+import { EventRPCService } from "@/lib/api/event-rpc-service"
+import { createClient } from '@/utils/supabase/server'
+
+import { Button } from "@/components/ui/button"
+import { Card, CardContent } from "@/components/ui/card"
+import { formatCurrency } from "@/lib/formatters"
+
+// Mark as dynamic since it uses server-side authentication
+export const dynamic = 'force-dynamic'
+
+export default async function FallbackEventPage({ 
+  params 
+}: { 
+  params: Promise<{ functionSlug: string; slug: string }> 
+}) {
+  const { functionSlug, slug } = await params
+  
+  // Get event data directly from database
+  const supabase = await createClient();
+  
+  // Fetch event with related data
+  const { data: eventData, error } = await supabase
+    .from('events')
+    .select(`
+      *,
+      function:functions!function_id(name, slug),
+      location:locations!location_id(*)
+    `)
+    .eq('slug', slug)
+    .single();
+    
+  if (error || !eventData) {
+    console.error('Error fetching event:', error);
+    return notFound();
+  }
+  
+  
+  // Get tickets
+  const { data: tickets } = await supabase
+    .from('event_tickets')
+    .select('*')
+    .eq('event_id', eventData.event_id)
+    .eq('is_active', true)
+    .eq('status', 'Active')
+    .order('price');
+  
+  // Construct location string from location data
+  const locationString = eventData.location 
+    ? `${eventData.location.place_name}, ${eventData.location.suburb}, ${eventData.location.state}`
+    : 'TBD';
+  
+  // Format date and time
+  const eventDate = new Date(eventData.event_start);
+  const formattedDate = eventDate.toLocaleDateString('en-AU', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  });
+  const formattedTime = eventDate.toLocaleTimeString('en-AU', {
+    hour: 'numeric',
+    minute: 'numeric',
+    hour12: true
+  });
+  
+  return (
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <header className="sticky top-0 z-10 flex h-14 items-center justify-between border-b bg-white px-4 md:px-6">
+        <Link href="/" className="flex items-center">
+          <TicketIcon className="mr-2 h-5 w-5 text-purple-600" />
+          <span className="font-bold">LodgeTix</span>
+        </Link>
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" size="sm">
+            <Share2 className="mr-2 h-4 w-4" /> Share
+          </Button>
+          <Button size="sm" asChild className="bg-masonic-navy hover:bg-masonic-blue">
+            <Link href={`/functions/${functionSlug}/register`}>
+              <TicketIcon className="mr-2 h-4 w-4" /> 
+              Purchase Tickets
+            </Link>
+          </Button>
+        </div>
+      </header>
+
+      {/* Hero Section */}
+      <div className="relative h-72 w-full md:h-96">
+        <Image 
+          src={eventData.image_url || "/placeholder.svg"} 
+          alt={eventData.title} 
+          fill 
+          className="object-cover" 
+          priority 
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+        <div className="absolute bottom-0 left-0 right-0 p-6 text-white md:p-12">
+          <h1 className="mb-2 text-3xl font-bold md:text-5xl">{eventData.title}</h1>
+          {eventData.subtitle && (
+            <p className="text-lg md:text-xl opacity-90">{eventData.subtitle}</p>
+          )}
+        </div>
+      </div>
+
+      <main className="container mx-auto max-w-7xl px-4 py-8">
+        {/* Event Info */}
+        <div className="mb-8 rounded-lg bg-white p-6 shadow-sm">
+          <div className="flex items-start justify-between mb-4">
+            <h2 className="text-2xl font-bold">About This Event</h2>
+            {tickets && tickets.length > 0 && (
+              <div className="text-right">
+                <p className="text-sm text-gray-600">Starting from</p>
+                <p className="text-2xl font-bold text-masonic-gold">
+                  {formatCurrency(Math.min(...tickets.map(t => t.price)))}
+                </p>
+              </div>
+            )}
+          </div>
+          
+          <p className="mb-6 text-gray-700 whitespace-pre-line">
+            {eventData.description}
+          </p>
+          
+          <div className="grid gap-4 md:grid-cols-3">
+            <div className="flex items-start gap-3">
+              <CalendarDays className="h-5 w-5 text-purple-600 mt-0.5" />
+              <div>
+                <p className="font-medium">Date & Time</p>
+                <p className="text-gray-600">{formattedDate}</p>
+                <p className="text-gray-600">{formattedTime}</p>
+                {eventData.event_end && (
+                  <p className="text-gray-600 text-sm">
+                    Ends: {new Date(eventData.event_end).toLocaleDateString('en-AU')}
+                  </p>
+                )}
+              </div>
+            </div>
+            <div className="flex items-start gap-3">
+              <MapPin className="h-5 w-5 text-purple-600 mt-0.5" />
+              <div>
+                <p className="font-medium">Location</p>
+                <p className="text-gray-600">{locationString}</p>
+                {eventData.location?.street_address && (
+                  <a 
+                    href={`https://maps.google.com/?q=${encodeURIComponent(eventData.location.street_address + ', ' + eventData.location.suburb + ', ' + eventData.location.state)}`}
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="text-sm text-blue-600 hover:underline"
+                  >
+                    View map
+                  </a>
+                )}
+              </div>
+            </div>
+            {eventData.dress_code && (
+              <div className="flex items-start gap-3">
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="20"
+                  height="20"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  className="h-5 w-5 text-purple-600 mt-0.5"
+                >
+                  <path d="M6 2v6a6 6 0 0 0 12 0V2"></path>
+                  <path d="M12 2v20"></path>
+                </svg>
+                <div>
+                  <p className="font-medium">Dress Code</p>
+                  <p className="text-gray-600">{eventData.dress_code}</p>
+                  {eventData.regalia && (
+                    <p className="text-gray-600 text-sm">Regalia: {eventData.regalia}</p>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+
+        {/* Tickets Section */}
+        {tickets && tickets.length > 0 && (
+          <div className="mt-8">
+            <h2 className="mb-6 text-2xl font-bold">Ticket Options</h2>
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {tickets.map((ticket) => (
+                <Card key={ticket.ticket_id} className="p-4">
+                  <div>
+                    <h3 className="font-semibold text-lg mb-2">{ticket.name}</h3>
+                    {ticket.description && (
+                      <p className="text-sm text-gray-600 mb-3">{ticket.description}</p>
+                    )}
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-2xl font-bold">
+                          {ticket.price > 0 ? formatCurrency(ticket.price) : 'Free'}
+                        </p>
+                        <p className="text-sm text-gray-500">
+                          {ticket.available_count > 0 
+                            ? `${ticket.available_count} available` 
+                            : 'Sold out'}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+              ))}
+            </div>
+            <div className="mt-6 text-center">
+              <Button asChild size="lg">
+                <Link href={`/functions/${functionSlug}/register`}>
+                  Select Tickets
+                </Link>
+              </Button>
+            </div>
+          </div>
+        )}
+      </main>
+    </div>
+  )
+}

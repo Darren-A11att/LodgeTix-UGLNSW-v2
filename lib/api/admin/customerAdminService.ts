@@ -89,7 +89,7 @@ export class CustomerAdminService extends AdminApiService {
   /**
    * Get registrations for a customer
    */
-  async getCustomerRegistrations(customer_id: string): Promise<AdminApiResponse<DbRegistration[]>> {
+  async getCustomerRegistrations(customerId: string): Promise<AdminApiResponse<DbRegistration[]>> {
     try {
       const { data, error } = await this.client
         .from(supabaseTables.registrations)
@@ -122,7 +122,7 @@ export class CustomerAdminService extends AdminApiService {
       const { data, error } = await this.client
         .from(supabaseTables.customers)
         .select('*')
-        .or(`firstName.ilike.${searchTerm},lastName.ilike.${searchTerm},email.ilike.${searchTerm}`)
+        .or(`first_name.ilike.${searchTerm},last_name.ilike.${searchTerm},email.ilike.${searchTerm}`)
         .limit(20);
       
       if (error) {
@@ -167,7 +167,7 @@ export class CustomerAdminService extends AdminApiService {
       // Get all registrations
       const { data: registrationData, error: regError } = await this.client
         .from(supabaseTables.registrations)
-        "customer_id";
+        .select('customer_id, total_amount_paid');
       
       if (regError) {
         return { data: null, error: new Error(regError.message) };

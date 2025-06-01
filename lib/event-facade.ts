@@ -292,7 +292,7 @@ export function isUsingEventsSchema(): boolean {
  */
 export function getEventUrl(event: Event): string {
   // Prefer slug over ID for cleaner URLs
-  const identifier = event.slug || event.id
+  const identifier = event.slug || event.event_id
   return `/events/${identifier}`
 }
 
@@ -345,72 +345,3 @@ export function formatEventTime(event: any): string {
   }
 }
 
-/**
- * Get related events for a parent event
- * @param parentEventId UUID of the parent event
- * @param bypassCache Force a fresh fetch, bypassing cache
- */
-export async function getRelatedEvents(parent_event_id: string, bypassCache: boolean = false): Promise<Event[]> {
-  // Sanitize input
-  if (!parent_event_id) {
-    api.warn('getRelatedEvents called with empty parent_event_id');
-    return [];
-  }
-  
-  const cacheKey = `related_${parent_event_id}`;
-  
-  // Check cache first unless bypass is requested
-  if (!bypassCache && cache.eventsByCategory[cacheKey] && isCacheValid(cache.eventsByCategory[cacheKey])) {
-    api.debug(`Returning cached related events for parent_event_id: ${parent_event_id}`);
-    return cache.eventsByCategory[cacheKey].data;
-  }
-
-  try {
-    api.debug(`Fetching related events for parent_event_id: ${parent_event_id} from Supabase`);
-    const eventService = isClient ? getNewEventService() : getServerEventService()
-    const events = await eventService.getRelatedEvents(parent_event_id)
-    
-    // Update cache
-    cache.eventsByCategory[cacheKey] = setCacheItem(cache.eventsByCategory[cacheKey], events);
-    
-    return events;
-  } catch (error) {
-    api.error(`Error fetching related events for parent_event_id: ${parent_event_id} from events schema:`, error);
-    throw error;
-  }
-}
-
-/**
- * Get child events by parent event ID
- * @param parentEventId UUID of the parent event
- * @param bypassCache Force a fresh fetch, bypassing cache
- */
-export async function getChildEventsByParentId(parentEventId: string, bypassCache: boolean = false): Promise<Event[]> {
-  // Sanitize input
-  if (!parentEventId) {
-    api.warn('getChildEventsByParentId called with empty parentEventId');
-    return [];
-  }
-  
-  const cacheKey = `children_${parentEventId}`;
-  
-  // Check cache first unless bypass is requested
-  if (!bypassCache && cache.eventsByCategory[cacheKey] && isCacheValid(cache.eventsByCategory[cacheKey])) {
-    api.debug(`Returning cached child events for parentEventId: ${parentEventId}`);
-    return cache.eventsByCategory[cacheKey].data;
-  }
-
-  try {
-    api.debug(`Fetching child events for parentEventId: ${parentEventId} from Supabase`);
-    const eventService = isClient ? getNewEventService() : getServerEventService()
-    const events = await eventService.getChildEventsByParentId(parentEventId)
-    
-    // Update cache
-    cache.eventsByCategory[cacheKey] = setCacheItem(cache.eventsByCategory[cacheKey], events);
-    
-    return events;
-  } catch (error) {
-    api.error(`Error fetching child events for parentEventId: ${parentEventId} from events schema:`, error);
-    throw error;
-  }
-}

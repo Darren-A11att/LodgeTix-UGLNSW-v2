@@ -4,96 +4,152 @@ import { formatEventDate, formatEventTime } from '@/lib/event-facade';
 import type { Database } from '@/shared/types/database';
 
 /**
- * Get the next upcoming event (parent or child)
- * First tries to get a parent event, then falls back to any event
+ * Get the featured function for the homepage
+ * Uses FEATURED_FUNCTION_ID from environment variables or falls back to the first function
  */
 export async function getGrandInstallationEvent() {
   try {
     const supabase = await createClient();
-    const now = new Date().toISOString();
     
-    // First try to get the soonest upcoming parent event
-    const { data: parentEvent, error: parentError } = await supabase
-      .from("event_display_view")
-      .select('*')
-      .is('parent_event_id', null)  // Parent events only
-      .eq('is_published', true)      // Published events only
-      .gte('event_end', now)         // Not yet ended
-      .order('event_start', { ascending: true })
+    // Try to get function from environment variable first
+    const featuredFunctionId = process.env.FEATURED_FUNCTION_ID;
+    
+    if (featuredFunctionId) {
+      const { data: functionData, error } = await supabase
+        .from('functions')
+        .select('*, location:locations(*)')
+        .eq('function_id', featuredFunctionId)
+        .eq('is_published', true)
+        .single();
+        
+      if (!error && functionData) {
+        // Just map the field names
+        return {
+          id: functionData.function_id,
+          event_id: functionData.function_id,
+          title: functionData.name,
+          subtitle: '',
+          description: functionData.description,
+          date: formatEventDate({ event_start: functionData.start_date }),
+          time: formatEventTime({ event_start: functionData.start_date }),
+          location: functionData.location?.place_name || 'TBD',
+          imageUrl: functionData.image_url,
+          image_url: functionData.image_url,
+          logo: '/placeholder.svg?height=120&width=120',
+          slug: functionData.slug,
+          organiser: 'United Grand Lodge of NSW & ACT',
+          event_start: functionData.start_date,
+          event_end: functionData.end_date
+        };
+      }
+    }
+    
+    // Fall back to the first published function
+    const { data: firstFunction, error } = await supabase
+      .from('functions')
+      .select('*, location:locations(*)')
+      .eq('is_published', true)
+      .order('start_date', { ascending: true })
       .limit(1)
       .maybeSingle();
 
-    if (!parentError && parentEvent) {
-      return transformEventData(parentEvent);
+    if (!error && firstFunction) {
+      return {
+        id: firstFunction.function_id,
+        event_id: firstFunction.function_id,
+        title: firstFunction.name,
+        subtitle: '',
+        description: firstFunction.description,
+        date: formatEventDate({ event_start: firstFunction.start_date }),
+        time: formatEventTime({ event_start: firstFunction.start_date }),
+        location: firstFunction.location?.place_name || 'TBD',
+        imageUrl: firstFunction.image_url,
+        image_url: firstFunction.image_url,
+        logo: '/placeholder.svg?height=120&width=120',
+        slug: firstFunction.slug,
+        organiser: 'United Grand Lodge of NSW & ACT',
+        event_start: firstFunction.start_date,
+        event_end: firstFunction.end_date
+      };
     }
 
-    // If no parent event found, get ANY upcoming event
-    const { data: anyEvent, error: anyError } = await supabase
-      .from("event_display_view")
-      .select('*')
-      .eq('is_published', true)      // Published events only
-      .gte('event_end', now)         // Not yet ended
-      .order('event_start', { ascending: true })
-      .limit(1)
-      .maybeSingle();
-
-    if (anyError) {
-      api.error('Error fetching any upcoming event:', anyError);
-      return null;
-    }
-
-    return anyEvent ? transformEventData(anyEvent) : null;
+    return null;
   } catch (error) {
-    api.error('Exception fetching upcoming event:', error);
+    api.error('Exception fetching featured function:', error);
     return null;
   }
 }
 
 /**
- * Get event timeline - either child events of a parent, or upcoming events
+ * Get event timeline - events belonging to the featured function
  */
 export async function getEventTimeline() {
   try {
     const supabase = await createClient();
-    const mainEvent = await getGrandInstallationEvent();
+    const mainFunction = await getGrandInstallationEvent();
     
-    if (!mainEvent) {
-      api.warn('No events found for timeline');
+    if (!mainFunction) {
+      api.warn('No function found for timeline');
       return [];
     }
 
-    // If it's a parent event, get its children
-    if (!mainEvent.parent_event_id) {
-      const { data, error } = await supabase
-        .from("event_display_view")
-        .select('*')
-        .eq("parent_event_id", mainEvent.id)
-        .eq('is_published', true)
-        .order("event_start", { ascending: true })
-        .limit(8);
-
-      if (!error && data && data.length > 0) {
-        return data.map(transformEventData);
-      }
-    }
-
-    // Otherwise, get upcoming events (excluding the main one)
-    const now = new Date().toISOString();
+    // Get events for this function
     const { data, error } = await supabase
-      .from("event_display_view")
-      .select('*')
+      .from("events")
+      .select(`
+        event_id,
+        slug,
+        title,
+        subtitle,
+        description,
+        event_start,
+        event_end,
+        image_url,
+        featured,
+        type,
+        organiser_id,
+        locations (
+          place_name,
+          street_address,
+          suburb,
+          state,
+          postal_code
+        ),
+        organisations (
+          name
+        )
+      `)
+      .eq("function_id", mainFunction.id)
       .eq('is_published', true)
-      .gte('event_end', now)
-      .neq('event_id', mainEvent.id)  // Exclude the main event
       .order("event_start", { ascending: true })
-      .limit(3);
+      .limit(8);
 
     if (error) {
       api.error('Error fetching event timeline:', error);
       return [];
     }
 
-    return (data || []).map(transformEventData);
+    // Transform to match expected format
+    return (data || []).map(event => {
+      const locationString = event.locations ? 
+        `${event.locations.place_name}, ${event.locations.suburb}, ${event.locations.state}` : 
+        'TBD';
+      
+      return transformEventData({
+        event_id: event.event_id,
+        slug: event.slug,
+        title: event.title,
+        subtitle: event.subtitle,
+        description: event.description,
+        event_start: event.event_start,
+        event_end: event.event_end,
+        image_url: event.image_url,
+        location_string: locationString,
+        organiser_name: event.organisations?.name || 'TBD',
+        featured: event.featured,
+        type: event.type
+      });
+    });
   } catch (error) {
     api.error('Exception fetching event timeline:', error);
     return [];
@@ -102,23 +158,77 @@ export async function getEventTimeline() {
 
 /**
  * Get featured events for homepage
+ * Note: This function is not currently used - FeaturedEventsSection uses EventRPCService directly
  */
 export async function getFeaturedEvents() {
   try {
     const supabase = await createClient();
-    const { data, error } = await supabase
-      .from("event_display_view")
-      .select('*')
+    const featuredFunctionId = process.env.FEATURED_FUNCTION_ID;
+    
+    // Build query for events
+    let query = supabase
+      .from("events")
+      .select(`
+        event_id,
+        slug,
+        title,
+        subtitle,
+        description,
+        event_start,
+        event_end,
+        image_url,
+        featured,
+        type,
+        organiser_id,
+        locations (
+          place_name,
+          street_address,
+          suburb,
+          state,
+          postal_code
+        ),
+        organisations (
+          name
+        )
+      `)
       .eq('featured', true)
+      .eq('is_published', true)
       .order("event_start", { ascending: true })
       .limit(3);
+    
+    // Filter by function if specified
+    if (featuredFunctionId) {
+      query = query.eq('function_id', featuredFunctionId);
+    }
+
+    const { data, error } = await query;
 
     if (error) {
       api.error('Error fetching featured events:', error);
       return [];
     }
 
-    return data.map(transformEventData);
+    // Transform to match expected format
+    return (data || []).map(event => {
+      const locationString = event.locations ? 
+        `${event.locations.place_name}, ${event.locations.suburb}, ${event.locations.state}` : 
+        'TBD';
+      
+      return transformEventData({
+        event_id: event.event_id,
+        slug: event.slug,
+        title: event.title,
+        subtitle: event.subtitle,
+        description: event.description,
+        event_start: event.event_start,
+        event_end: event.event_end,
+        image_url: event.image_url,
+        location_string: locationString,
+        organiser_name: event.organisations?.name || 'TBD',
+        featured: event.featured,
+        type: event.type
+      });
+    });
   } catch (error) {
     api.error('Exception fetching featured events:', error);
     return [];
@@ -149,6 +259,7 @@ function transformEventData(data: any) {
 
   return {
     id: data.event_id,
+    event_id: data.event_id, // Include both for compatibility
     slug: data.slug || `event-${data.event_id}`,
     title: data.title || 'Untitled Event',
     subtitle: data.subtitle || '',

@@ -4,12 +4,15 @@ import { formatCurrency } from "@/lib/formatters"
 import { EventRPCService } from "@/lib/api/event-rpc-service"
 
 export async function FeaturedEventsSection() {
+  // Get the featured function ID from environment variable
+  const featuredFunctionId = process.env.FEATURED_FUNCTION_ID;
+  
   // Initialize RPC service
   const eventService = new EventRPCService(true); // server-side
   
   try {
-    // Fetch featured events with all necessary data in one query
-    const events = await eventService.getFeaturedEvents(3);
+    // Fetch featured events from the featured function
+    const events = await eventService.getFeaturedEvents(3, featuredFunctionId);
     
     // Transform data for EventCard component
     const eventsForDisplay = events.map(event => ({
@@ -30,8 +33,8 @@ export async function FeaturedEventsSection() {
         : event.has_free_tickets 
           ? 'Free' 
           : 'View pricing',
-      parentEventId: event.parent_event_id,
-      parentEventSlug: event.parent_slug,
+      parentEventId: null,
+      parentEventSlug: null,
       // Additional metadata
       isSoldOut: event.is_sold_out,
       ticketsAvailable: event.total_capacity - event.tickets_sold

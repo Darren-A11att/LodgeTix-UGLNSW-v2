@@ -55,7 +55,7 @@ export function EventTimeline({ events }: { events: Event[] }) {
           <div className="grid gap-8 md:grid-cols-3">
             {events.slice(0, 3).map((event, index) => (
               <TimelineEventCard 
-                key={event.id} 
+                key={event.id || event.event_id || index} 
                 event={event} 
                 icon={timelineIcons[index % timelineIcons.length]} 
               />

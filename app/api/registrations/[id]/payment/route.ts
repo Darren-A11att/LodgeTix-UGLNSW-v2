@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from '@/utils/supabase/server';
 import { buildPaymentIntentMetadata, buildCustomerMetadata } from '@/lib/utils/stripe-metadata';
-import { createOrUpdateStripeCustomer, getChildEventsMetadata } from '@/lib/services/stripe-sync-service';
+import { createOrUpdateStripeCustomer } from '@/lib/services/stripe-sync-service';
 import { getDeviceTypeFromRequest, generateSessionId } from '@/lib/utils/device-detection';
 import { getAppVersion } from '@/lib/config/app-version';
 import { getPaymentProcessingData, getPrimaryAttendeeDetails } from '@/lib/api/stripe-queries';
@@ -134,23 +134,7 @@ export async function PUT(
       // Generate or extract session ID
       const sessionId = data.sessionId || generateSessionId();
       
-      // Get child events metadata if parent event
-      let childEventsMetadata: Record<string, string> = {};
-      if (paymentData.event.parent_event_id) {
-        childEventsMetadata = await getChildEventsMetadata(paymentData.event.parent_event_id);
-      } else if (paymentData.child_events && paymentData.child_events.length > 0) {
-        // Build metadata from already fetched child events
-        childEventsMetadata = {
-          child_event_count: String(paymentData.child_events.length),
-          child_event_ids: paymentData.child_events.map(e => e.event_id).join(',').substring(0, 500),
-          child_event_titles: paymentData.child_events.map(e => e.title).join('|').substring(0, 500),
-          child_event_slugs: paymentData.child_events.map(e => e.slug).join(',').substring(0, 500),
-          child_event_dates: paymentData.child_events
-            .map(e => e.event_start ? new Date(e.event_start).toISOString().split('T')[0] : '')
-            .join(',')
-            .substring(0, 500)
-        };
-      }
+      // Remove child events metadata - no longer needed with functions architecture
       
       // Count attendees by type
       const attendeeTypes: Record<string, number> = {};
@@ -178,11 +162,11 @@ export async function PUT(
         registrationType: (paymentData.registration.registration_type || 'individual') as 'individual' | 'lodge' | 'delegation',
         confirmationNumber: paymentData.registration.confirmation_number || `REG-${registrationId.substring(0, 8).toUpperCase()}`,
         
-        // Event
-        parentEventId: paymentData.parent_event?.event_id || paymentData.event.event_id || '',
-        parentEventTitle: paymentData.parent_event?.title || paymentData.event.title || '',
-        parentEventSlug: paymentData.parent_event?.slug || paymentData.event.slug || '',
-        childEventCount: paymentData.child_events?.length || 0,
+        // Event (updated for functions architecture)
+        eventId: paymentData.event.event_id || '',
+        eventTitle: paymentData.event.title || '',
+        eventSlug: paymentData.event.slug || '',
+        functionId: paymentData.event.function_id || '',
         
         // Organization
         organisationId: paymentData.organization.organisation_id || '',
@@ -221,11 +205,8 @@ export async function PUT(
         appVersion: getAppVersion(),
       });
       
-      // Merge child events metadata
-      const finalMetadata = {
-        ...comprehensiveMetadata,
-        ...childEventsMetadata
-      };
+      // Use comprehensive metadata directly (no child events metadata needed)
+      const finalMetadata = comprehensiveMetadata;
       
       // Create payment intent options
       const paymentIntentOptions: any = {

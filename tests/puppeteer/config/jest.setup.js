@@ -1,5 +1,10 @@
 const puppeteer = require('puppeteer');
-const config = require('./puppeteer.config');
+// Use override config if it exists, otherwise use default
+const fs = require('fs');
+const overrideConfigPath = './test-config-override.js';
+const config = fs.existsSync(__dirname + '/' + 'test-config-override.js') 
+  ? require('./test-config-override') 
+  : require('./puppeteer.config');
 const LodgeTixIntegration = require('./integration.config');
 
 // Global setup for all tests
@@ -10,8 +15,11 @@ jest.setTimeout(config.timeouts.navigation);
 
 // Setup Puppeteer page helpers
 global.setupPage = async (page) => {
-  // Set viewport
-  await page.setViewport(config.viewport);
+  // Set viewport to 1920x1080
+  await page.setViewport({
+    width: 1920,
+    height: 1080
+  });
   
   // Set default navigation timeout
   page.setDefaultNavigationTimeout(config.timeouts.navigation);

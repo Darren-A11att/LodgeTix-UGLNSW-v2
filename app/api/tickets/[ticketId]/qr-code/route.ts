@@ -29,7 +29,7 @@ export async function POST(
           ticket_type
         )
       `)
-      .eq('id', ticketId)
+      .eq('ticket.ticket.ticket_id', ticketId)
       .single();
     
     if (ticketError || !ticket) {
@@ -41,7 +41,7 @@ export async function POST(
     
     // Generate QR code data
     const qrData = {
-      ticketId: ticket.id,
+      ticketId: ticket.ticket.ticket_id,
       registrationId: ticket.registration_id,
       attendeeId: ticket.attendee_id,
       eventId: ticket.event_tickets?.event_id,
@@ -69,7 +69,7 @@ export async function POST(
       await supabase
         .from('tickets')
         .update({ qr_code_url: url })
-        .eq('id', ticketId);
+        .eq('ticket.ticket.ticket_id', ticketId);
       
       return NextResponse.json({ 
         url,
@@ -113,7 +113,7 @@ export async function GET(
           ticket_type
         )
       `)
-      .eq('id', ticketId)
+      .eq('ticket.ticket.ticket_id', ticketId)
       .single();
     
     if (ticketError || !ticket) {
@@ -134,7 +134,7 @@ export async function GET(
     
     // Generate QR code data
     const qrData = {
-      ticketId: ticket.id,
+      ticketId: ticket.ticket.ticket_id,
       registrationId: ticket.registration_id,
       attendeeId: ticket.attendee_id,
       eventId: ticket.event_tickets?.event_id,
@@ -151,7 +151,7 @@ export async function GET(
       await supabase
         .from('tickets')
         .update({ qr_code_url: url })
-        .eq('id', ticketId);
+        .eq('ticket.ticket.ticket_id', ticketId);
       
       return NextResponse.json({ 
         url,

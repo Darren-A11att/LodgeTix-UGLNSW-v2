@@ -167,7 +167,7 @@ export const LodgeRegistrationStep: React.FC<LodgeRegistrationStepProps> = ({
   };
 
   return (
-    <OneColumnStepLayout className="max-w-4xl mx-auto">
+    <OneColumnStepLayout className="max-w-5xl mx-auto">
       {/* Lodge Registration Form */}
       <LodgesForm
         onComplete={handleFormComplete}

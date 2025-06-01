@@ -4,48 +4,56 @@ import { AttendeeTicket } from './register'; // Import shared ticket type
 export interface Lodge {
   lodge_id: string; // Typically UUID
   name: string;
-  number: string | null;
-  location?: string | null; // e.g., City, State
+  display_name?: string | null;
+  number: number | null;
+  meeting_place?: string | null;
+  district?: string | null;
+  area_type?: string | null;
+  state_region?: string | null;
   grand_lodge_id?: string | null; // Foreign key
+  organisation_id?: string | null; // Foreign key to organisations
 }
 
 // Interface for Grand Lodge data (can be expanded based on DB schema)
 export interface GrandLodge {
   grand_lodge_id: string; // Typically UUID
   name: string; // e.g., "Grand Lodge of NSW & ACT"
-  short_name?: string | null; // e.g., "GLNSWACT"
-  jurisdiction_country?: string; // e.g., "AU"
-  jurisdiction_state?: string | null; // e.g., "NSW"
+  abbreviation?: string | null; // e.g., "GLNSWACT"
+  country?: string | null; // e.g., "Australia"
+  country_code_iso3?: string | null; // e.g., "AUS"
+  state_region?: string | null; // e.g., "NSW"
+  state_region_code?: string | null; // e.g., "NSW"
+  organisation_id?: string | null; // Foreign key to organisations
 }
 
 // Interface for Mason-specific data
 export interface MasonData {
-  id: string; // Corresponds to the attendee identifier in the form state (e.g., 'primary-mason' or UUID)
-  dbId?: string | null; // The actual UUID from the 'masons' table, fetched or after creation
-  customerId?: string | null; // UUID from the 'customers' table
+  attendee_id: string; // Corresponds to the attendee identifier in the form state
+  contact_id?: string | null; // Foreign key to contacts table
   title: string;
-  firstName: string;
-  lastName: string;
-  rank: string;
+  first_name: string;
+  last_name: string;
+  event_title?: string; // Mason's title for event (rank)
   phone: string;
   email: string;
-  lodge_id: string | null; // Foreign key to lodges table
-  lodgeName?: string; // Denormalized/fetched for display
-  grand_lodge_id: string | null; // Foreign key to grand_lodges table
-  grandLodgeName?: string; // Denormalized/fetched for display
-  dietary: string;
-  specialNeeds: string;
-  sameLodgeAsPrimary?: boolean; // UI state, not in DB
-  hasLadyPartner: boolean; // UI state, not in DB
-  grandRank?: string; // Specific GL rank, potentially stored in 'masons' table
-  grandOfficer?: string; // Current or Past, potentially stored in 'masons' table
-  grandOffice?: string; // Specific grand office, potentially stored in 'masons' table
-  grandOfficeOther?: string; // Custom text if grandOffice is 'Other'
-  contactPreference?: string; // For additional masons
-  contactConfirmed?: boolean; // For additional masons
+  dietary_requirements: string;
+  special_needs: string;
+  contact_preference?: string; // For additional masons
+  has_partner: boolean; // Maps to database field
   ticket?: AttendeeTicket; // Selected ticket and events
   
-  // Fields for pending lodge creation (UI state)
+  // Mason-specific fields (from masonic_profiles or UI state)
+  lodge_id?: string | null; // Foreign key to lodges table
+  lodge_name?: string; // Denormalized/fetched for display
+  grand_lodge_id?: string | null; // Foreign key to grand_lodges table
+  grand_lodge_name?: string; // Denormalized/fetched for display
+  masonic_rank?: string; // Masonic rank
+  grand_rank?: string; // Specific GL rank
+  grand_officer?: string; // Current or Past
+  grand_office?: string; // Specific grand office
+  
+  // UI state fields
+  sameLodgeAsPrimary?: boolean; // UI state, not in DB
   isPendingNewLodge?: boolean; 
   pendingLodgeDetails?: { name: string; number: string; grand_lodge_id: string | null } | null;
 } 

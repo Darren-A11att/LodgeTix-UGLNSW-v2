@@ -35,6 +35,7 @@ export interface EventPackage {
   includes: string[] // ticket definition IDs
   includes_description?: string[] | null // Human-readable descriptions
   eligibleAttendeeTypes: AttendeeType[]
+  eligibleRegistrationTypes?: ('individual' | 'lodge' | 'delegation')[] // Registration types that can purchase this package
   parent_event_id: string | null
   created_at?: string
 }
@@ -330,18 +331,43 @@ export class EventTicketsService {
       category = 'activity'
     }
     
-    // Parse eligible attendee types
+    // Parse eligible attendee types from eligibility_criteria JSONB
     let eligibleTypes: AttendeeType[] = ['mason', 'guest']
-    if (ticket.eligibility_attendee_types && Array.isArray(ticket.eligibility_attendee_types)) {
-      eligibleTypes = ticket.eligibility_attendee_types as AttendeeType[]
-    } else if (ticket.eligibility_mason_rank) {
-      // If there's a mason rank requirement, it's mason-only
-      eligibleTypes = ['mason']
+    
+    if (ticket.eligibility_criteria && ticket.eligibility_criteria.rules) {
+      // Look for attendee_type rules in the eligibility criteria
+      const attendeeTypeRules = ticket.eligibility_criteria.rules.filter((rule: any) => 
+        rule.type === 'attendee_type'
+      )
+      
+      if (attendeeTypeRules.length > 0) {
+        // Use the first attendee_type rule found
+        const rule = attendeeTypeRules[0]
+        if (rule.operator === 'in' && Array.isArray(rule.value)) {
+          // Filter to only valid AttendeeType values
+          eligibleTypes = rule.value.filter((type: string) => 
+            ['mason', 'guest'].includes(type)
+          ) as AttendeeType[]
+        } else if (rule.operator === 'equals' && typeof rule.value === 'string') {
+          if (['mason', 'guest'].includes(rule.value)) {
+            eligibleTypes = [rule.value as AttendeeType]
+          }
+        }
+      }
+      
+      // Check if there's a mason-specific requirement
+      const masonOnlyRules = ticket.eligibility_criteria.rules.some((rule: any) => 
+        (rule.type === 'grand_lodge' || rule.type === 'grand_officer' || rule.type === 'mason_rank')
+      )
+      
+      if (masonOnlyRules && !eligibleTypes.includes('mason')) {
+        eligibleTypes = ['mason']
+      }
     }
     
     return {
-      id: ticket.id, // Use the ticket ID
-      ticket_definition_id: ticket.id, // Keep for backward compatibility
+      id: ticket.ticket.ticket_id, // Use the ticket ID
+      ticket_definition_id: ticket.ticket.ticket_id, // Keep for backward compatibility
       name: ticket.name,
       price: ticket.price,
       description: ticket.description,
@@ -370,26 +396,88 @@ export class EventTicketsService {
       let eligibleTypes: Set<AttendeeType> = new Set(['mason', 'guest'])
       
       if (pkg.included_items && Array.isArray(pkg.included_items)) {
-        for (const ticketId of pkg.included_items) {
+        for (const item of pkg.included_items) {
+          // Handle both object format {event_ticket_id, quantity} and plain string format
+          const ticketId = typeof item === 'object' && item.event_ticket_id ? item.event_ticket_id : item
+          const itemQuantity = typeof item === 'object' && item.quantity ? item.quantity : 1
+          
           if (ticketId) {
             includedTicketIds.push(ticketId)
             
             // Find the ticket definition to get price and eligibility
             const ticketDef = allTickets.find(t => t.id === ticketId)
             if (ticketDef) {
-              // Use qty field for quantity (default to 1)
-              const quantity = pkg.qty || 1
-              totalPrice += ticketDef.price * quantity
+              // Use item quantity for price calculation
+              totalPrice += ticketDef.price * itemQuantity
               
-              // Update eligible types based on ticket eligibility
-              if (ticketDef.eligibility_attendee_types) {
-                const ticketEligible = new Set(ticketDef.eligibility_attendee_types as AttendeeType[])
-                // Package is only eligible for attendee types that can access ALL included tickets
-                eligibleTypes = new Set([...eligibleTypes].filter(t => ticketEligible.has(t)))
+              // Parse eligibility from ticket's eligibility_criteria
+              let ticketEligibleTypes: AttendeeType[] = ['mason', 'guest']
+              
+              if (ticketDef.eligibility_criteria && ticketDef.eligibility_criteria.rules) {
+                const attendeeTypeRules = ticketDef.eligibility_criteria.rules.filter((rule: any) => 
+                  rule.type === 'attendee_type'
+                )
+                
+                if (attendeeTypeRules.length > 0) {
+                  const rule = attendeeTypeRules[0]
+                  if (rule.operator === 'in' && Array.isArray(rule.value)) {
+                    ticketEligibleTypes = rule.value.filter((type: string) => 
+                      ['mason', 'guest'].includes(type)
+                    ) as AttendeeType[]
+                  }
+                }
               }
+              
+              // Package is only eligible for attendee types that can access ALL included tickets
+              eligibleTypes = new Set([...eligibleTypes].filter(t => ticketEligibleTypes.includes(t)))
             }
           }
         }
+      }
+      
+      // Parse package eligibility criteria if it exists
+      let eligibleRegistrationTypes: ('individual' | 'lodge' | 'delegation')[] | undefined = undefined
+      
+      if (pkg.eligibility_criteria && pkg.eligibility_criteria.rules && pkg.eligibility_criteria.rules.length > 0) {
+        // Check for attendee type rules
+        const attendeeTypeRules = pkg.eligibility_criteria.rules.filter((rule: any) => 
+          rule.type === 'attendee_type'
+        )
+        
+        if (attendeeTypeRules.length > 0) {
+          const rule = attendeeTypeRules[0]
+          if (rule.operator === 'in' && Array.isArray(rule.value)) {
+            eligibleTypes = new Set(rule.value.filter((type: string) => 
+              ['mason', 'guest'].includes(type)
+            ) as AttendeeType[])
+          } else if (rule.operator === 'equals' && typeof rule.value === 'string') {
+            if (['mason', 'guest'].includes(rule.value)) {
+              eligibleTypes = new Set([rule.value as AttendeeType])
+            }
+          }
+        }
+        
+        // Check for registration type rules
+        const registrationTypeRules = pkg.eligibility_criteria.rules.filter((rule: any) => 
+          rule.type === 'registration_type'
+        )
+        
+        if (registrationTypeRules.length > 0) {
+          const rule = registrationTypeRules[0]
+          if (rule.operator === 'equals' && typeof rule.value === 'string') {
+            eligibleRegistrationTypes = [rule.value as 'individual' | 'lodge' | 'delegation']
+          } else if (rule.operator === 'in' && Array.isArray(rule.value)) {
+            eligibleRegistrationTypes = rule.value.filter((type: string) => 
+              ['individual', 'lodge', 'delegation'].includes(type)
+            ) as ('individual' | 'lodge' | 'delegation')[]
+          }
+        }
+      }
+      
+      // Calculate total price based on package quantity
+      const packageQuantity = pkg.qty || 1
+      if (packageQuantity > 1) {
+        totalPrice = totalPrice * packageQuantity
       }
       
       // Use the actual price from the database (already includes any discounts)
@@ -408,6 +496,7 @@ export class EventTicketsService {
         includes: includedTicketIds,
         includes_description: pkg.includes_description,
         eligibleAttendeeTypes: Array.from(eligibleTypes),
+        eligibleRegistrationTypes: eligibleRegistrationTypes,
         parent_event_id: pkg.parent_event_id,
         created_at: pkg.created_at
       })

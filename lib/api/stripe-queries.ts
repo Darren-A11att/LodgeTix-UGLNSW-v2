@@ -32,7 +32,7 @@ export interface RegistrationWithFullContext {
     title: string;
     subtitle: string | null;
     slug: string;
-    parent_event_id: string | null;
+    function_id: string | null;
     event_start: string | null;
     event_end: string | null;
     type: string | null;
@@ -60,19 +60,17 @@ export interface RegistrationWithFullContext {
     country: string | null;
   };
   
-  parent_event?: {
-    event_id: string;
-    title: string;
-    subtitle: string | null;
+  function?: {
+    function_id: string;
+    name: string;
+    description: string | null;
     slug: string;
-    event_start: string | null;
-    event_end: string | null;
-    type: string | null;
+    start_date: string | null;
+    end_date: string | null;
     image_url: string | null;
-    max_attendees: number | null;
   };
   
-  child_events?: Array<{
+  function_events?: Array<{
     event_id: string;
     title: string;
     subtitle: string | null;
@@ -257,10 +255,30 @@ export async function getRegistrationWithFullContext(
       `)
       .eq('registration_id', registrationId);
       
-    // Fetch parent event if exists
-    let parentEvent = null;
-    if (registration.events.parent_event_id) {
-      const { data: parent } = await supabase
+    // Fetch function if event belongs to one
+    let functionData = null;
+    if (registration.events.function_id) {
+      const { data: fn } = await supabase
+        .from('functions')
+        .select(`
+          function_id,
+          name,
+          description,
+          slug,
+          start_date,
+          end_date,
+          image_url
+        `)
+        .eq('function_id', registration.events.function_id)
+        .single();
+        
+      functionData = fn;
+    }
+    
+    // Fetch other events in the same function
+    let functionEvents = null;
+    if (registration.events.function_id) {
+      const { data: events } = await supabase
         .from('events')
         .select(`
           event_id,
@@ -270,31 +288,13 @@ export async function getRegistrationWithFullContext(
           event_start,
           event_end,
           type,
-          image_url,
-          max_attendees
+          is_purchasable_individually
         `)
-        .eq('event_id', registration.events.parent_event_id)
-        .single();
+        .eq('function_id', registration.events.function_id)
+        .order('event_start');
         
-      parentEvent = parent;
+      functionEvents = events;
     }
-    
-    // Fetch child events if this is a parent event or has siblings
-    const parentId = registration.events.parent_event_id || registration.event_id;
-    const { data: childEvents } = await supabase
-      .from('events')
-      .select(`
-        event_id,
-        title,
-        subtitle,
-        slug,
-        event_start,
-        event_end,
-        type,
-        is_purchasable_individually
-      `)
-      .eq('parent_event_id', parentId)
-      .order('event_start');
       
     // Fetch lodge registration details if applicable
     let lodgeRegistration = null;
@@ -339,8 +339,8 @@ export async function getRegistrationWithFullContext(
       },
       event: registration.events,
       organization: registration.events.organisations,
-      parent_event: parentEvent,
-      child_events: childEvents || [],
+      function: functionData,
+      function_events: functionEvents || [],
       attendees: attendees || [],
       tickets: tickets || [],
       lodge_registration: lodgeRegistration
@@ -352,23 +352,23 @@ export async function getRegistrationWithFullContext(
 }
 
 /**
- * Get all ticket types for an event (including child events)
+ * Get all ticket types for an event (including other events in the same function)
  */
 export async function getEventTicketTypes(eventId: string) {
   const supabase = await createClient();
   
   try {
-    // Get parent event ID if this is a child event
+    // Get function ID for this event
     const { data: event } = await supabase
       .from('events')
-      .select('event_id, parent_event_id')
+      .select('event_id, function_id')
       .eq('event_id', eventId)
       .single();
       
-    const parentEventId = event?.parent_event_id || eventId;
+    if (!event) return [];
     
-    // Get all tickets for parent and child events
-    const { data: tickets } = await supabase
+    // Get all tickets for events in the same function
+    let query = supabase
       .from('event_tickets')
       .select(`
         *,
@@ -379,12 +379,18 @@ export async function getEventTicketTypes(eventId: string) {
           event_start
         )
       `)
-      .or(`event_id.eq.${parentEventId},event_id.in.(
-        SELECT event_id FROM events WHERE parent_event_id = '${parentEventId}'
-      )`)
       .eq('is_active', true)
       .order('price');
+    
+    // If event belongs to a function, get all tickets for that function's events
+    if (event.function_id) {
+      query = query.eq('events.function_id', event.function_id);
+    } else {
+      // Otherwise just get tickets for this specific event
+      query = query.eq('event_id', eventId);
+    }
       
+    const { data: tickets } = await query;
     return tickets || [];
   } catch (error) {
     console.error('Error fetching event ticket types:', error);

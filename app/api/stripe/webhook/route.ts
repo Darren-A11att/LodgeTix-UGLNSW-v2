@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
     }
     
     console.log("Webhook event type:", event.type);
-    console.log("Event ID:", event.id);
+    console.log("Event ID:", event.event_id);
     
     // Handle different event types
     switch (event.type) {

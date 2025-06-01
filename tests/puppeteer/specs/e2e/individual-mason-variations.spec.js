@@ -12,39 +12,59 @@
  * - Field validation and error handling
  */
 
-const puppeteer = require('puppeteer');
+const config = require('../../config/puppeteer.config');
 const { testData } = require('../../config/test-data');
 const { captureScreenshot, waitForElement, fillInput } = require('../../helpers/test-utils');
 
 describe('Individual Mason Variations', () => {
   let browser;
   let page;
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000';
 
   beforeAll(async () => {
-    browser = await puppeteer.launch({
-      headless: process.env.HEADLESS !== 'false',
-      args: ['--no-sandbox', '--disable-setuid-sandbox']
-    });
-  });
-
-  afterAll(async () => {
-    await browser.close();
+    browser = global.__BROWSER__;
   });
 
   beforeEach(async () => {
     page = await browser.newPage();
-    await page.setViewport({ width: 1280, height: 800 });
+    await global.setupPage(page);
     
-    // Navigate to event and select Individual registration
-    await page.goto(`${baseUrl}/events/${testData.eventSlug}`);
-    await page.waitForSelector('[data-testid="register-button"]');
-    await page.click('[data-testid="register-button"]');
+    // Navigate to Grand Installation function and start Individual registration
+    await page.goto(`${config.baseUrl}/functions/${testData.functionSlug}`);
+    await page.waitForTimeout(2000);
+    
+    // Click register button
+    await page.evaluate(() => {
+      const links = Array.from(document.querySelectorAll('a'));
+      const registerLink = links.find(a => 
+        a.textContent.includes('Register') || 
+        a.textContent.includes('Get Tickets') ||
+        a.textContent.includes('Purchase Tickets')
+      );
+      if (registerLink) registerLink.click();
+    });
+    
+    await page.waitForTimeout(2000);
     
     // Select Individual registration type
-    await page.waitForSelector('[data-testid="registration-type-individual"]');
-    await page.click('[data-testid="registration-type-individual"]');
-    await page.click('[data-testid="continue-button"]');
+    await page.evaluate(() => {
+      const cards = Array.from(document.querySelectorAll('div'));
+      const myselfCard = cards.find(card => 
+        card.textContent.includes('Myself & Others') &&
+        card.textContent.includes('Register yourself')
+      );
+      
+      if (myselfCard) {
+        const selectButton = myselfCard.querySelector('button');
+        if (selectButton) selectButton.click();
+      } else {
+        // Fallback: click first Select button
+        const selectButtons = Array.from(document.querySelectorAll('button'));
+        const firstSelect = selectButtons.find(btn => btn.textContent.trim() === 'Select');
+        if (firstSelect) firstSelect.click();
+      }
+    });
+    
+    await page.waitForTimeout(2000);
   });
 
   afterEach(async () => {

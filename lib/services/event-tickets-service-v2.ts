@@ -249,7 +249,7 @@ export class EventTicketsServiceV2 {
    */
   private transformTicket(ticket: EventTicket): TicketDefinition {
     return {
-      id: ticket.id,
+      id: ticket.ticket_id,
       name: ticket.name,
       price: ticket.price,
       description: ticket.description,

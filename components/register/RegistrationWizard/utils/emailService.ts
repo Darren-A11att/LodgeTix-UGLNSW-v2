@@ -3,7 +3,18 @@ import { EmailTemplateData, ConfirmationEmailTemplate, generateTextEmail } from 
 import React from 'react';
 
 // Initialize Resend with API key from environment
-const resend = new Resend(process.env.RESEND_API_KEY);
+let resend: Resend;
+
+// Lazy initialization to handle missing API key during module loading
+function getResendClient(): Resend {
+  if (!resend) {
+    if (!process.env.RESEND_API_KEY) {
+      throw new Error('RESEND_API_KEY environment variable is not set');
+    }
+    resend = new Resend(process.env.RESEND_API_KEY);
+  }
+  return resend;
+}
 
 export interface EmailAttachment {
   filename: string;
@@ -43,10 +54,10 @@ export const sendConfirmationEmail = async ({
     const textContent = generateTextEmail(templateData);
     
     // Send email via Resend
-    const result = await resend.emails.send({
-      from: 'LodgeTix <noreply@lodgetix.com>',
+    const result = await getResendClient().emails.send({
+      from: 'LodgeTix <noreply@m.lodgetix.io>',
       to,
-      subject: `Registration Confirmation - ${templateData.eventTitle}`,
+      subject: `Registration Confirmation - ${templateData.functionTitle || templateData.eventTitle}`,
       html: htmlContent,
       text: textContent,
       attachments: attachments.map(att => ({
@@ -95,9 +106,9 @@ export const sendBatchConfirmationEmails = async ({
         const textContent = generateTextEmail(individualTemplateData);
         
         return {
-          from: 'LodgeTix <noreply@lodgetix.com>',
+          from: 'LodgeTix <noreply@m.lodgetix.io>',
           to: recipient.email,
-          subject: `Your Ticket - ${baseTemplateData.eventTitle}`,
+          subject: `Your Ticket - ${baseTemplateData.functionTitle || baseTemplateData.eventTitle}`,
           html: htmlContent,
           text: textContent,
           attachments: [{
@@ -115,7 +126,7 @@ export const sendBatchConfirmationEmails = async ({
     );
     
     // Send all emails in a batch
-    const result = await resend.batch.send(batchEmails);
+    const result = await getResendClient().batch.send(batchEmails);
     return result;
   } catch (error) {
     console.error('Error sending batch confirmation emails:', error);

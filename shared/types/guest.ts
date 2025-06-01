@@ -4,7 +4,7 @@ import { AttendeeTicket } from './register';
  * Represents a Guest record aligned with the database 'guests' table schema.
  */
 export interface Guest {
-  id: string;
+  guest_id: string;
   customer_id: string | null;
   related_mason_id: string | null;
   related_guest_id: string | null;
@@ -28,19 +28,19 @@ export interface Guest {
  * in the registration form state.
  */
 export interface LadyPartnerData {
-  id: string; 
+  attendee_id: string; 
   masonIndex: number;
   dbGuestId?: string | null;
   title: string;
-  firstName: string;
-  lastName: string;
-  dietary: string;              // Maps to dietary_requirements
-  specialNeeds: string;         // Maps to special_needs
-  relationship: string;         // Maps to partner_relationship
-  contactPreference: 'mason' | 'primary' | 'direct' | 'later' | 'Please Select'; 
+  first_name: string;
+  last_name: string;
+  dietary_requirements: string;   // Maps to dietary_requirements
+  special_needs: string;          // Maps to special_needs
+  relationship: string;           // Maps to partner_relationship
+  contact_preference: 'mason' | 'primary' | 'direct' | 'later' | 'Please Select'; 
   phone: string;
   email: string;
-  contactConfirmed: boolean;
+  has_partner: boolean;
   ticket?: AttendeeTicket;
 }
 
@@ -50,20 +50,19 @@ export interface LadyPartnerData {
  */
 export interface GuestData {
   // UI/State specific fields
-  id: string;                      // Unique ID for the form state
+  attendee_id: string;             // Unique ID for the form state
 
-  // Fields mapping to Guest schema
-  dbGuestId?: string | null;       // Actual UUID from the 'guests' table
+  // Fields mapping to attendees table
+  dbGuestId?: string | null;       // Actual UUID from the database
   title: string;
-  firstName: string;
-  lastName: string;
-  phone: string;                   // Maps to phone (required if contactPreference='direct')
-  email: string;                   // Maps to email (required if contactPreference='direct')
-  dietary: string;                 // Maps to dietary_requirements
-  specialNeeds: string;            // Maps to special_needs
-  contactPreference: 'primary' | 'direct' | 'later' | 'Please Select'; // Note: Excludes 'mason'/'guest' for standard guests?
-  contactConfirmed: boolean;       // Maps to contact_confirmed
-  hasPartner: boolean;             // UI flag to trigger partner form
+  first_name: string;
+  last_name: string;
+  phone: string;                   // Maps to phone (required if contact_preference='direct')
+  email: string;                   // Maps to email (required if contact_preference='direct')
+  dietary_requirements: string;    // Maps to dietary_requirements
+  special_needs: string;           // Maps to special_needs
+  contact_preference: 'primary' | 'direct' | 'later' | 'Please Select'; // Note: Excludes 'mason'/'guest' for standard guests?
+  has_partner: boolean;            // UI flag to trigger partner form
   // partner_relationship is likely not relevant for a standard guest themselves
   
   // Ticket information

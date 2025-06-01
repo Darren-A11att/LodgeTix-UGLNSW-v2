@@ -31,7 +31,7 @@ const AttendeeEventAccess: React.FC<AttendeeEventAccessProps> = ({ attendeeId })
         setAccessRecords(records);
         
         // Extract event IDs to fetch event details
-        const eventIds = records.map(record => record.event_id);
+        const eventIds = records.map(record => record.event.event_id);
         if (eventIds.length > 0) {
           await fetchEventDetails(eventIds);
         }
@@ -61,7 +61,7 @@ const AttendeeEventAccess: React.FC<AttendeeEventAccessProps> = ({ attendeeId })
       // Build a mapping of event ID to event details
       const detailsMap: Record<string, { title: string }> = {};
       data.forEach((event: any) => {
-        detailsMap[event.id] = { title: event.title };
+        detailsMap[event.event_id] = { title: event.title };
       });
       
       setEventDetails(detailsMap);
@@ -152,7 +152,7 @@ const AttendeeEventAccess: React.FC<AttendeeEventAccessProps> = ({ attendeeId })
           {accessRecords.map((record) => (
             <tr key={record.id}>
               <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                {eventDetails[record.event_id]?.title || 'Unknown Event'}
+                {eventDetails[record.event.event_id]?.title || 'Unknown Event'}
               </td>
               <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                 {formatAccessSource(record.access_source, record.source_id)}

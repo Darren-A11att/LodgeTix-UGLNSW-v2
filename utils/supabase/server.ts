@@ -4,6 +4,14 @@ import { Database } from '@/shared/types/database'
 
 export async function createClient() {
   const cookieStore = await cookies()
+  
+  // Only log in development when specifically debugging auth issues
+  const DEBUG_AUTH = process.env.NODE_ENV === 'development' && process.env.DEBUG_AUTH === 'true'
+  
+  if (DEBUG_AUTH) {
+    const allCookies = cookieStore.getAll().map(c => c.name)
+    console.log('[createClient] Available cookies:', allCookies)
+  }
 
   return createServerClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -11,7 +19,12 @@ export async function createClient() {
     {
       cookies: {
         get(name: string) {
-          return cookieStore.get(name)?.value
+          const value = cookieStore.get(name)?.value
+          // Only log when specifically debugging
+          if (DEBUG_AUTH && name.includes('auth-token')) {
+            console.log(`[createClient] Getting ${name}:`, value ? 'exists' : 'missing')
+          }
+          return value
         },
         set(name: string, value: string, options: CookieOptions) {
           try {

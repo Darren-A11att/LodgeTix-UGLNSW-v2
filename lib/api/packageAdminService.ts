@@ -84,7 +84,7 @@ export class PackageAdminService extends AdminApiService {
           const { data: eventsData } = await this.client
             .from(supabaseTables.events)
             .select('*')
-            .in('id', eventIds);
+            .in('event_ticket_id', eventIds);
             
           if (eventsData) {
             events = eventsData;
@@ -149,7 +149,7 @@ export class PackageAdminService extends AdminApiService {
       // First, check if there are any events or VAS options attached to this package
       const { data: packageEvents, error: eventsError } = await this.client
         .from(supabaseTables.packageEvents)
-        .select('id')
+        .select('event_ticket_id')
         .eq('package_id', id);
       
       if (eventsError) {
@@ -165,7 +165,7 @@ export class PackageAdminService extends AdminApiService {
       
       const { data: packageVas, error: vasError } = await this.client
         .from(supabaseTables.packageVasOptions)
-        .select('id')
+        .select('event_ticket_id')
         .eq('package_id', id);
       
       if (vasError) {
@@ -280,7 +280,7 @@ export class PackageAdminService extends AdminApiService {
       const { data: events, error } = await this.client
         .from(supabaseTables.events)
         .select('*')
-        .in('id', eventIds);
+        .in('event_ticket_id', eventIds);
       
       if (error) {
         return { data: null, error: new Error(error.message) };

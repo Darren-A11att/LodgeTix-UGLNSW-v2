@@ -35,7 +35,8 @@ vi.mock('@/lib/realtime/reservation-expiry-manager', () => ({
 }))
 
 describe('Ticket Availability Real-time Updates', () => {
-  const mockEventId = 'test-event-123'
+  const mockFunctionId = 'test-function-123'
+  const mockEventId = 'test-event-456'
   
   beforeEach(() => {
     vi.clearAllMocks()
@@ -46,7 +47,7 @@ describe('Ticket Availability Real-time Updates', () => {
   })
   
   it('should initialize with empty availability', () => {
-    const { result } = renderHook(() => useTicketAvailability(mockEventId))
+    const { result } = renderHook(() => useTicketAvailability(mockFunctionId))
     
     expect(result.current.availability.size).toBe(0)
     expect(result.current.isConnected).toBe(false)
@@ -56,13 +57,14 @@ describe('Ticket Availability Real-time Updates', () => {
   it('should handle low stock callback', async () => {
     const onLowStock = vi.fn()
     const { result } = renderHook(() => 
-      useTicketAvailability(mockEventId, { onLowStock })
+      useTicketAvailability(mockFunctionId, { onLowStock })
     )
     
     // Simulate ticket availability update with low stock
     act(() => {
       const mockData = [{
         ticketTypeId: 'ticket-1',
+        functionId: mockFunctionId,
         eventId: mockEventId,
         ticketTypeName: 'General Admission',
         availableCount: 5,
@@ -76,7 +78,7 @@ describe('Ticket Availability Real-time Updates', () => {
       }]
       
       // Simulate the manager calling the callback
-      ticketAvailabilityManager.subscribeToEvent(mockEventId, (data) => {
+      ticketAvailabilityManager.subscribeToFunction(mockFunctionId, (data) => {
         // This would normally be called by the manager
       })
     })
@@ -90,7 +92,7 @@ describe('Ticket Availability Real-time Updates', () => {
   it('should handle sold out callback', async () => {
     const onSoldOut = vi.fn()
     const { result } = renderHook(() => 
-      useTicketAvailability(mockEventId, { onSoldOut })
+      useTicketAvailability(mockFunctionId, { onSoldOut })
     )
     
     // Verify initial state
@@ -98,7 +100,7 @@ describe('Ticket Availability Real-time Updates', () => {
   })
   
   it('should return correct ticket availability status', () => {
-    const { result } = renderHook(() => useTicketAvailability(mockEventId))
+    const { result } = renderHook(() => useTicketAvailability(mockFunctionId))
     
     // Test when ticket doesn't exist
     expect(result.current.isTicketAvailable('non-existent')).toBe(false)
@@ -107,7 +109,7 @@ describe('Ticket Availability Real-time Updates', () => {
   
   it('should handle disabled state', () => {
     const { result } = renderHook(() => 
-      useTicketAvailability(mockEventId, { enabled: false })
+      useTicketAvailability(mockFunctionId, { enabled: false })
     )
     
     expect(result.current.availability.size).toBe(0)
@@ -115,19 +117,19 @@ describe('Ticket Availability Real-time Updates', () => {
   })
   
   it('should clean up on unmount', () => {
-    const { unmount } = renderHook(() => useTicketAvailability(mockEventId))
+    const { unmount } = renderHook(() => useTicketAvailability(mockFunctionId))
     
     unmount()
     
     // Verify cleanup was called
-    expect(vi.mocked(reservationExpiryManager.stopMonitoring)).toHaveBeenCalledWith(mockEventId)
+    expect(vi.mocked(reservationExpiryManager.stopMonitoring)).toHaveBeenCalledWith(mockFunctionId)
   })
 })
 
 describe('Single Ticket Availability Hook', () => {
   it('should provide simplified interface for single ticket', () => {
     const { result } = renderHook(() => 
-      useSingleTicketAvailability('event-123', 'ticket-456')
+      useSingleTicketAvailability('function-123', 'ticket-456')
     )
     
     expect(result.current.available).toBe(0)

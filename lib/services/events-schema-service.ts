@@ -30,7 +30,6 @@ interface EventsSchemaRow {
   attendance?: any
   documents?: any
   related_events?: string[] | null
-  parent_event_id?: string | null // Using snake_case as in DB
   created_at: string // Using snake_case as in DB
   updated_at?: string // Using snake_case as in DB
   
@@ -337,64 +336,6 @@ export class EventsSchemaService {
     }
   }
   
-  /**
-   * Get related events
-   */
-  async getRelatedEvents(event_id: string): Promise<EventType[]> {
-    // Validate input
-    if (!event_id) {
-      api.warn('getRelatedEvents called with empty event_id');
-      return [];
-    }
-    
-    
-    try {
-      api.debug(`Fetching related events for event_id: ${event_id}`);
-      
-      // First get the event and its related events array
-      const supabase = await this.getClient();
-      const { data: event, error: eventError } = await supabase
-        .from("events") // Use snake_case table name
-        .select('related_events')
-        .eq('event_id', event_id)
-        .single();
-      
-      if (eventError) {
-        api.error(`Error fetching event ${event_id} for related events:`, eventError);
-        throw eventError;
-      }
-      
-      if (!event || !event.related_events || !Array.isArray(event.related_events) || event.related_events.length === 0) {
-        api.debug(`No related events found for event_id: ${event_id}`);
-        return [];
-      }
-      
-      // Fetch the related events
-      const { data, error } = await supabase
-        .from("events") // Use snake_case table name
-        .select('*')
-        .in('event_id', event.related_events)
-        .order("event_start", { ascending: true });
-      
-      if (error) {
-        api.error(`Error fetching related events for event_id ${event_id}:`, error);
-        throw error;
-      }
-      
-      if (!data || data.length === 0) {
-        api.warn(`Related events array exists but no related events found for event_id: ${event_id}`);
-        return [];
-      }
-      
-      const transformedEvents = data.map(e => this.transformEvent(e));
-      api.debug(`Successfully transformed ${transformedEvents.length} related events for event_id: ${event_id}`);
-      
-      return transformedEvents;
-    } catch (error) {
-      api.error(`Error in getRelatedEvents for event_id ${event_id}:`, error);
-      throw error;
-    }
-  }
   
   /**
    * Search events
@@ -445,46 +386,6 @@ export class EventsSchemaService {
     }
   }
   
-  /**
-   * Get child events by parent event ID
-   */
-  async getChildEventsByParentId(parentEventId: string): Promise<EventType[]> {
-    // Validate input
-    if (!parentEventId) {
-      api.warn('getChildEventsByParentId called with empty parentEventId');
-      return [];
-    }
-    
-    
-    try {
-      api.debug(`Fetching child events for parentEventId: ${parentEventId}`);
-      
-      const supabase = await this.getClient();
-      const { data, error } = await supabase
-        .from("events") // Use snake_case table name
-        .select('*')
-        .eq('parent_event_id', parentEventId)
-        .order("event_start", { ascending: true });
-      
-      if (error) {
-        api.error(`Error fetching child events for parentEventId ${parentEventId}:`, error);
-        throw error;
-      }
-      
-      if (!data || data.length === 0) {
-        api.debug(`No child events found for parentEventId: ${parentEventId}`);
-        return [];
-      }
-      
-      const transformedEvents = data.map(event => this.transformEvent(event));
-      api.debug(`Successfully transformed ${transformedEvents.length} child events for parentEventId: ${parentEventId}`);
-      
-      return transformedEvents;
-    } catch (error) {
-      api.error(`Error in getChildEventsByParentId for ${parentEventId}:`, error);
-      throw error;
-    }
-  }
   
   /**
    * Transform database event to EventType
@@ -556,7 +457,6 @@ export class EventsSchemaService {
         // Map snake_case to camelCase for metadata
         createdAt: data.created_at,
         isMultiDay: data.is_multi_day || null,
-        parentEventId: isValidValue(data.parent_event_id) ? data.parent_event_id: null,
         
         // Content fields with array validation
         eventIncludes: Array.isArray(data.event_includes) ? data.event_includes: null,

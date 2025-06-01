@@ -2,6 +2,7 @@ import { createClient } from '@/utils/supabase/server'
 import { Database } from '@/shared/types/database'
 import { supabase } from '@/lib/supabase-singleton'
 import { getEventDetailDataFallback } from './event-rpc-service-fallback'
+import { getFilterParams, isFilteringEnabled } from '@/lib/config/environment'
 
 // Types for RPC function returns
 export interface EventCardData {
@@ -15,10 +16,7 @@ export interface EventCardData {
   location: string;
   image_url: string | null;
   is_featured: boolean;
-  parent_event_id: string | null;
   event_type: string | null;
-  parent_slug: string | null;
-  parent_title: string | null;
   min_price: number;
   max_price: number;
   has_free_tickets: boolean;
@@ -41,13 +39,10 @@ export interface EventDetailData {
   image_url: string | null;
   banner_image_url: string | null;
   is_featured: boolean;
-  parent_event_id: string | null;
   event_type: string | null;
   dress_code: string | null;
   regalia: string | null;
   degree_type: string | null;
-  parent_slug: string | null;
-  parent_title: string | null;
   is_package: boolean;
   package_id: string | null;
   venue_name: string | null;
@@ -58,17 +53,6 @@ export interface EventDetailData {
   venue_map_url: string | null;
   organiser_name: string | null;
   organiser_contact: string | null;
-  child_events: Array<{
-    event_id: string;
-    slug: string;
-    title: string;
-    subtitle: string | null;
-    event_start: string;
-    event_end: string | null;
-    min_price: number;
-    is_sold_out: boolean;
-    location_string: string;
-  }>;
   packages: Array<{
     package_id: string;
     name: string;
@@ -119,7 +103,6 @@ export interface RegistrationEventData {
     event_end: string | null;
     location: string;
     type: string | null;
-    is_parent: boolean;
   }>;
   all_tickets: Array<{
     id: string;
@@ -178,11 +161,28 @@ export class EventRPCService {
   async getEventCardsData(options?: {
     eventIds?: string[];
     featuredOnly?: boolean;
+    functionId?: string;
     limit?: number;
   }): Promise<EventCardData[]> {
     const client = await this.getClient();
+    
+    // Apply environment filtering
+    const filterParams = getFilterParams();
+    let effectiveFunctionId = options?.functionId;
+    let effectiveOrganiserId: string | undefined;
+    
+    if (isFilteringEnabled() && filterParams) {
+      if (filterParams.column === 'function_id') {
+        // Override with environment function_id if not explicitly provided
+        effectiveFunctionId = effectiveFunctionId || filterParams.value;
+      } else if (filterParams.column === 'organiser_id') {
+        effectiveOrganiserId = filterParams.value;
+      }
+    }
+    
+    // Query directly from events table with joins
     let query = client
-      .from('event_display_view')
+      .from('events')
       .select(`
         event_id,
         slug,
@@ -191,17 +191,24 @@ export class EventRPCService {
         description,
         event_start,
         event_end,
-        location_string,
         image_url,
         featured,
-        parent_event_id,
         type,
-        parent_event_slug,
-        parent_event_title,
-        min_price,
-        total_capacity,
-        tickets_sold,
-        is_sold_out
+        function_id,
+        location_id,
+        organiser_id,
+        locations (
+          place_name,
+          street_address,
+          suburb,
+          state,
+          postal_code
+        ),
+        event_tickets (
+          price,
+          total_capacity,
+          available_count
+        )
       `)
       .eq('is_published', true)
       .order('event_start', { ascending: true });
@@ -213,6 +220,14 @@ export class EventRPCService {
     
     if (options?.featuredOnly) {
       query = query.eq('featured', true);
+    }
+    
+    if (effectiveFunctionId) {
+      query = query.eq('function_id', effectiveFunctionId);
+    }
+    
+    if (effectiveOrganiserId) {
+      query = query.eq('organiser_id', effectiveOrganiserId);
     }
     
     if (options?.limit) {
@@ -227,28 +242,42 @@ export class EventRPCService {
     }
     
     // Transform the data to match EventCardData interface
-    return (data || []).map(event => ({
-      event_id: event.event_id,
-      slug: event.slug,
-      title: event.title,
-      subtitle: event.subtitle,
-      description: event.description,
-      event_start: event.event_start,
-      event_end: event.event_end,
-      location: event.location_string || 'TBD',
-      image_url: event.image_url,
-      is_featured: event.featured || false,
-      parent_event_id: event.parent_event_id,
-      event_type: event.type,
-      parent_slug: event.parent_event_slug,
-      parent_title: event.parent_event_title,
-      min_price: event.min_price || 0,
-      max_price: event.min_price || 0, // We don't have max_price in view, using min_price for now
-      has_free_tickets: event.min_price === 0,
-      total_capacity: event.total_capacity || 0,
-      tickets_sold: event.tickets_sold || 0,
-      is_sold_out: event.is_sold_out || false
-    }));
+    return (data || []).map(event => {
+      // Calculate min price from tickets
+      const ticketPrices = (event.event_tickets || []).map(t => t.price).filter(p => p !== null);
+      const minPrice = ticketPrices.length > 0 ? Math.min(...ticketPrices) : 0;
+      const maxPrice = ticketPrices.length > 0 ? Math.max(...ticketPrices) : 0;
+      
+      // Calculate capacity and sold tickets
+      const totalCapacity = (event.event_tickets || []).reduce((sum, t) => sum + (t.total_capacity || 0), 0);
+      const totalAvailable = (event.event_tickets || []).reduce((sum, t) => sum + (t.available_count || 0), 0);
+      const ticketsSold = totalCapacity - totalAvailable;
+      
+      // Format location string
+      const location = event.locations ? 
+        `${event.locations.place_name}, ${event.locations.suburb}, ${event.locations.state}` : 
+        'TBD';
+      
+      return {
+        event_id: event.event_id,
+        slug: event.slug,
+        title: event.title,
+        subtitle: event.subtitle,
+        description: event.description || '',
+        event_start: event.event_start,
+        event_end: event.event_end,
+        location: location,
+        image_url: event.image_url,
+        is_featured: event.featured || false,
+        event_type: event.type,
+        min_price: minPrice,
+        max_price: maxPrice,
+        has_free_tickets: minPrice === 0,
+        total_capacity: totalCapacity,
+        tickets_sold: ticketsSold,
+        is_sold_out: totalAvailable === 0 && totalCapacity > 0
+      };
+    });
   }
 
   /**
@@ -278,11 +307,23 @@ export class EventRPCService {
     
     if (!data) return null;
     
+    // Apply environment filtering
+    const filterParams = getFilterParams();
+    if (isFilteringEnabled() && filterParams && data.event) {
+      if (filterParams.column === 'function_id' && data.event.function_id !== filterParams.value) {
+        console.log('[EventRPCService] Event filtered out by function_id:', data.event.function_id, '!==', filterParams.value);
+        return null;
+      }
+      if (filterParams.column === 'organiser_id' && data.event.organiser_id !== filterParams.value) {
+        console.log('[EventRPCService] Event filtered out by organiser_id:', data.event.organiser_id, '!==', filterParams.value);
+        return null;
+      }
+    }
+    
     // The RPC returns a nested structure, extract and flatten the event data
     const eventData = data.event;
     const location = data.location;
     const organisation = data.organisation;
-    const parentEvent = data.parent_event;
     const summary = data.summary;
     
     // Combine all the data into the expected flat structure
@@ -301,9 +342,6 @@ export class EventRPCService {
       // Add organisation details
       organiser_name: organisation?.name || null,
       organiser_contact: null, // Not provided by RPC
-      // Add parent event details
-      parent_slug: parentEvent?.slug || null,
-      parent_title: parentEvent?.title || null,
       // Add summary data
       min_price: summary?.min_price || 0,
       max_price: summary?.max_price || summary?.min_price || 0, // Now provided by updated RPC
@@ -316,39 +354,22 @@ export class EventRPCService {
       banner_image_url: eventData.image_url || null,
       is_package: false,
       package_id: null,
-      // Map child_events with proper structure expected by components
-      child_events: (data.child_events || []).map((child: any) => ({
-        id: child.event_id,
-        event_id: child.event_id,
-        slug: child.slug,
-        title: child.title,
-        subtitle: child.subtitle || '',
-        description: child.description || '',
-        image_url: child.image_url || null,
-        event_start: child.event_start,
-        event_end: child.event_end,
-        min_price: child.min_price || 0,
-        is_sold_out: child.is_sold_out || false,
-        location: child.location_string || '',
-        featured: child.featured || false,
-        is_multi_day: child.is_multi_day || false
-      })),
-      // Map ticket_types to tickets as expected by components
-      tickets: (data.ticket_types || []).map((ticket: any) => ({
+      // Map tickets from RPC response to expected format
+      tickets: (data.tickets || []).map((ticket: any) => ({
         id: ticket.ticket_type_id,
         ticket_type_id: ticket.ticket_type_id,
-        name: ticket.ticket_type_name,
-        ticket_type_name: ticket.ticket_type_name,
-        description: ticket.description || '',
-        price: ticket.price || 0,
-        quantity_available: ticket.actual_available || 0,
-        available_count: ticket.available_count || 0,
-        total_capacity: ticket.total_capacity || 0,
-        attendee_type: ticket.ticket_category || 'General',
-        is_sold_out: ticket.is_sold_out || false,
-        status: ticket.status || 'Active',
-        eligibility_criteria: ticket.eligibility_criteria || null,
-        has_eligibility_requirements: ticket.has_eligibility_requirements || false
+        name: ticket.ticket_name,
+        ticket_type_name: ticket.ticket_name,
+        description: ticket.ticket_description || '',
+        price: ticket.base_price || 0,
+        quantity_available: ticket.available_quantity || 0,
+        available_count: ticket.available_quantity || 0,
+        total_capacity: ticket.max_quantity || 0,
+        attendee_type: ticket.eligibility_type || 'General',
+        is_sold_out: (ticket.available_quantity || 0) === 0,
+        status: ticket.is_active ? 'Active' : 'Inactive',
+        eligibility_criteria: ticket.eligibility_type || null,
+        has_eligibility_requirements: !!ticket.eligibility_type
       })),
       // Map packages with proper structure
       packages: (data.packages || []).map((pkg: any) => ({
@@ -363,7 +384,7 @@ export class EventRPCService {
         included_events: pkg.included_events || []
       })),
       // Keep raw data for backward compatibility
-      ticket_types: data.ticket_types || []
+      ticket_types: data.tickets || []
     } as any;
     
     return result;
@@ -393,9 +414,10 @@ export class EventRPCService {
   /**
    * Helper method to get featured events
    */
-  async getFeaturedEvents(limit: number = 3): Promise<EventCardData[]> {
+  async getFeaturedEvents(limit: number = 3, functionId?: string): Promise<EventCardData[]> {
     return this.getEventCardsData({
       featuredOnly: true,
+      functionId,
       limit
     });
   }

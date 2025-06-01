@@ -89,7 +89,7 @@ export class StorageCleanupService {
       // Get all ticket IDs from database
       const { data: tickets } = await supabase
         .from('tickets')
-        .select('id, qr_code_url');
+        .select('ticket_id, qr_code_url');
       
       const ticketIds = new Set(tickets?.map(t => t.id) || []);
       

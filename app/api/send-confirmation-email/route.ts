@@ -14,27 +14,40 @@ export async function POST(request: NextRequest) {
     
     // Check if this is a batch request
     if (body.batch && body.attendees) {
-      const { attendees, event, registrationId, primaryEmail } = body;
+      const { attendees, event, function: functionData, selectedEvents, registrationId, primaryEmail } = body;
       
       // Prepare base template data (common for all emails)
       const baseTemplateData: Omit<EmailTemplateData, 'customerName' | 'customerEmail' | 'attendees'> = {
         confirmationNumber: registrationId,
         registrationDate: new Date().toLocaleDateString('en-AU'),
-        eventTitle: event.name,
-        eventDate: new Date(event.date).toLocaleDateString('en-AU', {
+        // Function details if available
+        functionTitle: functionData?.name,
+        functionDate: functionData?.date ? new Date(functionData.date).toLocaleDateString('en-AU', {
           weekday: 'long',
           year: 'numeric',
           month: 'long',
           day: 'numeric',
-        }),
-        eventTime: event.time || '10:00 AM',
-        eventVenue: event.location,
-        eventAddress: event.address || '66 Goulburn Street, Sydney NSW 2000',
+        }) : undefined,
+        functionTime: functionData?.time || '10:00 AM',
+        functionVenue: functionData?.location,
+        functionAddress: functionData?.address || '66 Goulburn Street, Sydney NSW 2000',
+        selectedEvents: selectedEvents || [],
+        // Legacy event details for backward compatibility
+        eventTitle: event?.name,
+        eventDate: event?.date ? new Date(event.date).toLocaleDateString('en-AU', {
+          weekday: 'long',
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+        }) : undefined,
+        eventTime: event?.time || '10:00 AM',
+        eventVenue: event?.location,
+        eventAddress: event?.address || '66 Goulburn Street, Sydney NSW 2000',
         subtotal: body.subtotal || 0,
         bookingFee: body.bookingFee || 0,
         total: body.total || 0,
-        dressCode: event.dressCode,
-        specialInstructions: event.specialInstructions,
+        dressCode: functionData?.dressCode || event?.dressCode,
+        specialInstructions: functionData?.specialInstructions || event?.specialInstructions,
         ticketDownloadUrl: `${process.env.NEXT_PUBLIC_BASE_URL}/api/download-tickets/${registrationId}`,
         addToCalendarUrl: `${process.env.NEXT_PUBLIC_BASE_URL}/api/calendar/${registrationId}`,
       };
@@ -50,19 +63,19 @@ export async function POST(request: NextRequest) {
             registrationId,
             ticketType: body.ticketAssignments?.[attendee.attendeeId] || 'General',
             attendeeId: attendee.attendeeId,
-            eventId: event.id,
-            eventTitle: event.name,
-            eventDate: baseTemplateData.eventDate,
-            eventTime: baseTemplateData.eventTime,
-            eventVenue: baseTemplateData.eventVenue,
-            eventAddress: baseTemplateData.eventAddress,
+            eventId: functionData?.id || event?.id,
+            eventTitle: functionData?.name || event?.name,
+            eventDate: baseTemplateData.functionDate || baseTemplateData.eventDate,
+            eventTime: baseTemplateData.functionTime || baseTemplateData.eventTime,
+            eventVenue: baseTemplateData.functionVenue || baseTemplateData.eventVenue,
+            eventAddress: baseTemplateData.functionAddress || baseTemplateData.eventAddress,
             attendeeName: `${attendee.firstName} ${attendee.lastName}`,
             attendeeType: attendee.type,
             attendeeTitle: attendee.title,
             confirmationNumber: registrationId,
             purchaseDate: new Date().toLocaleDateString('en-AU'),
-            dressCode: event.dressCode,
-            specialInstructions: event.specialInstructions,
+            dressCode: functionData?.dressCode || event?.dressCode,
+            specialInstructions: functionData?.specialInstructions || event?.specialInstructions,
           };
           
           const ticketPdf = await generateTicketPDF(ticketData);
@@ -108,19 +121,19 @@ export async function POST(request: NextRequest) {
             registrationId,
             ticketType: body.ticketAssignments?.[attendee.attendeeId] || 'General',
             attendeeId: attendee.attendeeId,
-            eventId: event.id,
-            eventTitle: event.name,
-            eventDate: baseTemplateData.eventDate,
-            eventTime: baseTemplateData.eventTime,
-            eventVenue: baseTemplateData.eventVenue,
-            eventAddress: baseTemplateData.eventAddress,
+            eventId: functionData?.id || event?.id,
+            eventTitle: functionData?.name || event?.name,
+            eventDate: baseTemplateData.functionDate || baseTemplateData.eventDate,
+            eventTime: baseTemplateData.functionTime || baseTemplateData.eventTime,
+            eventVenue: baseTemplateData.functionVenue || baseTemplateData.eventVenue,
+            eventAddress: baseTemplateData.functionAddress || baseTemplateData.eventAddress,
             attendeeName: `${attendee.firstName} ${attendee.lastName}`,
             attendeeType: attendee.type,
             attendeeTitle: attendee.title,
             confirmationNumber: registrationId,
             purchaseDate: new Date().toLocaleDateString('en-AU'),
-            dressCode: event.dressCode,
-            specialInstructions: event.specialInstructions,
+            dressCode: functionData?.dressCode || event?.dressCode,
+            specialInstructions: functionData?.specialInstructions || event?.specialInstructions,
           }));
           
           const { generateAllTicketsPDF } = await import('@/components/register/RegistrationWizard/utils/ticketPdfGenerator');

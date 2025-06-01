@@ -9,6 +9,7 @@ export { cacheManager, CacheKeys } from '../cache-manager';
 // Optimized services
 export { homepageService } from './homepage-service-optimized';
 export { eventService } from './event-service-optimized';
+export { FunctionService } from './function-service';
 export { 
   registrationService, 
   serverRegistrationService,

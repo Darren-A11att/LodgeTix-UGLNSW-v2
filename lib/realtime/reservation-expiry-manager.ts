@@ -127,7 +127,7 @@ export class ReservationExpiryManager {
       const { data: ticketType, error: typeError } = await this.supabase
         .from('event_tickets')
         .select('total_capacity')
-        .eq('id', ticketTypeId)
+        .eq('event_ticket_id', ticketTypeId)
         .single()
       
       if (typeError) {
@@ -147,7 +147,7 @@ export class ReservationExpiryManager {
           available_count: availableCount,
           updated_at: new Date().toISOString()
         })
-        .eq('id', ticketTypeId)
+        .eq('event_ticket_id', ticketTypeId)
       
       if (updateError) {
         console.error('[ReservationExpiryManager] Error updating ticket type counts:', updateError)

@@ -174,7 +174,7 @@ export class StaticDataService {
           const { data, error } = await client
             .from('organisations')
             .select('*')
-            .eq('id', id)
+            .eq('organisation_id', id)
             .single();
 
           if (error) {

@@ -208,26 +208,26 @@ export async function saveMasonicProfile(data: {
   try {
     // Check if profile already exists for this person
     const { data: existingProfile } = await supabase
-      .from("masonicprofiles")
-      .select("masonicprofileid")
-      .eq("person_id", data.person_id)
+      .from("masonic_profiles")
+      .select("masonic_profile_id")
+      .eq("contact_id", data.person_id)
       .maybeSingle()
     
     if (existingProfile) {
       // Update existing profile
       const { data: updatedProfile, error } = await supabase
-        .from("masonicprofiles")
+        .from("masonic_profiles")
         .update({
-          masonictitle: data.masonictitle,
+          masonic_title: data.masonictitle,
           rank: data.rank,
-          grandrank: data.grandrank || null,
-          grandofficer: data.grandofficer || null,
-          grandoffice: data.grandoffice || null,
-          lodgeid: data.lodgeid || null,
-          updatedat: new Date().toISOString()
+          grand_rank: data.grandrank || null,
+          grand_officer: data.grandofficer || null,
+          grand_office: data.grandoffice || null,
+          lodge_id: data.lodgeid || null,
+          updated_at: new Date().toISOString()
         })
-        .eq("masonicprofileid", existingProfile.masonicprofileid)
-        .select("masonicprofileid")
+        .eq("masonic_profile_id", existingProfile.masonic_profile_id)
+        .select("masonic_profile_id")
         .single()
       
       if (error) {
@@ -235,21 +235,21 @@ export async function saveMasonicProfile(data: {
         throw error
       }
       
-      return { id: updatedProfile.masonicprofileid }
+      return { id: updatedProfile.masonic_profile_id }
     } else {
       // Create new profile
       const { data: newProfile, error } = await supabase
-        .from("masonicprofiles")
+        .from("masonic_profiles")
         .insert({
-          masonictitle: data.masonictitle,
+          masonic_title: data.masonictitle,
           rank: data.rank,
-          grandrank: data.grandrank || null,
-          grandofficer: data.grandofficer || null,
-          grandoffice: data.grandoffice || null,
-          lodgeid: data.lodgeid || null,
-          person_id: data.person_id
+          grand_rank: data.grandrank || null,
+          grand_officer: data.grandofficer || null,
+          grand_office: data.grandoffice || null,
+          lodge_id: data.lodgeid || null,
+          contact_id: data.person_id
         })
-        .select("masonicprofileid")
+        .select("masonic_profile_id")
         .single()
       
       if (error) {
@@ -257,7 +257,7 @@ export async function saveMasonicProfile(data: {
         throw error
       }
       
-      return { id: newProfile.masonicprofileid }
+      return { id: newProfile.masonic_profile_id }
     }
   } catch (error) {
     console.error("Error in saveMasonicProfile:", error)

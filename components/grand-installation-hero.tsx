@@ -58,7 +58,7 @@ export async function GrandInstallationHero() {
           <p className="mb-8 text-lg">{dateLocation}</p>
           <div className="flex flex-col justify-center gap-4 sm:flex-row">
             <Button asChild size="lg" className="bg-masonic-gold text-masonic-navy hover:bg-masonic-lightgold">
-              <Link href={`/events/${slug}/register`}>Purchase Tickets</Link>
+              <Link href={`/functions/${slug}/register`}>Purchase Tickets</Link>
             </Button>
           </div>
         </div>

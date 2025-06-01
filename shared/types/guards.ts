@@ -74,7 +74,7 @@ export function isTicket(obj: any): obj is Tables['tickets']['Row'] {
  */
 export function isEventTicket(obj: any): obj is Tables['event_tickets']['Row'] {
   return obj && 
-    typeof obj.id === 'string' &&
+    typeof obj.event_ticket_id === 'string' &&
     typeof obj.event_id === 'string' &&
     typeof obj.name === 'string' &&
     typeof obj.price === 'number';

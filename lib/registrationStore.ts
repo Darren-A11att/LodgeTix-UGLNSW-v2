@@ -55,7 +55,9 @@ export type BookingContactType = BillingDetailsType;
 // --- State Interface ---
 export interface RegistrationState {
   draftId: string | null;
-  eventId: string | null; // Add eventId field for the event being registered for
+  functionId: string | null; // Function ID for the registration
+  functionSlug: string | null; // Function slug for navigation
+  selectedEvents: string[]; // Selected event IDs within the function
   registrationType: RegistrationType | null;
   delegationType: 'lodge' | 'grandLodge' | 'masonicOrder' | null; // Type of delegation when registrationType is 'delegation'
   attendees: UnifiedAttendeeData[];
@@ -96,8 +98,10 @@ export interface RegistrationState {
   goToPrevStep: () => void;
   // Confirmation methods
   setConfirmationNumber: (number: string) => void;
-  // Event methods
-  setEventId: (id: string) => void; // Set the eventId for the current registration
+  // Function methods
+  setFunctionId: (id: string) => void; // Set the functionId for the current registration
+  setFunctionSlug: (slug: string) => void; // Set the function slug
+  setSelectedEvents: (eventIds: string[]) => void; // Set selected events within the function
   
   // Draft recovery methods
   setDraftRecoveryHandled: (handled: boolean) => void; // Set if draft recovery has been handled
@@ -113,9 +117,11 @@ export interface RegistrationState {
 }
 
 // --- Initial State ---
-const initialRegistrationState: Omit<RegistrationState, 'startNewRegistration' | 'addPrimaryAttendee' | 'loadDraft' | 'clearRegistration' | 'clearAllAttendees' | 'setRegistrationType' | 'addAttendee' | 'addMasonAttendee' | 'addGuestAttendee' | 'addPartnerAttendee' | 'updateAttendee' | 'removeAttendee' | 'updatePackageSelection' | 'updateBillingDetails' | 'setAgreeToTerms' | '_updateStatus' | 'setCurrentStep' | 'goToNextStep' | 'goToPrevStep' | 'setConfirmationNumber' | 'setEventId' | 'setDraftRecoveryHandled' | 'setAnonymousSessionEstablished' | 'setLodgeTicketOrder' | 'setDelegationType'> = {
+const initialRegistrationState: Omit<RegistrationState, 'startNewRegistration' | 'addPrimaryAttendee' | 'loadDraft' | 'clearRegistration' | 'clearAllAttendees' | 'setRegistrationType' | 'addAttendee' | 'addMasonAttendee' | 'addGuestAttendee' | 'addPartnerAttendee' | 'updateAttendee' | 'removeAttendee' | 'updatePackageSelection' | 'updateBillingDetails' | 'setAgreeToTerms' | '_updateStatus' | 'setCurrentStep' | 'goToNextStep' | 'goToPrevStep' | 'setConfirmationNumber' | 'setFunctionId' | 'setFunctionSlug' | 'setSelectedEvents' | 'setDraftRecoveryHandled' | 'setAnonymousSessionEstablished' | 'setLodgeTicketOrder' | 'setDelegationType'> = {
     draftId: null,
-    eventId: null, // Initialize eventId as null
+    functionId: null, // Initialize functionId as null
+    functionSlug: null, // Initialize functionSlug as null
+    selectedEvents: [], // Initialize selectedEvents as empty array
     registrationType: null,
     delegationType: null,
     attendees: [],
@@ -336,7 +342,10 @@ export const useRegistrationStore = create<RegistrationState>(
         set({ 
           ...initialRegistrationState,
           anonymousSessionEstablished: currentAnonymousSession, // Preserve session state
-          delegationType: null // Explicitly clear delegation type
+          delegationType: null, // Explicitly clear delegation type
+          functionId: null,
+          functionSlug: null,
+          selectedEvents: []
         }); // Reset to initial state but keep session
         console.log('Registration state cleared.');
       },
@@ -538,8 +547,10 @@ export const useRegistrationStore = create<RegistrationState>(
         status: 'completed' // Mark as completed when confirmation number is set
       }),
       
-      // Event actions
-      setEventId: (id) => set({ eventId: id }),
+      // Function actions
+      setFunctionId: (id) => set({ functionId: id }),
+      setFunctionSlug: (slug) => set({ functionSlug: slug }),
+      setSelectedEvents: (eventIds) => set({ selectedEvents: eventIds }),
       
       // Draft recovery actions
       setDraftRecoveryHandled: (handled) => set({ draftRecoveryHandled: handled }),
@@ -558,6 +569,9 @@ export const useRegistrationStore = create<RegistrationState>(
       name: 'lodgetix-registration-storage', 
       partialize: (state) => ({
         draftId: state.draftId,
+        functionId: state.functionId, // Persist function ID
+        functionSlug: state.functionSlug, // Persist function slug
+        selectedEvents: state.selectedEvents, // Persist selected events
         registrationType: state.registrationType,
         delegationType: state.delegationType, // Persist delegation type
         attendees: state.attendees,
@@ -615,6 +629,8 @@ export const selectAgreeToTerms = (state: RegistrationState) => state.agreeToTer
 export const selectDraftId = (state: RegistrationState) => state.draftId;
 export const selectLastSaved = (state: RegistrationState) => state.lastSaved;
 export const selectConfirmationNumber = (state: RegistrationState) => state.confirmationNumber;
-export const selectEventId = (state: RegistrationState) => state.eventId;
+export const selectFunctionId = (state: RegistrationState) => state.functionId;
+export const selectFunctionSlug = (state: RegistrationState) => state.functionSlug;
+export const selectSelectedEvents = (state: RegistrationState) => state.selectedEvents;
 export const selectDraftRecoveryHandled = (state: RegistrationState) => state.draftRecoveryHandled;
 export const selectAnonymousSessionEstablished = (state: RegistrationState) => state.anonymousSessionEstablished; 

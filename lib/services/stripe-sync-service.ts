@@ -53,7 +53,6 @@ export async function syncEventToStripeProduct(
             images: event.image_url ? [event.image_url] : undefined,
             metadata: buildProductMetadata({
               eventId: event.event_id,
-              parentEventId: event.parent_event_id || undefined,
               eventType: event.type || undefined,
               eventSlug: event.slug,
               organisationId: event.organiser_id || '',
@@ -84,7 +83,6 @@ export async function syncEventToStripeProduct(
         
         metadata: buildProductMetadata({
           eventId: event.event_id,
-          parentEventId: event.parent_event_id || undefined,
           eventType: event.type || undefined,
           eventSlug: event.slug,
           organisationId: event.organiser_id || '',
@@ -151,7 +149,7 @@ export async function syncTicketToStripePrice(
         
         // Prices are immutable in Stripe, so if amount changed, we need to create a new one
         if (existingPrice.unit_amount !== Math.round(Number(ticket.price) * 100)) {
-          console.log(`Price changed for ticket ${ticket.id}, creating new price`);
+          console.log(`Price changed for ticket ${ticket.event_ticket_id}, creating new price`);
           // Archive the old price
           await stripe.prices.update(
             ticket.stripe_price_id,
@@ -165,7 +163,7 @@ export async function syncTicketToStripePrice(
             {
               nickname: ticket.name,
               metadata: buildPriceMetadata({
-                ticketId: ticket.id,
+                ticketId: ticket.event_ticket_id,
                 ticketType: ticket.name,
                 eventId: ticket.event_id,
                 maxQuantity: ticket.total_capacity || undefined,
@@ -194,7 +192,7 @@ export async function syncTicketToStripePrice(
         nickname: ticket.name,
         
         metadata: buildPriceMetadata({
-          ticketId: ticket.id,
+          ticketId: ticket.event_ticket_id,
           ticketType: ticket.name,
           eventId: ticket.event_id,
           maxQuantity: ticket.total_capacity || undefined,
@@ -209,14 +207,14 @@ export async function syncTicketToStripePrice(
     const { error } = await supabase
       .from('event_tickets')
       .update({ stripe_price_id: price.id })
-      .eq('id', ticket.id);
+      .eq('event_ticket_id', ticket.event_ticket_id);
       
     if (error) {
       console.error('Error updating ticket with Stripe price ID:', error);
       return null;
     }
     
-    console.log(`Created Stripe price ${price.id} for ticket ${ticket.id}`);
+    console.log(`Created Stripe price ${price.id} for ticket ${ticket.event_ticket_id}`);
     return price.id;
     
   } catch (error) {
@@ -236,16 +234,11 @@ export async function createOrUpdateStripeCustomer(
     const customerData: Stripe.CustomerCreateParams | Stripe.CustomerUpdateParams = {
       email: attendee.email || undefined,
       name: `${attendee.first_name} ${attendee.last_name}`,
-      phone: attendee.phone_number || undefined,
+      phone: attendee.phone || undefined,
       
-      address: attendee.city && attendee.country ? {
-        city: attendee.city,
-        country: attendee.country,
-        postal_code: attendee.postal_code || undefined,
-        state: attendee.state || undefined,
-        line1: attendee.address_line_1 || undefined,
-        line2: attendee.address_line_2 || undefined
-      } : undefined,
+      // Note: Attendees table doesn't have address fields
+      // Address information would need to come from the contacts table
+      address: undefined,
       
       metadata: buildCustomerMetadata({
         attendeeId: attendee.attendee_id,
@@ -357,29 +350,3 @@ export async function syncEventTickets(
   }
 }
 
-/**
- * Get aggregated child events data for metadata
- */
-export async function getChildEventsMetadata(parentEventId: string): Promise<Record<string, string>> {
-  const supabase = await createClient();
-  const { data: childEvents } = await supabase
-    .from('events')
-    .select('event_id, title, slug, event_start')
-    .eq('parent_event_id', parentEventId)
-    .order('event_start');
-  
-  if (!childEvents || childEvents.length === 0) {
-    return {};
-  }
-  
-  return {
-    child_event_count: String(childEvents.length),
-    child_event_ids: childEvents.map(e => e.event_id).join(',').substring(0, 500),
-    child_event_titles: childEvents.map(e => e.title).join('|').substring(0, 500),
-    child_event_slugs: childEvents.map(e => e.slug).join(',').substring(0, 500),
-    child_event_dates: childEvents
-      .map(e => e.event_start ? new Date(e.event_start).toISOString().split('T')[0] : '')
-      .join(',')
-      .substring(0, 500)
-  };
-}

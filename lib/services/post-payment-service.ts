@@ -48,7 +48,7 @@ export class PostPaymentService {
           ),
           tickets (
             id,
-            attendee_id,
+            attendee.attendee.attendee.attendee.attendee.attendee_id,
             event_ticket_id,
             price,
             status,
@@ -56,6 +56,16 @@ export class PostPaymentService {
           ),
           events (
             id,
+            name,
+            date,
+            start_time,
+            location,
+            address,
+            dress_code,
+            special_instructions
+          ),
+          functions (
+            function_id,
             name,
             date,
             start_time,
@@ -81,12 +91,35 @@ export class PostPaymentService {
         return { success: false, qrCodesGenerated, pdfsGenerated, emailsSent, errors };
       }
       
+      // Get selected events if this is a function registration
+      let selectedEvents = [];
+      if (registration.function_id && registration.registration_data?.selected_events) {
+        const { data: events } = await supabase
+          .from('events')
+          .select('event_id, name, date, start_time, location')
+          .in('event_id', registration.registration_data.selected_events);
+        
+        if (events) {
+          selectedEvents = events.map((e: any) => ({
+            name: e.name,
+            date: new Date(e.date).toLocaleDateString('en-AU', {
+              weekday: 'long',
+              year: 'numeric',
+              month: 'long',
+              day: 'numeric',
+            }),
+            time: e.start_time || '10:00 AM',
+            venue: e.location !== registration.functions?.location ? e.location : undefined
+          }));
+        }
+      }
+      
       // Get event tickets for ticket types
       const ticketIds = registration.tickets.map((t: any) => t.event_ticket_id);
       const { data: eventTickets } = await supabase
         .from('event_tickets')
-        .select('id, title, ticket_type')
-        .in('id', ticketIds);
+        .select('event_ticket_id, title, ticket_type')
+        .in('event_ticket_id', ticketIds);
       
       const ticketTypeMap = new Map(
         eventTickets?.map((et: any) => [et.id, { title: et.title, type: et.ticket_type }]) || []
@@ -103,9 +136,9 @@ export class PostPaymentService {
           
           const ticketInfo = ticketTypeMap.get(ticket.event_ticket_id);
           const qrData = {
-            ticketId: ticket.id,
+            ticketId: ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket_id,
             registrationId: registration.registration_id,
-            attendeeId: ticket.attendee_id,
+            attendeeId: ticket.attendee.attendee.attendee.attendee.attendee.attendee_id,
             eventId: registration.event_id,
             ticketType: ticketInfo?.type || 'General',
           };
@@ -117,15 +150,15 @@ export class PostPaymentService {
             await supabase
               .from('tickets')
               .update({ qr_code_url: qrUrl })
-              .eq('id', ticket.id);
+              .eq('ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket_id', ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket_id);
             
             qrCodesGenerated++;
           }
           
           return qrUrl;
         } catch (error) {
-          errors.push(`Failed to generate QR code for ticket ${ticket.id}`);
-          console.error(`Error generating QR code for ticket ${ticket.id}:`, error);
+          errors.push(`Failed to generate QR code for ticket ${ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket_id}`);
+          console.error(`Error generating QR code for ticket ${ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket_id}:`, error);
           return null;
         }
       });
@@ -136,15 +169,15 @@ export class PostPaymentService {
       const pdfService = getPDFService();
       const pdfPromises = registration.attendees.map(async (attendee: any) => {
         try {
-          const attendeeTickets = registration.tickets.filter((t: any) => t.attendee_id === attendee.id);
+          const attendeeTickets = registration.tickets.filter((t: any) => t.attendee.attendee.attendee.attendee.attendee.attendee_id === attendee.attendee.attendee.attendee.attendee.attendee_id);
           
           for (const ticket of attendeeTickets) {
             const ticketInfo = ticketTypeMap.get(ticket.event_ticket_id);
             const ticketData: TicketData = {
-              ticketId: ticket.id,
+              ticketId: ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket_id,
               registrationId: registration.registration_id,
               ticketType: ticketInfo?.title || 'General Admission',
-              attendeeId: attendee.id,
+              attendeeId: attendee.attendee.attendee.attendee.attendee.attendee_id,
               eventId: registration.event_id,
               eventTitle: registration.events.name,
               eventDate: new Date(registration.events.date).toLocaleDateString('en-AU', {
@@ -171,8 +204,8 @@ export class PostPaymentService {
             }
           }
         } catch (error) {
-          errors.push(`Failed to generate PDF for attendee ${attendee.id}`);
-          console.error(`Error generating PDF for attendee ${attendee.id}:`, error);
+          errors.push(`Failed to generate PDF for attendee ${attendee.attendee.attendee.attendee.attendee.attendee_id}`);
+          console.error(`Error generating PDF for attendee ${attendee.attendee.attendee.attendee.attendee.attendee_id}:`, error);
         }
       });
       
@@ -196,7 +229,7 @@ export class PostPaymentService {
           eventVenue: registration.events.location,
           eventAddress: registration.events.address || '',
           attendees: registration.attendees.map((attendee: any) => {
-            const ticket = registration.tickets.find((t: any) => t.attendee_id === attendee.id);
+            const ticket = registration.tickets.find((t: any) => t.attendee.attendee.attendee.attendee.attendee.attendee_id === attendee.attendee.attendee.attendee.attendee.attendee_id);
             const ticketInfo = ticketTypeMap.get(ticket?.event_ticket_id);
             return {
               name: `${attendee.first_name} ${attendee.last_name}`,
@@ -239,6 +272,8 @@ export class PostPaymentService {
               batch: true,
               attendees: registration.attendees,
               event: registration.events,
+              function: registration.functions,
+              selectedEvents: selectedEvents,
               registrationId: data.registrationId,
               primaryEmail: registration.contact_email,
               subtotal: registration.subtotal,
@@ -247,7 +282,7 @@ export class PostPaymentService {
               ticketAssignments: Object.fromEntries(
                 registration.tickets.map((t: any) => {
                   const ticketInfo = ticketTypeMap.get(t.event_ticket_id);
-                  return [t.attendee_id, ticketInfo?.title || 'General'];
+                  return [t.attendee.attendee.attendee.attendee.attendee.attendee_id, ticketInfo?.title || 'General'];
                 })
               ),
             }),
@@ -314,7 +349,7 @@ export class PostPaymentService {
           *,
           tickets (
             id,
-            attendee_id,
+            attendee.attendee.attendee.attendee.attendee.attendee_id,
             event_ticket_id,
             qr_code_url
           )
@@ -335,14 +370,14 @@ export class PostPaymentService {
             try {
               // Delete existing QR code if force regenerate
               if (force && ticket.qr_code_url) {
-                await qrCodeService.deleteQRCode(registrationId, ticket.id);
+                await qrCodeService.deleteQRCode(registrationId, ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket_id);
               }
               
               // Generate new QR code
               const qrData = {
-                ticketId: ticket.id,
+                ticketId: ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket_id,
                 registrationId: registrationId,
-                attendeeId: ticket.attendee_id,
+                attendeeId: ticket.attendee.attendee.attendee.attendee.attendee.attendee_id,
                 eventId: registration.event_id,
                 ticketType: 'General', // Would need to fetch this
               };
@@ -352,11 +387,11 @@ export class PostPaymentService {
                 await supabase
                   .from('tickets')
                   .update({ qr_code_url: qrUrl })
-                  .eq('id', ticket.id);
+                  .eq('ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket_id', ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket_id);
                 regenerated.qrCodes++;
               }
             } catch (error) {
-              errors.push(`Failed to regenerate QR code for ticket ${ticket.id}`);
+              errors.push(`Failed to regenerate QR code for ticket ${ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket_id}`);
             }
           }
         }

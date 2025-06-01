@@ -142,3 +142,25 @@ export function getPlatformFeePercentage(): number {
   const percentage = process.env.NEXT_PUBLIC_PLATFORM_FEE_PERCENTAGE;
   return percentage ? parseFloat(percentage) : 0.05; // Default 5%
 }
+
+/**
+ * Determine if a card should be treated as domestic (Australian) based on billing country
+ * @param countryCode ISO country code (e.g., 'AU', 'US', 'GB')
+ * @returns true if the card should be treated as domestic (Australian)
+ */
+export function isDomesticCard(countryCode?: string): boolean {
+  // If no country code provided, default to international for safety
+  if (!countryCode) return false;
+  
+  // Only Australian cards are considered domestic
+  return countryCode.toUpperCase() === 'AU';
+}
+
+/**
+ * Get the appropriate fee label based on domestic/international status
+ * @param isDomestic Whether the card is domestic
+ * @returns The label to display for the processing fee
+ */
+export function getProcessingFeeLabel(isDomestic: boolean): string {
+  return isDomestic ? 'Processing Fee' : 'International Processing Fee';
+}

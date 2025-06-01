@@ -31,9 +31,7 @@ const PaymentStep = lazy(() => {
 const ConfirmationStep = lazy(() => import('./Steps/confirmation-step'))
 
 export interface RegistrationWizardProps {
-  eventId?: string; // Event ID for the registration, passed from the page
-  eventSlug?: string; // Event slug for navigation
-  parentSlug?: string; // Parent event slug for navigation
+  functionSlug: string; // Function slug for the registration
   registrationId?: string; // Registration ID from URL
 }
 
@@ -261,7 +259,7 @@ const validateAttendeeData = (attendees: ReturnType<typeof selectAttendees>): st
   return errors;
 };
 
-export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ eventId, eventSlug, parentSlug, registrationId }) => {
+export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ functionSlug, registrationId }) => {
   const currentStep = useRegistrationStore(selectCurrentStep)
   const registrationType = useRegistrationStore(selectRegistrationType)
   const confirmationNumber = useRegistrationStore(selectConfirmationNumber)
@@ -273,7 +271,8 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ eventId,
   const goToNextStep = useRegistrationStore(state => state.goToNextStep)
   const goToPrevStep = useRegistrationStore(state => state.goToPrevStep)
   const setCurrentStep = useRegistrationStore(state => state.setCurrentStep) // Direct step setting
-  const setEventId = useRegistrationStore(state => state.setEventId) // For setting the eventId
+  const setFunctionSlug = useRegistrationStore(state => state.setFunctionSlug) // For setting the function
+  const setSelectedEvents = useRegistrationStore(state => state.setSelectedEvents) // For setting selected events
   const startNewRegistration = useRegistrationStore(state => state.startNewRegistration)
   const clearRegistration = useRegistrationStore(state => state.clearRegistration)
   const setDraftRecoveryHandled = useRegistrationStore(state => state.setDraftRecoveryHandled)
@@ -285,7 +284,11 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ eventId,
   // Track whether we're in a loading/initializing state
   const [isInitializing, setIsInitializing] = useState(true);
   
-  // Effect to handle event ID and registration initialization
+  // Function-related state
+  const [functionData, setFunctionData] = useState<any>(null);
+  const [selectedEvents, setSelectedEventsLocal] = useState<string[]>([]);
+  
+  // Effect to handle function loading and registration initialization
   useEffect(() => {
     // Development: Check for hot reload recovery first
     if (process.env.NODE_ENV === 'development') {
@@ -311,30 +314,46 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ eventId,
       checkHotReloadRecovery();
     }
     
-    if (eventId) {
-      const storeState = useRegistrationStore.getState();
-      const hasCompletedRegistration = storeState.confirmationNumber !== null || storeState.status === 'completed';
+    if (functionSlug) {
+      const loadFunction = async () => {
+        try {
+          // Import FunctionService dynamically
+          const { FunctionService } = await import('@/lib/services/function-service');
+          const functionService = new FunctionService();
+          
+          const func = await functionService.getFunctionBySlug(functionSlug);
+          setFunctionData(func);
+          
+          const storeState = useRegistrationStore.getState();
+          const hasCompletedRegistration = storeState.confirmationNumber !== null || storeState.status === 'completed';
+          
+          // Check if there's a completed registration (confirmationNumber exists or status is completed)
+          // According to requirements: if status is paid/completed then always start a new registration
+          if (hasCompletedRegistration) {
+            console.log('Detected completed registration - clearing to start fresh');
+            clearRegistration();
+          }
+          
+          // Always go to registration type selection first
+          console.log(`Setting up function: ${functionSlug}`);
+          
+          // Always set current step to 1 (Registration Type) on initial load
+          setCurrentStep(1);
+          
+          setFunctionSlug(functionSlug);
+          // Set initializing to false to proceed to the registration type step
+          setIsInitializing(false);
+          // Never show modal on initial load - it's handled in registration type step
+          setShowDraftRecoveryModal(false);
+        } catch (error) {
+          console.error('Failed to load function:', error);
+          setIsInitializing(false);
+        }
+      };
       
-      // Check if there's a completed registration (confirmationNumber exists or status is completed)
-      // According to requirements: if status is paid/completed then always start a new registration
-      if (hasCompletedRegistration) {
-        console.log('Detected completed registration - clearing to start fresh');
-        clearRegistration();
-      }
-      
-      // Always go to registration type selection first
-      console.log(`Setting up event: ${eventId}`);
-      
-      // Always set current step to 1 (Registration Type) on initial load
-      setCurrentStep(1);
-      
-      setEventId(eventId);
-      // Set initializing to false to proceed to the registration type step
-      setIsInitializing(false);
-      // Never show modal on initial load - it's handled in registration type step
-      setShowDraftRecoveryModal(false);
+      loadFunction();
     }
-  }, [eventId, setEventId, setCurrentStep, clearRegistration]);
+  }, [functionSlug, setFunctionSlug, setCurrentStep, clearRegistration]);
   
   // Handler for continuing existing draft
   const handleContinueDraft = () => {
@@ -342,9 +361,9 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ eventId,
     setShowDraftRecoveryModal(false);
     setDraftRecoveryHandled(true);
     
-    // Set the event ID for the existing registration if needed
-    if (eventId) {
-      setEventId(eventId);
+    // Set the function slug for the existing registration if needed
+    if (functionSlug) {
+      setFunctionSlug(functionSlug);
     }
     
     // Always reset to step 1 (Registration Type) as per requirement
@@ -363,10 +382,10 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ eventId,
     // Clear session state - user will need to re-verify on registration type page
     setAnonymousSessionEstablished(false);
     
-    // Start fresh with the current event ID
+    // Start fresh with the current function
     startNewRegistration('individual');
-    if (eventId) {
-      setEventId(eventId);
+    if (functionSlug) {
+      setFunctionSlug(functionSlug);
     }
     
     // Reset to step 1 (Registration Type)
@@ -390,8 +409,8 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ eventId,
     
     // No existing draft, so start a new one anyway (just don't show another modal)
     startNewRegistration('individual');
-    if (eventId) {
-      setEventId(eventId);
+    if (functionSlug) {
+      setFunctionSlug(functionSlug);
     }
     setCurrentStep(1);
     setDraftRecoveryHandled(true);
@@ -420,7 +439,7 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ eventId,
   // Updated validation logic
   const runValidations = React.useCallback(() => {
     let errors: string[] = [];
-    if (currentStep === 2) { // Assuming step 2 is AttendeeDetails
+    if (currentStep === 3) { // Step 3 is now AttendeeDetails
       // For lodge registrations, we don't validate attendees since they use customer model
       if (registrationType === 'lodge') {
         // Lodge validation is handled by the LodgeRegistrationStore
@@ -441,7 +460,7 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ eventId,
   
   useEffect(() => {
     // Only run this on the attendee details step and if not already synced
-    if (currentStep === 2 && allAttendees && allAttendees.length > 0 && !syncDoneRef.current) {
+    if (currentStep === 3 && allAttendees && allAttendees.length > 0 && !syncDoneRef.current) {
       // console.log("SYNC: Synchronizing default values for all attendees");
       const store = useRegistrationStore.getState();
       
@@ -469,7 +488,7 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ eventId,
     }
     
     // Reset sync flag when leaving the step
-    if (currentStep !== 2) {
+    if (currentStep !== 3) {
       syncDoneRef.current = false;
     }
   }, [currentStep, allAttendees]);
@@ -479,7 +498,7 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ eventId,
   const validationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
   useEffect(() => {
-    if (currentStep === 2) {
+    if (currentStep === 3) {
       try {
         // Clear any existing timeout
         if (validationTimeoutRef.current) {
@@ -525,7 +544,7 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ eventId,
     console.log("handleNext called for step:", currentStep);
     
     // Step-specific validation
-    if (currentStep === 2) { // Attendee Details step
+    if (currentStep === 3) { // Attendee Details step
       // Clear previous errors and re-run validation to ensure we have latest state
       setValidationErrors([]);
       
@@ -596,6 +615,9 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ eventId,
       
       const registrationData = {
         registrationType: storeState.registrationType,
+        functionId: functionData?.id,
+        functionSlug: storeState.functionSlug,
+        selectedEvents: storeState.selectedEvents || selectedEvents,
         primaryAttendee: storeState.attendees.find(att => att.isPrimary),
         additionalAttendees: storeState.attendees.filter(att => !att.isPrimary),
         tickets: storeState.attendees.flatMap(attendee => {
@@ -623,12 +645,12 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ eventId,
           return []
         }),
         totalAmount: 0, // Will be calculated server-side
-        eventId: eventId,
         billingDetails: storeState.billingDetails,
-        contactId: user.id // Include the authenticated user ID
+        customerId: user.id // Include the authenticated user ID
       }
       
-      console.log("📤 Sending registration data with contactId:", registrationData.contactId)
+      console.log("📤 Sending registration data with customerId:", registrationData.customerId)
+      console.log("🍪 Document cookies:", document.cookie)
       
       // Use the session we already have from above
       const headers: HeadersInit = {
@@ -643,7 +665,8 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ eventId,
       const response = await fetch('/api/registrations', {
         method: 'POST',
         headers,
-        body: JSON.stringify(registrationData)
+        body: JSON.stringify(registrationData),
+        credentials: 'include' // Ensure cookies are sent
       })
       
       const result = await response.json()
@@ -660,7 +683,7 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ eventId,
       console.error("❌ Error saving registration:", error)
       throw error
     }
-  }, [eventId])
+  }, [functionData, selectedEvents])
 
   // useEffect to reset agreeToTerms if user goes back from a step after AttendeeDetails
   // This is just an example of managing shared state across steps.
@@ -686,9 +709,14 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ eventId,
       case 1:
         return {
           title: "Select Registration Type",
-          description: "Please select how you would like to register for this event"
+          description: "Please select how you would like to register for this function"
         }
       case 2:
+        return {
+          title: "Select Events",
+          description: `Choose which events to attend within ${functionData?.name || 'this function'}`
+        }
+      case 3:
         // Change title to "Lodge Details" if registration type is 'lodge'
         if (registrationType === 'lodge') {
           return {
@@ -700,22 +728,22 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ eventId,
           title: "Attendee Details",
           description: "Please provide information for all attendees"
         }
-      case 3:
+      case 4:
         return {
           title: "Select Tickets",
           description: "Choose tickets for each attendee"
         }
-      case 4:
+      case 5:
         return {
           title: "Review Order",
           description: "Review your registration details before payment"
         }
-      case 5:
+      case 6:
         return {
           title: "Payment",
           description: "Complete your registration payment"
         }
-      case 6:
+      case 7:
         return {
           title: "Confirmation",
           description: "Registration successful"
@@ -732,8 +760,8 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ eventId,
   const renderStepContent = () => {
     // Remove console.log to reduce noise - console.log('🎯 renderStepContent called, currentStep:', currentStep);
     
-    // Special handling for lodge registration - one step process
-    if (registrationType === 'lodge' && currentStep === 2) {
+    // Special handling for lodge registration - skip event selection
+    if (registrationType === 'lodge' && currentStep === 3) {
       const LodgeRegistrationStep = lazy(() => import('./Steps/LodgeRegistrationStep').then(module => ({
         default: module.LodgeRegistrationStep
       })));
@@ -741,9 +769,9 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ eventId,
       return (
         <Suspense fallback={<StepLoadingFallback />}>
           <LodgeRegistrationStep 
-            eventId={eventId!} 
-            eventSlug={eventSlug}
-            parentSlug={parentSlug}
+            functionId={functionData?.id}
+            functionSlug={functionSlug}
+            selectedEvents={selectedEvents}
           />
         </Suspense>
       );
@@ -753,6 +781,20 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ eventId,
       case 1:
         return <RegistrationTypeStep />
       case 2:
+        const EventSelectionStep = lazy(() => import('./Steps/event-selection-step'))
+        return (
+          <Suspense fallback={<StepLoadingFallback />}>
+            <EventSelectionStep
+              function={functionData}
+              selectedEvents={selectedEvents}
+              onEventsChange={(events) => {
+                setSelectedEventsLocal(events)
+                setSelectedEvents(events)
+              }}
+            />
+          </Suspense>
+        )
+      case 3:
         return (
           <Suspense fallback={<StepLoadingFallback />}>
             <AttendeeDetailsStep
@@ -764,26 +806,26 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ eventId,
             />
           </Suspense>
         )
-      case 3:
+      case 4:
         return (
           <Suspense fallback={<StepLoadingFallback />}>
             <TicketSelectionStep />
           </Suspense>
         )
-      case 4:
+      case 5:
         return (
           <Suspense fallback={<StepLoadingFallback />}>
             <OrderReviewStep />
           </Suspense>
         )
-      case 5:
-        // Remove console.log to reduce noise - console.log('🎯 Rendering payment step (case 5)');
+      case 6:
+        // Remove console.log to reduce noise - console.log('🎯 Rendering payment step (case 6)');
         return (
           <Suspense fallback={<StepLoadingFallback />}>
             <PaymentStep onSaveData={saveRegistrationData} />
           </Suspense>
         )
-      case 6:
+      case 7:
         return (
           <Suspense fallback={<StepLoadingFallback />}>
             <ConfirmationStep />
@@ -806,7 +848,7 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ eventId,
   
   // Determine if next button should be disabled
   const isNextDisabled = () => {
-    if (currentStep === 2) {
+    if (currentStep === 3) {
       return validationErrors.length > 0 || !agreeToTerms;
     }
     return false;
@@ -857,7 +899,7 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ eventId,
         currentStep={currentStep}
         sectionTitle={title}
         sectionDescription={description}
-        showStepIndicator={currentStep === 1 || currentStep === 4 || currentStep === 6} // Hide for steps using TwoColumnStepLayout
+        showStepIndicator={currentStep === 1 || currentStep === 2 || currentStep === 5 || currentStep === 7} // Hide for steps using TwoColumnStepLayout
       >
         {/* Use a consistent wrapper for all steps */}
         <div className="w-full">

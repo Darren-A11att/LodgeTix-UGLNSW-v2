@@ -95,7 +95,7 @@ export async function POST(
         const qrPromises = updatedTickets.map(async (ticket) => {
           try {
             const qrData = {
-              ticketId: ticket.id,
+              ticketId: ticket.ticket.ticket_id,
               registrationId: ticket.registration_id,
               attendeeId: ticket.attendee_id,
               eventId: ticket.event_id,
@@ -109,12 +109,12 @@ export async function POST(
               await supabase
                 .from('tickets')
                 .update({ qr_code_url: qrUrl })
-                .eq('id', ticket.id);
+                .eq('ticket.ticket.ticket_id', ticket.ticket.ticket.ticket_id);
             }
             
             return qrUrl;
           } catch (error) {
-            console.error(`Error generating QR code for ticket ${ticket.id}:`, error);
+            console.error(`Error generating QR code for ticket ${ticket.ticket.ticket_id}:`, error);
             return null;
           }
         });

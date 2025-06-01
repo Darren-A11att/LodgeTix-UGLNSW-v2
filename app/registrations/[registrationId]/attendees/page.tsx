@@ -38,7 +38,7 @@ async function getAttendees(registrationId: string) {
 export default async function AttendeesListPage({
   params,
 }: {
-  params: { registrationId: string }
+  params: Promise<{ registrationId: string }>
 }) {
   const { registrationId } = await params
   const registration = await getAttendees(registrationId)

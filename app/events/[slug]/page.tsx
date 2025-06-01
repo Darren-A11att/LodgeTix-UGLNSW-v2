@@ -1,7 +1,8 @@
 import Link from "next/link"
 import Image from "next/image"
 import { CalendarDays, MapPin, Share2, TicketIcon } from "lucide-react"
-import { notFound } from "next/navigation"
+import { notFound, redirect } from "next/navigation"
+import { EventRPCService } from "@/lib/api/event-rpc-service"
 import { createClient } from '@/utils/supabase/server'
 
 import { Button } from "@/components/ui/button"
@@ -18,45 +19,34 @@ export default async function FallbackEventPage({
 }) {
   const { slug } = await params
   
-  // Get event data directly from database
-  const supabase = await createClient();
+  // Initialize RPC service
+  const eventService = new EventRPCService(true); // server-side
   
-  // Fetch event from event_display_view which has all calculated fields
-  const { data: eventData, error } = await supabase
-    .from('event_display_view')
-    .select('*')
+  // First, check if this slug is actually a function slug
+  const supabase = await createClient();
+  const { data: functionData } = await supabase
+    .from('functions')
+    .select('function_id, slug')
     .eq('slug', slug)
     .single();
     
-  if (error || !eventData) {
-    console.error('Error fetching event:', error);
+  // If it's a function slug, redirect to the function page
+  if (functionData) {
+    redirect(`/functions/${slug}`);
+  }
+  
+  // Fetch event data
+  const eventData = await eventService.getEventDetailData(slug);
+  
+  if (!eventData) {
     return notFound();
   }
   
-  // Get child events if this is a parent event
-  let childEvents = [];
-  if (!eventData.parent_event_id) {
-    const { data: children } = await supabase
-      .from('event_display_view')
-      .select('*')
-      .eq('parent_event_id', eventData.event_id)
-      .eq('is_published', true)
-      .order('event_start');
-      
-    childEvents = children || [];
-  }
+  // Extract tickets from the event data
+  const tickets = eventData.tickets || [];
   
-  // Get tickets
-  const { data: tickets } = await supabase
-    .from('event_tickets')
-    .select('*')
-    .eq('event_id', eventData.event_id)
-    .eq('is_active', true)
-    .eq('status', 'Active')
-    .order('price');
-  
-  // Use location_string from the view
-  const locationString = eventData.location_string || 'TBD';
+  // Use location from the event data
+  const locationString = eventData.location || 'TBD';
   
   // Format date and time
   const eventDate = new Date(eventData.event_start);
@@ -190,63 +180,6 @@ export default async function FallbackEventPage({
           </div>
         </div>
 
-        {/* Child Events Section */}
-        {childEvents.length > 0 && (
-          <div>
-            <h2 className="mb-6 text-2xl font-bold">Included Events</h2>
-            
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-              {childEvents.map((childEvent) => (
-                <Card key={childEvent.event_id} className="overflow-hidden hover:shadow-lg transition-shadow">
-                  {childEvent.image_url && (
-                    <div className="relative h-48 w-full">
-                      <Image
-                        src={childEvent.image_url}
-                        alt={childEvent.title}
-                        fill
-                        className="object-cover"
-                      />
-                    </div>
-                  )}
-                  <CardContent className="p-4">
-                    <h3 className="mb-2 text-lg font-semibold">{childEvent.title}</h3>
-                    {childEvent.subtitle && (
-                      <p className="mb-2 text-sm text-gray-600">{childEvent.subtitle}</p>
-                    )}
-                    {childEvent.description && (
-                      <p className="mb-4 text-sm text-gray-700 line-clamp-2">
-                        {childEvent.description}
-                      </p>
-                    )}
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="text-sm text-gray-600">
-                        {new Date(childEvent.event_start).toLocaleDateString('en-AU', {
-                          month: 'short',
-                          day: 'numeric',
-                          hour: 'numeric',
-                          minute: 'numeric'
-                        })}
-                      </span>
-                      {childEvent.min_price > 0 && (
-                        <span className="font-semibold">
-                          From {formatCurrency(childEvent.min_price)}
-                        </span>
-                      )}
-                    </div>
-                    {childEvent.is_sold_out && (
-                      <p className="text-sm font-medium text-red-600">Sold Out</p>
-                    )}
-                    <Button asChild className="w-full mt-3" variant="outline" size="sm">
-                      <Link href={`/events/${slug}/${childEvent.slug}`}>
-                        View Details
-                      </Link>
-                    </Button>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </div>
-        )}
 
         {/* Tickets Section */}
         {tickets && tickets.length > 0 && (
@@ -254,7 +187,7 @@ export default async function FallbackEventPage({
             <h2 className="mb-6 text-2xl font-bold">Ticket Options</h2>
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               {tickets.map((ticket) => (
-                <Card key={ticket.id} className="p-4">
+                <Card key={ticket.ticket_id} className="p-4">
                   <div>
                     <h3 className="font-semibold text-lg mb-2">{ticket.name}</h3>
                     {ticket.description && (

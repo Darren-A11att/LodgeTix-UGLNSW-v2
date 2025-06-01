@@ -195,7 +195,7 @@ export class RegistrationServiceOptimized {
         return client
           .from('attendees')
           .update(data)
-          .eq('id', id)
+          .eq('attendee_id', id)
           .eq('registration_id', registrationId);
       });
       

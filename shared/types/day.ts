@@ -2,7 +2,7 @@
  * Represents a specific day within a multi-day event, tailored for frontend display.
  */
 export interface EventDayType {
-  id: string;                      // UUID, Primary Key from database
+  event_day_id: string;            // UUID, Primary Key from database
   event_id: string | null;         // ID of the parent event
   date: string;                    // ISO Date string (YYYY-MM-DD) for this specific day
   formattedDate?: string;          // Optional: Date formatted for display (e.g., "September 12") - populated by formatter

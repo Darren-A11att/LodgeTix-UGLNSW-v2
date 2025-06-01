@@ -76,8 +76,8 @@ export class PackageService {
       // Now get the package details
       const { data: packageData, error: packageError } = await supabase
         .from('packages')
-        .select('id, name, parent_event_id')
-        .eq('id', packageId)
+        .select('package_id, name, parent_event_id')
+        .eq('package_id', packageId)
         .single();
       
       if (packageError || !packageData) {

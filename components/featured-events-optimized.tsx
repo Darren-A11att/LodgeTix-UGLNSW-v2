@@ -30,8 +30,8 @@ export async function FeaturedEventsOptimized() {
         : event.has_free_tickets 
           ? 'Free' 
           : 'View pricing',
-      parentEventId: event.parent_event_id,
-      parentEventSlug: event.parent_slug,
+      parentEventId: null,
+      parentEventSlug: null,
       // Additional metadata
       isSoldOut: event.is_sold_out,
       ticketsAvailable: event.total_capacity - event.tickets_sold

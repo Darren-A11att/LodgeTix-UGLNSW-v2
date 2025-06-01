@@ -362,15 +362,15 @@ export class EventCrudService {
 
     // Get existing tickets
     const { data: existingTickets } = await this.client
-      .from('ticket_definitions')
-      .select('id')
+      .from('event_tickets')
+      .select('event_ticket_id')
       .eq('event_id', eventId);
 
     // Delete existing tickets
     let deleteResult: CrudResponse | undefined;
     if (existingTickets && existingTickets.length > 0) {
       for (const ticket of existingTickets) {
-        deleteResult = await this.deleteTicket(ticket.id, true);
+        deleteResult = await this.deleteTicket(ticket.event_ticket_id, true);
       }
     }
 

@@ -434,7 +434,7 @@ function ConfirmationStep() {
                           <h4 className="font-semibold mb-3">Tickets:</h4>
                           <ul className="space-y-2">
                             {attendeeTickets.map((ticket) => (
-                              <li key={ticket.id} className="flex items-start">
+                              <li key={ticket.ticket_id} className="flex items-start">
                                 <span className="mr-2">•</span>
                                 <div className="flex-1">
                                   <span className="font-medium">{ticket.name}</span>

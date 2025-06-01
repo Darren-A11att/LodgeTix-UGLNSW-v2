@@ -31,7 +31,7 @@ import { ticketService, EventTicket, TicketPackage } from '@/lib/api/ticketServi
 import { getEventTicketsService, type TicketDefinition, type EventPackage } from '@/lib/services/event-tickets-service';
 import { api } from '@/lib/api-logger';
 import { ValidationModal } from '@/components/ui/validation-modal';
-import { calculateStripeFees, getFeeDisclaimer, getFeeModeFromEnv, STRIPE_FEE_CONFIG } from '@/lib/utils/stripe-fee-calculator';
+import { calculateStripeFees, getFeeDisclaimer, getFeeModeFromEnv, STRIPE_FEE_CONFIG, isDomesticCard, getProcessingFeeLabel, getPlatformFeePercentage } from '@/lib/utils/stripe-fee-calculator';
 import { 
   Tooltip,
   TooltipContent,
@@ -243,8 +243,17 @@ function OrderReviewStep() {
     return getAttendeeTickets(attendeeId).reduce((sum, ticket) => sum + ticket.price, 0)
   }
 
+  // Get billing details from store to determine domestic/international fees
+  const billingDetails = useRegistrationStore((s) => s.billingDetails);
+  const billingCountry = billingDetails?.country; // This is already the ISO code string
+  const isDomestic = isDomesticCard(billingCountry);
+
   const subtotal = currentTickets.reduce((sum, ticket) => sum + ticket.price, 0)
-  const feeCalculation = calculateStripeFees(subtotal)
+  const feeCalculation = calculateStripeFees(subtotal, {
+    isDomestic,
+    feeMode: getFeeModeFromEnv(),
+    platformFeePercentage: getPlatformFeePercentage()
+  })
   const totalAmount = feeCalculation.total
   const totalTickets = currentTickets.length
 
@@ -456,7 +465,7 @@ function OrderReviewStep() {
                     ) : (
                       <ul className="space-y-2">
                         {ticketsForThisAttendee.map(ticket => (
-                          <li key={ticket.id} className="flex justify-between items-center text-sm p-2 rounded-md border bg-white">
+                          <li key={ticket.ticket.ticket_id} className="flex justify-between items-center text-sm p-2 rounded-md border bg-white">
                             <div>
                               <p className="font-medium">{ticket.name}</p>
                               {ticket.description && <p className="text-xs text-gray-500">{ticket.description}</p>}
@@ -470,7 +479,7 @@ function OrderReviewStep() {
                                     if (ticket.isPackage) {
                                       updatedTicketSelection = { ticketDefinitionId: null, selectedEvents: [] };
                                     } else {
-                                      const originalTicketTypeId = ticket.id.substring(ticket.attendeeId.length + 1);
+                                      const originalTicketTypeId = ticket.ticket.ticket_id.substring(ticket.attendeeId.length + 1);
                                       updatedTicketSelection = {
                                         ticketDefinitionId: null,
                                         selectedEvents: currentPackage.selectedEvents.filter(id => id !== originalTicketTypeId)
@@ -504,7 +513,7 @@ function OrderReviewStep() {
               </div>
               <div className="flex justify-between items-center text-sm">
                 <span className="text-gray-600 flex items-center gap-1">
-                  Processing Fee
+                  {getProcessingFeeLabel(isDomestic)}
                   <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger>
@@ -516,6 +525,9 @@ function OrderReviewStep() {
                           <p>• Australian cards: {STRIPE_FEE_CONFIG.domestic.description}</p>
                           <p>• International cards: {STRIPE_FEE_CONFIG.international.description}</p>
                         </div>
+                        {!isDomestic && (
+                          <p className="mt-2 text-xs font-medium">International fee applied based on billing country</p>
+                        )}
                       </TooltipContent>
                     </Tooltip>
                   </TooltipProvider>

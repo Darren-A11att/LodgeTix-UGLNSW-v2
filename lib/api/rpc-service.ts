@@ -2,9 +2,10 @@ import { createClient } from '@/lib/supabase-browser';
 import type { Database } from '@/shared/types/database';
 
 // Types for RPC parameters and returns
-export interface CreateRegistrationParams {
+export interface CreateFunctionRegistrationParams {
+  functionId: string;
   registration: {
-    event_id: string;
+    function_id: string;
     registration_type: Database['public']['Enums']['registration_type'];
     agree_to_terms: boolean;
     registration_data?: any;
@@ -56,6 +57,7 @@ export interface CreateRegistrationParams {
     attendee_index: number;
     is_partner_ticket?: boolean;
   }>;
+  selectedEvents: string[];
 }
 
 export interface CreateRegistrationResponse {
@@ -147,19 +149,50 @@ export interface CheckTicketAvailabilityResponse {
   all_available: boolean;
 }
 
+export interface FunctionDetailsResponse {
+  function_id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  image_url: string | null;
+  start_date: string;
+  end_date: string;
+  location_id: string | null;
+  organiser_id: string;
+  events: any[];
+  packages: any[];
+  location: any;
+  registration_count: number;
+  metadata: Record<string, any>;
+  is_published: boolean;
+}
+
 // RPC Service Class
 export class RPCService {
   private supabase = createClient();
 
   /**
-   * Creates a complete registration with attendees and tickets
+   * Gets function details by slug
    */
-  async createRegistration(params: CreateRegistrationParams): Promise<CreateRegistrationResponse> {
-    const { data, error } = await this.supabase.rpc('create_registration_with_attendees', {
-      registration: params.registration,
-      customer: params.customer,
-      attendees: params.attendees,
-      tickets: params.tickets
+  async getFunctionDetails(slug: string): Promise<FunctionDetailsResponse> {
+    const { data, error } = await this.supabase
+      .rpc('get_function_details', { p_function_slug: slug });
+    
+    if (error) throw error;
+    return data as FunctionDetailsResponse;
+  }
+
+  /**
+   * Creates a complete registration for a function
+   */
+  async createFunctionRegistration(params: CreateFunctionRegistrationParams): Promise<CreateRegistrationResponse> {
+    const { data, error } = await this.supabase.rpc('create_function_registration', {
+      p_function_id: params.functionId,
+      p_registration: params.registration,
+      p_customer: params.customer,
+      p_attendees: params.attendees,
+      p_tickets: params.tickets,
+      p_selected_events: params.selectedEvents
     });
 
     if (error) throw error;
@@ -167,29 +200,15 @@ export class RPCService {
   }
 
   /**
-   * Fetches complete event data including location, packages, and tickets
+   * Gets eligible tickets for a function based on attendee type
    */
-  async getEventFull(eventId: string): Promise<EventFullData | null> {
-    // Note: rpc_get_event_full doesn't exist in current schema
-    // This function needs to be replaced with get_event_with_details or removed
-    throw new Error('rpc_get_event_full is not implemented. Use EventRPCService.getEventDetailData instead.');
-
-    if (error) throw error;
-    return data as EventFullData | null;
-  }
-
-  /**
-   * Gets available tickets and packages for an event
-   */
-  async getEventTicketsPackages(
-    eventId: string,
-    attendeeCount: number = 1
+  async getFunctionEligibleTickets(
+    functionId: string,
+    attendeeType: Database['public']['Enums']['attendee_type'] = 'mason'
   ): Promise<EventTicketsPackagesData> {
-    // Note: rpc_get_event_tickets_packages doesn't exist in current schema
-    // This function needs to be replaced with get_eligible_tickets or removed
-    const { data, error } = await this.supabase.rpc('get_eligible_tickets', {
-      event_id: eventId,
-      attendee_type: 'mason' // Default to mason, this should be parameterized
+    const { data, error } = await this.supabase.rpc('get_function_eligible_tickets', {
+      p_function_id: functionId,
+      p_attendee_type: attendeeType
     });
 
     if (error) throw error;

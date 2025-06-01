@@ -7,14 +7,14 @@ import { z } from 'zod';
 // import { MasonSchema, LadyPartnerSchema, GuestSchema, GuestPartnerSchema } from './validation';
 
 export enum AttendeeType {
-  MASON = 'Mason',
-  LADY_PARTNER = 'Lady Partner',
-  GUEST = 'Guest',
-  GUEST_PARTNER = 'Guest Partner'
+  MASON = 'mason',
+  LADY_PARTNER = 'ladypartner',
+  GUEST = 'guest',
+  GUEST_PARTNER = 'guestpartner'
 }
 
 export interface TicketType {
-  id: string;
+  event_ticket_id: string;
   name: string;
   description: string;
   price: number;           // Required as per the schema update
@@ -23,81 +23,83 @@ export interface TicketType {
 }
 
 export interface AttendeeTicket {
-  ticketId: string;
+  event_ticket_id: string;
   events: string[]; // Array of selected event IDs (at least one is required)
 }
 
 export interface LadyPartnerData {
-  id: string;
+  attendee_id: string;
   title: string;
-  firstName: string;
-  lastName: string;
-  dietary: string;
-  specialNeeds: string;
+  first_name: string;
+  last_name: string;
+  dietary_requirements: string;
+  special_needs: string;
   relationship: string; // Tracks relationship to the Mason
-  masonId: string; // Tracks which Mason this Lady/Partner belongs to
-  contactPreference: string; // Mason, Directly, Provide Later
+  related_attendee_id: string; // Tracks which Mason this Lady/Partner belongs to
+  contact_preference: string; // Mason, Directly, Provide Later
   phone: string;
   email: string;
-  contactConfirmed: boolean; // Confirmation that selected contact will be responsible
+  has_partner: boolean; // Whether attendee has partner
   ticket?: AttendeeTicket; // Selected ticket and events
 }
 
 export interface MasonData {
-  id: string;
+  attendee_id: string;
   title: string;
-  firstName: string;
-  lastName: string;
-  rank: string;
+  first_name: string;
+  last_name: string;
+  event_title: string; // Masonic rank/title for event
   phone: string;
   email: string;
-  lodge: string;
-  grandLodge: string;
-  dietary: string;
-  specialNeeds: string;
-  sameLodgeAsPrimary?: boolean;
-  hasLadyPartner: boolean;
-  grandRank?: string; // For GL rank
-  grandOfficer?: string; // Current or Past
-  grandOffice?: string; // Specific grand office when Current
-  grandOfficeOther?: string; // For "Other" grand office option
-  contactPreference?: string; // Primary Attendee, Directly, Provide Later - Only for additional Masons
-  contactConfirmed?: boolean; // Confirmation that selected contact will be responsible
+  contact_preference?: string; // Primary Attendee, Directly, Provide Later - Only for additional Masons
+  dietary_requirements: string;
+  special_needs: string;
+  has_partner: boolean;
   ticket?: AttendeeTicket; // Selected ticket and events
-
-  // Fields for pending lodge creation
+  
+  // Mason-specific fields (stored in masonic_profiles or derived)
+  lodge_id?: string;
+  lodge_name?: string;
+  grand_lodge_id?: string;
+  grand_lodge_name?: string;
+  masonic_rank?: string;
+  grand_rank?: string; // For GL rank
+  grand_officer?: string; // Current or Past
+  grand_office?: string; // Specific grand office when Current
+  
+  // UI state fields
+  sameLodgeAsPrimary?: boolean;
   isPendingNewLodge?: boolean; 
-  pendingLodgeDetails?: { name: string; number: string; grandLodgeId: string } | null;
+  pendingLodgeDetails?: { name: string; number: string; grand_lodge_id: string } | null;
 }
 
 export interface GuestPartnerData {
-  id: string;
+  attendee_id: string;
   title: string;
-  firstName: string;
-  lastName: string;
-  dietary: string;
-  specialNeeds: string;
+  first_name: string;
+  last_name: string;
+  dietary_requirements: string;
+  special_needs: string;
   relationship: string; // Tracks relationship to the Guest
-  guestId: string; // Tracks which Guest this Partner belongs to
-  contactPreference: string; // Mason, Guest, Directly, Provide Later
+  related_attendee_id: string; // Tracks which Guest this Partner belongs to
+  contact_preference: string; // Mason, Guest, Directly, Provide Later
   phone: string;
   email: string;
-  contactConfirmed: boolean; // Confirmation that selected contact will be responsible
+  has_partner: boolean; // Whether attendee has partner
   ticket?: AttendeeTicket; // Selected ticket and events
 }
 
 export interface GuestData {
-  id: string;
+  attendee_id: string;
   title: string;
-  firstName: string;
-  lastName: string;
+  first_name: string;
+  last_name: string;
   phone: string;
   email: string;
-  dietary: string;
-  specialNeeds: string;
-  hasPartner: boolean; // Flag for partner registration
-  contactPreference: string; // Primary Attendee, Directly, Provide Later
-  contactConfirmed: boolean; // Confirmation that selected contact will be responsible
+  dietary_requirements: string;
+  special_needs: string;
+  has_partner: boolean; // Flag for partner registration
+  contact_preference: string; // Primary Attendee, Directly, Provide Later
   ticket?: AttendeeTicket; // Selected ticket and events
 }
 
@@ -110,7 +112,7 @@ export interface EmailConflictInfo {
 
 // Define types for normalized structures
 export interface NormalizedAttendee {
-  id: string;
+  attendee_id: string;
   type: AttendeeType;
   partnerId?: string; // For lady/guest partners linking back
   relatedMasonId?: string; // Link lady partner to mason
@@ -199,16 +201,16 @@ export type RegistrationType = 'individual' | 'lodge' | 'delegation';
 // --- Attendee Base Data ---
 // Keep AttendeeData export if it's used elsewhere
 export interface AttendeeDataBase {
-  id: string;
+  attendee_id: string;
   title?: string;
-  firstName: string;
-  lastName: string;
+  first_name: string;
+  last_name: string;
   email?: string; 
   phone?: string;
-  dietary?: string;
-  specialNeeds?: string;
-  contactPreference?: string; // Original might have been just string?
-  contactConfirmed?: boolean;
+  dietary_requirements?: string;
+  special_needs?: string;
+  contact_preference?: string;
+  has_partner?: boolean;
   ticket?: AttendeeTicket;
 }
 

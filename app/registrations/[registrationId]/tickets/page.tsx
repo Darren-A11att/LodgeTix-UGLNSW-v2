@@ -55,7 +55,7 @@ async function getTickets(registrationId: string) {
 export default async function TicketsListPage({
   params,
 }: {
-  params: { registrationId: string }
+  params: Promise<{ registrationId: string }>
 }) {
   const { registrationId } = await params
   const registration = await getTickets(registrationId)
@@ -145,13 +145,13 @@ export default async function TicketsListPage({
                 const attendee = ticket.attendee
 
                 return (
-                  <Card key={ticket.id} className="hover:shadow-lg transition-shadow">
+                  <Card key={ticket.ticket.ticket.ticket_id} className="hover:shadow-lg transition-shadow">
                     <CardHeader>
                       <div className="flex items-start justify-between">
                         <div>
                           <CardTitle className="text-lg flex items-center gap-2">
                             <Ticket className="h-5 w-5" />
-                            Ticket #{ticket.id.slice(0, 8).toUpperCase()}
+                            Ticket #{ticket.ticket.ticket.ticket_id.slice(0, 8).toUpperCase()}
                           </CardTitle>
                           <div className="flex items-center gap-2 mt-2">
                             <Badge variant={isPaid ? 'default' : 'secondary'}>
@@ -163,7 +163,7 @@ export default async function TicketsListPage({
                           </div>
                         </div>
                         <Button variant="outline" size="sm" asChild>
-                          <Link href={`/registrations/${registrationId}/tickets/${ticket.id}`}>
+                          <Link href={`/registrations/${registrationId}/tickets/${ticket.ticket.ticket.ticket_id}`}>
                             View Ticket
                           </Link>
                         </Button>

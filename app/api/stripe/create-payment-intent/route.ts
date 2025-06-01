@@ -7,7 +7,7 @@ import {
   buildCustomerMetadata,
   truncateMetadataValue 
 } from '@/lib/utils/stripe-metadata';
-import { createOrUpdateStripeCustomer, getChildEventsMetadata } from '@/lib/services/stripe-sync-service';
+import { createOrUpdateStripeCustomer } from '@/lib/services/stripe-sync-service';
 import { getAppVersion } from '@/lib/config/app-version';
 
 // Validate environment variable exists at the module scope
@@ -71,14 +71,15 @@ export async function POST(request: Request) {
     let applicationFeeAmount = 0;
     let eventTitle = '';
     let eventSlug = '';
-    let parentEventId = '';
+    let functionId = '';
+    let functionName = '';
     let registrationType = '';
     let confirmationNumber = '';
     let primaryAttendee: any = null;
     let attendeesList: any[] = [];
     let ticketsList: any[] = [];
     let lodgeInfo: any = null;
-    let childEventsMetadata: Record<string, string> = {};
+    // childEventsMetadata removed - no longer needed with functions architecture
 
     // Fetch organization data if registrationId or eventId is provided
     if (registrationId || eventId) {
@@ -95,12 +96,16 @@ export async function POST(request: Request) {
               title,
               slug,
               organiser_id,
-              parent_event_id,
+              function_id,
               organisations!events_organiser_id_fkey(
                 organisation_id,
                 name,
                 stripe_onbehalfof,
                 organisation_type
+              ),
+              functions(
+                function_id,
+                name
               )
             ),
             attendees(
@@ -141,7 +146,12 @@ export async function POST(request: Request) {
           // Extract event data
           eventTitle = registration.events.title;
           eventSlug = registration.events.slug;
-          parentEventId = registration.events.parent_event_id || registration.events.event_id;
+          
+          // Extract function data
+          if (registration.events.function_id && registration.events.functions) {
+            functionId = registration.events.function_id;
+            functionName = registration.events.functions.name;
+          }
           
           // Extract registration data
           registrationType = registration.registration_type || 'individual';
@@ -168,10 +178,7 @@ export async function POST(request: Request) {
             ticketsList = registration.tickets;
           }
           
-          // Get child events metadata
-          if (registration.events.parent_event_id) {
-            childEventsMetadata = await getChildEventsMetadata(registration.events.parent_event_id);
-          }
+          // parent_event_id no longer used with functions architecture
           
           console.log(`Found connected account for registration: ${connectedAccountId}`);
         }
@@ -184,12 +191,16 @@ export async function POST(request: Request) {
             title,
             slug,
             organiser_id,
-            parent_event_id,
+            function_id,
             organisations!events_organiser_id_fkey(
               organisation_id,
               name,
               stripe_onbehalfof,
               organisation_type
+            ),
+            functions(
+              function_id,
+              name
             )
           `)
           .eq('event_id', eventId)
@@ -204,11 +215,11 @@ export async function POST(request: Request) {
           }
           eventTitle = event.title;
           eventSlug = event.slug;
-          parentEventId = event.parent_event_id || event.event_id;
           
-          // Get child events metadata
-          if (event.parent_event_id) {
-            childEventsMetadata = await getChildEventsMetadata(event.parent_event_id);
+          // Extract function data
+          if (event.function_id && event.functions) {
+            functionId = event.function_id;
+            functionName = event.functions.name;
           }
           
           console.log(`Found connected account for event: ${connectedAccountId}`);
@@ -254,11 +265,12 @@ export async function POST(request: Request) {
         registrationType: registrationType as 'individual' | 'lodge' | 'delegation',
         confirmationNumber: confirmationNumber,
         
-        // Event
-        parentEventId: parentEventId,
-        parentEventTitle: eventTitle,
-        parentEventSlug: eventSlug,
-        childEventCount: parseInt(childEventsMetadata.child_event_count || '0'),
+        // Event & Function
+        eventId: registration.event_id,
+        eventTitle: eventTitle,
+        eventSlug: eventSlug,
+        functionId: functionId,
+        functionName: functionName,
         
         // Organization
         organisationId: organisationId || '',
@@ -296,11 +308,7 @@ export async function POST(request: Request) {
         appVersion: getAppVersion(),
       });
       
-      // Merge child events metadata
-      comprehensiveMetadata = {
-        ...comprehensiveMetadata,
-        ...childEventsMetadata
-      };
+      // No child events metadata to merge with functions architecture
     } else {
       // Minimal metadata when no registration ID
       comprehensiveMetadata = {
@@ -313,7 +321,7 @@ export async function POST(request: Request) {
         platform_fee: String(applicationFeeAmount / 100),
         created_at: new Date().toISOString(),
         environment: process.env.NODE_ENV || 'development',
-        ...childEventsMetadata
+        // childEventsMetadata removed
       };
     }
     

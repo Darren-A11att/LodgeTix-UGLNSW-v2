@@ -48,7 +48,7 @@ async function getTicket(ticketId: string, registrationId: string) {
         )
       )
     `)
-    .eq('id', ticketId)
+    .eq('ticket.ticket_id', ticketId)
     .eq('registration_id', registrationId)
     .single()
 
@@ -62,7 +62,7 @@ async function getTicket(ticketId: string, registrationId: string) {
 export default async function TicketDetailPage({
   params,
 }: {
-  params: { registrationId: string; ticketId: string }
+  params: Promise<{ registrationId: string; ticketId: string }>
 }) {
   const { registrationId, ticketId } = await params
   const ticket = await getTicket(ticketId, registrationId)
@@ -96,7 +96,7 @@ export default async function TicketDetailPage({
             {isPaid ? 'Paid' : 'Pending Payment'}
           </Badge>
           <span className="text-gray-600">
-            Ticket ID: <span className="font-mono">{ticket.id.slice(0, 8).toUpperCase()}</span>
+            Ticket ID: <span className="font-mono">{ticket.ticket_id.slice(0, 8).toUpperCase()}</span>
           </span>
         </div>
       </div>

@@ -22,7 +22,7 @@ export function registrationReducer(state: RegistrationState, action: Registrati
 
     case "UPDATE_ATTENDEE": {
       const updatedAttendees = state.additionalAttendees.map((attendee) =>
-        attendee.id === action.payload.id ? { ...attendee, ...action.payload.data } : attendee
+        attendee.attendee.attendee.attendee.attendee_id === action.payload.id ? { ...attendee, ...action.payload.data } : attendee
       ) as Attendee[]
       
       // Also update primary attendee if it matches
@@ -41,7 +41,7 @@ export function registrationReducer(state: RegistrationState, action: Registrati
     case "REMOVE_ATTENDEE":
       return { 
         ...state, 
-        additionalAttendees: state.additionalAttendees.filter((attendee) => attendee.id !== action.payload) 
+        additionalAttendees: state.additionalAttendees.filter((attendee) => attendee.attendee.attendee.attendee.attendee_id !== action.payload) 
       }
 
     case "ADD_PARTNER": {
@@ -61,7 +61,7 @@ export function registrationReducer(state: RegistrationState, action: Registrati
       
       // Update additional attendees' partners
       const updatedAttendees = state.additionalAttendees.map((attendee) => {
-        if (attendee.id === attendeeId && (attendee.type === "mason" || attendee.type === "guest")) {
+        if (attendee.attendee.attendee.attendee.attendee_id === attendeeId && (attendee.type === "mason" || attendee.type === "guest")) {
           return {
             ...attendee,
             hasPartner: true,
@@ -89,7 +89,7 @@ export function registrationReducer(state: RegistrationState, action: Registrati
       
       // Remove partner from additional attendees
       const updatedAttendees = state.additionalAttendees.map((attendee) => {
-        if (attendee.id === action.payload && (attendee.type === "mason" || attendee.type === "guest")) {
+        if (attendee.attendee.attendee.attendee.attendee_id === action.payload && (attendee.type === "mason" || attendee.type === "guest")) {
           return {
             ...attendee,
             hasPartner: false,
@@ -106,7 +106,7 @@ export function registrationReducer(state: RegistrationState, action: Registrati
       return { ...state, tickets: [...state.tickets, action.payload] }
 
     case "REMOVE_TICKET":
-      return { ...state, tickets: state.tickets.filter((ticket) => ticket.id !== action.payload) }
+      return { ...state, tickets: state.tickets.filter((ticket) => ticket.ticket_id !== action.payload) }
 
     case "SET_PAYMENT_DETAILS":
       return { ...state, paymentDetails: action.payload }

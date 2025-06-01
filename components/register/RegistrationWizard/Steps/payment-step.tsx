@@ -24,7 +24,7 @@ import { CheckoutFormHandle } from "../payment/CheckoutForm";
 import { PaymentProcessing } from "../payment/PaymentProcessing";
 import { OneColumnStepLayout } from "../Layouts/OneColumnStepLayout";
 import { getEventTicketsService, type TicketDefinition, type EventPackage } from '@/lib/services/event-tickets-service';
-import { calculateStripeFees, formatFeeBreakdown, getFeeDisclaimer, getFeeModeFromEnv, getPlatformFeePercentage } from '@/lib/utils/stripe-fee-calculator';
+import { calculateStripeFees, formatFeeBreakdown, getFeeDisclaimer, getFeeModeFromEnv, getPlatformFeePercentage, isDomesticCard, getProcessingFeeLabel } from '@/lib/utils/stripe-fee-calculator';
 import { Info } from "lucide-react";
 import { 
   Tooltip,
@@ -185,7 +185,7 @@ function PaymentStep(props: PaymentStepProps) {
     tickets.forEach(ticket => {
       if (ticket.isPackage) {
         // Find the package info - need to extract package ID from the compound ID
-        const packageId = ticket.id.split('-').slice(1).join('-'); // Remove attendeeId prefix
+        const packageId = ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket_id.split('-').slice(1).join('-'); // Remove attendeeId prefix
         const packageInfo = ticketPackages.find(p => p.id === packageId);
         console.log(`📦 Looking for package ${packageId}:`, packageInfo);
         
@@ -214,7 +214,7 @@ function PaymentStep(props: PaymentStepProps) {
           } else {
             // Fallback: Use package as a single ticket when individual tickets aren't available
             expandedTickets.push({
-              id: ticket.id,
+              id: ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket_id,
               attendeeId: ticket.attendeeId,
               event_id: eventId || storeEventId, // Use the event ID from props or store
               eventTicketId: packageInfo.id,
@@ -235,8 +235,8 @@ function PaymentStep(props: PaymentStepProps) {
         // Individual ticket - pass through
         expandedTickets.push({
           ...ticket,
-          eventTicketId: ticket.id.split('-')[1] || ticket.id,  // Extract actual ticket ID
-          ticketTypeId: ticket.id.split('-')[1] || ticket.id
+          eventTicketId: ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket_id.split('-')[1] || ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket_id,  // Extract actual ticket ID
+          ticketTypeId: ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket_id.split('-')[1] || ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket_id
         });
       }
     });
@@ -416,13 +416,8 @@ function PaymentStep(props: PaymentStepProps) {
     return total;
   }, [currentTicketsForSummary]);
 
-  // Calculate fees and total amount
-  const feeCalculation = useMemo(() => {
-    return calculateStripeFees(subtotal);
-  }, [subtotal]);
-
-  // Total amount including fees
-  const totalAmount = feeCalculation.total;
+  // We'll calculate fees after form is defined - default to Australia
+  const [billingCountry, setBillingCountry] = useState<{ isoCode: string; name: string } | null>({ isoCode: 'AU', name: 'Australia' });
 
   // Setup form
   const form = useForm<FormBillingDetailsSchema>({
@@ -444,13 +439,31 @@ function PaymentStep(props: PaymentStepProps) {
     }
   });
 
-  // Watch form changes to update store
+  // Watch form changes to update store and billing country
   useEffect(() => {
     const subscription = form.watch((value) => {
       updateStoreBillingDetails(value as FormBillingDetailsSchema);
+      // Update billing country for fee calculation
+      if (value.country) {
+        setBillingCountry(value.country);
+      }
     });
     return () => subscription.unsubscribe();
   }, [form, updateStoreBillingDetails]);
+
+  // Calculate fees based on billing country
+  const feeCalculation = useMemo(() => {
+    const isDomestic = isDomesticCard(billingCountry?.isoCode);
+    
+    return calculateStripeFees(subtotal, {
+      isDomestic,
+      feeMode: getFeeModeFromEnv(),
+      platformFeePercentage: getPlatformFeePercentage()
+    });
+  }, [subtotal, billingCountry]);
+
+  // Total amount including fees
+  const totalAmount = feeCalculation.total;
 
   // Handle payment method creation from CheckoutForm
   const handlePaymentMethodCreated = async (paymentMethodId: string, stripeBillingDetails: StripeBillingDetailsForClient) => {
@@ -724,7 +737,7 @@ function PaymentStep(props: PaymentStepProps) {
                   {currentTicketsForSummary.length > 0 && (
                     <div className="space-y-1 pt-2 border-t border-gray-200">
                       {currentTicketsForSummary.map((ticket, idx) => (
-                        <div key={ticket.id} className="flex justify-between text-xs">
+                        <div key={ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket_id} className="flex justify-between text-xs">
                           <span className="text-gray-500 truncate pr-2" style={{ maxWidth: 'calc(100% - 60px)' }}>
                             {ticket.name}
                           </span>
@@ -744,7 +757,7 @@ function PaymentStep(props: PaymentStepProps) {
                     {/* Processing Fee */}
                     <div className="flex justify-between text-sm">
                       <span className="text-gray-600 flex items-center gap-1">
-                        Processing Fee
+                        {getProcessingFeeLabel(isDomesticCard(billingCountry?.isoCode))}
                         <TooltipProvider>
                           <Tooltip>
                             <TooltipTrigger>
@@ -756,6 +769,9 @@ function PaymentStep(props: PaymentStepProps) {
                                 <p>• Australian cards: 1.75% + $0.30</p>
                                 <p>• International cards: 2.9% + $0.30</p>
                               </div>
+                              {!isDomesticCard(billingCountry?.isoCode) && (
+                                <p className="mt-2 text-xs font-medium">International fee applied based on billing country</p>
+                              )}
                             </TooltipContent>
                           </Tooltip>
                         </TooltipProvider>

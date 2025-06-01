@@ -25,7 +25,7 @@ export async function GET(
         ),
         tickets (
           id,
-          attendee_id,
+          attendee.attendee_id,
           event_ticket_id,
           price,
           status
@@ -41,7 +41,7 @@ export async function GET(
           special_instructions
         )
       `)
-      .eq('id', registrationId)
+      .eq('registration.registration_id', registrationId)
       .single();
     
     if (regError || !registration) {
@@ -55,8 +55,8 @@ export async function GET(
     const ticketIds = registration.tickets.map((t: any) => t.event_ticket_id);
     const { data: eventTickets } = await supabase
       .from('event_tickets')
-      .select('id, ticket_type')
-      .in('id', ticketIds);
+      .select('event_ticket_id, ticket_type')
+      .in('event_ticket_id', ticketIds);
     
     const ticketTypeMap = new Map(
       eventTickets?.map((et: any) => [et.id, et.ticket_type]) || []
@@ -64,7 +64,7 @@ export async function GET(
     
     // Format data for PDF
     const confirmationData = {
-      registrationId: registration.id,
+      registrationId: registration.registration_id,
       confirmationNumber: registration.confirmation_number,
       customerName: registration.contact_name || 'Customer',
       customerEmail: registration.contact_email || '',
@@ -79,7 +79,7 @@ export async function GET(
       eventVenue: registration.events.location,
       eventAddress: registration.events.address || '',
       attendees: registration.attendees.map((attendee: any) => {
-        const ticket = registration.tickets.find((t: any) => t.attendee_id === attendee.id);
+        const ticket = registration.tickets.find((t: any) => t.attendee.attendee_id === attendee.attendee_id);
         return {
           name: `${attendee.first_name} ${attendee.last_name}`,
           type: attendee.attendee_type,

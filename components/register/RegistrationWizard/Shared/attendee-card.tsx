@@ -55,7 +55,7 @@ export function AttendeeCard({ attendee, onRemove }: AttendeeCardProps) {
           variant="ghost"
           size="sm"
           className="absolute right-2 top-2 text-gray-500 hover:text-red-600"
-          onClick={() => onRemove(attendee.id)}
+          onClick={() => onRemove(attendee.attendee_id)}
         >
           Remove
         </Button>

@@ -25,7 +25,7 @@ export default async function OptimizedParentEventPage({
   const eventData = await eventService.getEventDetailData(slug);
   
   // Handle not found
-  if (!eventData || eventData.parent_event_id) {
+  if (!eventData) {
     return notFound();
   }
   
@@ -177,61 +177,6 @@ export default async function OptimizedParentEventPage({
           </div>
         </div>
 
-        {/* Child Events Section */}
-        {eventData.child_events && eventData.child_events.length > 0 && (
-          <div>
-            <h2 className="mb-6 text-2xl font-bold">Included Events</h2>
-            
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-              {eventData.child_events.map((childEvent) => (
-                <Card key={childEvent.id} className="overflow-hidden hover:shadow-lg transition-shadow">
-                  {childEvent.image_url && (
-                    <div className="relative h-48 w-full">
-                      <Image
-                        src={childEvent.image_url}
-                        alt={childEvent.title}
-                        fill
-                        className="object-cover"
-                      />
-                    </div>
-                  )}
-                  <CardContent className="p-4">
-                    <h3 className="mb-2 text-lg font-semibold">{childEvent.title}</h3>
-                    {childEvent.subtitle && (
-                      <p className="mb-2 text-sm text-gray-600">{childEvent.subtitle}</p>
-                    )}
-                    <p className="mb-4 text-sm text-gray-700 line-clamp-2">
-                      {childEvent.description}
-                    </p>
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-gray-600">
-                        {new Date(childEvent.event_start).toLocaleDateString('en-AU', {
-                          month: 'short',
-                          day: 'numeric',
-                          hour: 'numeric',
-                          minute: 'numeric'
-                        })}
-                      </span>
-                      {childEvent.min_price > 0 && (
-                        <span className="font-semibold">
-                          From {formatCurrency(childEvent.min_price)}
-                        </span>
-                      )}
-                    </div>
-                    {childEvent.is_sold_out && (
-                      <p className="mt-2 text-sm font-medium text-red-600">Sold Out</p>
-                    )}
-                    <Button asChild className="w-full mt-4" variant="outline">
-                      <Link href={`/events/${slug}/${childEvent.slug}`}>
-                        View Details
-                      </Link>
-                    </Button>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </div>
-        )}
 
         {/* Tickets Section */}
         {eventData.tickets && eventData.tickets.length > 0 && (
@@ -239,7 +184,7 @@ export default async function OptimizedParentEventPage({
             <h2 className="mb-6 text-2xl font-bold">Ticket Options</h2>
             <div className="space-y-4">
               {eventData.tickets.map((ticket) => (
-                <Card key={ticket.id} className="p-4">
+                <Card key={ticket.ticket_id} className="p-4">
                   <div className="flex items-start justify-between">
                     <div>
                       <h3 className="font-semibold">{ticket.name}</h3>

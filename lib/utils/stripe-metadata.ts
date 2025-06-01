@@ -77,10 +77,9 @@ export interface PaymentIntentMetadataParams {
   confirmationNumber: string;
   
   // Event
-  parentEventId: string;
-  parentEventTitle: string;
-  parentEventSlug: string;
-  childEventCount: number;
+  eventId: string;
+  eventTitle: string;
+  eventSlug: string;
   
   // Organization
   organisationId: string;
@@ -138,11 +137,10 @@ export function buildPaymentIntentMetadata(params: PaymentIntentMetadataParams):
     registration_type: params.registrationType,
     confirmation_number: params.confirmationNumber,
     
-    // Event Hierarchy
-    parent_event_id: params.parentEventId,
-    parent_event_title: params.parentEventTitle,
-    parent_event_slug: params.parentEventSlug,
-    child_event_count: String(params.childEventCount),
+    // Event
+    event_id: params.eventId,
+    event_title: params.eventTitle,
+    event_slug: params.eventSlug,
     
     // Organization
     organisation_id: params.organisationId,
@@ -243,7 +241,6 @@ export function buildCustomerMetadata(params: CustomerMetadataParams): Record<st
  */
 export interface ProductMetadataParams {
   eventId: string;
-  parentEventId?: string;
   eventType?: string;
   eventSlug: string;
   organisationId: string;
@@ -259,7 +256,6 @@ export interface ProductMetadataParams {
 export function buildProductMetadata(params: ProductMetadataParams): Record<string, string> {
   const rawMetadata = {
     event_id: params.eventId,
-    parent_event_id: params.parentEventId || '',
     event_type: params.eventType || 'general',
     event_slug: params.eventSlug,
     

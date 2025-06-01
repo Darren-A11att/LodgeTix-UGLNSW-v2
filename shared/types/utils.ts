@@ -12,9 +12,37 @@ export type WithTimestamps<T> = T & {
 
 /**
  * Adds an ID to any type
+ * @deprecated Use specific ID types like WithEventId, WithTicketId, etc.
  */
 export type WithId<T> = T & {
   id: string;
+};
+
+/**
+ * Adds specific ID fields to types
+ */
+export type WithEventId<T> = T & {
+  event_id: string;
+};
+
+export type WithTicketId<T> = T & {
+  ticket_id: string;
+};
+
+export type WithAttendeeId<T> = T & {
+  attendee_id: string;
+};
+
+export type WithRegistrationId<T> = T & {
+  registration_id: string;
+};
+
+export type WithPackageId<T> = T & {
+  package_id: string;
+};
+
+export type WithFunctionId<T> = T & {
+  function_id: string;
 };
 
 /**

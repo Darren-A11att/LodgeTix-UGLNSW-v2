@@ -58,7 +58,7 @@ export const ticketService = {
     if (!ticketIds.length) return [];
 
     const { data, error } = await supabase
-      .from('eventtickets')
+      .from('event_tickets')
       .select('*')
       .in('event_ticket_id', ticketIds);
 

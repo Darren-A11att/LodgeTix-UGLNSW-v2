@@ -103,7 +103,7 @@ export async function getEventByIdOrSlug(idOrSlug: string): Promise<Event | null
           regalia: eventData.regalia || undefined,
           degreeType: eventData.degree_type || undefined,
           tickets: eventData.tickets.map(ticket => ({
-            id: ticket.id,
+            id: ticket.ticket_id,
             event_id: eventData.event_id,
             name: ticket.name,
             price: ticket.price,
@@ -172,7 +172,7 @@ export async function getEventTickets(eventId: string): Promise<Ticket[]> {
         }
         
         return (data || []).map(ticket => ({
-          id: ticket.ticket_id,
+          id: ticket.ticket.ticket_id,
           event_id: ticket.event_id,
           name: ticket.name,
           price: ticket.price,

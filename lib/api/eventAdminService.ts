@@ -131,7 +131,7 @@ export class EventAdminService extends AdminApiService {
       // First, check if this is a parent event with children
       const { data: childEvents } = await this.client
         .from(supabaseTables.events)
-        .select('id')
+        .select('event_ticket_id')
         .eq('parent_event_id', id);
       
       if (childEvents && childEvents.length > 0) {
@@ -144,7 +144,7 @@ export class EventAdminService extends AdminApiService {
       // Check if there are ticket definitions
       const { data: tickets } = await this.client
         .from('event_tickets')
-        .select('id')
+        .select('event_ticket_id')
         .eq('event_id', id);
       
       if (tickets && tickets.length > 0) {

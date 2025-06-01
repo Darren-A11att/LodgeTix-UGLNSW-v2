@@ -31,14 +31,14 @@ export default async function HomePage() {
               {slug && (
                 <div className="flex flex-col justify-center gap-4 sm:flex-row">
                   <Button asChild className="bg-masonic-navy hover:bg-masonic-blue">
-                    <Link href={`/events/${slug}`}>Event Details</Link>
+                    <Link href={`/functions/${slug}`}>Function Details</Link>
                   </Button>
                   <Button
                     asChild
                     variant="outline"
                     className="border-masonic-navy text-masonic-navy hover:bg-masonic-lightblue"
                   >
-                    <Link href={`/events/${slug}/register`}>Get Tickets</Link>
+                    <Link href={`/functions/${slug}/register`}>Get Tickets</Link>
                   </Button>
                 </div>
               )}
@@ -70,10 +70,10 @@ export default async function HomePage() {
                   variant="outline"
                   className="border-masonic-gold text-masonic-gold hover:bg-masonic-navy/50"
                 >
-                  <Link href={`/events/${slug}`}>Learn More</Link>
+                  <Link href={`/functions/${slug}`}>Learn More</Link>
                 </Button>
                 <Button asChild className="bg-masonic-gold text-masonic-navy hover:bg-masonic-lightgold">
-                  <Link href={`/events/${slug}/register`}>Get Tickets</Link>
+                  <Link href={`/functions/${slug}/register`}>Get Tickets</Link>
                 </Button>
               </div>
             </div>

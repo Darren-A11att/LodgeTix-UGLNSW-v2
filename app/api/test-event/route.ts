@@ -10,7 +10,7 @@ export async function GET(request: Request) {
       // List all events
       const { data, error } = await supabase
         .from('events')
-        .select('id, slug, title, is_published, event_start')
+        .select('event_id, slug, title, is_published, event_start')
         .order('created_at', { ascending: false })
         .limit(10)
       
@@ -32,7 +32,7 @@ export async function GET(request: Request) {
       // Search for any event with 'proclamation' in the title
       const { data, error } = await supabase
         .from('events')
-        .select('id, slug, title, is_published')
+        .select('event_id, slug, title, is_published')
         .ilike('title', '%proclamation%')
       
       if (error) {
@@ -53,7 +53,7 @@ export async function GET(request: Request) {
       // Default: find by slug
       const { data, error } = await supabase
         .from('events')
-        .select('id, slug, title, is_published')
+        .select('event_id, slug, title, is_published')
         .eq('slug', 'grand-proclamation-2025')
         .single()
       

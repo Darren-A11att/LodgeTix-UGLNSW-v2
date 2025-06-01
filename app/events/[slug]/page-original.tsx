@@ -23,7 +23,7 @@ export default async function ParentEventPage({
     const eventData = await eventService.getEventDetailData(slug);
     
     // Handle not found
-    if (!eventData || eventData.parent_event_id) {
+    if (!eventData) {
       return notFound();
     }
     
@@ -177,84 +177,27 @@ export default async function ParentEventPage({
             {/* Event Status and Package Info */}
             <div className="mt-6 flex flex-wrap items-center gap-4">
               {eventData.is_sold_out ? (
-                <span className="inline-flex items-center px-3 py-1 text-sm font-medium text-red-700 bg-red-100 rounded-full">
+                <span key="sold-out" className="inline-flex items-center px-3 py-1 text-sm font-medium text-red-700 bg-red-100 rounded-full">
                   Sold Out
                 </span>
               ) : eventData.total_capacity > 0 && (
-                <span className="inline-flex items-center px-3 py-1 text-sm font-medium text-green-700 bg-green-100 rounded-full">
+                <span key="available" className="inline-flex items-center px-3 py-1 text-sm font-medium text-green-700 bg-green-100 rounded-full">
                   {eventData.total_capacity - eventData.tickets_sold} tickets available
                 </span>
               )}
               {eventData.is_package && (
-                <span className="inline-flex items-center px-3 py-1 text-sm font-medium text-purple-700 bg-purple-100 rounded-full">
+                <span key="package" className="inline-flex items-center px-3 py-1 text-sm font-medium text-purple-700 bg-purple-100 rounded-full">
                   Package Event
                 </span>
               )}
               {eventData.event_type && (
-                <span className="inline-flex items-center px-3 py-1 text-sm font-medium text-blue-700 bg-blue-100 rounded-full">
+                <span key="type" className="inline-flex items-center px-3 py-1 text-sm font-medium text-blue-700 bg-blue-100 rounded-full">
                   {eventData.event_type}
                 </span>
               )}
             </div>
           </div>
 
-          {/* Child Events Section */}
-          {eventData.child_events && eventData.child_events.length > 0 && (
-            <div>
-              <h2 className="mb-6 text-2xl font-bold">Included Events</h2>
-              
-              <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                {eventData.child_events.map((childEvent) => (
-                  <Card key={childEvent.id} className="overflow-hidden hover:shadow-lg transition-shadow">
-                    {childEvent.image_url && (
-                      <div className="relative h-48 w-full">
-                        <Image
-                          src={childEvent.image_url}
-                          alt={childEvent.title}
-                          fill
-                          className="object-cover"
-                        />
-                      </div>
-                    )}
-                    <CardContent className="p-4">
-                      <h3 className="mb-2 text-lg font-semibold">{childEvent.title}</h3>
-                      {childEvent.subtitle && (
-                        <p className="mb-2 text-sm text-gray-600">{childEvent.subtitle}</p>
-                      )}
-                      {childEvent.description && (
-                        <p className="mb-4 text-sm text-gray-700 line-clamp-2">
-                          {childEvent.description}
-                        </p>
-                      )}
-                      <div className="flex items-center justify-between mb-3">
-                        <span className="text-sm text-gray-600">
-                          {new Date(childEvent.event_start).toLocaleDateString('en-AU', {
-                            month: 'short',
-                            day: 'numeric',
-                            hour: 'numeric',
-                            minute: 'numeric'
-                          })}
-                        </span>
-                        {childEvent.min_price > 0 && (
-                          <span className="font-semibold">
-                            From {formatCurrency(childEvent.min_price)}
-                          </span>
-                        )}
-                      </div>
-                      {childEvent.is_sold_out && (
-                        <p className="mb-3 text-sm font-medium text-red-600">Sold Out</p>
-                      )}
-                      <Button asChild className="w-full" variant="outline" size="sm">
-                        <Link href={`/events/${slug}/${childEvent.slug}`}>
-                          View Details
-                        </Link>
-                      </Button>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            </div>
-          )}
 
           {/* Tickets Section */}
           {eventData.tickets && eventData.tickets.length > 0 && (
@@ -262,7 +205,7 @@ export default async function ParentEventPage({
               <h2 className="mb-6 text-2xl font-bold">Ticket Options</h2>
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {eventData.tickets.map((ticket) => (
-                  <Card key={ticket.id} className="p-4">
+                  <Card key={ticket.ticket_id} className="p-4">
                     <div>
                       <h3 className="font-semibold text-lg mb-2">{ticket.name}</h3>
                       {ticket.description && (

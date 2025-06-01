@@ -3,38 +3,40 @@
  */
 export interface EventType {
   // --- Core Database Fields (Raw ISO Strings from DB) ---
-  id: string;                      // UUID, Primary Key
+  event_id: string;                // UUID, Primary Key
   slug: string;                    // URL-friendly identifier
-  eventStart: string;              // ISO String from DB timestamptz
-  eventEnd: string | null;         // ISO String from DB timestamptz (or null)
+  event_start: string;             // ISO String from DB timestamptz
+  event_end: string | null;        // ISO String from DB timestamptz (or null)
+
+  // --- Function Relationship (REQUIRED) ---
+  function_id: string;             // Foreign key to functions table
+  functionName: string;            // Name of the parent function (derived)
+  functionSlug: string;            // Slug of the parent function (derived)
 
   // --- Other Database Fields ---
   title: string | null;
   description: string | null;
-  location: string | null;
+  location_id: string | null;      // Foreign key to locations table
   type: string | null;             // Event category (e.g., 'Ceremony', 'Social')
   // price and maxAttendees removed from database schema
-  // Pricing now comes from ticket_definitions table
+  // Pricing now comes from event_tickets table
   // Capacity now handled separately
   featured: boolean | null;        // Featured on homepage/listings
-  imageUrl: string | null;         // URL for the event image
+  image_url: string | null;        // URL for the event image
 
   // --- Additional Database Fields ---
-  isMultiDay: boolean | null;              // If the event spans multiple days
-  parentEventId: string | null;            // Foreign key to self (for sub-events)
-  eventIncludes: string[] | null;          // List of items included
-  importantInformation: string[] | null;   // List of important notes
-  latitude: number | null;                 // For mapping
-  longitude: number | null;                // For mapping
-  isPurchasableIndividually: boolean | null; // Can this event be bought outside a package?
-  createdAt: string;                       // Timestamp
+  is_multi_day: boolean | null;            // If the event spans multiple days
+  event_includes: string[] | null;         // List of items included
+  important_information: string[] | null;  // List of important notes
+  is_purchasable_individually: boolean | null; // Can this event be bought outside a package?
+  created_at: string;                      // Timestamp
+  organiser_id: string | null;             // Foreign key to organisations table
   
   // --- Event Details ---
-  dressCode?: string | null;               // Dress code requirement
+  dress_code?: string | null;              // Dress code requirement
   regalia?: string | null;                 // Regalia requirement
-  category?: string | null;                // Event category
-  status?: string;                         // Publication status
-  organiserName?: string | null;           // Event organiser name
+  max_attendees?: number | null;           // Maximum attendees
+  is_published?: boolean | null;           // Publication status
 
   // --- Deprecated Raw Fields (Commented Out) ---
   // date?: string | null;          // Use eventStart
@@ -66,8 +68,51 @@ export interface EventType {
  * Represents the summarized data for a specific day used in the overview section.
  */
 export interface EventDayOverviewType {
-  id: string;
+  event_id: string;
   date: string; // YYYY-MM-DD  
   name: string; // Day title/theme
   featuredEventsSummary?: string | null; // Pre-formatted summary string
+}
+
+/**
+ * Represents a function which groups multiple events.
+ */
+export interface FunctionType {
+  function_id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  image_url: string | null;
+  start_date: string;              // ISO String from DB date
+  end_date: string;                // ISO String from DB date
+  location_id: string | null;
+  organiser_id: string;
+  events: EventType[];             // Events belonging to this function (derived)
+  packages: PackageType[];         // Packages available for this function (derived)
+  registrationCount: number;       // Number of registrations (derived)
+  metadata: Record<string, any>;   // Additional metadata
+  minPrice?: number;               // Minimum price across all events/packages (derived)
+  durationDays?: number;           // Number of days the function spans (derived)
+  location?: {                    // Location details (derived)
+    location_id: string;
+    place_name: string;
+    suburb: string;
+    state: string;
+  };
+}
+
+/**
+ * Represents a package for a function.
+ */
+export interface PackageType {
+  package_id: string;
+  name: string;
+  description: string | null;
+  package_price: number;
+  original_price: number | null;
+  discount: number | null;
+  included_items: any | null;      // Maps to included_items composite type
+  includes_description: string[] | null;
+  function_id: string;
+  is_active: boolean | null;
 }

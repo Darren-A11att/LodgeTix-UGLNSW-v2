@@ -173,7 +173,7 @@ export async function POST(request: NextRequest) {
     // Get the lodge organisation from the lodge details
     const { data: organisation, error: orgError } = await supabase
       .from('organisations')
-      .select('id')
+      .select('organisation_id')
       .eq('lodge_id', lodgeDetails.lodge_id)
       .single();
 
@@ -196,7 +196,7 @@ export async function POST(request: NextRequest) {
     // The main event (Grand Proclamation) should have a package ticket type
     const { data: eventTicket, error: ticketError } = await supabase
       .from('event_tickets')
-      .select('id, price')
+      .select('event_ticket_id, price')
       .eq('event_id', eventId)
       .eq('ticket_type', 'package') // Package ticket for lodge tables
       .single();
@@ -206,7 +206,7 @@ export async function POST(request: NextRequest) {
       // Try to find a standard ticket as fallback
       const { data: standardTicket, error: standardError } = await supabase
         .from('event_tickets')
-        .select('id, price')
+        .select('event_ticket_id, price')
         .eq('event_id', eventId)
         .eq('ticket_type', 'standard')
         .single();
@@ -239,7 +239,7 @@ export async function POST(request: NextRequest) {
         // Required fields
         lodge_organisation_id: organisation.id,
         event_id: eventId,
-        event_ticket_id: eventTicket.id,
+        event_ticket_id: eventTicket.event_ticket_id,
         ticket_count: tableOrder.totalTickets,
         price_per_ticket: pricePerTicket,
         
@@ -340,7 +340,7 @@ export async function POST(request: NextRequest) {
         status: 'confirmed',
         stripe_payment_status: paymentIntent.status,
       })
-      .eq('id', registrationResult.id);
+      .eq('registration_id', registrationResult.id);
 
     if (updateError) {
       console.error('Failed to update registration status:', updateError);

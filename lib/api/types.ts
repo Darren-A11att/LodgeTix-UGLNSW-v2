@@ -10,6 +10,9 @@ type Tables = Database['public']['Tables'];
 type Views = Database['public']['Views'];
 type Functions = Database['public']['Functions'];
 
+// Function table type
+export type FunctionResponse = Tables['functions']['Row'];
+
 /**
  * View Response Types
  */
@@ -66,8 +69,18 @@ export interface EventWithDetails extends EventResponse {
   organiser?: OrganisationResponse | null;
   tickets?: EventTicketResponse[];
   packages?: PackageResponse[];
-  parentEvent?: EventResponse | null;
-  childEvents?: EventResponse[];
+  function?: FunctionResponse | null;
+}
+
+/**
+ * Function with related data
+ */
+export interface FunctionWithDetails extends FunctionResponse {
+  location?: LocationResponse | null;
+  organiser?: OrganisationResponse | null;
+  events?: EventResponse[];
+  packages?: PackageResponse[];
+  registrationCount?: number;
 }
 
 /**

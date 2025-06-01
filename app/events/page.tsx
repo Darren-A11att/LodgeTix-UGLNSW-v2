@@ -16,7 +16,7 @@ export default async function EventsPage() {
     
     // Transform data for EventCard component
     const eventsForDisplay = events.map(event => ({
-      id: event.event_id,
+      id: event.event.event.event_id,
       slug: event.slug,
       title: event.title,
       description: event.description,
@@ -41,10 +41,6 @@ export default async function EventsPage() {
       eventType: event.event_type
     }));
     
-    // Separate parent and child events for better organisation
-    const parentEvents = eventsForDisplay.filter(e => !e.parentEventId);
-    const childEvents = eventsForDisplay.filter(e => e.parentEventId);
-    
     return (
       <div className="min-h-screen bg-gray-50">
         <div className="container mx-auto px-4 py-8">
@@ -61,55 +57,23 @@ export default async function EventsPage() {
               <p className="text-gray-500 mt-2">Please check back later for updates.</p>
             </div>
           ) : (
-            <>
-              {/* Main Events Section */}
-              {parentEvents.length > 0 && (
-                <section className="mb-12">
-                  <h2 className="text-2xl font-semibold mb-6">Major Events</h2>
-                  <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                    {parentEvents.map((event) => (
-                      <EventCard
-                        key={event.id}
-                        id={event.id}
-                        slug={event.slug}
-                        title={event.title}
-                        description={event.description}
-                        date={event.date}
-                        location={event.location}
-                        imageUrl={event.imageUrl}
-                        price={event.price}
-                        parentEventId={null}
-                        parentEventSlug={null}
-                      />
-                    ))}
-                  </div>
-                </section>
-              )}
-
-              {/* Related Events Section */}
-              {childEvents.length > 0 && (
-                <section>
-                  <h2 className="text-2xl font-semibold mb-6">Related Events</h2>
-                  <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                    {childEvents.map((event) => (
-                      <EventCard
-                        key={event.id}
-                        id={event.id}
-                        slug={event.slug}
-                        title={event.title}
-                        description={event.description}
-                        date={event.date}
-                        location={event.location}
-                        imageUrl={event.imageUrl}
-                        price={event.price}
-                        parentEventId={event.parentEventId}
-                        parentEventSlug={event.parentEventSlug}
-                      />
-                    ))}
-                  </div>
-                </section>
-              )}
-            </>
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+              {eventsForDisplay.map((event) => (
+                <EventCard
+                  key={event.event.event_id}
+                  id={event.event.event_id}
+                  slug={event.slug}
+                  title={event.title}
+                  description={event.description}
+                  date={event.date}
+                  location={event.location}
+                  imageUrl={event.imageUrl}
+                  price={event.price}
+                  parentEventId={null}
+                  parentEventSlug={null}
+                />
+              ))}
+            </div>
           )}
         </div>
       </div>

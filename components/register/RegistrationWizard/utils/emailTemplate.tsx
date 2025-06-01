@@ -7,12 +7,20 @@ export interface EmailTemplateData {
   customerName: string;
   customerEmail: string;
   
-  // Event details
-  eventTitle: string;
-  eventDate: string;
-  eventTime: string;
-  eventVenue: string;
-  eventAddress: string;
+  // Function details
+  functionTitle: string;
+  functionDate: string;
+  functionTime: string;
+  functionVenue: string;
+  functionAddress: string;
+  
+  // Selected events within the function
+  selectedEvents: Array<{
+    name: string;
+    date: string;
+    time: string;
+    venue?: string;
+  }>;
   
   // Order details
   attendees: Array<{
@@ -33,17 +41,25 @@ export interface EmailTemplateData {
   // Links
   ticketDownloadUrl: string;
   addToCalendarUrl: string;
+  
+  // Legacy event details (for backward compatibility)
+  eventTitle?: string;
+  eventDate?: string;
+  eventTime?: string;
+  eventVenue?: string;
+  eventAddress?: string;
 }
 
 export const ConfirmationEmailTemplate: React.FC<EmailTemplateData> = ({
   confirmationNumber,
   registrationDate,
   customerName,
-  eventTitle,
-  eventDate,
-  eventTime,
-  eventVenue,
-  eventAddress,
+  functionTitle,
+  functionDate,
+  functionTime,
+  functionVenue,
+  functionAddress,
+  selectedEvents,
   attendees,
   subtotal,
   bookingFee,
@@ -52,7 +68,19 @@ export const ConfirmationEmailTemplate: React.FC<EmailTemplateData> = ({
   specialInstructions,
   ticketDownloadUrl,
   addToCalendarUrl,
+  // Legacy props for backward compatibility
+  eventTitle,
+  eventDate,
+  eventTime,
+  eventVenue,
+  eventAddress,
 }) => {
+  // Use function details if available, otherwise fall back to event details
+  const title = functionTitle || eventTitle || '';
+  const date = functionDate || eventDate || '';
+  const time = functionTime || eventTime || '';
+  const venue = functionVenue || eventVenue || '';
+  const address = functionAddress || eventAddress || '';
   return (
     <html>
       <head>
@@ -83,7 +111,7 @@ export const ConfirmationEmailTemplate: React.FC<EmailTemplateData> = ({
       <body>
         <div className="container">
           <div className="header">
-            <h1>Registration Confirmation</h1>
+            <h1>Function Registration Confirmation</h1>
           </div>
           
           <div className="content">
@@ -93,26 +121,26 @@ export const ConfirmationEmailTemplate: React.FC<EmailTemplateData> = ({
             </div>
             
             <div className="section">
-              <h2>Event Details</h2>
+              <h2>Function Details</h2>
               <div className="detail-row">
-                <span className="label">Event:</span>
-                <span className="value">{eventTitle}</span>
+                <span className="label">Function:</span>
+                <span className="value">{title}</span>
               </div>
               <div className="detail-row">
                 <span className="label">Date:</span>
-                <span className="value">{eventDate}</span>
+                <span className="value">{date}</span>
               </div>
               <div className="detail-row">
                 <span className="label">Time:</span>
-                <span className="value">{eventTime}</span>
+                <span className="value">{time}</span>
               </div>
               <div className="detail-row">
                 <span className="label">Venue:</span>
-                <span className="value">{eventVenue}</span>
+                <span className="value">{venue}</span>
               </div>
               <div className="detail-row">
                 <span className="label">Address:</span>
-                <span className="value">{eventAddress}</span>
+                <span className="value">{address}</span>
               </div>
               {dressCode && (
                 <div className="detail-row">
@@ -127,6 +155,24 @@ export const ConfirmationEmailTemplate: React.FC<EmailTemplateData> = ({
                 </div>
               )}
             </div>
+            
+            {selectedEvents && selectedEvents.length > 0 && (
+              <div className="section">
+                <h2>Selected Events</h2>
+                <p style={{ marginBottom: '15px', color: '#666' }}>You have registered for the following events within this function:</p>
+                <ul style={{ listStyle: 'none', padding: 0 }}>
+                  {selectedEvents.map((event, index) => (
+                    <li key={index} style={{ marginBottom: '10px', paddingLeft: '20px', borderLeft: '3px solid #0e1f3f' }}>
+                      <div style={{ fontWeight: 'bold', color: '#0e1f3f' }}>{event.name}</div>
+                      <div style={{ color: '#666', fontSize: '14px' }}>
+                        {event.date} at {event.time}
+                        {event.venue && event.venue !== venue && ` - ${event.venue}`}
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
             
             <div className="section">
               <h2>Attendee Details</h2>
@@ -201,26 +247,40 @@ export const ConfirmationEmailTemplate: React.FC<EmailTemplateData> = ({
 
 // Text version for email clients that don't support HTML
 export const generateTextEmail = (data: EmailTemplateData): string => {
+  // Use function details if available, otherwise fall back to event details
+  const title = data.functionTitle || data.eventTitle || '';
+  const date = data.functionDate || data.eventDate || '';
+  const time = data.functionTime || data.eventTime || '';
+  const venue = data.functionVenue || data.eventVenue || '';
+  const address = data.functionAddress || data.eventAddress || '';
+  
   return `
-REGISTRATION CONFIRMATION
-========================
+FUNCTION REGISTRATION CONFIRMATION
+==================================
 
 Confirmation Number: ${data.confirmationNumber}
 Date: ${data.registrationDate}
 
 Dear ${data.customerName},
 
-Thank you for your registration! Here are your event details:
+Thank you for your registration! Here are your function details:
 
-EVENT DETAILS
--------------
-Event: ${data.eventTitle}
-Date: ${data.eventDate}
-Time: ${data.eventTime}
-Venue: ${data.eventVenue}
-Address: ${data.eventAddress}
+FUNCTION DETAILS
+----------------
+Function: ${title}
+Date: ${date}
+Time: ${time}
+Venue: ${venue}
+Address: ${address}
 ${data.dressCode ? `Dress Code: ${data.dressCode}` : ''}
 ${data.specialInstructions ? `Special Instructions: ${data.specialInstructions}` : ''}
+
+${data.selectedEvents && data.selectedEvents.length > 0 ? `
+SELECTED EVENTS
+---------------
+You have registered for the following events within this function:
+${data.selectedEvents.map(e => `- ${e.name}
+  ${e.date} at ${e.time}${e.venue && e.venue !== venue ? ` - ${e.venue}` : ''}`).join('\n')}` : ''}
 
 ATTENDEES
 ---------

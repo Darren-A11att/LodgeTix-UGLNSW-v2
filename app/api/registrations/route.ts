@@ -152,14 +152,45 @@ export async function POST(request: Request) {
     
     console.log("Registration record to insert:", registrationRecord);
     
-    // Use the official server client pattern for auth verification
-    const supabase = await createClient();
+    // Try to authenticate using multiple methods
+    let user = null;
+    let supabase = null;
     
-    // First, verify the user is authenticated
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    // First try: Use Authorization header if present
+    if (authHeader) {
+      console.log("[API] Attempting authentication with Authorization header");
+      try {
+        const { createClientWithToken } = await import('@/utils/supabase/server-with-token');
+        const result = await createClientWithToken(authHeader);
+        supabase = result.supabase;
+        user = result.user;
+        console.log("[API] Successfully authenticated with Authorization header:", user.id);
+      } catch (headerAuthError) {
+        console.log("[API] Authorization header auth failed:", headerAuthError);
+        // Fall through to cookie-based auth
+      }
+    }
     
-    if (authError || !user) {
-      console.error("Authentication error:", authError);
+    // Second try: Use cookie-based auth
+    if (!user) {
+      console.log("[API] Attempting cookie-based authentication");
+      supabase = await createClient();
+      
+      // Log cookie information
+      console.log("[API] Request cookies:", request.headers.get('cookie'));
+      
+      // Try to get user from cookies
+      const { data: { user: cookieUser }, error: authError } = await supabase.auth.getUser();
+      console.log("[API] Cookie auth result:", { user: cookieUser?.id, error: authError?.message });
+      
+      if (!authError && cookieUser) {
+        user = cookieUser;
+      }
+    }
+    
+    // If still no user, authentication failed
+    if (!user) {
+      console.error("Authentication failed: No valid session found");
       console.groupEnd();
       return NextResponse.json(
         { error: "User not authenticated. Please refresh the page and try again." },
@@ -177,16 +208,16 @@ export async function POST(request: Request) {
       );
     }
     
-    // Use the user's authenticated client - RLS policies will handle permissions
-    console.log("Using user's authenticated client with RLS policies");
+    // Use the authenticated client - RLS policies will handle permissions
+    console.log("Using authenticated client with RLS policies");
     const userClient = supabase;
     
     // First, ensure customer exists or create/update one
     console.log("Checking if customer exists for user:", customerId);
     const { error: customerCheckError } = await userClient
       .from("customers")
-      .select("id")
-      .eq("id", customerId)
+      .select("customer_id")
+      .eq("customer_id", customerId)
       .single();
     
     if (customerCheckError && customerCheckError.code === 'PGRST116') {
@@ -242,8 +273,8 @@ export async function POST(request: Request) {
           // Try to fetch the customer that was just created
           const { error: refetchError } = await userClient
             .from("customers")
-            .select("id")
-            .eq("id", customerId)
+            .select("customer_id")
+            .eq("customer_id", customerId)
             .single();
           
           if (refetchError) {
@@ -311,7 +342,7 @@ export async function POST(request: Request) {
         const { error: updateError } = await userClient
           .from("customers")
           .update(updateData)
-          .eq("id", customerId);
+          .eq("customer_id", customerId);
         
         if (updateError) {
           console.warn("Failed to update customer booking contact details:", updateError);
@@ -332,11 +363,11 @@ export async function POST(request: Request) {
           // Group tickets by attendee
           if (!acc[ticket.attendeeId]) {
             acc[ticket.attendeeId] = {
-              ticketDefinitionId: ticket.isPackage ? ticket.id : null,
-              selectedEvents: ticket.isPackage ? [] : [ticket.id]
+              ticketDefinitionId: ticket.isPackage ? ticket.ticket.ticket.ticket_id : null,
+              selectedEvents: ticket.isPackage ? [] : [ticket.ticket.ticket.ticket_id]
             };
           } else if (!ticket.isPackage) {
-            acc[ticket.attendeeId].selectedEvents.push(ticket.id);
+            acc[ticket.attendeeId].selectedEvents.push(ticket.ticket.ticket.ticket_id);
           }
           return acc;
         }, {}),
@@ -462,20 +493,29 @@ export async function POST(request: Request) {
       const personTitle = isMason ? attendee.masonicTitle : attendee.title;
       const personSuffix = isMason ? (attendee.grandOfficerStatus === 'Past' ? attendee.presentGrandOfficerRole : attendee.rank) : attendee.suffix;
       
-      // The attendees table uses lowercase no-underscore column names
+      // The attendees table uses snake_case column names
       const attendeeRecord: TablesInsert<'attendees'> = {
-        attendeeid: newAttendeeId,
-        registrationid: newRegistrationId, 
-        attendeetype: attendeeTypeForDb,
-        eventtitle: eventTitle || null, 
-        dietaryrequirements: attendee.dietaryRequirements || null,
-        specialneeds: attendee.specialNeeds || null,
-        contactpreference: contactPreferenceForDb,
+        attendee_id: newAttendeeId,
+        registration_id: newRegistrationId, 
+        attendee_type: attendeeTypeForDb,
+        event_title: eventTitle || null, 
+        dietary_requirements: attendee.dietaryRequirements || null,
+        special_needs: attendee.specialNeeds || null,
+        contact_preference: contactPreferenceForDb,
         relationship: attendee.relationship || null,
-        relatedattendeeid: attendee.partnerOf || attendee.related_attendee_id || null,
-        person_id: attendee.person_id || attendee.personId || null
-        // Note: attendees table doesn't have is_primary, is_partner, has_partner, title, first_name, last_name, suffix, email, phone columns
-        // These should be stored in the related 'people' table if needed
+        related_attendee_id: attendee.partnerOf || attendee.related_attendee_id || null,
+        person_id: attendee.person_id || attendee.personId || null,
+        // Additional fields from database schema
+        title: personTitle || null,
+        first_name: includeContactDetails ? (attendee.firstName || attendee.first_name || null) : null,
+        last_name: includeContactDetails ? (attendee.lastName || attendee.last_name || null) : null,
+        suffix: personSuffix || null,
+        email: includeContactDetails ? (attendee.email || attendee.primaryEmail || null) : null,
+        phone: includeContactDetails ? (attendee.phone || attendee.primaryPhone || null) : null,
+        is_primary: attendee.isPrimary || false,
+        has_partner: attendee.hasPartner || false,
+        is_partner: attendee.isPartner ? 'true' : null,
+        contact_id: null // Will be set if we create a contact record
       };
       
       console.log("Attendee record to insert:", attendeeRecord);
@@ -484,13 +524,13 @@ export async function POST(request: Request) {
       const { data: existingAttendee } = await userClient
         .from("attendees")
         .select()
-        .eq("attendeeid", attendeeRecord.attendeeid!)
+        .eq("attendee_id", attendeeRecord.attendee_id!)
         .single();
       
       let savedAttendee;
       
       if (existingAttendee) {
-        console.log(`Attendee ${attendeeRecord.attendeeid} already exists from a previous registration`);
+        console.log(`Attendee ${attendeeRecord.attendee_id} already exists from a previous registration`);
         // Generate a new attendee ID for this registration
         const newGeneratedAttendeeId = uuidv4();
         console.log(`Generating new attendee ID: ${newGeneratedAttendeeId}`);
@@ -498,7 +538,7 @@ export async function POST(request: Request) {
         // Create new attendee record with new ID
         const updatedAttendeeRecord = {
           ...attendeeRecord,
-          attendeeid: newGeneratedAttendeeId
+          attendee_id: newGeneratedAttendeeId
         };
         
         const { data: newAttendee, error: attendeeError } = await userClient
@@ -535,7 +575,7 @@ export async function POST(request: Request) {
         savedAttendee = newAttendee;
         
         // Update the attendee ID mapping for tickets
-        attendeeIdMapping.set(attendeeRecord.attendeeid!, newGeneratedAttendeeId);
+        attendeeIdMapping.set(attendeeRecord.attendee_id!, newGeneratedAttendeeId);
       } else {
         // Insert new attendee as normal
         const { data: newAttendee, error: attendeeError } = await userClient
@@ -577,7 +617,7 @@ export async function POST(request: Request) {
         // Update both tables
         const { error: updateRegError } = await userClient
           .from('registrations')
-          .update({ primary_attendee_id: savedAttendee.attendeeid }) 
+          .update({ primary_attendee_id: savedAttendee.attendee_id }) 
           .eq("registration_id", newRegistrationId);
           
         if (updateRegError) {
@@ -587,7 +627,7 @@ export async function POST(request: Request) {
         // Also update lowercase table
         const { error: updateLowerError } = await userClient
           .from("registrations")
-          .update({ primary_attendee_id: savedAttendee.attendeeid }) 
+          .update({ primary_attendee_id: savedAttendee.attendee_id }) 
           .eq("registration_id", newRegistrationId);
           
         if (updateLowerError) {
@@ -604,7 +644,7 @@ export async function POST(request: Request) {
         const originalAttendeeId = ticket.attendeeId || ticket.attendee_id;
         const actualAttendeeId = attendeeIdMapping.get(originalAttendeeId) || originalAttendeeId;
         
-        const attendeeForTicket = savedAttendeeRecords.find(a => a.attendeeid === actualAttendeeId);
+        const attendeeForTicket = savedAttendeeRecords.find(a => a.attendee_id === actualAttendeeId);
         
         if (!attendeeForTicket) {
           console.warn(`No saved attendee found for ticket with attendeeId: ${originalAttendeeId} (mapped: ${actualAttendeeId}). Skipping ticket.`);
@@ -618,7 +658,7 @@ export async function POST(request: Request) {
         const ticketRecord: TablesInsert<'tickets'> = {
           // ticket_id is generated automatically by Supabase
           ticket_id: uuidv4(),
-          attendee_id: attendeeForTicket.attendeeid!, 
+          attendee_id: attendeeForTicket.attendee_id!, 
           event_id: finalEventId, // Use the resolved event ID (UUID)
           ticket_price: ticket.price || 0, 
           price_paid: ticket.price || 0, // Required field - using ticket_price value

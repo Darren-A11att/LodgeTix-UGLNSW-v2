@@ -65,7 +65,7 @@ export class BatchOperations {
             attendee_id: update.attendee_id || null,
             updated_at: new Date().toISOString()
           })
-          .eq('id', update.id)
+          .eq('ticket_id', update.ticket_id)
       );
 
       const results = await Promise.all(updatePromises);
@@ -181,7 +181,7 @@ export class BatchOperations {
             ...data,
             updated_at: new Date().toISOString()
           })
-          .eq('id', id)
+          .eq('attendee_id', id)
       );
 
       const results = await Promise.all(updatePromises);
@@ -212,7 +212,7 @@ export class BatchOperations {
         .delete()
         .eq('status', 'reserved')
         .lt('created_at', threshold)
-        .select('id');
+        .select('ticket_id');
 
       if (error) {
         console.error('Error cleaning up reserved tickets:', error);
