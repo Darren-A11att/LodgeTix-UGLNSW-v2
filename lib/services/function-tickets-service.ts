@@ -54,6 +54,7 @@ interface FunctionPackageRaw {
   included_items: any[] | null
   includes_description: string[] | null
   eligibility_criteria: any | null
+  registration_types: string[] | null  // This is a direct column in your view!
 }
 
 // Adapted interface for frontend consumption
@@ -101,13 +102,12 @@ function adaptTicketToFrontend(rawTicket: FunctionTicketDefinitionRaw): Function
 }
 
 function adaptPackageToFrontend(rawPackage: FunctionPackageRaw): FunctionPackage {
-  // Debug log to see what's in eligibility_criteria
-  if (rawPackage.eligibility_criteria) {
-    console.log('Package eligibility_criteria:', {
-      name: rawPackage.package_name,
-      eligibility_criteria: rawPackage.eligibility_criteria
-    });
-  }
+  // Debug log to see actual package structure
+  console.log('Raw package data:', {
+    name: rawPackage.package_name,
+    registration_types: rawPackage.registration_types,
+    eligibility_criteria: rawPackage.eligibility_criteria
+  });
   
   return {
     id: rawPackage.package_id,
@@ -122,7 +122,8 @@ function adaptPackageToFrontend(rawPackage: FunctionPackageRaw): FunctionPackage
     includes: rawPackage.included_items || [],
     includes_description: rawPackage.includes_description,
     eligibleAttendeeTypes: rawPackage.eligibility_criteria?.attendeeTypes || rawPackage.eligibility_criteria?.attendee_types || ['mason', 'guest'],
-    eligibleRegistrationTypes: rawPackage.eligibility_criteria?.registrationTypes || rawPackage.eligibility_criteria?.registration_types || ['individual', 'delegation', 'lodges']
+    // Use the direct registration_types column from your view!
+    eligibleRegistrationTypes: rawPackage.registration_types || ['individual', 'delegation', 'lodges']
   }
 }
 
