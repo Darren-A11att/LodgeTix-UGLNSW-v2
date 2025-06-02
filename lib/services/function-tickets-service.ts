@@ -162,6 +162,16 @@ class FunctionTicketsService {
   async getFunctionPackages(functionId: string): Promise<FunctionPackage[]> {
     try {
       api.debug(`Fetching function packages for function: ${functionId}`)
+      console.log('Querying packages with function_id:', functionId)
+      
+      // Temporarily query without is_active filter to debug
+      const { data: allPackages } = await this.supabase
+        .from('function_packages_view')
+        .select('*')
+        .eq('function_id', functionId)
+        .order('package_name', { ascending: true })
+      
+      console.log('All packages (including inactive):', allPackages)
       
       const { data, error } = await this.supabase
         .from('function_packages_view')
