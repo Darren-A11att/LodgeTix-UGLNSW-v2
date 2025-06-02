@@ -158,49 +158,42 @@ class FunctionTicketsService {
   }
 
   /**
-   * Get all packages for a function using function_packages_view
+   * Get all packages for a function using API route to bypass RLS
    */
   async getFunctionPackages(functionId: string): Promise<FunctionPackage[]> {
     try {
       api.debug(`Fetching function packages for function: ${functionId}`)
-      console.log('Querying packages with function_id:', functionId)
+      console.log('Fetching packages via API for function_id:', functionId)
       
-      // Test if the client can query anything
-      const { data: testData, error: testError } = await this.supabase
-        .from('functions')
-        .select('function_id, name')
-        .eq('function_id', functionId)
-        .single()
+      // Use API route to bypass RLS issues
+      const response = await fetch(`/api/functions/${functionId}/packages`)
       
-      console.log('Test query - function exists?', { testData, testError })
-      
-      // Temporarily query without is_active filter to debug
-      const { data: allPackages, error: allError } = await this.supabase
-        .from('function_packages_view')
-        .select('*')
-        .eq('function_id', functionId)
-        .order('package_name', { ascending: true })
-      
-      if (allError) {
-        console.error('Error fetching all packages:', allError)
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Failed to fetch packages')
       }
-      console.log('All packages (including inactive):', allPackages)
       
-      const { data, error } = await this.supabase
-        .from('function_packages_view')
-        .select('*')
-        .eq('function_id', functionId)
-        .eq('is_active', true)
-        .order('package_name', { ascending: true })
-
-      if (error) {
-        api.error('Error fetching function packages:', error)
-        throw new Error(`Failed to fetch function packages: ${error.message}`)
-      }
-
-      api.debug(`Fetched ${data?.length || 0} packages for function ${functionId}`)
-      console.log('Raw packages from database:', data)
-      const adapted = (data || []).map(adaptPackageToFrontend)
+      const { packages } = await response.json()
+      
+      console.log('Raw packages from API:', packages)
+      
+      // Map the raw package data to match our expected format
+      const adapted = (packages || []).map((pkg: any) => ({
+        id: pkg.package_id,
+        name: pkg.name,
+        description: pkg.description,
+        price: parseFloat(pkg.package_price),
+        original_price: pkg.original_price ? parseFloat(pkg.original_price) : null,
+        discount: pkg.discount ? parseFloat(pkg.discount) : null,
+        function_id: pkg.function_id,
+        is_active: pkg.is_active,
+        qty: pkg.qty,
+        includes: pkg.included_items || [],
+        includes_description: pkg.includes_description,
+        eligibleAttendeeTypes: pkg.eligibility_criteria?.attendeeTypes || pkg.eligibility_criteria?.attendee_types || ['mason', 'guest'],
+        eligibleRegistrationTypes: pkg.registration_types || ['individual', 'delegation', 'lodges']
+      }))
+      
       console.log('Adapted packages:', adapted)
       return adapted
     } catch (error) {
