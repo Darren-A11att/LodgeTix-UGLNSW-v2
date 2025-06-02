@@ -165,13 +165,25 @@ class FunctionTicketsService {
       api.debug(`Fetching function packages for function: ${functionId}`)
       console.log('Querying packages with function_id:', functionId)
       
+      // Test if the client can query anything
+      const { data: testData, error: testError } = await this.supabase
+        .from('functions')
+        .select('function_id, name')
+        .eq('function_id', functionId)
+        .single()
+      
+      console.log('Test query - function exists?', { testData, testError })
+      
       // Temporarily query without is_active filter to debug
-      const { data: allPackages } = await this.supabase
+      const { data: allPackages, error: allError } = await this.supabase
         .from('function_packages_view')
         .select('*')
         .eq('function_id', functionId)
         .order('package_name', { ascending: true })
       
+      if (allError) {
+        console.error('Error fetching all packages:', allError)
+      }
       console.log('All packages (including inactive):', allPackages)
       
       const { data, error } = await this.supabase
