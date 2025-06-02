@@ -122,7 +122,7 @@ function adaptPackageToFrontend(rawPackage: FunctionPackageRaw): FunctionPackage
     includes: rawPackage.included_items || [],
     includes_description: rawPackage.includes_description,
     eligibleAttendeeTypes: rawPackage.eligibility_criteria?.attendeeTypes || rawPackage.eligibility_criteria?.attendee_types || ['mason', 'guest'],
-    eligibleRegistrationTypes: rawPackage.eligibility_criteria?.registrationTypes || rawPackage.eligibility_criteria?.registration_types || ['individual', 'delegation', 'lodge']
+    eligibleRegistrationTypes: rawPackage.eligibility_criteria?.registrationTypes || rawPackage.eligibility_criteria?.registration_types || ['individual', 'delegation', 'lodges']
   }
 }
 
@@ -176,7 +176,10 @@ class FunctionTicketsService {
       }
 
       api.debug(`Fetched ${data?.length || 0} packages for function ${functionId}`)
-      return (data || []).map(adaptPackageToFrontend)
+      console.log('Raw packages from database:', data)
+      const adapted = (data || []).map(adaptPackageToFrontend)
+      console.log('Adapted packages:', adapted)
+      return adapted
     } catch (error) {
       api.error('Exception in getFunctionPackages:', error)
       throw error
