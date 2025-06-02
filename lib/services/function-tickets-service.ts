@@ -96,11 +96,19 @@ function adaptTicketToFrontend(rawTicket: FunctionTicketDefinitionRaw): Function
     reserved_count: rawTicket.reserved_count,
     sold_count: rawTicket.sold_count,
     status: rawTicket.status,
-    eligibleAttendeeTypes: rawTicket.eligibility_criteria?.attendeeTypes || ['mason', 'guest']
+    eligibleAttendeeTypes: rawTicket.eligibility_criteria?.attendeeTypes || rawTicket.eligibility_criteria?.attendee_types || ['mason', 'guest']
   }
 }
 
 function adaptPackageToFrontend(rawPackage: FunctionPackageRaw): FunctionPackage {
+  // Debug log to see what's in eligibility_criteria
+  if (rawPackage.eligibility_criteria) {
+    console.log('Package eligibility_criteria:', {
+      name: rawPackage.package_name,
+      eligibility_criteria: rawPackage.eligibility_criteria
+    });
+  }
+  
   return {
     id: rawPackage.package_id,
     name: rawPackage.package_name,
@@ -113,8 +121,8 @@ function adaptPackageToFrontend(rawPackage: FunctionPackageRaw): FunctionPackage
     qty: rawPackage.qty,
     includes: rawPackage.included_items || [],
     includes_description: rawPackage.includes_description,
-    eligibleAttendeeTypes: rawPackage.eligibility_criteria?.attendeeTypes || ['mason', 'guest'],
-    eligibleRegistrationTypes: rawPackage.eligibility_criteria?.registrationTypes || ['individual', 'delegation', 'lodge']
+    eligibleAttendeeTypes: rawPackage.eligibility_criteria?.attendeeTypes || rawPackage.eligibility_criteria?.attendee_types || ['mason', 'guest'],
+    eligibleRegistrationTypes: rawPackage.eligibility_criteria?.registrationTypes || rawPackage.eligibility_criteria?.registration_types || ['individual', 'delegation', 'lodge']
   }
 }
 
