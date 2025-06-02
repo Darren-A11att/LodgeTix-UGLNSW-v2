@@ -50,6 +50,7 @@ interface FunctionPackageRaw {
   discount: number | null
   function_id: string
   is_active: boolean | null
+  qty: number | null
   included_items: any[] | null
   includes_description: string[] | null
   eligibility_criteria: any | null
@@ -65,6 +66,7 @@ export interface FunctionPackage {
   discount: number | null
   function_id: string
   is_active: boolean | null
+  qty: number | null
   includes: string[]
   includes_description: string[] | null
   eligibleAttendeeTypes: string[]
@@ -108,6 +110,7 @@ function adaptPackageToFrontend(rawPackage: FunctionPackageRaw): FunctionPackage
     discount: rawPackage.discount,
     function_id: rawPackage.function_id,
     is_active: rawPackage.is_active,
+    qty: rawPackage.qty,
     includes: rawPackage.included_items || [],
     includes_description: rawPackage.includes_description,
     eligibleAttendeeTypes: rawPackage.eligibility_criteria?.attendeeTypes || ['mason', 'guest'],

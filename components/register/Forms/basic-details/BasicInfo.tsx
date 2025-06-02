@@ -132,7 +132,7 @@ export const BasicInfo = React.memo<SectionProps>(({
           </div>
           
           {/* First Name - 4 columns */}
-          <div className="col-span-5">
+          <div className="col-span-4">
             <TextField
               label="First Name"
               name="firstName"
@@ -143,8 +143,8 @@ export const BasicInfo = React.memo<SectionProps>(({
             />
           </div>
           
-          {/* Last Name - 5 columns */}
-          <div className="col-span-5">
+          {/* Last Name - 4 columns */}
+          <div className="col-span-4">
             <TextField
               label="Last Name"
               name="lastName"
@@ -154,9 +154,7 @@ export const BasicInfo = React.memo<SectionProps>(({
               updateOnBlur={true}
             />
           </div>
-        </div>
-        
-        <div className="grid grid-cols-12 gap-4">
+          
           {/* Rank - 2 columns */}
           <div className="col-span-2">
             <SelectField
@@ -172,14 +170,12 @@ export const BasicInfo = React.memo<SectionProps>(({
         
         {/* Warning for title/rank mismatches */}
         {titleRankMismatch && (
-          <div className="col-span-12">
-            <Alert variant="destructive" className="cursor-pointer" onClick={titleRankMismatch.fix}>
-              <InfoIcon className="h-4 w-4" />
-              <AlertDescription>
-                {titleRankMismatch.message}
-              </AlertDescription>
-            </Alert>
-          </div>
+          <Alert variant="destructive" className="cursor-pointer" onClick={titleRankMismatch.fix}>
+            <InfoIcon className="h-4 w-4" />
+            <AlertDescription>
+              {titleRankMismatch.message}
+            </AlertDescription>
+          </Alert>
         )}
       </div>
     );

@@ -71,15 +71,15 @@ export const LodgeRegistrationStep: React.FC<LodgeRegistrationStepProps> = ({
     fetchFunctionPricing();
   }, [functionId]);
   
-  // Calculate dynamic pricing
-  const lodgePackage = functionPackages.find(pkg => 
-    pkg.name.toLowerCase().includes('table') || 
-    pkg.eligibleRegistrationTypes.includes('lodge')
+  // Calculate dynamic pricing - filter for packages with "lodges" registration type
+  const lodgePackages = functionPackages.filter(pkg => 
+    pkg.eligibleRegistrationTypes.includes('lodges')
   );
-  const tablePrice = lodgePackage?.price || 1950; // fallback to 1950
+  const selectedPackage = lodgePackages[0]; // Use the first available lodge package
+  const packagePrice = selectedPackage?.price || 1950; // fallback to 1950
   
   // Calculate total amount
-  const totalAmount = lodgeTicketOrder ? lodgeTicketOrder.tableCount * tablePrice : 0;
+  const totalAmount = lodgeTicketOrder ? lodgeTicketOrder.tableCount * packagePrice : 0;
 
   // Handle form completion
   const handleFormComplete = useCallback(() => {

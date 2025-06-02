@@ -29,23 +29,23 @@ const DEBOUNCE_DELAY = 300; // 300ms debounce for store updates - matching Mason
 
 interface LodgesFormProps {
   functionId: string;
-  minTables?: number;
-  maxTables?: number;
+  minPackages?: number;
+  maxPackages?: number;
   onComplete?: () => void;
   className?: string;
   fieldErrors?: Record<string, Record<string, string>>;
 }
 
-interface TableOrder {
-  tableCount: number;
+interface PackageOrder {
+  packageCount: number;
   totalTickets: number;
   totalPrice: number;
 }
 
 export const LodgesForm: React.FC<LodgesFormProps> = ({
   functionId,
-  minTables = 1,
-  maxTables = 10,
+  minPackages = 1,
+  maxPackages = 10,
   onComplete,
   className,
   fieldErrors = {},
@@ -74,20 +74,20 @@ export const LodgesForm: React.FC<LodgesFormProps> = ({
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [dataError, setDataError] = useState<string | null>(null);
   
-  // Derived values from fetched data
-  const lodgePackage = functionPackages.find(pkg => 
-    pkg.name.toLowerCase().includes('table') || 
-    pkg.eligibleRegistrationTypes.includes('lodge')
+  // Derived values from fetched data - filter for packages with "lodges" registration type
+  const lodgePackages = functionPackages.filter(pkg => 
+    pkg.eligibleRegistrationTypes.includes('lodges')
   );
-  const tableSize = lodgePackage?.includes?.length || 10; // fallback to 10
-  const tablePrice = lodgePackage?.price || 1950; // fallback price
+  const selectedPackage = lodgePackages[0]; // Use the first available lodge package
+  const baseQuantity = selectedPackage?.qty || 10; // Use package qty as base quantity
+  const packagePrice = selectedPackage?.price || 1950; // fallback price
   
   // Local state for UI only
-  const [tableCount, setTableCount] = useState(1);
-  const [calculatedTableOrder, setCalculatedTableOrder] = useState<TableOrder>({
-    tableCount: 1,
-    totalTickets: tableSize,
-    totalPrice: tablePrice
+  const [packageCount, setPackageCount] = useState(1);
+  const [calculatedPackageOrder, setCalculatedPackageOrder] = useState<PackageOrder>({
+    packageCount: 1,
+    totalTickets: baseQuantity,
+    totalPrice: packagePrice
   });
 
   // Fetch function tickets and packages data
@@ -117,33 +117,33 @@ export const LodgesForm: React.FC<LodgesFormProps> = ({
     fetchFunctionData();
   }, []);
   
-  // Update table order when count or package data changes
+  // Update package order when count or package data changes
   useEffect(() => {
-    setCalculatedTableOrder({
-      tableCount,
-      totalTickets: tableCount * tableSize,
-      totalPrice: tableCount * tablePrice
+    setCalculatedPackageOrder({
+      packageCount,
+      totalTickets: packageCount * baseQuantity,
+      totalPrice: packageCount * packagePrice
     });
-  }, [tableCount, tableSize, tablePrice]);
+  }, [packageCount, baseQuantity, packagePrice]);
 
-  // Update table count
-  const handleTableCountChange = useCallback((newCount: number) => {
-    if (newCount >= minTables && newCount <= maxTables) {
-      setTableCount(newCount);
-      // Store the table order in the registration store
+  // Update package count
+  const handlePackageCountChange = useCallback((newCount: number) => {
+    if (newCount >= minPackages && newCount <= maxPackages) {
+      setPackageCount(newCount);
+      // Store the package order in the registration store
       if (setLodgeTicketOrder) {
         setLodgeTicketOrder({
-          tableCount: newCount,
-          totalTickets: newCount * tableSize,
-          galaDinnerTickets: newCount * tableSize,
-          ceremonyTickets: newCount * tableSize,
+          tableCount: newCount, // Keep as tableCount for backward compatibility
+          totalTickets: newCount * baseQuantity,
+          galaDinnerTickets: newCount * baseQuantity,
+          ceremonyTickets: newCount * baseQuantity,
           eventId: functionTickets[0]?.event_id || '',
           galaDinnerEventId: functionTickets.find(t => t.name.toLowerCase().includes('gala') || t.name.toLowerCase().includes('dinner'))?.event_id || '',
           ceremonyEventId: functionTickets.find(t => t.name.toLowerCase().includes('ceremony') || t.name.toLowerCase().includes('installation'))?.event_id || '',
         });
       }
     }
-  }, [minTables, maxTables, setLodgeTicketOrder, tableSize, functionTickets]);
+  }, [minPackages, maxPackages, setLodgeTicketOrder, baseQuantity, functionTickets]);
 
   // Update lodge details
   const handleLodgeChange = useCallback((lodgeId: string, lodgeName: string) => {
@@ -173,18 +173,18 @@ export const LodgesForm: React.FC<LodgesFormProps> = ({
       return;
     }
     
-    if (tableCount < minTables) {
-      alert(`At least ${minTables} table${minTables > 1 ? 's' : ''} must be ordered`);
+    if (packageCount < minPackages) {
+      alert(`At least ${minPackages} package${minPackages > 1 ? 's' : ''} must be ordered`);
       return;
     }
     
-    // Store final table order
+    // Store final package order
     if (setLodgeTicketOrder) {
       setLodgeTicketOrder({
-        tableCount,
-        totalTickets: tableCount * tableSize,
-        galaDinnerTickets: tableCount * tableSize,
-        ceremonyTickets: tableCount * tableSize,
+        tableCount: packageCount, // Keep as tableCount for backward compatibility
+        totalTickets: packageCount * baseQuantity,
+        galaDinnerTickets: packageCount * baseQuantity,
+        ceremonyTickets: packageCount * baseQuantity,
         eventId: functionTickets[0]?.event_id || '',
         galaDinnerEventId: functionTickets.find(t => t.name.toLowerCase().includes('gala') || t.name.toLowerCase().includes('dinner'))?.event_id || '',
         ceremonyEventId: functionTickets.find(t => t.name.toLowerCase().includes('ceremony') || t.name.toLowerCase().includes('installation'))?.event_id || '',
@@ -194,7 +194,7 @@ export const LodgesForm: React.FC<LodgesFormProps> = ({
     if (onComplete) {
       onComplete();
     }
-  }, [isValid, getValidationErrors, tableCount, minTables, onComplete, setLodgeTicketOrder, tableSize, functionTickets]);
+  }, [isValid, getValidationErrors, packageCount, minPackages, onComplete, setLodgeTicketOrder, baseQuantity, functionTickets]);
 
   // Show loading state
   if (isLoadingData) {
@@ -282,7 +282,7 @@ export const LodgesForm: React.FC<LodgesFormProps> = ({
         </Card>
       </div>
 
-      {/* Table Order Section */}
+      {/* Package Order Section */}
       <Card className={cn(
         "border-2 border-primary/20 transition-opacity duration-300",
         !lodgeDetails.lodge_id && "opacity-70"
@@ -291,7 +291,7 @@ export const LodgesForm: React.FC<LodgesFormProps> = ({
           <div className="flex items-center justify-between">
             <CardTitle className="flex items-center gap-2 text-primary font-medium text-lg">
               <ShoppingCart className="w-5 h-5" />
-              Table Order
+              Lodge Package Order
             </CardTitle>
             <Badge className="bg-blue-100 text-blue-800 border-0">
               Grand Proclamation 2025
@@ -306,22 +306,22 @@ export const LodgesForm: React.FC<LodgesFormProps> = ({
               <h3 className="font-medium text-lg mb-4">Available Packages</h3>
               
               {/* Dynamic Package Display */}
-              {lodgePackage ? (
+              {selectedPackage ? (
                 <div className="border rounded-lg p-4 hover:bg-gray-50 cursor-pointer transition-colors">
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-2">
                         <Package className="w-5 h-5 text-primary" />
-                        <h4 className="font-medium">{lodgePackage.name}</h4>
+                        <h4 className="font-medium">{selectedPackage.name}</h4>
                       </div>
-                      {lodgePackage.description && (
+                      {selectedPackage.description && (
                         <p className="text-sm text-gray-600 mb-2">
-                          {lodgePackage.description}
+                          {selectedPackage.description}
                         </p>
                       )}
-                      {lodgePackage.includes_description && lodgePackage.includes_description.length > 0 && (
+                      {selectedPackage.includes_description && selectedPackage.includes_description.length > 0 && (
                         <ul className="text-sm text-gray-600 space-y-1 ml-4">
-                          {lodgePackage.includes_description.map((item, index) => (
+                          {selectedPackage.includes_description.map((item, index) => (
                             <li key={index} className="flex items-center gap-2">
                               <Check className="w-4 h-4 text-green-600" />
                               {item}
@@ -329,10 +329,13 @@ export const LodgesForm: React.FC<LodgesFormProps> = ({
                           ))}
                         </ul>
                       )}
+                      <div className="mt-2 p-2 bg-blue-50 rounded text-sm">
+                        <span className="text-blue-800 font-medium">Base Quantity: {baseQuantity} tickets per package</span>
+                      </div>
                     </div>
                     <div className="text-right">
-                      <p className="text-2xl font-bold">${tablePrice.toLocaleString()}</p>
-                      <p className="text-sm text-gray-500">per table</p>
+                      <p className="text-2xl font-bold">${packagePrice.toLocaleString()}</p>
+                      <p className="text-sm text-gray-500">per package</p>
                     </div>
                   </div>
                 </div>
@@ -351,29 +354,29 @@ export const LodgesForm: React.FC<LodgesFormProps> = ({
               <Alert className="border-blue-200 bg-blue-50">
                 <Info className="h-4 w-4 text-blue-600" />
                 <AlertDescription className="text-sm">
-                  Each table seats {tableSize} attendees. Purchase multiple tables for larger groups.
+                  Each package includes {baseQuantity} tickets. Purchase multiple packages for larger groups.
                   Attendee details can be provided later.
                 </AlertDescription>
               </Alert>
             </div>
 
-            {/* Column 2: Table Selection and Order Summary */}
+            {/* Column 2: Package Selection and Order Summary */}
             <div className="space-y-6">
               <div>
-                <Label htmlFor="table-count" className="text-base font-medium mb-2 block">
-                  Number of Tables
+                <Label htmlFor="package-count" className="text-base font-medium mb-2 block">
+                  Number of Packages
                 </Label>
                 <AttendeeCounter
-                  id="table-count"
+                  id="package-count"
                   label=""
-                  value={tableCount}
-                  min={minTables}
-                  max={maxTables}
-                  onChange={handleTableCountChange}
+                  value={packageCount}
+                  min={minPackages}
+                  max={maxPackages}
+                  onChange={handlePackageCountChange}
                   disabled={!lodgeDetails.lodge_id}
                 />
                 <p className="text-sm text-gray-600 mt-2">
-                  {tableCount} {tableCount === 1 ? 'table' : 'tables'} = {tableCount * tableSize} attendees
+                  {packageCount} {packageCount === 1 ? 'package' : 'packages'} = {packageCount * baseQuantity} tickets
                 </p>
               </div>
 
@@ -383,24 +386,28 @@ export const LodgesForm: React.FC<LodgesFormProps> = ({
                 
                 <div className="space-y-2">
                   <div className="flex justify-between items-center">
-                    <span className="text-gray-600">Tables</span>
-                    <span className="font-medium">{tableCount} × ${tablePrice.toLocaleString()}</span>
+                    <span className="text-gray-600">Packages</span>
+                    <span className="font-medium">{packageCount} × ${packagePrice.toLocaleString()}</span>
                   </div>
                   <div className="flex justify-between items-center text-sm text-gray-500">
-                    <span>Total Attendees</span>
-                    <span>{calculatedTableOrder.totalTickets} people</span>
+                    <span>Total Tickets</span>
+                    <span>{calculatedPackageOrder.totalTickets} tickets</span>
+                  </div>
+                  <div className="flex justify-between items-center text-sm text-gray-500">
+                    <span>Base Quantity per Package</span>
+                    <span>{baseQuantity} tickets</span>
                   </div>
                 </div>
 
                 <div className="border-t pt-4 space-y-2">
                   <div className="text-sm text-gray-600">
                     <div className="flex justify-between">
-                      <span>Ceremony Tickets</span>
-                      <span>{calculatedTableOrder.totalTickets} × $50</span>
+                      <span>Total Ceremony Tickets</span>
+                      <span>{calculatedPackageOrder.totalTickets}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span>Gala Dinner Tickets</span>
-                      <span>{calculatedTableOrder.totalTickets} × $145</span>
+                      <span>Total Gala Dinner Tickets</span>
+                      <span>{calculatedPackageOrder.totalTickets}</span>
                     </div>
                   </div>
                 </div>
@@ -409,7 +416,7 @@ export const LodgesForm: React.FC<LodgesFormProps> = ({
                   <div className="flex justify-between items-center">
                     <span className="text-lg font-semibold">Total Amount</span>
                     <span className="text-2xl font-bold text-primary">
-                      ${calculatedTableOrder.totalPrice.toLocaleString()}
+                      ${calculatedPackageOrder.totalPrice.toLocaleString()}
                     </span>
                   </div>
                 </div>
