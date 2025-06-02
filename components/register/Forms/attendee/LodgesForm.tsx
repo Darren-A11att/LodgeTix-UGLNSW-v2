@@ -28,6 +28,7 @@ const DEBOUNCE_DELAY = 300; // 300ms debounce for store updates - matching Mason
 // Package and event data will be fetched dynamically from database
 
 interface LodgesFormProps {
+  functionId: string;
   minTables?: number;
   maxTables?: number;
   onComplete?: () => void;
@@ -42,6 +43,7 @@ interface TableOrder {
 }
 
 export const LodgesForm: React.FC<LodgesFormProps> = ({
+  functionId,
   minTables = 1,
   maxTables = 10,
   onComplete,
@@ -95,11 +97,8 @@ export const LodgesForm: React.FC<LodgesFormProps> = ({
         setIsLoadingData(true);
         setDataError(null);
         
-        const config = getEnvironmentConfig();
-        const functionId = config.functionId || config.featuredFunctionId;
-        
         if (!functionId) {
-          throw new Error('No function ID found in environment configuration');
+          throw new Error('No function ID provided to LodgesForm');
         }
         
         const ticketsService = getFunctionTicketsService();

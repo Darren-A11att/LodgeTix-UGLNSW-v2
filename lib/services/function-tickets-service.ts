@@ -129,7 +129,7 @@ class FunctionTicketsService {
         .from('function_event_tickets_view')
         .select('*')
         .eq('function_id', functionId)
-        .eq('is_active', true)
+        .eq('ticket_is_active', true)
         .order('event_title', { ascending: true })
 
       if (error) {
