@@ -78,12 +78,19 @@ export const LodgesForm: React.FC<LodgesFormProps> = ({
   const lodgePackages = functionPackages.filter(pkg => 
     pkg.eligibleRegistrationTypes.includes('lodges')
   );
-  const selectedPackage = lodgePackages[0]; // Use the first available lodge package
+  
+  // Local state for UI only
+  const [selectedPackageId, setSelectedPackageId] = useState<string | null>(null);
+  const [packageCount, setPackageCount] = useState(1);
+  
+  // Get selected package or use first available
+  const selectedPackage = selectedPackageId 
+    ? lodgePackages.find(pkg => pkg.id === selectedPackageId) || lodgePackages[0]
+    : lodgePackages[0];
+    
   const baseQuantity = selectedPackage?.qty || 10; // Use package qty as base quantity
   const packagePrice = selectedPackage?.price || 1950; // fallback price
   
-  // Local state for UI only
-  const [packageCount, setPackageCount] = useState(1);
   const [calculatedPackageOrder, setCalculatedPackageOrder] = useState<PackageOrder>({
     packageCount: 1,
     totalTickets: baseQuantity,
@@ -106,6 +113,23 @@ export const LodgesForm: React.FC<LodgesFormProps> = ({
         
         setFunctionTickets(tickets);
         setFunctionPackages(packages);
+        
+        // Debug log to see what packages are available
+        console.log('All packages fetched:', packages);
+        console.log('Package eligibility types:', packages.map(p => ({
+          name: p.name,
+          eligibleRegistrationTypes: p.eligibleRegistrationTypes
+        })));
+        
+        // Auto-select first lodge package if available
+        const lodgePackagesFound = packages.filter(pkg => 
+          pkg.eligibleRegistrationTypes.includes('lodges')
+        );
+        console.log('Lodge packages found:', lodgePackagesFound);
+        
+        if (lodgePackagesFound.length > 0 && !selectedPackageId) {
+          setSelectedPackageId(lodgePackagesFound[0].id);
+        }
       } catch (error) {
         console.error('Failed to fetch function data:', error);
         setDataError(error instanceof Error ? error.message : 'Failed to load data');
@@ -115,7 +139,7 @@ export const LodgesForm: React.FC<LodgesFormProps> = ({
     };
     
     fetchFunctionData();
-  }, []);
+  }, [functionId]);
   
   // Update package order when count or package data changes
   useEffect(() => {
@@ -306,45 +330,66 @@ export const LodgesForm: React.FC<LodgesFormProps> = ({
               <h3 className="font-medium text-lg mb-4">Available Packages</h3>
               
               {/* Dynamic Package Display */}
-              {selectedPackage ? (
-                <div className="border rounded-lg p-4 hover:bg-gray-50 cursor-pointer transition-colors">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2 mb-2">
-                        <Package className="w-5 h-5 text-primary" />
-                        <h4 className="font-medium">{selectedPackage.name}</h4>
-                      </div>
-                      {selectedPackage.description && (
-                        <p className="text-sm text-gray-600 mb-2">
-                          {selectedPackage.description}
-                        </p>
+              {lodgePackages.length > 0 ? (
+                <div className="space-y-3">
+                  {lodgePackages.map((pkg) => (
+                    <div 
+                      key={pkg.id}
+                      className={cn(
+                        "border rounded-lg p-4 cursor-pointer transition-all",
+                        selectedPackage?.id === pkg.id 
+                          ? "border-primary bg-primary/5 shadow-sm" 
+                          : "hover:bg-gray-50"
                       )}
-                      {selectedPackage.includes_description && selectedPackage.includes_description.length > 0 && (
-                        <ul className="text-sm text-gray-600 space-y-1 ml-4">
-                          {selectedPackage.includes_description.map((item, index) => (
-                            <li key={index} className="flex items-center gap-2">
-                              <Check className="w-4 h-4 text-green-600" />
-                              {item}
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-                      <div className="mt-2 p-2 bg-blue-50 rounded text-sm">
-                        <span className="text-blue-800 font-medium">Base Quantity: {baseQuantity} tickets per package</span>
+                      onClick={() => setSelectedPackageId(pkg.id)}
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-2">
+                            {selectedPackage?.id === pkg.id && (
+                              <Check className="w-5 h-5 text-primary" />
+                            )}
+                            <Package className="w-5 h-5 text-primary" />
+                            <h4 className="font-medium">{pkg.name}</h4>
+                          </div>
+                          {pkg.description && (
+                            <p className="text-sm text-gray-600 mb-2">
+                              {pkg.description}
+                            </p>
+                          )}
+                          {pkg.includes_description && pkg.includes_description.length > 0 && (
+                            <ul className="text-sm text-gray-600 space-y-1 ml-4">
+                              {pkg.includes_description.map((item, index) => (
+                                <li key={index} className="flex items-center gap-2">
+                                  <Check className="w-4 h-4 text-green-600" />
+                                  {item}
+                                </li>
+                              ))}
+                            </ul>
+                          )}
+                          <div className="mt-2 p-2 bg-blue-50 rounded text-sm">
+                            <span className="text-blue-800 font-medium">
+                              Base Quantity: {pkg.qty || 10} tickets per package
+                            </span>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-2xl font-bold">${pkg.price.toLocaleString()}</p>
+                          <p className="text-sm text-gray-500">per package</p>
+                        </div>
                       </div>
                     </div>
-                    <div className="text-right">
-                      <p className="text-2xl font-bold">${packagePrice.toLocaleString()}</p>
-                      <p className="text-sm text-gray-500">per package</p>
-                    </div>
-                  </div>
+                  ))}
                 </div>
               ) : (
                 <div className="border rounded-lg p-4 border-amber-200 bg-amber-50">
                   <div className="flex items-center gap-2 text-amber-800">
                     <Info className="w-4 h-4" />
                     <p className="text-sm">
-                      {isLoadingData ? 'Loading package information...' : 'No lodge packages available'}
+                      {isLoadingData ? 'Loading package information...' : 
+                       functionPackages.length > 0 ? 
+                         'No packages available for lodge registrations. Please contact support.' :
+                         'No packages found. Please check your configuration.'}
                     </p>
                   </div>
                 </div>
