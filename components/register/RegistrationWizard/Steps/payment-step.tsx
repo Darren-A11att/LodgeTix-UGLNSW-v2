@@ -23,7 +23,7 @@ import { PaymentMethod } from "../payment/PaymentMethod";
 import { CheckoutFormHandle } from "../payment/CheckoutForm";
 import { PaymentProcessing } from "../payment/PaymentProcessing";
 import { OneColumnStepLayout } from "../Layouts/OneColumnStepLayout";
-import { getEventTicketsService, type TicketDefinition, type EventPackage } from '@/lib/services/event-tickets-service';
+import { getFunctionTicketsService, type FunctionTicketDefinition, type FunctionPackage } from '@/lib/services/function-tickets-service';
 import { calculateStripeFees, formatFeeBreakdown, getFeeDisclaimer, getFeeModeFromEnv, getPlatformFeePercentage, isDomesticCard, getProcessingFeeLabel } from '@/lib/utils/stripe-fee-calculator';
 import { Info } from "lucide-react";
 import { 
@@ -34,7 +34,7 @@ import {
 } from "@/components/ui/tooltip";
 
 interface PaymentStepProps {
-  eventId?: string;
+  functionId?: string;
   onNextStep?: () => void;
   onPrevStep?: () => void;
   onSaveData?: () => Promise<{ success: boolean; registrationId?: string; error?: string }>;
@@ -43,7 +43,7 @@ interface PaymentStepProps {
 }
 
 function PaymentStep(props: PaymentStepProps) {
-  const { onNextStep, onPrevStep, eventId } = props;
+  const { onNextStep, onPrevStep, functionId } = props;
   
   // Get navigation functions from store as fallback
   const storeGoToNextStep = useRegistrationStore((state) => state.goToNextStep);
@@ -62,7 +62,7 @@ function PaymentStep(props: PaymentStepProps) {
     updateBillingDetails: updateStoreBillingDetails,
     setConfirmationNumber: setStoreConfirmationNumber,
     draftId: storeDraftId,
-    eventId: storeEventId,
+    functionId: storeFunctionId,
   } = useRegistrationStore();
   
   const anonymousSessionEstablished = useRegistrationStore(selectAnonymousSessionEstablished);
@@ -71,8 +71,8 @@ function PaymentStep(props: PaymentStepProps) {
   const { customer: lodgeCustomer, lodgeDetails } = useLodgeRegistrationStore();
 
   // State for ticket data
-  const [ticketTypes, setTicketTypes] = useState<TicketDefinition[]>([]);
-  const [ticketPackages, setTicketPackages] = useState<EventPackage[]>([]);
+  const [ticketTypes, setTicketTypes] = useState<FunctionTicketDefinition[]>([]);
+  const [ticketPackages, setTicketPackages] = useState<FunctionPackage[]>([]);
   const [isLoadingTickets, setIsLoadingTickets] = useState(true);
   const [ticketsError, setTicketsError] = useState<string | null>(null);
   
@@ -115,40 +115,25 @@ function PaymentStep(props: PaymentStepProps) {
         setIsLoadingTickets(true);
         setTicketsError(null);
         
-        const service = getEventTicketsService();
-        const GRAND_PROCLAMATION_PARENT_ID = "307c2d85-72d5-48cf-ac94-082ca2a5d23d";
-        const targetEventId = eventId || storeEventId || GRAND_PROCLAMATION_PARENT_ID;
+        const targetFunctionId = functionId || storeFunctionId;
         
-        console.log("💳 Fetching tickets for event:", targetEventId);
-        console.log("💳 Props eventId:", eventId);
-        console.log("💳 Store eventId:", storeEventId);
-        
-        // Check if this is the parent event or a child event (matching ticket selection logic)
-        if (targetEventId === GRAND_PROCLAMATION_PARENT_ID) {
-          // Fetch child events and their tickets
-          const childEventsData = await service.getChildEventsWithTicketsAndPackages(targetEventId);
-          
-          // Aggregate all tickets from child events
-          const allTickets: TicketDefinition[] = [];
-          childEventsData.forEach(eventData => {
-            allTickets.push(...eventData.tickets);
-          });
-          
-          // Use packages from the first result (they're the same for all child events)
-          if (childEventsData.length > 0) {
-            console.log("💳 Loaded tickets from child events:", allTickets.length);
-            console.log("💳 Loaded packages:", childEventsData[0].packages.length);
-            setTicketTypes(allTickets);
-            setTicketPackages(childEventsData[0].packages);
-          }
-        } else {
-          // For a specific event, fetch its tickets and packages
-          const result = await service.getEventTicketsAndPackages(targetEventId);
-          console.log("💳 Loaded tickets:", result.tickets.length);
-          console.log("💳 Loaded packages:", result.packages.length);
-          setTicketTypes(result.tickets);
-          setTicketPackages(result.packages);
+        if (!targetFunctionId) {
+          console.warn('💳 No functionId available, skipping ticket fetch');
+          setTicketsError('Function ID not available');
+          return;
         }
+        
+        console.log("💳 Fetching tickets for function:", targetFunctionId);
+        console.log("💳 Props functionId:", functionId);
+        console.log("💳 Store functionId:", storeFunctionId);
+        
+        const service = getFunctionTicketsService();
+        const { tickets, packages } = await service.getFunctionTicketsAndPackages(targetFunctionId);
+        
+        console.log("💳 Loaded tickets:", tickets.length);
+        console.log("💳 Loaded packages:", packages.length);
+        setTicketTypes(tickets);
+        setTicketPackages(packages);
       } catch (error) {
         console.error('Error fetching tickets:', error);
         setTicketsError(error instanceof Error ? error.message : 'Failed to load ticket information');
@@ -158,7 +143,7 @@ function PaymentStep(props: PaymentStepProps) {
     }
     
     fetchTicketsAndPackages();
-  }, [eventId, storeEventId]);
+  }, [functionId, storeFunctionId]);
 
   // Business name is now set in form initialization for lodge registrations
 
@@ -177,15 +162,15 @@ function PaymentStep(props: PaymentStepProps) {
   // Function to expand packages into individual tickets for registration
   const expandPackagesForRegistration = (
     tickets: Array<any>,
-    ticketTypes: TicketDefinition[],
-    ticketPackages: EventPackage[]
+    ticketTypes: FunctionTicketDefinition[],
+    ticketPackages: FunctionPackage[]
   ) => {
     const expandedTickets: Array<any> = [];
     
     tickets.forEach(ticket => {
       if (ticket.isPackage) {
         // Find the package info - need to extract package ID from the compound ID
-        const packageId = ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket_id.split('-').slice(1).join('-'); // Remove attendeeId prefix
+        const packageId = ticket.id.split('-').slice(1).join('-'); // Remove attendeeId prefix
         const packageInfo = ticketPackages.find(p => p.id === packageId);
         console.log(`📦 Looking for package ${packageId}:`, packageInfo);
         
@@ -199,7 +184,7 @@ function PaymentStep(props: PaymentStepProps) {
                 expandedTickets.push({
                   id: `${ticket.attendeeId}-${ticketType.id}`,
                   attendeeId: ticket.attendeeId,
-                  event_id: ticketType.event_id,
+                  function_id: ticketType.function_id,
                   eventTicketId: ticketType.id,
                   ticketTypeId: ticketType.id,
                   name: ticketType.name,
@@ -214,9 +199,9 @@ function PaymentStep(props: PaymentStepProps) {
           } else {
             // Fallback: Use package as a single ticket when individual tickets aren't available
             expandedTickets.push({
-              id: ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket_id,
+              id: ticket.id,
               attendeeId: ticket.attendeeId,
-              event_id: eventId || storeEventId, // Use the event ID from props or store
+              function_id: functionId || storeFunctionId, // Use the function ID from props or store
               eventTicketId: packageInfo.id,
               ticketTypeId: packageInfo.id,
               name: packageInfo.name,
@@ -235,8 +220,8 @@ function PaymentStep(props: PaymentStepProps) {
         // Individual ticket - pass through
         expandedTickets.push({
           ...ticket,
-          eventTicketId: ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket_id.split('-')[1] || ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket_id,  // Extract actual ticket ID
-          ticketTypeId: ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket_id.split('-')[1] || ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket_id
+          eventTicketId: ticket.id.split('-')[1] || ticket.id,  // Extract actual ticket ID
+          ticketTypeId: ticket.id.split('-')[1] || ticket.id
         });
       }
     });
@@ -525,7 +510,7 @@ function PaymentStep(props: PaymentStepProps) {
             totalAmount,
             stripeFee: feeCalculation.stripeFee,
             billingDetails: billingData,
-            eventId: eventId || storeEventId,
+            functionId: functionId || storeFunctionId,
             contactId: user.id
           };
 
@@ -737,7 +722,7 @@ function PaymentStep(props: PaymentStepProps) {
                   {currentTicketsForSummary.length > 0 && (
                     <div className="space-y-1 pt-2 border-t border-gray-200">
                       {currentTicketsForSummary.map((ticket, idx) => (
-                        <div key={ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket_id} className="flex justify-between text-xs">
+                        <div key={ticket.id} className="flex justify-between text-xs">
                           <span className="text-gray-500 truncate pr-2" style={{ maxWidth: 'calc(100% - 60px)' }}>
                             {ticket.name}
                           </span>

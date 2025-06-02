@@ -21,15 +21,13 @@ const stripePublishableKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!;
 const stripePromise = loadStripe(stripePublishableKey);
 
 interface LodgeRegistrationStepProps {
-  eventId: string;
-  eventSlug?: string;
-  parentSlug?: string;
+  functionId: string;
+  functionSlug?: string;
 }
 
 export const LodgeRegistrationStep: React.FC<LodgeRegistrationStepProps> = ({
-  eventId,
-  eventSlug,
-  parentSlug
+  functionId,
+  functionSlug
 }) => {
   const router = useRouter();
   const checkoutFormRef = useRef<CheckoutFormHandle>(null);
@@ -89,7 +87,7 @@ export const LodgeRegistrationStep: React.FC<LodgeRegistrationStepProps> = ({
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          eventId,
+          functionId,
           customerData: customer,
           lodgeDetails,
           tableOrder: lodgeTicketOrder,
@@ -106,10 +104,10 @@ export const LodgeRegistrationStep: React.FC<LodgeRegistrationStepProps> = ({
       }
 
       if (result.success && result.registrationId) {
-        // Navigate to confirmation page
-        const confirmationPath = parentSlug && eventSlug
-          ? `/events/${parentSlug}/${eventSlug}/register/${result.registrationId}/confirmation`
-          : `/events/${eventSlug}/register/${result.registrationId}/confirmation`;
+        // Navigate to confirmation page using function-based routing
+        const confirmationPath = functionSlug
+          ? `/events/${functionSlug}/register/${result.registrationId}/confirmation`
+          : `/registrations/${result.registrationId}`;
         
         router.push(confirmationPath);
       } else {
