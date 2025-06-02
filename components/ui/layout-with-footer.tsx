@@ -16,13 +16,14 @@ export function LayoutWithFooter({ children }: LayoutWithFooterProps) {
   // Check if we're on specific page types
   const isHomepage = pathname === '/'
   const isRegistrationWizard = pathname.includes('/register/')
+  const isOrganiserPage = pathname.startsWith('/organiser')
   
   // Extract event slug from pathname if available
   const eventSlugMatch = pathname.match(/\/events\/([^\/]+)/)
   const eventSlug = eventSlugMatch ? eventSlugMatch[1] : undefined
   
-  // For non-homepage pages that aren't registration wizard, show header and footer
-  const shouldShowHeader = !isHomepage && !isRegistrationWizard
+  // For non-homepage pages that aren't registration wizard or organiser pages, show header and footer
+  const shouldShowHeader = !isHomepage && !isRegistrationWizard && !isOrganiserPage
   const shouldShowFooter = !isRegistrationWizard
   
   return (

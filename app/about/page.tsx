@@ -11,21 +11,6 @@ export const dynamic = 'force-dynamic'
 export default function AboutPage() {
   return (
     <div className="min-h-screen bg-white">
-      <header className="sticky top-0 z-10 flex h-14 items-center justify-between border-b bg-white px-4 md:px-6">
-        <Link href="/" className="flex items-center">
-          <Ticket className="mr-2 h-5 w-5 text-blue-600" />
-          <span className="font-bold">LodgeTix</span>
-        </Link>
-        <div className="flex items-center gap-4">
-          <Button asChild variant="outline" size="sm">
-            <Link href="/contact">Contact Us</Link>
-          </Button>
-          <Button asChild size="sm">
-            <Link href="/events">Browse Events</Link>
-          </Button>
-        </div>
-      </header>
-
       <main className="container mx-auto max-w-4xl px-4 py-12">
         <div className="mb-12 text-center">
           <MasonicLogo size="lg" className="mx-auto mb-6" />

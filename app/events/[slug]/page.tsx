@@ -1,9 +1,8 @@
 import Link from "next/link"
 import Image from "next/image"
 import { CalendarDays, MapPin, Share2, TicketIcon } from "lucide-react"
-import { notFound, redirect } from "next/navigation"
+import { notFound } from "next/navigation"
 import { EventRPCService } from "@/lib/api/event-rpc-service"
-import { createClient } from '@/utils/supabase/server'
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -12,7 +11,7 @@ import { formatCurrency } from "@/lib/formatters"
 // Mark as dynamic since it uses server-side authentication
 export const dynamic = 'force-dynamic'
 
-export default async function FallbackEventPage({ 
+export default async function EventPage({ 
   params 
 }: { 
   params: Promise<{ slug: string }> 
@@ -21,19 +20,6 @@ export default async function FallbackEventPage({
   
   // Initialize RPC service
   const eventService = new EventRPCService(true); // server-side
-  
-  // First, check if this slug is actually a function slug
-  const supabase = await createClient();
-  const { data: functionData } = await supabase
-    .from('functions')
-    .select('function_id, slug')
-    .eq('slug', slug)
-    .single();
-    
-  // If it's a function slug, redirect to the function page
-  if (functionData) {
-    redirect(`/functions/${slug}`);
-  }
   
   // Fetch event data
   const eventData = await eventService.getEventDetailData(slug);
@@ -64,25 +50,6 @@ export default async function FallbackEventPage({
   
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="sticky top-0 z-10 flex h-14 items-center justify-between border-b bg-white px-4 md:px-6">
-        <Link href="/" className="flex items-center">
-          <TicketIcon className="mr-2 h-5 w-5 text-purple-600" />
-          <span className="font-bold">LodgeTix</span>
-        </Link>
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="sm">
-            <Share2 className="mr-2 h-4 w-4" /> Share
-          </Button>
-          <Button size="sm" asChild className="bg-masonic-navy hover:bg-masonic-blue">
-            <Link href={`/events/${slug}/register`}>
-              <TicketIcon className="mr-2 h-4 w-4" /> 
-              Purchase Tickets
-            </Link>
-          </Button>
-        </div>
-      </header>
-
       {/* Hero Section */}
       <div className="relative h-72 w-full md:h-96">
         <Image 
@@ -93,6 +60,20 @@ export default async function FallbackEventPage({
           priority 
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+        
+        {/* Action buttons in top-right corner */}
+        <div className="absolute top-4 right-4 flex items-center gap-2">
+          <Button variant="ghost" size="sm" className="bg-white/90 text-gray-900 hover:bg-white">
+            <Share2 className="mr-2 h-4 w-4" /> Share
+          </Button>
+          <Button size="sm" asChild className="bg-masonic-navy hover:bg-masonic-blue">
+            <Link href={`/events/${slug}/register`}>
+              <TicketIcon className="mr-2 h-4 w-4" /> 
+              Purchase Tickets
+            </Link>
+          </Button>
+        </div>
+        
         <div className="absolute bottom-0 left-0 right-0 p-6 text-white md:p-12">
           <h1 className="mb-2 text-3xl font-bold md:text-5xl">{eventData.title}</h1>
           {eventData.subtitle && (

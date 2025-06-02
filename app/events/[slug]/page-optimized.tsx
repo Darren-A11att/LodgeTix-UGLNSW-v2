@@ -45,25 +45,6 @@ export default async function OptimizedParentEventPage({
   
   return (
     <div className="min-h-screen bg-gray-50">
-      {/* Header */}
-      <header className="sticky top-0 z-10 flex h-14 items-center justify-between border-b bg-white px-4 md:px-6">
-        <Link href="/" className="flex items-center">
-          <TicketIcon className="mr-2 h-5 w-5 text-purple-600" />
-          <span className="font-bold">LodgeTix</span>
-        </Link>
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="sm">
-            <Share2 className="mr-2 h-4 w-4" /> Share
-          </Button>
-          <Button size="sm" asChild className="bg-masonic-navy hover:bg-masonic-blue">
-            <Link href={`/events/${slug}/register`}>
-              <TicketIcon className="mr-2 h-4 w-4" /> 
-              {eventData.is_sold_out ? 'Sold Out' : 'Purchase Tickets'}
-            </Link>
-          </Button>
-        </div>
-      </header>
-
       {/* Hero Section */}
       <div className="relative h-72 w-full md:h-96">
         <Image 
@@ -74,6 +55,20 @@ export default async function OptimizedParentEventPage({
           priority 
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+        
+        {/* Action buttons in top-right corner */}
+        <div className="absolute top-4 right-4 flex items-center gap-2">
+          <Button variant="ghost" size="sm" className="bg-white/90 text-gray-900 hover:bg-white">
+            <Share2 className="mr-2 h-4 w-4" /> Share
+          </Button>
+          <Button size="sm" asChild className="bg-masonic-navy hover:bg-masonic-blue">
+            <Link href={`/events/${slug}/register`}>
+              <TicketIcon className="mr-2 h-4 w-4" /> 
+              {eventData.is_sold_out ? 'Sold Out' : 'Purchase Tickets'}
+            </Link>
+          </Button>
+        </div>
+        
         <div className="absolute bottom-0 left-0 right-0 p-6 text-white md:p-12">
           <h1 className="mb-2 text-xl font-bold md:text-2xl">{eventData.title}</h1>
           {eventData.subtitle && (
