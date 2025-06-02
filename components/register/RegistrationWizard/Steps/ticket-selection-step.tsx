@@ -18,7 +18,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { TwoColumnStepLayout } from "../Layouts/TwoColumnStepLayout"
 import { getTicketSummaryData } from '../Summary/summary-data/ticket-summary-data';
 import { SummaryRenderer } from '../Summary/SummaryRenderer';
-import { type TicketDefinition, type EventPackage, getEventTicketsService } from '@/lib/services/event-tickets-service'
+import { type FunctionTicketDefinition, type FunctionPackage, getFunctionTicketsService } from '@/lib/services/function-tickets-service'
 import { api } from '@/lib/api-logger'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ValidationModal } from '@/components/ui/validation-modal'
@@ -41,25 +41,25 @@ const TicketSelectionStep: React.FC = () => {
   const updateAttendeeStore = useRegistrationStore((s) => s.updateAttendee);
   const updatePackageSelection = useRegistrationStore((s) => s.updatePackageSelection);
   const packages = useRegistrationStore((s) => s.packages);
-  const eventId = useRegistrationStore((s) => s.eventId);
+  const functionId = useRegistrationStore((s) => s.functionId);
   const registrationType = useRegistrationStore((s) => s.registrationType);
   const lodgeTicketOrder = useRegistrationStore((s) => s.lodgeTicketOrder);
 
   // State for dynamic ticket and package data
-  const [ticketTypes, setTicketTypes] = useState<TicketDefinition[]>([])
-  const [ticketPackages, setTicketPackages] = useState<EventPackage[]>([])
+  const [ticketTypes, setTicketTypes] = useState<FunctionTicketDefinition[]>([])
+  const [ticketPackages, setTicketPackages] = useState<FunctionPackage[]>([])
   const [isLoadingTickets, setIsLoadingTickets] = useState(true)
   const [ticketsError, setTicketsError] = useState<string | null>(null)
   const { toast } = useToast()
   
-  // Real-time ticket availability
+  // Real-time ticket availability (using functionId for now, may need to be updated for function-level monitoring)
   const { 
     availability: realtimeAvailability, 
     isConnected, 
     connectionStatus,
     getTicketAvailability,
     isTicketAvailable 
-  } = useTicketAvailability(eventId, {
+  } = useTicketAvailability(functionId, {
     enabled: true,
     onLowStock: (ticketName, available) => {
       toast({
@@ -84,17 +84,17 @@ const TicketSelectionStep: React.FC = () => {
         setIsLoadingTickets(true)
         setTicketsError(null)
         
-        // Always use the eventId from the store - it should be set from the route
-        if (!eventId) {
-          throw new Error('Event ID is required for ticket selection')
+        // Always use the functionId from the store - it should be set from the route
+        if (!functionId) {
+          throw new Error('Function ID is required for ticket selection')
         }
-        const targetEventId = eventId
+        const targetFunctionId = functionId
         
-        api.debug(`Fetching tickets for event: ${targetEventId}`)
+        api.debug(`Fetching tickets for function: ${targetFunctionId}`)
         
-        // Use the EventTicketsService to fetch tickets and packages
-        const ticketsService = getEventTicketsService()
-        const { tickets, packages } = await ticketsService.getEventTicketsAndPackages(targetEventId)
+        // Use the FunctionTicketsService to fetch tickets and packages
+        const ticketsService = getFunctionTicketsService()
+        const { tickets, packages } = await ticketsService.getFunctionTicketsAndPackages(targetFunctionId)
         
         // The service already returns data in the correct format
         setTicketTypes(tickets)
@@ -115,7 +115,7 @@ const TicketSelectionStep: React.FC = () => {
     }
     
     fetchTicketsAndPackages()
-  }, [eventId])
+  }, [functionId])
 
 
   const primaryAttendee = allStoreAttendees.find(a => a.isPrimary) as unknown as MasonAttendee | GuestAttendee | undefined;
@@ -690,16 +690,16 @@ const TicketSelectionStep: React.FC = () => {
                       {ticketTypes
                         .filter(ticket => ticket.eligibleAttendeeTypes.includes('mason' as AttendeeType))
                         .map((ticket) => (
-                        <TableRow key={ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket_id}>
+                        <TableRow key={ticket.id}>
                           <TableCell>
                             <Checkbox
-                              id={`all-${ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket_id}`}
-                              disabled={ticket.status !== 'Active' || !isTicketAvailable(ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket_id)}
+                              id={`all-${ticket.id}`}
+                              disabled={ticket.status !== 'Active' || !isTicketAvailable(ticket.id)}
                               checked={
                                 isBulkMode 
-                                  ? (packages['lodge-bulk']?.selectedEvents || []).includes(ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket_id)
+                                  ? (packages['lodge-bulk']?.selectedEvents || []).includes(ticket.id)
                                   : allStoreAttendees.length > 0 && allStoreAttendees.every(attendee => 
-                                      isIndividualTicketDirectlySelected(attendee.attendeeId, ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket_id)
+                                      isIndividualTicketDirectlySelected(attendee.attendeeId, ticket.id)
                                     )
                               }
                               onCheckedChange={() => {

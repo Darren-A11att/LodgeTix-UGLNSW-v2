@@ -102,7 +102,7 @@ export function ensureSlugPath(path: string): string {
     const slug = idToSlug(idOrSlug);
     
     if (slug && slug !== idOrSlug) {
-      return `/events/${slug}${restOfPath}`;
+      return `/functions/${slug}${restOfPath}`;
     }
   }
   

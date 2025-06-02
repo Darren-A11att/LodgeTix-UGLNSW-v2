@@ -28,7 +28,7 @@ import { TwoColumnStepLayout } from "../Layouts/TwoColumnStepLayout"
 import { getOrderReviewSummaryData } from '../Summary/summary-data/order-review-summary-data';
 import { SummaryRenderer } from '../Summary/SummaryRenderer';
 import { ticketService, EventTicket, TicketPackage } from '@/lib/api/ticketService';
-import { getEventTicketsService, type TicketDefinition, type EventPackage } from '@/lib/services/event-tickets-service';
+import { getFunctionTicketsService, type FunctionTicketDefinition, type FunctionPackage } from '@/lib/services/function-tickets-service';
 import { api } from '@/lib/api-logger';
 import { ValidationModal } from '@/components/ui/validation-modal';
 import { calculateStripeFees, getFeeDisclaimer, getFeeModeFromEnv, STRIPE_FEE_CONFIG, isDomesticCard, getProcessingFeeLabel, getPlatformFeePercentage } from '@/lib/utils/stripe-fee-calculator';
@@ -39,17 +39,16 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 
-// Define the parent event ID for Grand Proclamation 2025
-const GRAND_PROCLAMATION_PARENT_ID = "307c2d85-72d5-48cf-ac94-082ca2a5d23d";
+// Note: Using dynamic function_id from registration store instead of hardcoded parent event ID
 
 function OrderReviewStep() {
   const registrationType = useRegistrationStore((s) => s.registrationType);
   const allStoreAttendees = useRegistrationStore((s) => s.attendees);
-  const eventId = useRegistrationStore((s) => s.eventId);
+  const functionId = useRegistrationStore((s) => s.functionId);
   
   // State for dynamic ticket and package data
-  const [ticketTypesMinimal, setTicketTypesMinimal] = useState<TicketDefinition[]>([]);
-  const [ticketPackagesMinimal, setTicketPackagesMinimal] = useState<EventPackage[]>([]);
+  const [ticketTypesMinimal, setTicketTypesMinimal] = useState<FunctionTicketDefinition[]>([]);
+  const [ticketPackagesMinimal, setTicketPackagesMinimal] = useState<FunctionPackage[]>([]);
   const [isLoadingTickets, setIsLoadingTickets] = useState(true);
   
   // Fetch tickets and packages on component mount
@@ -58,30 +57,18 @@ function OrderReviewStep() {
       try {
         setIsLoadingTickets(true);
         
-        const service = getEventTicketsService();
-        const targetEventId = eventId || GRAND_PROCLAMATION_PARENT_ID;
-        
-        api.debug(`[OrderReviewStep] Fetching tickets for event: ${targetEventId}`);
-        
-        if (targetEventId === GRAND_PROCLAMATION_PARENT_ID) {
-          const childEventsData = await service.getChildEventsWithTicketsAndPackages(targetEventId);
-          
-          const allTickets: TicketDefinition[] = [];
-          childEventsData.forEach(eventData => {
-            allTickets.push(...eventData.tickets);
-          });
-          
-          if (childEventsData.length > 0) {
-            setTicketTypesMinimal(allTickets);
-            setTicketPackagesMinimal(childEventsData[0].packages);
-            api.debug(`[OrderReviewStep] Loaded ${allTickets.length} tickets and ${childEventsData[0].packages.length} packages`);
-          }
-        } else {
-          const { tickets, packages } = await service.getEventTicketsAndPackages(targetEventId);
-          setTicketTypesMinimal(tickets);
-          setTicketPackagesMinimal(packages);
-          api.debug(`[OrderReviewStep] Loaded ${tickets.length} tickets and ${packages.length} packages`);
+        if (!functionId) {
+          api.warn('[OrderReviewStep] No functionId available, skipping ticket fetch');
+          return;
         }
+        
+        const service = getFunctionTicketsService();
+        api.debug(`[OrderReviewStep] Fetching tickets for function: ${functionId}`);
+        
+        const { tickets, packages } = await service.getFunctionTicketsAndPackages(functionId);
+        setTicketTypesMinimal(tickets);
+        setTicketPackagesMinimal(packages);
+        api.debug(`[OrderReviewStep] Loaded ${tickets.length} tickets and ${packages.length} packages`);
       } catch (error) {
         api.error('[OrderReviewStep] Error fetching tickets and packages:', error);
         console.error('[OrderReviewStep] Error fetching tickets and packages:', error);
@@ -91,7 +78,7 @@ function OrderReviewStep() {
     }
     
     fetchTicketsAndPackages();
-  }, [eventId]);
+  }, [functionId]);
   
   const primaryAttendee = useMemo(() => 
     allStoreAttendees.find(att => att.isPrimary) as UnifiedAttendeeData | undefined, 
@@ -465,7 +452,7 @@ function OrderReviewStep() {
                     ) : (
                       <ul className="space-y-2">
                         {ticketsForThisAttendee.map(ticket => (
-                          <li key={ticket.ticket.ticket_id} className="flex justify-between items-center text-sm p-2 rounded-md border bg-white">
+                          <li key={ticket.id} className="flex justify-between items-center text-sm p-2 rounded-md border bg-white">
                             <div>
                               <p className="font-medium">{ticket.name}</p>
                               {ticket.description && <p className="text-xs text-gray-500">{ticket.description}</p>}
@@ -479,7 +466,7 @@ function OrderReviewStep() {
                                     if (ticket.isPackage) {
                                       updatedTicketSelection = { ticketDefinitionId: null, selectedEvents: [] };
                                     } else {
-                                      const originalTicketTypeId = ticket.ticket.ticket_id.substring(ticket.attendeeId.length + 1);
+                                      const originalTicketTypeId = ticket.id.substring(ticket.attendeeId.length + 1);
                                       updatedTicketSelection = {
                                         ticketDefinitionId: null,
                                         selectedEvents: currentPackage.selectedEvents.filter(id => id !== originalTicketTypeId)

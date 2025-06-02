@@ -62,7 +62,7 @@ test.describe('Function-Based Registration Flow', () => {
 
   test('should handle package selection for functions', async ({ page }) => {
     // Navigate directly to a function page
-    await page.goto('/functions/grand-installation');
+    await page.goto('/functions/hero-function');
     
     // Click on packages or register
     const packageButton = page.getByRole('button', { name: /view.*packages|select.*package/i });
@@ -94,7 +94,7 @@ test.describe('Function-Based Registration Flow', () => {
     await page.goto(testUrls.registration);
     
     // Function name should be visible
-    const functionName = await page.locator('h1, h2').filter({ hasText: /grand.*installation/i });
+    const functionName = await page.locator('h1, h2').filter({ hasText: /hero.*function/i });
     await expect(functionName).toBeVisible();
     
     // Function dates should be shown

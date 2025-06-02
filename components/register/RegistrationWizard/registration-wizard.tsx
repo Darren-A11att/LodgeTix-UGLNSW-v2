@@ -439,7 +439,7 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ function
   // Updated validation logic
   const runValidations = React.useCallback(() => {
     let errors: string[] = [];
-    if (currentStep === 3) { // Step 3 is now AttendeeDetails
+    if (currentStep === 2) { // Step 2 is now AttendeeDetails
       // For lodge registrations, we don't validate attendees since they use customer model
       if (registrationType === 'lodge') {
         // Lodge validation is handled by the LodgeRegistrationStore
@@ -460,7 +460,7 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ function
   
   useEffect(() => {
     // Only run this on the attendee details step and if not already synced
-    if (currentStep === 3 && allAttendees && allAttendees.length > 0 && !syncDoneRef.current) {
+    if (currentStep === 2 && allAttendees && allAttendees.length > 0 && !syncDoneRef.current) {
       // console.log("SYNC: Synchronizing default values for all attendees");
       const store = useRegistrationStore.getState();
       
@@ -488,7 +488,7 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ function
     }
     
     // Reset sync flag when leaving the step
-    if (currentStep !== 3) {
+    if (currentStep !== 2) {
       syncDoneRef.current = false;
     }
   }, [currentStep, allAttendees]);
@@ -498,7 +498,7 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ function
   const validationTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
   useEffect(() => {
-    if (currentStep === 3) {
+    if (currentStep === 2) {
       try {
         // Clear any existing timeout
         if (validationTimeoutRef.current) {
@@ -544,7 +544,7 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ function
     console.log("handleNext called for step:", currentStep);
     
     // Step-specific validation
-    if (currentStep === 3) { // Attendee Details step
+    if (currentStep === 2) { // Attendee Details step
       // Clear previous errors and re-run validation to ensure we have latest state
       setValidationErrors([]);
       
@@ -713,37 +713,25 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ function
         }
       case 2:
         return {
-          title: "Select Events",
-          description: `Choose which events to attend within ${functionData?.name || 'this function'}`
-        }
-      case 3:
-        // Change title to "Lodge Details" if registration type is 'lodge'
-        if (registrationType === 'lodge') {
-          return {
-            title: "Lodge Registration & Payment",
-            description: "Complete your lodge table booking and payment"
-          }
-        }
-        return {
           title: "Attendee Details",
           description: "Please provide information for all attendees"
         }
-      case 4:
+      case 3:
         return {
           title: "Select Tickets",
           description: "Choose tickets for each attendee"
         }
-      case 5:
+      case 4:
         return {
           title: "Review Order",
           description: "Review your registration details before payment"
         }
-      case 6:
+      case 5:
         return {
           title: "Payment",
           description: "Complete your registration payment"
         }
-      case 7:
+      case 6:
         return {
           title: "Confirmation",
           description: "Registration successful"
@@ -760,8 +748,8 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ function
   const renderStepContent = () => {
     // Remove console.log to reduce noise - console.log('🎯 renderStepContent called, currentStep:', currentStep);
     
-    // Special handling for lodge registration - skip event selection
-    if (registrationType === 'lodge' && currentStep === 3) {
+    // Special handling for lodge registration
+    if (registrationType === 'lodge' && currentStep === 2) {
       const LodgeRegistrationStep = lazy(() => import('./Steps/LodgeRegistrationStep').then(module => ({
         default: module.LodgeRegistrationStep
       })));
@@ -781,20 +769,6 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ function
       case 1:
         return <RegistrationTypeStep />
       case 2:
-        const EventSelectionStep = lazy(() => import('./Steps/event-selection-step'))
-        return (
-          <Suspense fallback={<StepLoadingFallback />}>
-            <EventSelectionStep
-              function={functionData}
-              selectedEvents={selectedEvents}
-              onEventsChange={(events) => {
-                setSelectedEventsLocal(events)
-                setSelectedEvents(events)
-              }}
-            />
-          </Suspense>
-        )
-      case 3:
         return (
           <Suspense fallback={<StepLoadingFallback />}>
             <AttendeeDetailsStep
@@ -806,26 +780,26 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ function
             />
           </Suspense>
         )
-      case 4:
+      case 3:
         return (
           <Suspense fallback={<StepLoadingFallback />}>
             <TicketSelectionStep />
           </Suspense>
         )
-      case 5:
+      case 4:
         return (
           <Suspense fallback={<StepLoadingFallback />}>
             <OrderReviewStep />
           </Suspense>
         )
-      case 6:
+      case 5:
         // Remove console.log to reduce noise - console.log('🎯 Rendering payment step (case 6)');
         return (
           <Suspense fallback={<StepLoadingFallback />}>
             <PaymentStep onSaveData={saveRegistrationData} />
           </Suspense>
         )
-      case 7:
+      case 6:
         return (
           <Suspense fallback={<StepLoadingFallback />}>
             <ConfirmationStep />
@@ -848,7 +822,7 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ function
   
   // Determine if next button should be disabled
   const isNextDisabled = () => {
-    if (currentStep === 3) {
+    if (currentStep === 2) {
       return validationErrors.length > 0 || !agreeToTerms;
     }
     return false;
@@ -899,7 +873,7 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ function
         currentStep={currentStep}
         sectionTitle={title}
         sectionDescription={description}
-        showStepIndicator={currentStep === 1 || currentStep === 2 || currentStep === 5 || currentStep === 7} // Hide for steps using TwoColumnStepLayout
+        showStepIndicator={currentStep === 1 || currentStep === 4 || currentStep === 6} // Hide for steps using TwoColumnStepLayout
       >
         {/* Use a consistent wrapper for all steps */}
         <div className="w-full">

@@ -31,6 +31,7 @@ export function EventCard(props: EventCardProps) {
   const description = props.description || event?.description || ''
   const imageUrl = props.imageUrl || event?.imageUrl || '/placeholder.svg'
   const location = props.location || event?.location || ''
+  const functionSlug = props.functionSlug || event?.functionSlug || slug // Fall back to event slug if no function slug
   
   // Format date from event object if available
   let date = props.date || ''
@@ -46,18 +47,9 @@ export function EventCard(props: EventCardProps) {
   const price = props.price || event?.price || 'Price TBD'
   
   // Determine the correct link structure
-  let detailsLink: string
-  let registerLink: string
-  
-  if (props.functionSlug) {
-    // Event is part of a function - use function-based routing
-    detailsLink = `/functions/${props.functionSlug}/events/${slug}`
-    registerLink = `/functions/${props.functionSlug}/register`
-  } else {
-    // Standalone event - use event-based routing
-    detailsLink = `/events/${slug}`
-    registerLink = `/events/${slug}/register`
-  }
+  // Always use event-based routing since function routes have been removed
+  const detailsLink = `/functions/${slug}`
+  const registerLink = `/functions/${functionSlug}/register`
   return (
     <Card className="overflow-hidden transition-all hover:shadow-md">
       <div className="relative h-48 w-full">

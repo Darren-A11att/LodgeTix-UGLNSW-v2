@@ -50,7 +50,7 @@ export async function FeaturedEventsSection() {
         <div className="container mx-auto px-4">
           <div className="mb-8 flex items-center justify-between">
             <h2 className="text-3xl font-bold">Featured Events</h2>
-            <Link href="/events" className="text-blue-800 hover:underline">
+            <Link href="/functions" className="text-blue-800 hover:underline">
               View all
             </Link>
           </div>
@@ -121,7 +121,7 @@ function FeaturedEventsFallback() {
       <div className="container mx-auto px-4">
         <div className="mb-8 flex items-center justify-between">
           <h2 className="text-3xl font-bold">Featured Events</h2>
-          <Link href="/events" className="text-blue-800 hover:underline">
+          <Link href="/functions" className="text-blue-800 hover:underline">
             View all
           </Link>
         </div>

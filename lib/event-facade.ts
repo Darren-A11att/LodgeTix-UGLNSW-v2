@@ -293,7 +293,7 @@ export function isUsingEventsSchema(): boolean {
 export function getEventUrl(event: Event): string {
   // Prefer slug over ID for cleaner URLs
   const identifier = event.slug || event.event_id
-  return `/events/${identifier}`
+  return `/functions/${identifier}`
 }
 
 /**

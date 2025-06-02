@@ -594,7 +594,7 @@ function ConfirmationStep() {
               </CardContent>
               <CardFooter>
                 <Button className="w-full bg-masonic-navy hover:bg-masonic-blue" asChild>
-                  <Link href="/events">
+                  <Link href="/functions">
                     <ExternalLink className="mr-2 h-4 w-4" /> View All Events
                   </Link>
                 </Button>

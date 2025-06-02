@@ -8,6 +8,8 @@ import { Info, ShoppingCart, Users, Package, Check, Building } from 'lucide-reac
 import { cn } from '@/lib/utils';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import formSaveManager from '@/lib/formSaveManager';
+import { getFunctionTicketsService, FunctionTicketDefinition, FunctionPackage } from '@/lib/services/function-tickets-service';
+import { getEnvironmentConfig } from '@/lib/config/environment';
 
 // Import form components
 import { GrandLodgeSelection } from '../mason/lib/GrandLodgeSelection';
@@ -22,16 +24,8 @@ import {
 // Constants for form behavior
 const DEBOUNCE_DELAY = 300; // 300ms debounce for store updates - matching MasonForm
 
-// Event and ticket IDs for Grand Proclamation 2025
-const EVENT_IDS = {
-  GRAND_PROCLAMATION: '307c2d85-72d5-48cf-ac94-082ca2a5d23d',
-  GALA_DINNER: '03a51924-1606-47c9-838d-9dc32657cd59',
-  CEREMONY: '6c12952b-7cf3-4d6a-81bd-1ac3b7ff7076'
-};
-
-// Table package configuration (10 tickets per table)
-const TABLE_SIZE = 10;
-const TABLE_PRICE = 1950; // $195 per ticket x 10 = $1950 per table
+// Constants for form behavior only
+// Package and event data will be fetched dynamically from database
 
 interface LodgesFormProps {
   minTables?: number;
@@ -72,22 +66,66 @@ export const LodgesForm: React.FC<LodgesFormProps> = ({
   // Get field errors for customer fields
   const customerFieldErrors = fieldErrors['customer'] || {};
   
+  // Dynamic data state
+  const [functionTickets, setFunctionTickets] = useState<FunctionTicketDefinition[]>([]);
+  const [functionPackages, setFunctionPackages] = useState<FunctionPackage[]>([]);
+  const [isLoadingData, setIsLoadingData] = useState(true);
+  const [dataError, setDataError] = useState<string | null>(null);
+  
+  // Derived values from fetched data
+  const lodgePackage = functionPackages.find(pkg => 
+    pkg.name.toLowerCase().includes('table') || 
+    pkg.eligibleRegistrationTypes.includes('lodge')
+  );
+  const tableSize = lodgePackage?.includes?.length || 10; // fallback to 10
+  const tablePrice = lodgePackage?.price || 1950; // fallback price
+  
   // Local state for UI only
   const [tableCount, setTableCount] = useState(1);
   const [calculatedTableOrder, setCalculatedTableOrder] = useState<TableOrder>({
     tableCount: 1,
-    totalTickets: TABLE_SIZE,
-    totalPrice: TABLE_PRICE
+    totalTickets: tableSize,
+    totalPrice: tablePrice
   });
 
-  // Update table order when count changes
+  // Fetch function tickets and packages data
+  useEffect(() => {
+    const fetchFunctionData = async () => {
+      try {
+        setIsLoadingData(true);
+        setDataError(null);
+        
+        const config = getEnvironmentConfig();
+        const functionId = config.functionId || config.featuredFunctionId;
+        
+        if (!functionId) {
+          throw new Error('No function ID found in environment configuration');
+        }
+        
+        const ticketsService = getFunctionTicketsService();
+        const { tickets, packages } = await ticketsService.getFunctionTicketsAndPackages(functionId);
+        
+        setFunctionTickets(tickets);
+        setFunctionPackages(packages);
+      } catch (error) {
+        console.error('Failed to fetch function data:', error);
+        setDataError(error instanceof Error ? error.message : 'Failed to load data');
+      } finally {
+        setIsLoadingData(false);
+      }
+    };
+    
+    fetchFunctionData();
+  }, []);
+  
+  // Update table order when count or package data changes
   useEffect(() => {
     setCalculatedTableOrder({
       tableCount,
-      totalTickets: tableCount * TABLE_SIZE,
-      totalPrice: tableCount * TABLE_PRICE
+      totalTickets: tableCount * tableSize,
+      totalPrice: tableCount * tablePrice
     });
-  }, [tableCount]);
+  }, [tableCount, tableSize, tablePrice]);
 
   // Update table count
   const handleTableCountChange = useCallback((newCount: number) => {
@@ -97,16 +135,16 @@ export const LodgesForm: React.FC<LodgesFormProps> = ({
       if (setLodgeTicketOrder) {
         setLodgeTicketOrder({
           tableCount: newCount,
-          totalTickets: newCount * TABLE_SIZE,
-          galaDinnerTickets: newCount * TABLE_SIZE,
-          ceremonyTickets: newCount * TABLE_SIZE,
-          eventId: EVENT_IDS.GRAND_PROCLAMATION,
-          galaDinnerEventId: EVENT_IDS.GALA_DINNER,
-          ceremonyEventId: EVENT_IDS.CEREMONY,
+          totalTickets: newCount * tableSize,
+          galaDinnerTickets: newCount * tableSize,
+          ceremonyTickets: newCount * tableSize,
+          eventId: functionTickets[0]?.event_id || '',
+          galaDinnerEventId: functionTickets.find(t => t.name.toLowerCase().includes('gala') || t.name.toLowerCase().includes('dinner'))?.event_id || '',
+          ceremonyEventId: functionTickets.find(t => t.name.toLowerCase().includes('ceremony') || t.name.toLowerCase().includes('installation'))?.event_id || '',
         });
       }
     }
-  }, [minTables, maxTables, setLodgeTicketOrder]);
+  }, [minTables, maxTables, setLodgeTicketOrder, tableSize, functionTickets]);
 
   // Update lodge details
   const handleLodgeChange = useCallback((lodgeId: string, lodgeName: string) => {
@@ -145,20 +183,50 @@ export const LodgesForm: React.FC<LodgesFormProps> = ({
     if (setLodgeTicketOrder) {
       setLodgeTicketOrder({
         tableCount,
-        totalTickets: tableCount * TABLE_SIZE,
-        galaDinnerTickets: tableCount * TABLE_SIZE,
-        ceremonyTickets: tableCount * TABLE_SIZE,
-        eventId: EVENT_IDS.GRAND_PROCLAMATION,
-        galaDinnerEventId: EVENT_IDS.GALA_DINNER,
-        ceremonyEventId: EVENT_IDS.CEREMONY,
+        totalTickets: tableCount * tableSize,
+        galaDinnerTickets: tableCount * tableSize,
+        ceremonyTickets: tableCount * tableSize,
+        eventId: functionTickets[0]?.event_id || '',
+        galaDinnerEventId: functionTickets.find(t => t.name.toLowerCase().includes('gala') || t.name.toLowerCase().includes('dinner'))?.event_id || '',
+        ceremonyEventId: functionTickets.find(t => t.name.toLowerCase().includes('ceremony') || t.name.toLowerCase().includes('installation'))?.event_id || '',
       });
     }
     
     if (onComplete) {
       onComplete();
     }
-  }, [isValid, getValidationErrors, tableCount, minTables, onComplete, setLodgeTicketOrder]);
+  }, [isValid, getValidationErrors, tableCount, minTables, onComplete, setLodgeTicketOrder, tableSize, functionTickets]);
 
+  // Show loading state
+  if (isLoadingData) {
+    return (
+      <div className={cn("space-y-6", className)}>
+        <Card>
+          <CardContent className="flex items-center justify-center py-8">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+              <p className="text-gray-600">Loading function data...</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+  
+  // Show error state
+  if (dataError) {
+    return (
+      <div className={cn("space-y-6", className)}>
+        <Alert className="border-red-200 bg-red-50">
+          <Info className="h-4 w-4 text-red-600" />
+          <AlertDescription className="text-red-700">
+            Error loading function data: {dataError}
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
+  
   return (
     <div className={cn("space-y-6", className)}>
       {/* Lodge Selection with integrated Booking Contact */}
@@ -238,40 +306,53 @@ export const LodgesForm: React.FC<LodgesFormProps> = ({
             <div className="space-y-4">
               <h3 className="font-medium text-lg mb-4">Available Packages</h3>
               
-              {/* Grand Proclamation Package */}
-              <div className="border rounded-lg p-4 hover:bg-gray-50 cursor-pointer transition-colors">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2 mb-2">
-                      <Package className="w-5 h-5 text-primary" />
-                      <h4 className="font-medium">Grand Proclamation Table</h4>
+              {/* Dynamic Package Display */}
+              {lodgePackage ? (
+                <div className="border rounded-lg p-4 hover:bg-gray-50 cursor-pointer transition-colors">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Package className="w-5 h-5 text-primary" />
+                        <h4 className="font-medium">{lodgePackage.name}</h4>
+                      </div>
+                      {lodgePackage.description && (
+                        <p className="text-sm text-gray-600 mb-2">
+                          {lodgePackage.description}
+                        </p>
+                      )}
+                      {lodgePackage.includes_description && lodgePackage.includes_description.length > 0 && (
+                        <ul className="text-sm text-gray-600 space-y-1 ml-4">
+                          {lodgePackage.includes_description.map((item, index) => (
+                            <li key={index} className="flex items-center gap-2">
+                              <Check className="w-4 h-4 text-green-600" />
+                              {item}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
                     </div>
-                    <p className="text-sm text-gray-600 mb-2">
-                      Complete package for 10 attendees including:
-                    </p>
-                    <ul className="text-sm text-gray-600 space-y-1 ml-4">
-                      <li className="flex items-center gap-2">
-                        <Check className="w-4 h-4 text-green-600" />
-                        Installation Ceremony (10 tickets)
-                      </li>
-                      <li className="flex items-center gap-2">
-                        <Check className="w-4 h-4 text-green-600" />
-                        Grand Banquet Gala Dinner (10 tickets)
-                      </li>
-                    </ul>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-2xl font-bold">$1,950</p>
-                    <p className="text-sm text-gray-500">per table</p>
+                    <div className="text-right">
+                      <p className="text-2xl font-bold">${tablePrice.toLocaleString()}</p>
+                      <p className="text-sm text-gray-500">per table</p>
+                    </div>
                   </div>
                 </div>
-              </div>
+              ) : (
+                <div className="border rounded-lg p-4 border-amber-200 bg-amber-50">
+                  <div className="flex items-center gap-2 text-amber-800">
+                    <Info className="w-4 h-4" />
+                    <p className="text-sm">
+                      {isLoadingData ? 'Loading package information...' : 'No lodge packages available'}
+                    </p>
+                  </div>
+                </div>
+              )}
 
               {/* Info about the package */}
               <Alert className="border-blue-200 bg-blue-50">
                 <Info className="h-4 w-4 text-blue-600" />
                 <AlertDescription className="text-sm">
-                  Each table seats 10 attendees. Purchase multiple tables for larger groups.
+                  Each table seats {tableSize} attendees. Purchase multiple tables for larger groups.
                   Attendee details can be provided later.
                 </AlertDescription>
               </Alert>
@@ -293,7 +374,7 @@ export const LodgesForm: React.FC<LodgesFormProps> = ({
                   disabled={!lodgeDetails.lodge_id}
                 />
                 <p className="text-sm text-gray-600 mt-2">
-                  {tableCount} {tableCount === 1 ? 'table' : 'tables'} = {tableCount * TABLE_SIZE} attendees
+                  {tableCount} {tableCount === 1 ? 'table' : 'tables'} = {tableCount * tableSize} attendees
                 </p>
               </div>
 
@@ -304,7 +385,7 @@ export const LodgesForm: React.FC<LodgesFormProps> = ({
                 <div className="space-y-2">
                   <div className="flex justify-between items-center">
                     <span className="text-gray-600">Tables</span>
-                    <span className="font-medium">{tableCount} × $1,950</span>
+                    <span className="font-medium">{tableCount} × ${tablePrice.toLocaleString()}</span>
                   </div>
                   <div className="flex justify-between items-center text-sm text-gray-500">
                     <span>Total Attendees</span>
@@ -396,7 +477,7 @@ export const LodgeFormSummary: React.FC = () => {
               <div className="flex justify-between items-center">
                 <span className="font-medium">Total Amount</span>
                 <span className="text-lg font-bold text-primary">
-                  ${(lodgeTicketOrder.tableCount * TABLE_PRICE).toLocaleString()}
+                  ${(lodgeTicketOrder.tableCount * 1950).toLocaleString()}
                 </span>
               </div>
             </div>

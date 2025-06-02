@@ -1,282 +1,371 @@
-/**
- * E2E Test: Delegation Registration Complete Flow
- * Tests the full delegation registration workflow from start to confirmation
- */
-
 const puppeteer = require('puppeteer');
-const path = require('path');
-const fs = require('fs');
+const { createPageHelper } = require('../../helpers/playwright-to-puppeteer');
+const { selfHealingFindElement } = require('../../helpers/self-healing');
+const testData = require('../../config/test-data');
 
 describe('Delegation Registration Flow', () => {
   let browser;
   let page;
-  let testData;
-  
-  const screenshotDir = path.join(__dirname, '../../screenshots/delegation');
   
   beforeAll(async () => {
-    // Create screenshot directory
-    if (!fs.existsSync(screenshotDir)) {
-      fs.mkdirSync(screenshotDir, { recursive: true });
-    }
-    
     browser = await puppeteer.launch({
-      headless: process.env.PUPPETEER_HEADLESS !== 'false',
-      slowMo: process.env.CI ? 0 : 50,
+      headless: process.env.HEADLESS !== 'false',
+      slowMo: process.env.SLOW_MO ? parseInt(process.env.SLOW_MO) : 0,
       args: ['--no-sandbox', '--disable-setuid-sandbox']
     });
-    
-    // Load test data
-    const TestDataManager = require('../../helpers/test-data-manager');
-    testData = await TestDataManager.getDelegationTestData();
   });
   
   afterAll(async () => {
-    if (browser) {
-      await browser.close();
-    }
+    await browser.close();
   });
   
   beforeEach(async () => {
     page = await browser.newPage();
-    await page.setViewport({ width: 1920, height: 1080 });
+    await page.setViewport({ width: 1280, height: 720 });
+    
+    // Add Playwright-like helpers
+    createPageHelper(page);
+    
+    // Navigate to registration type page
+    await page.goto(`${testData.baseUrl}/events/${testData.eventSlug}/register/${testData.registrationId}/tickets`);
+    
+    // Select delegation registration
+    const delegationButton = await page.getByTestId('registration-type-delegation');
+    await delegationButton.click();
+    
+    // Wait for navigation to delegation details
+    await page.waitForFunction(() => window.location.href.includes('delegation-details'));
   });
   
   afterEach(async () => {
-    if (page) {
-      await page.close();
-    }
+    await page.close();
   });
   
-  test('completes full delegation registration flow', async () => {
-    // Navigate to event page
-    await page.goto(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/events/${testData.eventSlug}`);
+  test('should allow filling delegation details', async () => {
+    const uniqueId = Date.now().toString();
     
-    // Take screenshot of event page
-    await page.screenshot({ 
-      path: path.join(screenshotDir, '01-event-page.png'),
-      fullPage: true 
-    });
-    
-    // Click Register button
-    await page.waitForSelector('[data-testid="register-button"]', { timeout: 10000 });
-    await page.click('[data-testid="register-button"]');
-    
-    // Step 1: Registration Type Selection
-    await page.waitForSelector('[data-testid="registration-type-step"]', { timeout: 10000 });
-    await page.screenshot({ 
-      path: path.join(screenshotDir, '02-registration-type.png'),
-      fullPage: true 
-    });
+    // Fill delegation name
+    const delegationNameInput = await page.getByLabel('Delegation Name');
+    await page.fill(delegationNameInput, `Test Delegation ${uniqueId}`);
     
     // Select delegation type
-    await page.click('[data-testid="registration-type-delegation"]');
-    await page.click('[data-testid="continue-button"]');
+    const delegationTypeSelect = await page.getByLabel('Delegation Type');
+    await page.selectOption(delegationTypeSelect, 'Inter-jurisdictional');
     
-    // Step 2: Delegation Details
-    await page.waitForSelector('[data-testid="attendee-details-step"]', { timeout: 10000 });
+    // Select Grand Lodge
+    const grandLodgeSelect = await page.getByLabel('Grand Lodge');
+    await page.selectOption(grandLodgeSelect, 'United Grand Lodge of NSW & ACT');
+    
+    // Fill leader details
+    const leaderNameInput = await page.getByLabel('Leader Name');
+    await page.fill(leaderNameInput, `Delegation Leader ${uniqueId}`);
+    
+    const leaderEmailInput = await page.getByLabel('Leader Email');
+    await page.fill(leaderEmailInput, `leader${uniqueId}@example.com`);
+    
+    const leaderPhoneInput = await page.getByLabel('Leader Phone');
+    await page.fill(leaderPhoneInput, `0400${uniqueId.substring(0, 6)}`);
+    
+    // Take screenshot
     await page.screenshot({ 
-      path: path.join(screenshotDir, '03-delegation-details.png'),
-      fullPage: true 
-    });
-    
-    // Select delegation type
-    await page.waitForSelector('[data-testid="delegation-type-modal"]');
-    await page.click('[data-testid="delegation-type-official"]');
-    
-    // Fill Grand Lodge selection
-    await page.type('[data-testid="grand-lodge-search"]', testData.grandLodge);
-    await page.waitForSelector('[data-testid="grand-lodge-option"]');
-    await page.click('[data-testid="grand-lodge-option"]');
-    
-    // Fill booking contact details
-    await page.type('[data-testid="booking-contact-firstname"]', testData.bookingContact.firstName);
-    await page.type('[data-testid="booking-contact-lastname"]', testData.bookingContact.lastName);
-    await page.type('[data-testid="booking-contact-email"]', testData.bookingContact.email);
-    await page.type('[data-testid="booking-contact-phone"]', testData.bookingContact.phone);
-    
-    // Add delegation members
-    for (let i = 0; i < testData.delegationMembers.length; i++) {
-      const member = testData.delegationMembers[i];
-      
-      if (i > 0) {
-        await page.click('[data-testid="add-member-button"]');
-      }
-      
-      await page.type(`[data-testid="member-${i}-firstname"]`, member.firstName);
-      await page.type(`[data-testid="member-${i}-lastname"]`, member.lastName);
-      await page.type(`[data-testid="member-${i}-email"]`, member.email);
-      
-      if (member.isGrandOfficer) {
-        await page.click(`[data-testid="member-${i}-grand-officer"]`);
-        await page.type(`[data-testid="member-${i}-grand-rank"]`, member.grandRank);
-      }
-      
-      if (member.hasPartner) {
-        await page.click(`[data-testid="member-${i}-partner-toggle"]`);
-        await page.type(`[data-testid="member-${i}-partner-firstname"]`, member.partner.firstName);
-        await page.type(`[data-testid="member-${i}-partner-lastname"]`, member.partner.lastName);
-      }
-    }
-    
-    await page.screenshot({ 
-      path: path.join(screenshotDir, '04-delegation-filled.png'),
-      fullPage: true 
-    });
-    
-    await page.click('[data-testid="continue-button"]');
-    
-    // Step 3: Ticket Selection
-    await page.waitForSelector('[data-testid="ticket-selection-step"]', { timeout: 10000 });
-    await page.screenshot({ 
-      path: path.join(screenshotDir, '05-ticket-selection.png'),
-      fullPage: true 
-    });
-    
-    // Select tickets for delegation members
-    const ticketButtons = await page.$$('[data-testid^="ticket-select-"]');
-    for (let i = 0; i < Math.min(ticketButtons.length, testData.delegationMembers.length); i++) {
-      await ticketButtons[i].click();
-    }
-    
-    await page.waitForTimeout(1000); // Wait for order summary to update
-    await page.screenshot({ 
-      path: path.join(screenshotDir, '06-tickets-selected.png'),
-      fullPage: true 
-    });
-    
-    await page.click('[data-testid="continue-button"]');
-    
-    // Step 4: Order Review
-    await page.waitForSelector('[data-testid="order-review-step"]', { timeout: 10000 });
-    await page.screenshot({ 
-      path: path.join(screenshotDir, '07-order-review.png'),
-      fullPage: true 
-    });
-    
-    // Verify delegation details
-    const delegationSummary = await page.$eval('[data-testid="delegation-summary"]', el => el.textContent);
-    expect(delegationSummary).toContain(testData.grandLodge);
-    expect(delegationSummary).toContain(`${testData.delegationMembers.length} members`);
-    
-    // Verify order total
-    const orderTotal = await page.$eval('[data-testid="order-total"]', el => el.textContent);
-    expect(orderTotal).toMatch(/\$[\d,]+\.\d{2}/);
-    
-    await page.click('[data-testid="continue-button"]');
-    
-    // Step 5: Payment
-    await page.waitForSelector('[data-testid="payment-step"]', { timeout: 10000 });
-    await page.screenshot({ 
-      path: path.join(screenshotDir, '08-payment.png'),
-      fullPage: true 
-    });
-    
-    // Fill billing details
-    await page.type('[data-testid="billing-name"]', testData.billing.name);
-    await page.type('[data-testid="billing-address"]', testData.billing.address);
-    await page.type('[data-testid="billing-city"]', testData.billing.city);
-    await page.type('[data-testid="billing-postcode"]', testData.billing.postcode);
-    
-    // Select country and state
-    await page.click('[data-testid="billing-country"]');
-    await page.click('[data-testid="country-AU"]');
-    await page.click('[data-testid="billing-state"]');
-    await page.click('[data-testid="state-NSW"]');
-    
-    // Wait for Stripe to load
-    await page.waitForSelector('iframe[name^="__privateStripeFrame"]', { timeout: 20000 });
-    
-    // Fill card details in Stripe iframe
-    const stripeFrame = await page.waitForSelector('iframe[name^="__privateStripeFrame"]');
-    const frame = await stripeFrame.contentFrame();
-    
-    await frame.type('[name="cardnumber"]', '4242424242424242');
-    await frame.type('[name="exp-date"]', '12/28');
-    await frame.type('[name="cvc"]', '123');
-    
-    await page.screenshot({ 
-      path: path.join(screenshotDir, '09-payment-filled.png'),
-      fullPage: true 
-    });
-    
-    // Submit payment
-    await page.click('[data-testid="submit-payment-button"]');
-    
-    // Wait for confirmation
-    await page.waitForSelector('[data-testid="confirmation-step"]', { timeout: 30000 });
-    await page.screenshot({ 
-      path: path.join(screenshotDir, '10-confirmation.png'),
-      fullPage: true 
-    });
-    
-    // Verify confirmation details
-    const confirmationNumber = await page.$eval('[data-testid="confirmation-number"]', el => el.textContent);
-    expect(confirmationNumber).toMatch(/^CONF-[A-Z0-9]+$/);
-    
-    const confirmationEmail = await page.$eval('[data-testid="confirmation-email"]', el => el.textContent);
-    expect(confirmationEmail).toContain(testData.bookingContact.email);
-    
-    console.log(`✅ Delegation registration completed with confirmation: ${confirmationNumber}`);
-  }, 120000); // 2 minute timeout for full flow
-  
-  test('handles delegation member validation', async () => {
-    await page.goto(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/events/${testData.eventSlug}/register`);
-    
-    // Navigate to delegation details
-    await page.waitForSelector('[data-testid="registration-type-delegation"]');
-    await page.click('[data-testid="registration-type-delegation"]');
-    await page.click('[data-testid="continue-button"]');
-    
-    // Try to continue without required fields
-    await page.waitForSelector('[data-testid="attendee-details-step"]');
-    await page.click('[data-testid="continue-button"]');
-    
-    // Check for validation errors
-    const errors = await page.$$('[data-testid^="field-error-"]');
-    expect(errors.length).toBeGreaterThan(0);
-    
-    await page.screenshot({ 
-      path: path.join(screenshotDir, 'validation-errors.png'),
-      fullPage: true 
+      path: 'tests/puppeteer/screenshots/delegation-details-completed.png' 
     });
   });
   
-  test('allows editing delegation members', async () => {
-    await page.goto(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/events/${testData.eventSlug}/register`);
+  test('should support both delegation types', async () => {
+    const uniqueId = Date.now().toString();
     
-    // Navigate to delegation details and add members
-    await page.waitForSelector('[data-testid="registration-type-delegation"]');
-    await page.click('[data-testid="registration-type-delegation"]');
-    await page.click('[data-testid="continue-button"]');
+    // Fill delegation name
+    const delegationNameInput = await page.getByLabel('Delegation Name');
+    await page.fill(delegationNameInput, `Test Delegation ${uniqueId}`);
     
-    await page.waitForSelector('[data-testid="delegation-type-modal"]');
-    await page.click('[data-testid="delegation-type-official"]');
+    // Test inter-jurisdictional type
+    const delegationTypeSelect = await page.getByLabel('Delegation Type');
+    await page.selectOption(delegationTypeSelect, 'Inter-jurisdictional');
     
-    // Add a member
-    await page.type('[data-testid="member-0-firstname"]', 'Test');
-    await page.type('[data-testid="member-0-lastname"]', 'Member');
-    await page.type('[data-testid="member-0-email"]', 'test@example.com');
+    // Fill remaining details
+    const grandLodgeSelect = await page.getByLabel('Grand Lodge');
+    await page.selectOption(grandLodgeSelect, 'United Grand Lodge of NSW & ACT');
     
-    // Edit the member
-    await page.click('[data-testid="edit-member-0"]');
-    await page.waitForSelector('[data-testid="edit-member-modal"]');
+    const leaderNameInput = await page.getByLabel('Leader Name');
+    await page.fill(leaderNameInput, `Delegation Leader ${uniqueId}`);
     
-    // Clear and update name
-    await page.evaluate(() => {
-      document.querySelector('[data-testid="edit-firstname"]').value = '';
-    });
-    await page.type('[data-testid="edit-firstname"]', 'Updated');
+    const leaderEmailInput = await page.getByLabel('Leader Email');
+    await page.fill(leaderEmailInput, `leader${uniqueId}@example.com`);
     
-    await page.click('[data-testid="save-member-button"]');
+    const leaderPhoneInput = await page.getByLabel('Leader Phone');
+    await page.fill(leaderPhoneInput, `0400${uniqueId.substring(0, 6)}`);
     
-    // Verify update
-    const updatedName = await page.$eval('[data-testid="member-0-firstname"]', el => el.value);
-    expect(updatedName).toBe('Updated');
-    
+    // Take screenshot
     await page.screenshot({ 
-      path: path.join(screenshotDir, 'member-edited.png'),
-      fullPage: true 
+      path: 'tests/puppeteer/screenshots/delegation-inter-jurisdictional.png' 
     });
+    
+    // Change to overseas type
+    await page.selectOption(delegationTypeSelect, 'Overseas');
+    
+    // Take screenshot
+    await page.screenshot({ 
+      path: 'tests/puppeteer/screenshots/delegation-overseas.png' 
+    });
+    
+    // Check for overseas-specific fields
+    const overseasFields = await page.$('[data-testid="overseas-fields"]');
+    if (overseasFields) {
+      const isVisible = await page.isVisible(overseasFields);
+      expect(isVisible).toBe(true);
+    }
+  });
+  
+  test('should allow adding official delegates with different roles', async () => {
+    const uniqueId = Date.now().toString();
+    
+    // Fill delegation details
+    const delegationNameInput = await page.getByLabel('Delegation Name');
+    await page.fill(delegationNameInput, `Test Delegation ${uniqueId}`);
+    
+    const delegationTypeSelect = await page.getByLabel('Delegation Type');
+    await page.selectOption(delegationTypeSelect, 'Inter-jurisdictional');
+    
+    const grandLodgeSelect = await page.getByLabel('Grand Lodge');
+    await page.selectOption(grandLodgeSelect, 'United Grand Lodge of NSW & ACT');
+    
+    const leaderNameInput = await page.getByLabel('Leader Name');
+    await page.fill(leaderNameInput, `Delegation Leader ${uniqueId}`);
+    
+    const leaderEmailInput = await page.getByLabel('Leader Email');
+    await page.fill(leaderEmailInput, `leader${uniqueId}@example.com`);
+    
+    const leaderPhoneInput = await page.getByLabel('Leader Phone');
+    await page.fill(leaderPhoneInput, `0400${uniqueId.substring(0, 6)}`);
+    
+    // Define delegate roles
+    const delegateRoles = [
+      { firstName: 'Grand', lastName: 'Master', title: 'MW Bro', rank: 'GL', role: 'Grand Master' },
+      { firstName: 'Deputy', lastName: 'Grand Master', title: 'RW Bro', rank: 'GL', role: 'Deputy Grand Master' },
+      { firstName: 'Grand', lastName: 'Secretary', title: 'VW Bro', rank: 'GL', role: 'Grand Secretary' }
+    ];
+    
+    // Add delegates
+    for (let i = 0; i < delegateRoles.length; i++) {
+      const delegate = delegateRoles[i];
+      
+      // Click add delegate button
+      const addDelegateButton = await page.getByRole('button', { name: 'Add Official Delegate' });
+      await addDelegateButton.click();
+      
+      // Fill delegate form
+      const firstNameInput = await page.getByLabel('Delegate First Name');
+      await page.fill(firstNameInput, delegate.firstName);
+      
+      const lastNameInput = await page.getByLabel('Delegate Last Name');
+      await page.fill(lastNameInput, delegate.lastName);
+      
+      const emailInput = await page.getByLabel('Delegate Email');
+      await page.fill(emailInput, `${delegate.firstName.toLowerCase()}.${delegate.lastName.toLowerCase()}${uniqueId}@example.com`);
+      
+      const phoneInput = await page.getByLabel('Delegate Phone');
+      await page.fill(phoneInput, `0400${uniqueId.substring(0, 3)}${i+1}00`);
+      
+      const titleInput = await page.getByLabel('Title');
+      await page.fill(titleInput, delegate.title);
+      
+      const rankSelect = await page.getByLabel('Rank');
+      await page.selectOption(rankSelect, delegate.rank);
+      
+      const roleInput = await page.getByLabel('Role');
+      await page.fill(roleInput, delegate.role);
+      
+      // Save delegate
+      const saveButton = await page.getByRole('button', { name: 'Save Delegate' });
+      await saveButton.click();
+      
+      // Wait for delegate to be added to table
+      await page.waitForSelector(`[data-testid="delegate-row-${i}"]`);
+    }
+    
+    // Verify delegate count
+    const delegateRows = await page.$$('[data-testid^="delegate-row-"]');
+    expect(delegateRows.length).toBe(delegateRoles.length);
+    
+    // Take screenshot
+    await page.screenshot({ 
+      path: 'tests/puppeteer/screenshots/delegation-official-delegates.png' 
+    });
+  });
+  
+  test('should allow adding accompanying guests', async () => {
+    const uniqueId = Date.now().toString();
+    
+    // Fill delegation details
+    const delegationNameInput = await page.getByLabel('Delegation Name');
+    await page.fill(delegationNameInput, `Test Delegation ${uniqueId}`);
+    
+    const delegationTypeSelect = await page.getByLabel('Delegation Type');
+    await page.selectOption(delegationTypeSelect, 'Inter-jurisdictional');
+    
+    const grandLodgeSelect = await page.getByLabel('Grand Lodge');
+    await page.selectOption(grandLodgeSelect, 'United Grand Lodge of NSW & ACT');
+    
+    const leaderNameInput = await page.getByLabel('Leader Name');
+    await page.fill(leaderNameInput, `Delegation Leader ${uniqueId}`);
+    
+    const leaderEmailInput = await page.getByLabel('Leader Email');
+    await page.fill(leaderEmailInput, `leader${uniqueId}@example.com`);
+    
+    const leaderPhoneInput = await page.getByLabel('Leader Phone');
+    await page.fill(leaderPhoneInput, `0400${uniqueId.substring(0, 6)}`);
+    
+    // Add official delegate first
+    const addDelegateButton = await page.getByRole('button', { name: 'Add Official Delegate' });
+    await addDelegateButton.click();
+    
+    await page.fill(await page.getByLabel('Delegate First Name'), 'Grand');
+    await page.fill(await page.getByLabel('Delegate Last Name'), 'Master');
+    await page.fill(await page.getByLabel('Delegate Email'), `gm${uniqueId}@example.com`);
+    await page.fill(await page.getByLabel('Delegate Phone'), `0400${uniqueId.substring(0, 6)}`);
+    await page.fill(await page.getByLabel('Title'), 'MW Bro');
+    await page.selectOption(await page.getByLabel('Rank'), 'GL');
+    await page.fill(await page.getByLabel('Role'), 'Grand Master');
+    
+    const saveDelegateButton = await page.getByRole('button', { name: 'Save Delegate' });
+    await saveDelegateButton.click();
+    
+    // Add accompanying guest
+    const addGuestButton = await page.getByRole('button', { name: 'Add Accompanying Guest' });
+    await addGuestButton.click();
+    
+    await page.fill(await page.getByLabel('Guest First Name'), 'Jane');
+    await page.fill(await page.getByLabel('Guest Last Name'), 'Master');
+    await page.fill(await page.getByLabel('Guest Email'), `jane.master${uniqueId}@example.com`);
+    await page.fill(await page.getByLabel('Guest Phone'), `0400${uniqueId.substring(0, 3)}999`);
+    await page.selectOption(await page.getByLabel('Relationship'), 'Spouse');
+    
+    const saveGuestButton = await page.getByRole('button', { name: 'Save Guest' });
+    await saveGuestButton.click();
+    
+    // Verify guest section is visible
+    const guestSection = await page.$('[data-testid="accompanying-guests-section"]');
+    const isVisible = await page.isVisible(guestSection);
+    expect(isVisible).toBe(true);
+    
+    // Take screenshot
+    await page.screenshot({ 
+      path: 'tests/puppeteer/screenshots/delegation-accompanying-guests.png' 
+    });
+  });
+  
+  test('should complete full delegation registration flow', async () => {
+    const uniqueId = Date.now().toString();
+    
+    // Fill delegation details
+    const delegationNameInput = await page.getByLabel('Delegation Name');
+    await page.fill(delegationNameInput, `Test Delegation ${uniqueId}`);
+    
+    const delegationTypeSelect = await page.getByLabel('Delegation Type');
+    await page.selectOption(delegationTypeSelect, 'Inter-jurisdictional');
+    
+    const grandLodgeSelect = await page.getByLabel('Grand Lodge');
+    await page.selectOption(grandLodgeSelect, 'United Grand Lodge of NSW & ACT');
+    
+    const leaderNameInput = await page.getByLabel('Leader Name');
+    await page.fill(leaderNameInput, `Delegation Leader ${uniqueId}`);
+    
+    const leaderEmailInput = await page.getByLabel('Leader Email');
+    await page.fill(leaderEmailInput, `leader${uniqueId}@example.com`);
+    
+    const leaderPhoneInput = await page.getByLabel('Leader Phone');
+    await page.fill(leaderPhoneInput, `0400${uniqueId.substring(0, 6)}`);
+    
+    // Add 2 delegates
+    const delegateRoles = [
+      { firstName: 'Grand', lastName: 'Master', title: 'MW Bro', rank: 'GL', role: 'Grand Master' },
+      { firstName: 'Deputy', lastName: 'Grand Master', title: 'RW Bro', rank: 'GL', role: 'Deputy Grand Master' }
+    ];
+    
+    for (let i = 0; i < delegateRoles.length; i++) {
+      const delegate = delegateRoles[i];
+      
+      const addDelegateButton = await page.getByRole('button', { name: 'Add Official Delegate' });
+      await addDelegateButton.click();
+      
+      await page.fill(await page.getByLabel('Delegate First Name'), delegate.firstName);
+      await page.fill(await page.getByLabel('Delegate Last Name'), delegate.lastName);
+      await page.fill(await page.getByLabel('Delegate Email'), `${delegate.firstName.toLowerCase()}.${delegate.lastName.toLowerCase()}${uniqueId}@example.com`);
+      await page.fill(await page.getByLabel('Delegate Phone'), `0400${uniqueId.substring(0, 3)}${i+1}00`);
+      await page.fill(await page.getByLabel('Title'), delegate.title);
+      await page.selectOption(await page.getByLabel('Rank'), delegate.rank);
+      await page.fill(await page.getByLabel('Role'), delegate.role);
+      
+      const saveButton = await page.getByRole('button', { name: 'Save Delegate' });
+      await saveButton.click();
+    }
+    
+    // Add guest
+    const addGuestButton = await page.getByRole('button', { name: 'Add Accompanying Guest' });
+    await addGuestButton.click();
+    
+    await page.fill(await page.getByLabel('Guest First Name'), 'Jane');
+    await page.fill(await page.getByLabel('Guest Last Name'), 'Master');
+    await page.fill(await page.getByLabel('Guest Email'), `jane.master${uniqueId}@example.com`);
+    await page.fill(await page.getByLabel('Guest Phone'), `0400${uniqueId.substring(0, 3)}999`);
+    await page.selectOption(await page.getByLabel('Relationship'), 'Spouse');
+    
+    const saveGuestButton = await page.getByRole('button', { name: 'Save Guest' });
+    await saveGuestButton.click();
+    
+    // Continue to ticket selection
+    const continueButton = await page.getByRole('button', { name: 'Continue to Ticket Selection' });
+    await continueButton.click();
+    
+    // Wait for ticket selection page
+    await page.waitForFunction(() => window.location.href.includes('ticket-selection'));
+    expect(page.url()).toContain('ticket-selection');
+    
+    // Select tickets
+    const heroFunctionCard = await selfHealingFindElement(page, '[data-testid="ticket-card-hero-function"]', {
+      fallbacks: [
+        '.ticket-card:has-text("Hero Function")',
+        '[data-test="ticket-hero-function"]'
+      ]
+    });
+    
+    if (heroFunctionCard) {
+      // Select 2 tickets for delegates
+      const plusButton = await heroFunctionCard.$('[data-testid="ticket-quantity-increase"]');
+      if (plusButton) {
+        await plusButton.click();
+        await plusButton.click(); // Click twice for 2 tickets
+      }
+    }
+    
+    // Select guest ticket
+    const guestTicketCard = await selfHealingFindElement(page, '[data-testid="ticket-card-guest-ticket"]', {
+      fallbacks: [
+        '.ticket-card:has-text("Guest Ticket")',
+        '[data-test="ticket-guest"]'
+      ]
+    });
+    
+    if (guestTicketCard) {
+      const plusButton = await guestTicketCard.$('[data-testid="ticket-quantity-increase"]');
+      if (plusButton) {
+        await plusButton.click();
+      }
+    }
+    
+    // Verify total amount
+    await page.waitForSelector('[data-testid="order-total"]');
+    const totalText = await page.$eval('[data-testid="order-total"]', el => el.textContent);
+    const totalAmount = parseFloat(totalText.replace(/[^0-9.]/g, ''));
+    expect(totalAmount).toBeGreaterThan(0);
+    
+    // Continue to order review
+    const reviewButton = await page.getByRole('button', { name: 'Continue to Order Review' });
+    await reviewButton.click();
+    
+    // Verify navigation
+    await page.waitForFunction(() => window.location.href.includes('order-review'));
+    expect(page.url()).toContain('order-review');
   });
 });

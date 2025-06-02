@@ -36,7 +36,7 @@ interface EventDisplayView {
  * Get the next upcoming event using optimized view
  * Single query instead of multiple
  */
-export async function getGrandInstallationEvent() {
+export async function getHeroFunction() {
   const cacheKey = CacheKeys.eventList('upcoming_main');
   
   return cacheManager.getOrFetch(
@@ -85,7 +85,7 @@ export async function getEventTimeline() {
       try {
         const supabase = await createClient();
         
-        const mainEvent = await getGrandInstallationEvent();
+        const mainEvent = await getHeroFunction();
         if (!mainEvent) {
           api.warn('No events found for timeline');
           return [];
@@ -259,7 +259,7 @@ function transformViewData(data: EventDisplayView) {
  */
 export async function prefetchHomepageData() {
   await Promise.all([
-    getGrandInstallationEvent(),
+    getHeroFunction(),
     getEventTimeline(),
     getFeaturedEvents()
   ]);
@@ -274,7 +274,7 @@ export function clearHomepageCache() {
 
 // Export optimized service
 export const homepageService = {
-  getGrandInstallationEvent,
+  getHeroFunction,
   getEventTimeline,
   getFeaturedEvents,
   getPublishedEvents,

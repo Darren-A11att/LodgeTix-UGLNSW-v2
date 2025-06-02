@@ -60,7 +60,7 @@ const EventCard: React.FC<EventCardProps> = ({ event }) => {
             <span className="text-slate-600 text-sm">See ticket options</span>
           </div>
           
-          <Link href={`/events/${event.slug}`} className="btn-outline py-2">
+          <Link href={`/functions/${event.slug}`} className="btn-outline py-2">
             View Details
           </Link>
         </div>

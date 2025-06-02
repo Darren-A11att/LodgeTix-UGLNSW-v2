@@ -151,7 +151,7 @@ export const api = {
      * Get a single event by slug (requires function slug for context)
      */
     getBySlug: async (functionSlug: string, eventSlug: string): Promise<EventType> => {
-      const response = await fetch(`/api/functions/${functionSlug}/events/${eventSlug}`)
+      const response = await fetch(`/api/functions/${functionSlug}/functions/${eventSlug}`)
       if (!response.ok) {
         throw new Error('Event not found')
       }

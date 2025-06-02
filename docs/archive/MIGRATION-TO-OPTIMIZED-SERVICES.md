@@ -18,7 +18,7 @@ Replace old imports with optimized versions:
 
 ```typescript
 // OLD
-import { getGrandInstallationEvent } from '@/lib/services/homepage-service';
+import { getHeroFunction } from '@/lib/services/homepage-service';
 import { getEventByIdOrSlug } from '@/lib/services/event-service';
 import { getAllGrandLodges } from '@/lib/api/grandLodges';
 import { getLodgesByGrandLodgeId } from '@/lib/api/lodges';
@@ -37,12 +37,12 @@ import {
 
 ```typescript
 // OLD - Multiple queries
-const mainEvent = await getGrandInstallationEvent();
+const mainEvent = await getHeroFunction();
 const timeline = await getEventTimeline();
 const featured = await getFeaturedEvents();
 
 // NEW - Use optimized service with caching
-const mainEvent = await homepageService.getGrandInstallationEvent();
+const mainEvent = await homepageService.getHeroFunction();
 const timeline = await homepageService.getEventTimeline();
 const featured = await homepageService.getFeaturedEvents();
 

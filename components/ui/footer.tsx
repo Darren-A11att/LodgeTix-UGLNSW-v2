@@ -31,22 +31,22 @@ export function Footer({ eventSlug }: FooterProps = {}) {
             <h4 className="mb-4 font-semibold text-masonic-gold">Event Information</h4>
             <ul className="space-y-2">
               <li>
-                <Link href={`/events/${slug}`} className="hover:text-masonic-gold">
+                <Link href={`/functions/${slug}`} className="hover:text-masonic-gold">
                   Grand Installation
                 </Link>
               </li>
               <li>
-                <Link href={`/events/${slug}/schedule`} className="hover:text-masonic-gold">
+                <Link href={`/functions/${slug}/schedule`} className="hover:text-masonic-gold">
                   Schedule
                 </Link>
               </li>
               <li>
-                <Link href={`/events/${slug}/venue`} className="hover:text-masonic-gold">
+                <Link href={`/functions/${slug}/venue`} className="hover:text-masonic-gold">
                   Venue Information
                 </Link>
               </li>
               <li>
-                <Link href={`/events/${slug}/accommodation`} className="hover:text-masonic-gold">
+                <Link href={`/functions/${slug}/accommodation`} className="hover:text-masonic-gold">
                   Accommodation
                 </Link>
               </li>
@@ -56,7 +56,7 @@ export function Footer({ eventSlug }: FooterProps = {}) {
             <h4 className="mb-4 font-semibold text-masonic-gold">For Attendees</h4>
             <ul className="space-y-2">
               <li>
-                <Link href={`/events/${slug}/register`} className="hover:text-masonic-gold">
+                <Link href={`/functions/${slug}/register`} className="hover:text-masonic-gold">
                   Purchase Tickets
                 </Link>
               </li>
@@ -66,7 +66,7 @@ export function Footer({ eventSlug }: FooterProps = {}) {
                 </Link>
               </li>
               <li>
-                <Link href={`/events/${slug}/faq`} className="hover:text-masonic-gold">
+                <Link href={`/functions/${slug}/faq`} className="hover:text-masonic-gold">
                   FAQs
                 </Link>
               </li>

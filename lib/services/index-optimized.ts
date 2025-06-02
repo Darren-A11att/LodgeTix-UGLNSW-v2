@@ -88,7 +88,7 @@ export const prefetchStrategies = {
   homepage: async () => {
     const start = Date.now();
     await Promise.all([
-      homepageService.getGrandInstallationEvent(),
+      homepageService.getHeroFunction(),
       homepageService.getEventTimeline(),
       homepageService.getFeaturedEvents()
     ]);

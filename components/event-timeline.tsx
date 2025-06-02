@@ -147,7 +147,7 @@ export function EventTimelineFallback() {
                 <Clock className="mr-2 h-4 w-4 text-masonic-navy" />
                 <span className="text-gray-700">10:00 AM - 1:00 PM</span>
               </div>
-              <p className="text-gray-600">A casual gathering to conclude the Grand Installation weekend.</p>
+              <p className="text-gray-600">A casual gathering to conclude the Hero Function weekend.</p>
             </div>
           </div>
 

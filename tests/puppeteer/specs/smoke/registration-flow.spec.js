@@ -31,10 +31,10 @@ describe('Registration Flow with Functions - Smoke Tests', () => {
     const title = await page.title();
     expect(title).toBeTruthy();
     
-    // Check if Grand Installation function is visible
+    // Check if Hero Function function is visible
     const hasFunction = await page.evaluate(() => {
       const text = document.body.innerText;
-      return text.includes('Grand Installation') || text.includes('grand-installation');
+      return text.includes('Hero Function') || text.includes('hero-function');
     });
     
     expect(hasFunction).toBe(true);
@@ -43,13 +43,13 @@ describe('Registration Flow with Functions - Smoke Tests', () => {
     await captureScreenshot(page, 'home-page');
   });
 
-  test('should navigate to Grand Installation function', async () => {
+  test('should navigate to Hero Function function', async () => {
     await page.goto(config.baseUrl);
     
-    // Find and click on Grand Installation function
+    // Find and click on Hero Function function
     const functionSelectors = [
       `a[href*="${testData.functionSlug}"]`,
-      'a:contains("Grand Installation")',
+      'a:contains("Hero Function")',
       '[data-testid="function-card"] a',
       'a[href*="/functions/"]'
     ];
@@ -57,12 +57,12 @@ describe('Registration Flow with Functions - Smoke Tests', () => {
     let clicked = false;
     for (const selector of functionSelectors) {
       try {
-        // Use evaluate to find and click links containing Grand Proclamation
+        // Use evaluate to find and click links containing Hero Function
         clicked = await page.evaluate((functionSlug) => {
           const links = Array.from(document.querySelectorAll('a'));
           const functionLink = links.find(link => 
             link.href.includes(functionSlug) || 
-            link.textContent.includes('Grand Installation')
+            link.textContent.includes('Hero Function')
           );
           if (functionLink) {
             functionLink.click();
@@ -90,7 +90,7 @@ describe('Registration Flow with Functions - Smoke Tests', () => {
   });
 
   test('should access registration wizard', async () => {
-    // Navigate directly to Grand Installation function
+    // Navigate directly to Hero Function function
     await page.goto(`${config.baseUrl}/functions/${testData.functionSlug}`);
     
     // Find and click register/tickets button

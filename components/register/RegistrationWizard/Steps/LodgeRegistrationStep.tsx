@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements } from '@stripe/react-stripe-js';
@@ -15,6 +15,7 @@ import { Loader2, CreditCard, ShieldCheck, AlertCircle } from 'lucide-react';
 import { useLodgeRegistrationStore } from '@/lib/lodgeRegistrationStore';
 import { useRegistrationStore } from '@/lib/registrationStore';
 import { StripeBillingDetailsForClient } from '../payment/types';
+import { getFunctionTicketsService, FunctionPackage } from '@/lib/services/function-tickets-service';
 
 // Get Stripe publishable key
 const stripePublishableKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!;
@@ -47,10 +48,38 @@ export const LodgeRegistrationStep: React.FC<LodgeRegistrationStepProps> = ({
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isFormComplete, setIsFormComplete] = useState(false);
-
+  
+  // Dynamic pricing state
+  const [functionPackages, setFunctionPackages] = useState<FunctionPackage[]>([]);
+  const [isLoadingPricing, setIsLoadingPricing] = useState(true);
+  
+  // Fetch function packages for dynamic pricing
+  useEffect(() => {
+    const fetchFunctionPricing = async () => {
+      try {
+        setIsLoadingPricing(true);
+        const ticketsService = getFunctionTicketsService();
+        const { packages } = await ticketsService.getFunctionTicketsAndPackages(functionId);
+        setFunctionPackages(packages);
+      } catch (error) {
+        console.error('Failed to fetch function pricing:', error);
+      } finally {
+        setIsLoadingPricing(false);
+      }
+    };
+    
+    fetchFunctionPricing();
+  }, [functionId]);
+  
+  // Calculate dynamic pricing
+  const lodgePackage = functionPackages.find(pkg => 
+    pkg.name.toLowerCase().includes('table') || 
+    pkg.eligibleRegistrationTypes.includes('lodge')
+  );
+  const tablePrice = lodgePackage?.price || 1950; // fallback to 1950
+  
   // Calculate total amount
-  const TABLE_PRICE = 1950; // $1950 per table
-  const totalAmount = lodgeTicketOrder ? lodgeTicketOrder.tableCount * TABLE_PRICE : 0;
+  const totalAmount = lodgeTicketOrder ? lodgeTicketOrder.tableCount * tablePrice : 0;
 
   // Handle form completion
   const handleFormComplete = useCallback(() => {
@@ -106,7 +135,7 @@ export const LodgeRegistrationStep: React.FC<LodgeRegistrationStepProps> = ({
       if (result.success && result.registrationId) {
         // Navigate to confirmation page using function-based routing
         const confirmationPath = functionSlug
-          ? `/events/${functionSlug}/register/${result.registrationId}/confirmation`
+          ? `/functions/${functionSlug}/register/${result.registrationId}/confirmation`
           : `/registrations/${result.registrationId}`;
         
         router.push(confirmationPath);

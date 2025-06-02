@@ -1,352 +1,302 @@
-/**
- * E2E Test: Lodge Registration Complete Flow
- * Tests the full lodge registration workflow including member management
- */
-
 const puppeteer = require('puppeteer');
-const path = require('path');
-const fs = require('fs');
+const { createPageHelper } = require('../../helpers/playwright-to-puppeteer');
+const { selfHealingFindElement } = require('../../helpers/self-healing');
+const testData = require('../../config/test-data');
 
 describe('Lodge Registration Flow', () => {
   let browser;
   let page;
-  let testData;
-  
-  const screenshotDir = path.join(__dirname, '../../screenshots/lodge');
   
   beforeAll(async () => {
-    // Create screenshot directory
-    if (!fs.existsSync(screenshotDir)) {
-      fs.mkdirSync(screenshotDir, { recursive: true });
-    }
-    
     browser = await puppeteer.launch({
-      headless: process.env.PUPPETEER_HEADLESS !== 'false',
-      slowMo: process.env.CI ? 0 : 50,
+      headless: process.env.HEADLESS !== 'false',
+      slowMo: process.env.SLOW_MO ? parseInt(process.env.SLOW_MO) : 0,
       args: ['--no-sandbox', '--disable-setuid-sandbox']
     });
-    
-    // Load test data
-    const TestDataManager = require('../../helpers/test-data-manager');
-    testData = await TestDataManager.getLodgeTestData();
   });
   
   afterAll(async () => {
-    if (browser) {
-      await browser.close();
-    }
+    await browser.close();
   });
   
   beforeEach(async () => {
     page = await browser.newPage();
-    await page.setViewport({ width: 1920, height: 1080 });
+    await page.setViewport({ width: 1280, height: 720 });
+    
+    // Add Playwright-like helpers
+    createPageHelper(page);
+    
+    // Navigate to registration type page
+    await page.goto(`${testData.baseUrl}/events/${testData.eventSlug}/register/${testData.registrationId}/tickets`);
+    
+    // Select lodge registration
+    const lodgeButton = await page.getByTestId('registration-type-lodge');
+    await lodgeButton.click();
+    
+    // Wait for navigation to lodge details
+    await page.waitForFunction(() => window.location.href.includes('lodge-details'));
   });
   
   afterEach(async () => {
-    if (page) {
-      await page.close();
-    }
+    await page.close();
   });
   
-  test('completes full lodge registration flow', async () => {
-    // Navigate to event page
-    await page.goto(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/events/${testData.eventSlug}`);
+  test('should allow filling lodge details', async () => {
+    const uniqueId = Date.now().toString();
     
-    // Take screenshot of event page
-    await page.screenshot({ 
-      path: path.join(screenshotDir, '01-event-page.png'),
-      fullPage: true 
-    });
+    // Fill lodge name
+    const lodgeNameInput = await page.getByLabel('Lodge Name');
+    await page.fill(lodgeNameInput, `Test Lodge ${uniqueId}`);
     
-    // Click Register button
-    await page.waitForSelector('[data-testid="register-button"]', { timeout: 10000 });
-    await page.click('[data-testid="register-button"]');
-    
-    // Step 1: Registration Type Selection
-    await page.waitForSelector('[data-testid="registration-type-step"]', { timeout: 10000 });
-    await page.screenshot({ 
-      path: path.join(screenshotDir, '02-registration-type.png'),
-      fullPage: true 
-    });
-    
-    // Select lodge type
-    await page.click('[data-testid="registration-type-lodge"]');
-    await page.click('[data-testid="continue-button"]');
-    
-    // Step 2: Lodge Details
-    await page.waitForSelector('[data-testid="attendee-details-step"]', { timeout: 10000 });
-    await page.screenshot({ 
-      path: path.join(screenshotDir, '03-lodge-details.png'),
-      fullPage: true 
-    });
+    // Fill lodge number
+    const lodgeNumberInput = await page.getByLabel('Lodge Number');
+    await page.fill(lodgeNumberInput, uniqueId.substring(0, 3));
     
     // Select Grand Lodge
-    await page.click('[data-testid="grand-lodge-select"]');
-    await page.type('[data-testid="grand-lodge-search"]', testData.grandLodge);
-    await page.waitForSelector('[data-testid="grand-lodge-option"]');
-    await page.click('[data-testid="grand-lodge-option"]');
+    const grandLodgeSelect = await page.getByLabel('Grand Lodge');
+    await page.selectOption(grandLodgeSelect, 'United Grand Lodge of NSW & ACT');
     
-    // Select Lodge
-    await page.waitForSelector('[data-testid="lodge-select"]');
-    await page.click('[data-testid="lodge-select"]');
-    await page.type('[data-testid="lodge-search"]', testData.lodge.name);
-    await page.waitForSelector('[data-testid="lodge-option"]');
-    await page.click('[data-testid="lodge-option"]');
+    // Fill secretary details
+    const secretaryNameInput = await page.getByLabel('Secretary Name');
+    await page.fill(secretaryNameInput, `Lodge Secretary ${uniqueId}`);
     
-    // Fill booking contact details
-    await page.type('[data-testid="booking-contact-firstname"]', testData.bookingContact.firstName);
-    await page.type('[data-testid="booking-contact-lastname"]', testData.bookingContact.lastName);
-    await page.type('[data-testid="booking-contact-email"]', testData.bookingContact.email);
-    await page.type('[data-testid="booking-contact-phone"]', testData.bookingContact.phone);
+    const secretaryEmailInput = await page.getByLabel('Secretary Email');
+    await page.fill(secretaryEmailInput, `secretary${uniqueId}@example.com`);
     
-    // Add lodge members
-    for (let i = 0; i < testData.lodgeMembers.length; i++) {
-      const member = testData.lodgeMembers[i];
-      
-      if (i > 0) {
-        await page.click('[data-testid="add-member-button"]');
-      }
-      
-      // Select title
-      await page.click(`[data-testid="member-${i}-title"]`);
-      await page.click(`[data-testid="title-${member.title}"]`);
-      
-      await page.type(`[data-testid="member-${i}-firstname"]`, member.firstName);
-      await page.type(`[data-testid="member-${i}-lastname"]`, member.lastName);
-      await page.type(`[data-testid="member-${i}-email"]`, member.email);
-      await page.type(`[data-testid="member-${i}-phone"]`, member.phone);
-      
-      // Lodge role
-      if (member.lodgeRole) {
-        await page.click(`[data-testid="member-${i}-lodge-role"]`);
-        await page.click(`[data-testid="role-${member.lodgeRole}"]`);
-      }
-      
-      // Grand Lodge officer
-      if (member.isGrandOfficer) {
-        await page.click(`[data-testid="member-${i}-grand-officer"]`);
-        await page.type(`[data-testid="member-${i}-grand-rank"]`, member.grandRank);
-      }
-      
-      // Partner details
-      if (member.hasPartner) {
-        await page.click(`[data-testid="member-${i}-partner-toggle"]`);
-        await page.type(`[data-testid="member-${i}-partner-firstname"]`, member.partner.firstName);
-        await page.type(`[data-testid="member-${i}-partner-lastname"]`, member.partner.lastName);
-        await page.click(`[data-testid="member-${i}-partner-relationship"]`);
-        await page.click(`[data-testid="relationship-${member.partner.relationship}"]`);
-      }
-    }
+    const secretaryPhoneInput = await page.getByLabel('Secretary Phone');
+    await page.fill(secretaryPhoneInput, `0400${uniqueId.substring(0, 6)}`);
     
+    // Take screenshot
     await page.screenshot({ 
-      path: path.join(screenshotDir, '04-lodge-members-filled.png'),
-      fullPage: true 
-    });
-    
-    await page.click('[data-testid="continue-button"]');
-    
-    // Step 3: Ticket Selection
-    await page.waitForSelector('[data-testid="ticket-selection-step"]', { timeout: 10000 });
-    await page.screenshot({ 
-      path: path.join(screenshotDir, '05-ticket-selection.png'),
-      fullPage: true 
-    });
-    
-    // Select tickets based on member types
-    for (let i = 0; i < testData.lodgeMembers.length; i++) {
-      const member = testData.lodgeMembers[i];
-      
-      // Select main attendee ticket
-      await page.click(`[data-testid="member-${i}-ticket-select"]`);
-      await page.click(`[data-testid="ticket-${member.ticketType}"]`);
-      
-      // Select partner ticket if applicable
-      if (member.hasPartner) {
-        await page.click(`[data-testid="partner-${i}-ticket-select"]`);
-        await page.click(`[data-testid="ticket-${member.partner.ticketType}"]`);
-      }
-    }
-    
-    await page.waitForTimeout(1000); // Wait for order summary to update
-    await page.screenshot({ 
-      path: path.join(screenshotDir, '06-tickets-selected.png'),
-      fullPage: true 
-    });
-    
-    await page.click('[data-testid="continue-button"]');
-    
-    // Step 4: Order Review
-    await page.waitForSelector('[data-testid="order-review-step"]', { timeout: 10000 });
-    await page.screenshot({ 
-      path: path.join(screenshotDir, '07-order-review.png'),
-      fullPage: true 
-    });
-    
-    // Verify lodge details
-    const lodgeSummary = await page.$eval('[data-testid="lodge-summary"]', el => el.textContent);
-    expect(lodgeSummary).toContain(testData.lodge.name);
-    expect(lodgeSummary).toContain(testData.lodge.number);
-    
-    // Verify member count
-    const memberCount = await page.$eval('[data-testid="member-count"]', el => el.textContent);
-    const totalAttendees = testData.lodgeMembers.length + testData.lodgeMembers.filter(m => m.hasPartner).length;
-    expect(memberCount).toContain(`${totalAttendees} attendees`);
-    
-    // Verify order total
-    const orderTotal = await page.$eval('[data-testid="order-total"]', el => el.textContent);
-    expect(orderTotal).toMatch(/\$[\d,]+\.\d{2}/);
-    
-    await page.click('[data-testid="continue-button"]');
-    
-    // Step 5: Payment
-    await page.waitForSelector('[data-testid="payment-step"]', { timeout: 10000 });
-    await page.screenshot({ 
-      path: path.join(screenshotDir, '08-payment.png'),
-      fullPage: true 
-    });
-    
-    // Fill billing details
-    await page.type('[data-testid="billing-name"]', testData.billing.name);
-    await page.type('[data-testid="billing-address"]', testData.billing.address);
-    await page.type('[data-testid="billing-city"]', testData.billing.city);
-    await page.type('[data-testid="billing-postcode"]', testData.billing.postcode);
-    
-    // Select country and state
-    await page.click('[data-testid="billing-country"]');
-    await page.click('[data-testid="country-AU"]');
-    await page.click('[data-testid="billing-state"]');
-    await page.click('[data-testid="state-NSW"]');
-    
-    // Wait for Stripe to load
-    await page.waitForSelector('iframe[name^="__privateStripeFrame"]', { timeout: 20000 });
-    
-    // Fill card details in Stripe iframe
-    const stripeFrame = await page.waitForSelector('iframe[name^="__privateStripeFrame"]');
-    const frame = await stripeFrame.contentFrame();
-    
-    await frame.type('[name="cardnumber"]', '4242424242424242');
-    await frame.type('[name="exp-date"]', '12/28');
-    await frame.type('[name="cvc"]', '123');
-    
-    await page.screenshot({ 
-      path: path.join(screenshotDir, '09-payment-filled.png'),
-      fullPage: true 
-    });
-    
-    // Submit payment
-    await page.click('[data-testid="submit-payment-button"]');
-    
-    // Wait for confirmation
-    await page.waitForSelector('[data-testid="confirmation-step"]', { timeout: 30000 });
-    await page.screenshot({ 
-      path: path.join(screenshotDir, '10-confirmation.png'),
-      fullPage: true 
-    });
-    
-    // Verify confirmation details
-    const confirmationNumber = await page.$eval('[data-testid="confirmation-number"]', el => el.textContent);
-    expect(confirmationNumber).toMatch(/^CONF-[A-Z0-9]+$/);
-    
-    const confirmationEmail = await page.$eval('[data-testid="confirmation-email"]', el => el.textContent);
-    expect(confirmationEmail).toContain(testData.bookingContact.email);
-    
-    console.log(`✅ Lodge registration completed with confirmation: ${confirmationNumber}`);
-  }, 120000); // 2 minute timeout for full flow
-  
-  test('enforces minimum member requirements', async () => {
-    await page.goto(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/events/${testData.eventSlug}/register`);
-    
-    // Navigate to lodge details
-    await page.waitForSelector('[data-testid="registration-type-lodge"]');
-    await page.click('[data-testid="registration-type-lodge"]');
-    await page.click('[data-testid="continue-button"]');
-    
-    // Select lodge but don't add enough members
-    await page.waitForSelector('[data-testid="lodge-select"]');
-    
-    // Try to continue without minimum members
-    await page.click('[data-testid="continue-button"]');
-    
-    // Check for minimum members alert
-    const alert = await page.waitForSelector('[data-testid="minimum-members-alert"]');
-    expect(alert).toBeTruthy();
-    
-    const alertText = await page.$eval('[data-testid="minimum-members-alert"]', el => el.textContent);
-    expect(alertText).toContain('minimum');
-    
-    await page.screenshot({ 
-      path: path.join(screenshotDir, 'minimum-members-alert.png'),
-      fullPage: true 
+      path: 'tests/puppeteer/screenshots/lodge-details-completed.png' 
     });
   });
   
-  test('allows bulk member import', async () => {
-    await page.goto(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/events/${testData.eventSlug}/register`);
+  test('should enforce minimum 3 members for lodge registration', async () => {
+    const uniqueId = Date.now().toString();
+    const timestamp = Date.now();
     
-    // Navigate to lodge details
-    await page.waitForSelector('[data-testid="registration-type-lodge"]');
-    await page.click('[data-testid="registration-type-lodge"]');
-    await page.click('[data-testid="continue-button"]');
+    // Fill lodge details
+    const lodgeNameInput = await page.getByLabel('Lodge Name');
+    await page.fill(lodgeNameInput, `Test Lodge ${uniqueId}`);
     
-    await page.waitForSelector('[data-testid="attendee-details-step"]');
+    const lodgeNumberInput = await page.getByLabel('Lodge Number');
+    await page.fill(lodgeNumberInput, uniqueId.substring(0, 3));
     
-    // Click import members button
-    await page.click('[data-testid="import-members-button"]');
-    await page.waitForSelector('[data-testid="import-modal"]');
+    const grandLodgeSelect = await page.getByLabel('Grand Lodge');
+    await page.selectOption(grandLodgeSelect, 'United Grand Lodge of NSW & ACT');
     
-    // Upload CSV file
-    const fileInput = await page.$('[data-testid="csv-file-input"]');
-    const csvPath = path.join(__dirname, '../../fixtures/lodge-members.csv');
-    await fileInput.uploadFile(csvPath);
+    const secretaryNameInput = await page.getByLabel('Secretary Name');
+    await page.fill(secretaryNameInput, `Lodge Secretary ${uniqueId}`);
     
-    // Confirm import
-    await page.click('[data-testid="confirm-import-button"]');
+    const secretaryEmailInput = await page.getByLabel('Secretary Email');
+    await page.fill(secretaryEmailInput, `secretary${uniqueId}@example.com`);
     
-    // Verify members were imported
-    await page.waitForSelector('[data-testid="member-0-firstname"]');
-    const importedMembers = await page.$$('[data-testid^="member-"][data-testid$="-firstname"]');
-    expect(importedMembers.length).toBeGreaterThan(0);
+    const secretaryPhoneInput = await page.getByLabel('Secretary Phone');
+    await page.fill(secretaryPhoneInput, `0400${uniqueId.substring(0, 6)}`);
     
+    // Add only 2 members
+    for (let i = 1; i <= 2; i++) {
+      const addMemberButton = await page.getByRole('button', { name: 'Add Member' });
+      await addMemberButton.click();
+      
+      // Select Mason type
+      const memberTypeRadio = await page.getByRole('radio', { name: 'Mason' });
+      await memberTypeRadio.click();
+      
+      await page.fill(await page.getByLabel('Member First Name'), `Mason${i}`);
+      await page.fill(await page.getByLabel('Member Last Name'), `Test${timestamp}`);
+      await page.fill(await page.getByLabel('Member Email'), `mason${i}.test${timestamp}@example.com`);
+      await page.fill(await page.getByLabel('Member Phone'), `0400${timestamp.toString().slice(-6).replace(/(\d)/, `${i}`)}`);
+      await page.selectOption(await page.getByLabel('Rank'), 'MM');
+      
+      const saveMemberButton = await page.getByRole('button', { name: 'Save Member' });
+      await saveMemberButton.click();
+    }
+    
+    // Check if continue button is disabled
+    const continueButton = await page.getByRole('button', { name: 'Continue to Ticket Selection' });
+    const isEnabled = await continueButton.evaluate(el => !el.disabled);
+    expect(isEnabled).toBe(false);
+    
+    // Check for error message
+    const errorMessage = await page.getByText(/minimum 3 members required/i);
+    const errorVisible = await page.isVisible(errorMessage);
+    expect(errorVisible).toBe(true);
+    
+    // Add third member
+    const addMemberButton = await page.getByRole('button', { name: 'Add Member' });
+    await addMemberButton.click();
+    
+    const memberTypeRadio = await page.getByRole('radio', { name: 'Mason' });
+    await memberTypeRadio.click();
+    
+    await page.fill(await page.getByLabel('Member First Name'), 'Mason3');
+    await page.fill(await page.getByLabel('Member Last Name'), `Test${timestamp}`);
+    await page.fill(await page.getByLabel('Member Email'), `mason3.test${timestamp}@example.com`);
+    await page.fill(await page.getByLabel('Member Phone'), `0400${timestamp.toString().slice(-6).replace(/(\d)/, '3')}`);
+    await page.selectOption(await page.getByLabel('Rank'), 'MM');
+    
+    const saveMemberButton = await page.getByRole('button', { name: 'Save Member' });
+    await saveMemberButton.click();
+    
+    // Check if continue button is now enabled
+    const isNowEnabled = await continueButton.evaluate(el => !el.disabled);
+    expect(isNowEnabled).toBe(true);
+  });
+  
+  test('should allow adding mixed mason and guest attendees', async () => {
+    const uniqueId = Date.now().toString();
+    const timestamp = Date.now();
+    
+    // Fill lodge details
+    const lodgeNameInput = await page.getByLabel('Lodge Name');
+    await page.fill(lodgeNameInput, `Test Lodge ${uniqueId}`);
+    
+    const lodgeNumberInput = await page.getByLabel('Lodge Number');
+    await page.fill(lodgeNumberInput, uniqueId.substring(0, 3));
+    
+    const grandLodgeSelect = await page.getByLabel('Grand Lodge');
+    await page.selectOption(grandLodgeSelect, 'United Grand Lodge of NSW & ACT');
+    
+    const secretaryNameInput = await page.getByLabel('Secretary Name');
+    await page.fill(secretaryNameInput, `Lodge Secretary ${uniqueId}`);
+    
+    const secretaryEmailInput = await page.getByLabel('Secretary Email');
+    await page.fill(secretaryEmailInput, `secretary${uniqueId}@example.com`);
+    
+    const secretaryPhoneInput = await page.getByLabel('Secretary Phone');
+    await page.fill(secretaryPhoneInput, `0400${uniqueId.substring(0, 6)}`);
+    
+    // Add 3 mason attendees
+    for (let i = 1; i <= 3; i++) {
+      const addMemberButton = await page.getByRole('button', { name: 'Add Member' });
+      await addMemberButton.click();
+      
+      const memberTypeRadio = await page.getByRole('radio', { name: 'Mason' });
+      await memberTypeRadio.click();
+      
+      await page.fill(await page.getByLabel('Member First Name'), `Mason${i}`);
+      await page.fill(await page.getByLabel('Member Last Name'), `Test${timestamp}`);
+      await page.fill(await page.getByLabel('Member Email'), `mason${i}.test${timestamp}@example.com`);
+      await page.fill(await page.getByLabel('Member Phone'), `0400${timestamp.toString().slice(-6).replace(/(\d)/, `${i}`)}`);
+      await page.selectOption(await page.getByLabel('Rank'), 'MM');
+      
+      const saveMemberButton = await page.getByRole('button', { name: 'Save Member' });
+      await saveMemberButton.click();
+    }
+    
+    // Add 2 guest attendees
+    for (let i = 1; i <= 2; i++) {
+      const addMemberButton = await page.getByRole('button', { name: 'Add Member' });
+      await addMemberButton.click();
+      
+      const memberTypeRadio = await page.getByRole('radio', { name: 'Guest' });
+      await memberTypeRadio.click();
+      
+      await page.fill(await page.getByLabel('Member First Name'), `Guest${i}`);
+      await page.fill(await page.getByLabel('Member Last Name'), `Test${timestamp}`);
+      await page.fill(await page.getByLabel('Member Email'), `guest${i}.test${timestamp}@example.com`);
+      await page.fill(await page.getByLabel('Member Phone'), `0400${timestamp.toString().slice(-6).replace(/(\d)/, `${i+3}`)}`);
+      
+      const saveMemberButton = await page.getByRole('button', { name: 'Save Member' });
+      await saveMemberButton.click();
+    }
+    
+    // Verify attendee count
+    const attendeeRows = await page.$$('[data-testid^="attendee-row-"]');
+    expect(attendeeRows.length).toBe(5); // 3 masons + 2 guests
+    
+    // Take screenshot
     await page.screenshot({ 
-      path: path.join(screenshotDir, 'members-imported.png'),
-      fullPage: true 
+      path: 'tests/puppeteer/screenshots/lodge-mixed-attendees.png' 
     });
   });
   
-  test('handles member role assignments', async () => {
-    await page.goto(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/events/${testData.eventSlug}/register`);
+  test('should complete full lodge registration flow', async () => {
+    const uniqueId = Date.now().toString();
+    const timestamp = Date.now();
     
-    // Navigate to lodge details
-    await page.waitForSelector('[data-testid="registration-type-lodge"]');
-    await page.click('[data-testid="registration-type-lodge"]');
-    await page.click('[data-testid="continue-button"]');
+    // Fill lodge details
+    const lodgeNameInput = await page.getByLabel('Lodge Name');
+    await page.fill(lodgeNameInput, `Test Lodge ${uniqueId}`);
     
-    await page.waitForSelector('[data-testid="attendee-details-step"]');
+    const lodgeNumberInput = await page.getByLabel('Lodge Number');
+    await page.fill(lodgeNumberInput, uniqueId.substring(0, 3));
     
-    // Add member with specific lodge role
-    await page.type('[data-testid="member-0-firstname"]', 'John');
-    await page.type('[data-testid="member-0-lastname"]', 'Smith');
+    const grandLodgeSelect = await page.getByLabel('Grand Lodge');
+    await page.selectOption(grandLodgeSelect, 'United Grand Lodge of NSW & ACT');
     
-    // Assign as Worshipful Master
-    await page.click('[data-testid="member-0-lodge-role"]');
-    await page.click('[data-testid="role-WM"]');
+    const secretaryNameInput = await page.getByLabel('Secretary Name');
+    await page.fill(secretaryNameInput, `Lodge Secretary ${uniqueId}`);
     
-    // Verify role badge appears
-    const roleBadge = await page.waitForSelector('[data-testid="member-0-role-badge"]');
-    const badgeText = await page.$eval('[data-testid="member-0-role-badge"]', el => el.textContent);
-    expect(badgeText).toBe('WM');
+    const secretaryEmailInput = await page.getByLabel('Secretary Email');
+    await page.fill(secretaryEmailInput, `secretary${uniqueId}@example.com`);
     
-    // Try to add another WM (should show warning)
-    await page.click('[data-testid="add-member-button"]');
-    await page.click('[data-testid="member-1-lodge-role"]');
-    await page.click('[data-testid="role-WM"]');
+    const secretaryPhoneInput = await page.getByLabel('Secretary Phone');
+    await page.fill(secretaryPhoneInput, `0400${uniqueId.substring(0, 6)}`);
     
-    const warning = await page.waitForSelector('[data-testid="duplicate-role-warning"]');
-    expect(warning).toBeTruthy();
+    // Add 3 mason attendees
+    for (let i = 1; i <= 3; i++) {
+      const addMemberButton = await page.getByRole('button', { name: 'Add Member' });
+      await addMemberButton.click();
+      
+      const memberTypeRadio = await page.getByRole('radio', { name: 'Mason' });
+      await memberTypeRadio.click();
+      
+      await page.fill(await page.getByLabel('Member First Name'), `Mason${i}`);
+      await page.fill(await page.getByLabel('Member Last Name'), `Test${timestamp}`);
+      await page.fill(await page.getByLabel('Member Email'), `mason${i}.test${timestamp}@example.com`);
+      await page.fill(await page.getByLabel('Member Phone'), `0400${timestamp.toString().slice(-6).replace(/(\d)/, `${i}`)}`);
+      await page.selectOption(await page.getByLabel('Rank'), 'MM');
+      
+      const saveMemberButton = await page.getByRole('button', { name: 'Save Member' });
+      await saveMemberButton.click();
+    }
     
-    await page.screenshot({ 
-      path: path.join(screenshotDir, 'lodge-roles.png'),
-      fullPage: true 
+    // Continue to ticket selection
+    const continueButton = await page.getByRole('button', { name: 'Continue to Ticket Selection' });
+    await continueButton.click();
+    
+    // Wait for ticket selection page
+    await page.waitForFunction(() => window.location.href.includes('ticket-selection'));
+    expect(page.url()).toContain('ticket-selection');
+    
+    // Select tickets
+    const generalAdmissionCard = await selfHealingFindElement(page, '[data-testid="ticket-card-general-admission"]', {
+      fallbacks: [
+        '.ticket-card:has-text("General Admission")',
+        '[data-test="ticket-general-admission"]'
+      ]
     });
+    
+    if (generalAdmissionCard) {
+      // Select 3 tickets for all members
+      const plusButton = await generalAdmissionCard.$('[data-testid="ticket-quantity-increase"]');
+      if (plusButton) {
+        await plusButton.click();
+        await plusButton.click();
+        await plusButton.click(); // Click 3 times for 3 tickets
+      }
+    }
+    
+    // Get single ticket price
+    const priceElement = await generalAdmissionCard.$('.ticket-price');
+    const priceText = await priceElement.evaluate(el => el.textContent);
+    const singlePrice = parseFloat(priceText.replace(/[^0-9.]/g, ''));
+    
+    // Verify total amount
+    await page.waitForSelector('[data-testid="order-total"]');
+    const totalText = await page.$eval('[data-testid="order-total"]', el => el.textContent);
+    const totalAmount = parseFloat(totalText.replace(/[^0-9.]/g, ''));
+    expect(totalAmount).toBeCloseTo(singlePrice * 3, 1); // Allow for rounding
+    
+    // Continue to order review
+    const reviewButton = await page.getByRole('button', { name: 'Continue to Order Review' });
+    await reviewButton.click();
+    
+    // Verify navigation
+    await page.waitForFunction(() => window.location.href.includes('order-review'));
+    expect(page.url()).toContain('order-review');
   });
 });

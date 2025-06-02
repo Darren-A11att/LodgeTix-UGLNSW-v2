@@ -7,7 +7,7 @@ import type { Database } from '@/shared/types/database';
  * Get the featured function for the homepage
  * Uses FEATURED_FUNCTION_ID from environment variables or falls back to the first function
  */
-export async function getGrandInstallationEvent() {
+export async function getHeroFunction() {
   try {
     const supabase = await createClient();
     
@@ -86,7 +86,7 @@ export async function getGrandInstallationEvent() {
 export async function getEventTimeline() {
   try {
     const supabase = await createClient();
-    const mainFunction = await getGrandInstallationEvent();
+    const mainFunction = await getHeroFunction();
     
     if (!mainFunction) {
       api.warn('No function found for timeline');

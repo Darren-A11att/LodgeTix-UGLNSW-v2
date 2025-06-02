@@ -29,10 +29,10 @@ export const testData = {
 };
 
 export const testUrls = {
-  registration: '/functions/grand-installation/register',
-  individualRegistration: '/functions/grand-installation/register/individual',
-  lodgeRegistration: '/functions/grand-installation/register/lodge',
-  delegationRegistration: '/functions/grand-installation/register/delegation',
+  registration: '/functions/hero-function/register',
+  individualRegistration: '/functions/hero-function/register/individual',
+  lodgeRegistration: '/functions/hero-function/register/lodge',
+  delegationRegistration: '/functions/hero-function/register/delegation',
 };
 
 /**

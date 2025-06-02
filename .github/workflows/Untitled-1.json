@@ -2794,9 +2794,9 @@
 				"isDefault": true
 			}
 		],
-		"getGrandInstallationEvent": [
+		"getHeroFunction": [
 			{
-				"name": "getGrandInstallationEvent",
+				"name": "getHeroFunction",
 				"module": "@/lib/services/homepage-service",
 				"isDefault": false
 			}

@@ -16,7 +16,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Switch } from '@/components/ui/switch'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Loader2, Mail, Send, AlertCircle, CheckCircle2 } from 'lucide-react'
-import { sendBulkEmail } from '@/app/organiser/actions'
+import { sendBulkEmail } from '@/app/(portals)/organiser/actions'
 import { useToast } from '@/hooks/use-toast'
 
 interface BulkEmailDialogProps {
