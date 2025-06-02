@@ -6,13 +6,14 @@ import { useRegistrationStore } from '@/lib/registrationStore'
 import ClientOnly from '@/components/register/RegistrationWizard/utils/ClientOnly'
 
 interface TicketsPageClientProps {
-  eventId: string
-  eventSlug: string
+  functionId: string
+  functionSlug: string
   registrationId: string
 }
 
-export function TicketsPageClient({ eventId, eventSlug, registrationId }: TicketsPageClientProps) {
-  const setEventId = useRegistrationStore((state) => state.setEventId)
+export function TicketsPageClient({ functionId, functionSlug, registrationId }: TicketsPageClientProps) {
+  const setFunctionId = useRegistrationStore((state) => state.setFunctionId)
+  const setFunctionSlug = useRegistrationStore((state) => state.setFunctionSlug)
   const draftId = useRegistrationStore((state) => state.draftId)
   const setDraftId = useRegistrationStore((state) => state.loadDraft)
   
@@ -22,15 +23,15 @@ export function TicketsPageClient({ eventId, eventSlug, registrationId }: Ticket
       setDraftId(registrationId)
     }
     
-    // Set the event ID in the store
-    setEventId(eventId)
-  }, [registrationId, draftId, setDraftId, setEventId, eventId])
+    // Set the function ID and slug in the store
+    setFunctionId(functionId)
+    setFunctionSlug(functionSlug)
+  }, [registrationId, draftId, setDraftId, setFunctionId, setFunctionSlug, functionId, functionSlug])
   
   return (
     <ClientOnly>
       <RegistrationWizard 
-        eventId={eventId}
-        eventSlug={eventSlug}
+        functionSlug={functionSlug}
         registrationId={registrationId}
       />
     </ClientOnly>
