@@ -26,11 +26,8 @@ export async function GET(
       .order('event_start', { ascending: true })
       .order('ticket_name', { ascending: true });
     
-    // Filter by registration type if provided
-    if (registrationType) {
-      // The registration_types column is an array, so we use contains
-      query = query.contains('registration_types', [registrationType]);
-    }
+    // Note: registration_types filtering will be done in application layer
+    // as the column doesn't exist in the database view
     
     const { data: tickets, error } = await query;
 
@@ -45,26 +42,59 @@ export async function GET(
     console.log(`[API] Found ${tickets?.length || 0} tickets for function ${functionId}`);
     
     // Transform the view data to match the expected format
-    const transformedTickets = (tickets || []).map((ticket: any) => ({
-      event_ticket_id: ticket.event_ticket_id,
-      ticket_name: ticket.ticket_name,
-      ticket_description: ticket.ticket_description,
-      ticket_price: ticket.ticket_price,
-      event_id: ticket.event_id,
-      event_title: ticket.event_title,
-      event_slug: ticket.event_slug,
-      function_id: ticket.function_id,
-      is_active: ticket.is_active,
-      total_capacity: ticket.total_capacity,
-      available_count: ticket.available_count,
-      reserved_count: ticket.reserved_count,
-      sold_count: ticket.sold_count,
-      status: ticket.status,
-      eligibility_criteria: ticket.eligibility_criteria,
-      registration_types: ticket.registration_types,
-      created_at: ticket.ticket_created_at,
-      updated_at: ticket.ticket_updated_at
-    }));
+    let transformedTickets = (tickets || []).map((ticket: any) => {
+      // Extract registration types from eligibility criteria if present
+      let registrationTypes: string[] = ['individual', 'lodge', 'delegation']; // Default to all types
+      
+      // If ticket has eligibility criteria, parse it to determine allowed registration types
+      if (ticket.ticket_eligibility_criteria && typeof ticket.ticket_eligibility_criteria === 'object') {
+        const criteria = ticket.ticket_eligibility_criteria;
+        
+        // Check if there's a specific registration_types field in the criteria
+        if (criteria.registration_types && Array.isArray(criteria.registration_types)) {
+          registrationTypes = criteria.registration_types;
+        }
+        // Otherwise, infer from attendee_type rules if present
+        else if (criteria.rules && Array.isArray(criteria.rules)) {
+          // This is a simplified inference - adjust based on actual business logic
+          const hasAttendeeTypeRule = criteria.rules.some((rule: any) => 
+            rule.type === 'attendee_type' || rule.type === 'registration_type'
+          );
+          if (hasAttendeeTypeRule) {
+            // Keep default for now - would need more complex logic to infer
+          }
+        }
+      }
+      
+      return {
+        event_ticket_id: ticket.event_ticket_id,
+        ticket_name: ticket.ticket_name,
+        ticket_description: ticket.ticket_description,
+        ticket_price: ticket.ticket_price,
+        event_id: ticket.event_id,
+        event_title: ticket.event_title,
+        event_slug: ticket.event_slug,
+        function_id: ticket.function_id,
+        is_active: ticket.ticket_is_active,
+        total_capacity: ticket.total_capacity,
+        available_count: ticket.available_count,
+        reserved_count: ticket.reserved_count,
+        sold_count: ticket.sold_count,
+        status: ticket.ticket_status,
+        eligibility_criteria: ticket.ticket_eligibility_criteria,
+        registration_types: registrationTypes,
+        created_at: ticket.ticket_created_at,
+        updated_at: ticket.ticket_updated_at
+      };
+    });
+
+    // Filter by registration type if requested
+    if (registrationType) {
+      transformedTickets = transformedTickets.filter(ticket => 
+        ticket.registration_types.includes(registrationType)
+      );
+      console.log(`[API] Filtered to ${transformedTickets.length} tickets for registration type: ${registrationType}`);
+    }
 
     return NextResponse.json({ 
       tickets: transformedTickets,

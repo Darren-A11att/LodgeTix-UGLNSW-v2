@@ -25,11 +25,14 @@ const stripePromise = loadStripe(stripePublishableKey);
 interface LodgeRegistrationStepProps {
   functionId: string;
   functionSlug?: string;
+  onPrevStep?: () => void;
+  selectedEvents?: any;
 }
 
 export const LodgeRegistrationStep: React.FC<LodgeRegistrationStepProps> = ({
   functionId,
-  functionSlug
+  functionSlug,
+  onPrevStep
 }) => {
   const router = useRouter();
   const checkoutFormRef = useRef<CheckoutFormHandle>(null);

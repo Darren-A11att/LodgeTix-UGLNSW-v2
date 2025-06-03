@@ -22,7 +22,7 @@ export default async function FunctionsPage() {
     const events = await functionService.getEventsForFunction(FEATURED_FUNCTION_ID)
     
     return (
-      <div className="min-h-screen bg-white">
+      <div className="min-h-screen bg-white relative">
         {/* New Events Page Header */}
         <EventsPageHeader functionData={functionData} />
         

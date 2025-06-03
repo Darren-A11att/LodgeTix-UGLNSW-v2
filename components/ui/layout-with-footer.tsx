@@ -29,7 +29,7 @@ export function LayoutWithFooter({ children }: LayoutWithFooterProps) {
   return (
     <>
       {shouldShowHeader && (
-        <header className="w-full flex-shrink-0 z-10 flex h-14 items-center justify-between border-b bg-white px-4 md:px-6">
+        <header className="sticky top-0 w-full flex-shrink-0 z-40 flex h-14 items-center justify-between border-b bg-white px-4 md:px-6">
           <Link href="/" className="flex items-center">
             <TicketIcon className="mr-2 h-5 w-5 text-masonic-navy" />
             <span className="font-bold">LodgeTix</span>
