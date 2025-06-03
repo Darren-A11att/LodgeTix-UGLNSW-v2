@@ -40,10 +40,10 @@ export const api = {
     },
 
     /**
-     * Get a single function by slug
+     * Get a single function by ID
      */
-    getBySlug: async (slug: string): Promise<FunctionType> => {
-      const response = await fetch(`/api/functions/${slug}`)
+    getById: async (functionId: string): Promise<FunctionType> => {
+      const response = await fetch(`/api/functions/${functionId}`)
       if (!response.ok) {
         throw new Error('Function not found')
       }
@@ -51,10 +51,20 @@ export const api = {
     },
 
     /**
+     * Get a single function by slug (for backward compatibility)
+     * @deprecated Use getById instead
+     */
+    getBySlug: async (slug: string): Promise<FunctionType> => {
+      // This would need to first convert slug to ID
+      // For now, throw an error to force migration
+      throw new Error('getBySlug is deprecated. Use getById with function UUID instead.')
+    },
+
+    /**
      * Get all events for a function
      */
-    getEvents: async (functionSlug: string): Promise<EventType[]> => {
-      const response = await fetch(`/api/functions/${functionSlug}/events`)
+    getEvents: async (functionId: string): Promise<EventType[]> => {
+      const response = await fetch(`/api/functions/${functionId}/events`)
       if (!response.ok) {
         throw new Error('Failed to fetch events')
       }

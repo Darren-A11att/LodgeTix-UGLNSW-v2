@@ -19,6 +19,7 @@ vi.mock('next/image', () => ({
 describe('FunctionCard', () => {
   const mockFunction = {
     id: 'func-123',
+    function_id: 'func-123',
     name: 'Grand Installation 2025',
     slug: 'grand-installation-2025',
     description: 'Join us for the annual Grand Installation ceremony',

@@ -1,11 +1,8 @@
 import Link from "next/link"
-import Image from "next/image"
-import { CalendarDays, MapPin } from "lucide-react"
 import { format } from "date-fns"
-
-import { Card, CardContent, CardFooter } from "@/components/ui/card"
-import { Button } from "@/components/ui/button"
 import type { EventType } from "@/shared/types"
+import { formatCurrency } from "@/lib/formatters"
+import { Button } from "@/components/ui/button"
 
 interface EventCardProps {
   id?: string      // UUID
@@ -25,65 +22,100 @@ interface EventCardProps {
 export function EventCard(props: EventCardProps) {
   // Support both old prop interface and new event object
   const event = props.event
-  const id = props.id || event?.id || event?.event_id || ''
+  const id = props.id || event?.event_id || ''
   const slug = props.slug || event?.slug || ''
   const title = props.title || event?.title || 'Untitled Event'
   const description = props.description || event?.description || ''
-  const imageUrl = props.imageUrl || event?.imageUrl || '/placeholder.svg'
-  const location = props.location || event?.location || ''
-  const functionSlug = props.functionSlug || event?.functionSlug || slug // Fall back to event slug if no function slug
+  const imageUrl = props.imageUrl || event?.image_url || '/placeholder.svg'
+  const location = props.location || ''
+  const functionSlug = props.functionSlug || event?.functionSlug || ''
   
   // Format date from event object if available
   let date = props.date || ''
-  if (!date && event?.eventStart) {
+  if (!date && (event?.event_start || event?.eventStart)) {
     try {
-      date = format(new Date(event.eventStart), 'EEEE, d MMMM yyyy')
+      const eventDate = new Date(event.event_start || event.eventStart!)
+      date = format(eventDate, 'EEEE, d MMMM yyyy')
     } catch (e) {
-      date = event.eventStart
+      date = 'Date TBD'
+    }
+  }
+  
+  // Format time if available
+  let timeDisplay = ''
+  if (event?.event_start || event?.eventStart) {
+    try {
+      const eventDate = new Date(event.event_start || event.eventStart!)
+      timeDisplay = format(eventDate, 'h:mm a')
+    } catch (e) {
+      // Skip time display if invalid
     }
   }
   
   // Format price
-  const price = props.price || event?.price || 'Price TBD'
+  const priceDisplay = props.price || (event?.minPrice && event.minPrice > 0 
+    ? `From ${formatCurrency(event.minPrice)}`
+    : 'View pricing')
   
-  // Determine the correct link structure
-  // Always use event-based routing since function routes have been removed
-  const detailsLink = `/functions/${slug}`
-  const registerLink = `/functions/${functionSlug}/register`
+  // Links - Get tickets goes to function registration, View Details goes to function page
+  const registerLink = functionSlug ? `/functions/${functionSlug}/register` : `/functions/${slug}/register`
+  const detailsLink = functionSlug ? `/functions/${functionSlug}` : `/functions/${slug}`
+  
   return (
-    <Card className="overflow-hidden transition-all hover:shadow-md">
-      <div className="relative h-48 w-full">
-        <Image src={imageUrl || "/placeholder.svg"} alt={title} fill className="object-cover" />
+    <div className="group block border border-gray-200 rounded-lg overflow-hidden hover:shadow-lg transition-shadow duration-200">
+      <div className="space-y-4">
+        {/* Image */}
+        <div className="aspect-[4/3] w-full overflow-hidden bg-gray-100">
+          <img
+            src={imageUrl}
+            alt={title}
+            className="h-full w-full object-cover object-center group-hover:opacity-95 transition-opacity duration-200"
+          />
+        </div>
+        
+        {/* Content */}
+        <div className="px-4 pb-4">
+          <h3 className="text-lg font-medium text-masonic-navy">
+            {title}
+          </h3>
+          <p className="mt-1 text-sm italic text-gray-500">
+            {date}
+            {timeDisplay && ` • ${timeDisplay}`}
+            {location && ` • ${location}`}
+          </p>
+          <p className="mt-2 text-base font-medium text-masonic-navy">
+            {priceDisplay}
+          </p>
+          {description && (
+            <p className="mt-2 text-sm text-gray-600 line-clamp-2">
+              {description}
+            </p>
+          )}
+          
+          {/* Buttons */}
+          <div className="mt-4 flex gap-2">
+            <Button 
+              asChild 
+              variant="outline" 
+              size="sm"
+              className="flex-1 border-masonic-navy text-masonic-navy hover:bg-masonic-navy hover:text-white"
+            >
+              <Link href={detailsLink}>
+                View Details
+              </Link>
+            </Button>
+            <Button 
+              asChild 
+              size="sm"
+              className="flex-1 bg-masonic-navy hover:bg-masonic-blue text-white"
+            >
+              <Link href={registerLink}>
+                Get Tickets
+              </Link>
+            </Button>
+          </div>
+        </div>
       </div>
-      <CardContent className="p-4">
-        <h3 className="mb-2 text-xl font-bold">{title}</h3>
-        <p className="mb-4 text-sm text-gray-600 line-clamp-2">{description}</p>
-        <div className="space-y-2">
-          <div className="flex items-center text-sm text-gray-500">
-            <CalendarDays className="mr-2 h-4 w-4" />
-            <span>{date}</span>
-          </div>
-          <div className="flex items-center text-sm text-gray-500">
-            <MapPin className="mr-2 h-4 w-4" />
-            <span>{location}</span>
-          </div>
-        </div>
-      </CardContent>
-      <CardFooter className="flex items-center justify-between border-t p-4">
-        <span className="font-bold">{price}</span>
-        <div className="flex gap-2">
-          <Button asChild size="sm" variant="outline" className="border-masonic-navy text-masonic-navy">
-            <Link href={detailsLink}>
-              View Details
-            </Link>
-          </Button>
-          <Button asChild size="sm" className="bg-masonic-navy hover:bg-masonic-blue">
-            <Link href={registerLink}>
-              Get Tickets
-            </Link>
-          </Button>
-        </div>
-      </CardFooter>
-    </Card>
+    </div>
   )
 }

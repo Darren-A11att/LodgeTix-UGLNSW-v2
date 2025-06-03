@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSupabaseClient } from '@/lib/supabase-singleton';
+import { createClient } from '@/utils/supabase/server';
 import type { Database } from '@/shared/types/database';
 
 export async function GET(request: NextRequest) {
   try {
-    const supabase = getSupabaseClient(true);
+    const supabase = await createClient();
     
     // Get all published functions with their events and packages
     const { data: functions, error } = await supabase

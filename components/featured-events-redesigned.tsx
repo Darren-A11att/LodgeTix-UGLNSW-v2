@@ -1,22 +1,30 @@
 import Link from "next/link"
 import Image from "next/image"
 import { formatCurrency } from "@/lib/formatters"
-import { EventRPCService } from "@/lib/api/event-rpc-service"
+import { FEATURED_FUNCTION_ID, getFeaturedFunctionInfo } from "@/lib/utils/function-slug-resolver"
 
 function classNames(...classes: string[]) {
   return classes.filter(Boolean).join(' ')
 }
 
 export async function FeaturedEventsRedesigned() {
-  // Get the featured function ID from environment variable
-  const featuredFunctionId = process.env.FEATURED_FUNCTION_ID;
-  
-  // Initialize RPC service
-  const eventService = new EventRPCService(true); // server-side
-  
   try {
-    // Fetch featured events from the featured function - limit to 2 for alternating layout
-    const events = await eventService.getFeaturedEvents(2, featuredFunctionId);
+    // Get featured function info (including slug)
+    const featuredFunction = await getFeaturedFunctionInfo(true);
+    
+    // Fetch events for the featured function - limit to 2 for alternating layout
+    const response = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/events?function_id=eq.${FEATURED_FUNCTION_ID}&is_published=eq.true&order=event_start.asc&limit=2`, {
+      headers: {
+        'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    if (!response.ok) {
+      throw new Error('Failed to fetch events');
+    }
+    
+    const events = await response.json();
     
     // Transform data for display
     const eventsForDisplay = events.map(event => ({
@@ -30,15 +38,10 @@ export async function FeaturedEventsRedesigned() {
         month: 'long',
         day: 'numeric'
       }),
-      location: event.location,
+      location: event.location_id, // Will need location details separately
       imageUrl: event.image_url || '/placeholder.svg?height=400&width=1000',
-      price: event.min_price > 0 
-        ? `From ${formatCurrency(event.min_price)}` 
-        : event.has_free_tickets 
-          ? 'Free' 
-          : 'View pricing',
-      isSoldOut: event.is_sold_out,
-      ticketsAvailable: event.total_capacity - event.tickets_sold
+      price: 'View pricing',
+      functionSlug: featuredFunction.slug
     }));
     
     // If no events from database, use defaults

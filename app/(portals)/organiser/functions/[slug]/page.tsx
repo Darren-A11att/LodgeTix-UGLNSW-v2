@@ -36,7 +36,18 @@ export default async function FunctionDetailPage({ params }: FunctionDetailPageP
   const { slug } = await params
   const supabase = await createClient()
   
-  // Get function details
+  // First resolve slug to function ID
+  const { data: functionInfo, error: slugError } = await supabase
+    .from('functions')
+    .select('function_id')
+    .eq('slug', slug)
+    .single()
+    
+  if (slugError || !functionInfo) {
+    notFound()
+  }
+  
+  // Get function details using ID
   const { data: functionData, error } = await supabase
     .from('functions')
     .select(`
@@ -52,7 +63,7 @@ export default async function FunctionDetailPage({ params }: FunctionDetailPageP
       ),
       packages(*)
     `)
-    .eq('slug', slug)
+    .eq('function_id', functionInfo.function_id)
     .single()
 
   if (error || !functionData) {

@@ -1,28 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSupabaseClient } from '@/lib/supabase-singleton';
+import { createClient } from '@/utils/supabase/server';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { slug: string } }
+  { params }: { params: { functionId: string } }
 ) {
   try {
-    const supabase = getSupabaseClient(true);
+    const supabase = await createClient();
     
-    // First, get the function by slug to get its ID
-    const { data: functionData, error: functionError } = await supabase
-      .from('functions')
-      .select('function_id')
-      .eq('slug', params.slug)
-      .single();
-
-    if (functionError || !functionData) {
-      return NextResponse.json(
-        { error: 'Function not found' },
-        { status: 404 }
-      );
-    }
-
-    // Get all events for this function
+    // Get all events for this function using the function ID directly
     const { data: events, error: eventsError } = await supabase
       .from('events')
       .select(`
@@ -36,7 +22,7 @@ export async function GET(
           eligibility_criteria
         )
       `)
-      .eq('function_id', functionData.function_id)
+      .eq('function_id', params.functionId)
       .eq('is_published', true)
       .order('event_start', { ascending: true });
 

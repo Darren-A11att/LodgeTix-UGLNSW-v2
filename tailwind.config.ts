@@ -55,6 +55,9 @@ const config = {
         'field-lg': 'span 1 / span 3',  // Base size for large fields (expanded in globals.css)
         'field-full': 'span 4 / span 4', // Always full width regardless of screen size
       },
+      backgroundImage: {
+        'linear-to-tr': 'linear-gradient(to top right, var(--tw-gradient-stops))',
+      },
       colors: {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",

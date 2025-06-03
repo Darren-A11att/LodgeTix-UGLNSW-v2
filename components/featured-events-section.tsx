@@ -1,21 +1,29 @@
 import Link from "next/link"
 import { EventCard } from "@/components/event-card"
 import { formatCurrency } from "@/lib/formatters"
-import { EventRPCService } from "@/lib/api/event-rpc-service"
+import { FEATURED_FUNCTION_ID, getFeaturedFunctionInfo } from "@/lib/utils/function-slug-resolver"
 
 export async function FeaturedEventsSection() {
-  // Get the featured function ID from environment variable
-  const featuredFunctionId = process.env.FEATURED_FUNCTION_ID;
-  
-  // Initialize RPC service
-  const eventService = new EventRPCService(true); // server-side
-  
   try {
-    // Fetch featured events from the featured function
-    const events = await eventService.getFeaturedEvents(3, featuredFunctionId);
+    // Get featured function info (including slug)
+    const featuredFunction = await getFeaturedFunctionInfo(true);
+    
+    // Fetch events for the featured function using the API endpoint
+    const response = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/events?function_id=eq.${FEATURED_FUNCTION_ID}&is_published=eq.true&order=event_start.asc&limit=3`, {
+      headers: {
+        'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    if (!response.ok) {
+      throw new Error('Failed to fetch events');
+    }
+    
+    const events = await response.json();
     
     // Transform data for EventCard component
-    const eventsForDisplay = events.map(event => ({
+    const eventsForDisplay = events.map((event: any) => ({
       id: event.event_id,
       slug: event.slug,
       title: event.title,
@@ -26,18 +34,13 @@ export async function FeaturedEventsSection() {
         month: 'long',
         day: 'numeric'
       }),
-      location: event.location,
+      location: event.location_id, // Will need to fetch location details separately if needed
       imageUrl: event.image_url || '/placeholder.svg',
-      price: event.min_price > 0 
-        ? `From ${formatCurrency(event.min_price)}` 
-        : event.has_free_tickets 
-          ? 'Free' 
-          : 'View pricing',
-      parentEventId: null,
-      parentEventSlug: null,
+      price: 'View pricing', // Will need to fetch ticket prices separately
+      functionSlug: featuredFunction.slug,
       // Additional metadata
-      isSoldOut: event.is_sold_out,
-      ticketsAvailable: event.total_capacity - event.tickets_sold
+      eventStart: event.event_start,
+      eventEnd: event.event_end
     }));
     
     // If no events from database, use defaults
@@ -66,8 +69,7 @@ export async function FeaturedEventsSection() {
                 location={event.location}
                 imageUrl={event.imageUrl}
                 price={event.price}
-                parentEventId={event.parentEventId || null}
-                parentEventSlug={event.parentEventSlug || null}
+                functionSlug={event.functionSlug}
               />
             ))}
           </div>

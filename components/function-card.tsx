@@ -1,57 +1,63 @@
 import Link from 'next/link'
-import { Card, CardHeader, CardContent } from '@/components/ui/card'
 import { format } from 'date-fns'
 import type { FunctionType } from '@/shared/types'
+import { formatCurrency } from '@/lib/formatters'
 
 interface FunctionCardProps {
   function: FunctionType
 }
 
 export function FunctionCard({ function: fn }: FunctionCardProps) {
-  const startDate = new Date(fn.startDate)
-  const endDate = new Date(fn.endDate)
+  // Handle both camelCase (from service) and snake_case (from type) field names
+  const startDate = new Date((fn as any).startDate || fn.start_date)
+  const endDate = new Date((fn as any).endDate || fn.end_date)
   const eventCount = fn.events?.length || 0
   
-  // Calculate minimum price from packages or events
-  let minPrice = 0
-  if (fn.packages && fn.packages.length > 0) {
-    minPrice = Math.min(...fn.packages.map(pkg => pkg.totalCost))
-  }
+  // Format date range
+  const dateRange = startDate.getMonth() === endDate.getMonth() && startDate.getFullYear() === endDate.getFullYear()
+    ? `${format(startDate, 'd')} - ${format(endDate, 'd MMMM yyyy')}`
+    : `${format(startDate, 'd MMM')} - ${format(endDate, 'd MMM yyyy')}`
+  
+  // Format price
+  const priceDisplay = fn.minPrice && fn.minPrice > 0 
+    ? `From ${formatCurrency(fn.minPrice)}`
+    : 'View pricing'
+  
+  // Location display - handle different location structures
+  const locationDisplay = fn.location 
+    ? `${(fn.location as any).city || fn.location.suburb || fn.location.place_name || 'Location'}, ${fn.location.state}`
+    : 'Various locations'
   
   return (
-    <Link href={`/functions/${fn.slug}`}>
-      <Card className="hover:shadow-lg transition-shadow h-full">
-        <CardHeader className="p-0">
-          {fn.imageUrl && (
-            <img 
-              src={fn.imageUrl} 
-              alt={fn.name} 
-              className="w-full h-48 object-cover rounded-t-lg"
-            />
-          )}
-        </CardHeader>
-        <CardContent className="p-6">
-          <h3 className="text-xl font-bold mb-2">{fn.name}</h3>
-          <p className="text-sm text-gray-600 mb-3">
-            {format(startDate, 'MMM d')} - {format(endDate, 'MMM d, yyyy')}
+    <Link href={`/functions/${fn.slug}`} className="group block">
+      <div className="space-y-4">
+        {/* Image */}
+        <div className="aspect-[4/3] w-full overflow-hidden rounded-lg bg-gray-100">
+          <img
+            src={(fn as any).imageUrl || fn.image_url || '/placeholder.svg'}
+            alt={fn.name}
+            className="h-full w-full object-cover object-center group-hover:opacity-75 transition-opacity duration-200"
+          />
+        </div>
+        
+        {/* Content */}
+        <div>
+          <h3 className="text-base font-medium text-masonic-navy">
+            {fn.name}
+          </h3>
+          <p className="mt-1 text-sm italic text-gray-500">
+            {dateRange} • {locationDisplay}
           </p>
-          {fn.description && (
-            <p className="text-gray-700 mb-4 line-clamp-3">
-              {fn.description}
+          <p className="mt-2 text-sm font-medium text-masonic-navy">
+            {priceDisplay}
+          </p>
+          {eventCount > 0 && (
+            <p className="mt-1 text-xs text-gray-500">
+              {eventCount} {eventCount === 1 ? 'event' : 'events'} included
             </p>
           )}
-          <div className="flex justify-between items-center">
-            <span className="text-sm text-gray-600">
-              {eventCount} {eventCount === 1 ? 'event' : 'events'}
-            </span>
-            {minPrice > 0 && (
-              <span className="text-sm font-bold">
-                From ${minPrice}
-              </span>
-            )}
-          </div>
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </Link>
   )
 }

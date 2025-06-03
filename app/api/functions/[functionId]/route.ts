@@ -1,16 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSupabaseClient } from '@/lib/supabase-singleton';
+import { createClient } from '@/utils/supabase/server';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { slug: string } }
+  { params }: { params: { functionId: string } }
 ) {
   try {
-    const supabase = getSupabaseClient(true);
+    const supabase = await createClient();
     
-    // Use RPC to get function details
+    // Use RPC to get function details - now using function ID
     const { data, error } = await supabase
-      .rpc('get_function_details', { p_function_slug: params.slug });
+      .rpc('get_function_details', { p_function_id: params.functionId });
 
     if (error) {
       console.error('Error fetching function details:', error);

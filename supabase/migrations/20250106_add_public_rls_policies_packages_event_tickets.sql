@@ -102,6 +102,12 @@ CREATE POLICY "packages_public_select" ON packages
   TO public
   USING (true);
 
--- Note: By not creating any INSERT, UPDATE, or DELETE policies for public/anon users,
--- those operations will be denied by default due to RLS being enabled.
--- Anonymous users will only be able to SELECT/view data from these tables.
+-- ===== VIEW POLICIES =====
+-- Enable RLS on views (if not already enabled)
+ALTER VIEW function_packages_view SET (security_invoker = true);
+ALTER VIEW function_event_tickets_view SET (security_invoker = true);
+
+-- Note: Views with security_invoker = true will use the permissions of the
+-- user querying the view, inheriting the RLS policies from the underlying tables.
+-- Since we've enabled public SELECT on all base tables above, the views will
+-- also be accessible to public/anon users.

@@ -65,6 +65,7 @@ export default async function RegistrationWizardPage({ params }: RegistrationWiz
     return (
       <RegistrationWizard 
         functionSlug={functionData.slug}
+        functionId={functionData.function_id}
         registrationId={registrationId}
         isNewRegistration={true}
       />
@@ -89,6 +90,7 @@ export default async function RegistrationWizardPage({ params }: RegistrationWiz
   return (
     <RegistrationWizard 
       functionSlug={registration.functions.slug}
+      functionId={registration.function_id}
       registrationId={registrationId}
       isNewRegistration={false}
     />

@@ -135,6 +135,11 @@ class FunctionTicketsService {
    */
   async getFunctionTickets(functionId: string): Promise<FunctionTicketDefinition[]> {
     try {
+      if (!functionId) {
+        console.error('getFunctionTickets called without functionId')
+        throw new Error('Function ID is required to fetch tickets')
+      }
+      
       api.debug(`Fetching function tickets for function: ${functionId}`)
       
       const { data, error } = await this.supabase
@@ -162,6 +167,11 @@ class FunctionTicketsService {
    */
   async getFunctionPackages(functionId: string): Promise<FunctionPackage[]> {
     try {
+      if (!functionId) {
+        console.error('getFunctionPackages called without functionId')
+        throw new Error('Function ID is required to fetch packages')
+      }
+      
       api.debug(`Fetching function packages for function: ${functionId}`)
       console.log('Fetching packages via API for function_id:', functionId)
       
@@ -207,6 +217,11 @@ class FunctionTicketsService {
    */
   async getFunctionTicketsAndPackages(functionId: string): Promise<FunctionTicketsAndPackages> {
     try {
+      if (!functionId) {
+        console.error('getFunctionTicketsAndPackages called without functionId')
+        throw new Error('Function ID is required to fetch tickets and packages')
+      }
+      
       api.debug(`Fetching tickets and packages for function: ${functionId}`)
       
       const [tickets, packages] = await Promise.all([

@@ -55,8 +55,8 @@ describe('FunctionService', () => {
     })
   })
 
-  describe('getFunctionBySlug', () => {
-    it('should fetch a single function by slug', async () => {
+  describe('getFunctionById', () => {
+    it('should fetch a single function by ID', async () => {
       const mockData = {
         function_id: 'func-123',
         name: 'Grand Installation',
@@ -81,11 +81,10 @@ describe('FunctionService', () => {
       const fromMock = mockSupabase.from()
       fromMock.single.mockResolvedValue({ data: mockData, error: null })
 
-      const result = await functionService.getFunctionBySlug('grand-installation')
+      const result = await functionService.getFunctionById('func-123')
 
       expect(mockSupabase.from).toHaveBeenCalledWith('functions')
-      expect(fromMock.eq).toHaveBeenCalledWith('slug', 'grand-installation')
-      expect(fromMock.eq).toHaveBeenCalledWith('is_published', true)
+      expect(fromMock.eq).toHaveBeenCalledWith('function_id', 'func-123')
       expect(result.id).toBe('func-123')
       expect(result.name).toBe('Grand Installation')
       expect(result.location?.name).toBe('Sydney Masonic Centre')
@@ -95,7 +94,7 @@ describe('FunctionService', () => {
       const fromMock = mockSupabase.from()
       fromMock.single.mockResolvedValue({ data: null, error: { message: 'Not found' } })
 
-      await expect(functionService.getFunctionBySlug('non-existent')).rejects.toThrow()
+      await expect(functionService.getFunctionById('non-existent-id')).rejects.toThrow()
     })
   })
 

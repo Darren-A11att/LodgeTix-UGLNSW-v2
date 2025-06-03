@@ -2,7 +2,7 @@ import Link from "next/link"
 import Image from "next/image"
 import { CalendarDays, MapPin, Share2, TicketIcon } from "lucide-react"
 import { notFound } from "next/navigation"
-import { EventRPCService } from "@/lib/api/event-rpc-service"
+import { resolveFunctionSlug } from "@/lib/utils/function-slug-resolver"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
@@ -11,22 +11,42 @@ import { formatCurrency } from "@/lib/formatters"
 // Mark as dynamic since it uses server-side authentication
 export const dynamic = 'force-dynamic'
 
-export default async function EventPage({ 
+export default async function FunctionPage({ 
   params 
 }: { 
   params: Promise<{ slug: string }> 
 }) {
   const { slug } = await params
   
-  // Initialize RPC service
-  const eventService = new EventRPCService(true); // server-side
+  // Resolve slug to function ID
+  const functionId = await resolveFunctionSlug(slug, true);
   
-  // Fetch event data
-  const eventData = await eventService.getEventDetailData(slug);
+  // Fetch function data using the UUID
+  const response = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/rpc/get_function_details`, {
+    method: 'POST',
+    headers: {
+      'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({ p_function_id: functionId })
+  });
   
-  if (!eventData) {
+  if (!response.ok) {
     return notFound();
   }
+  
+  const functionData = await response.json();
+  
+  if (!functionData || !functionData.function) {
+    return notFound();
+  }
+  
+  // Extract the function details
+  const fn = functionData.function;
+  const events = functionData.events || [];
+  
+  // For now, show the first event's details (or adapt to show function overview)
+  const eventData = events[0] || fn;
   
   // Extract tickets from the event data
   const tickets = eventData.tickets || [];
@@ -67,7 +87,7 @@ export default async function EventPage({
             <Share2 className="mr-2 h-4 w-4" /> Share
           </Button>
           <Button size="sm" asChild className="bg-masonic-navy hover:bg-masonic-blue">
-            <Link href={`/functions/${functionId}/register`}>
+            <Link href={`/functions/${slug}/register`}>
               <TicketIcon className="mr-2 h-4 w-4" /> 
               Purchase Tickets
             </Link>
@@ -192,7 +212,7 @@ export default async function EventPage({
             </div>
             <div className="mt-6 text-center">
               <Button asChild size="lg">
-                <Link href={`/functions/${functionId}/register`}>
+                <Link href={`/functions/${slug}/register`}>
                   Select Tickets
                 </Link>
               </Button>

@@ -2,33 +2,43 @@ import Link from "next/link"
 import Image from "next/image"
 
 import { Button } from "@/components/ui/button"
-import { getHeroFunction } from "@/lib/services/homepage-service"
+import { getFeaturedFunctionInfo } from "@/lib/utils/function-slug-resolver"
+import { featuredFunctionApi } from "@/lib/services/featured-function-service"
 
 export async function HeroFunctionHero() {
-  const event = await getHeroFunction();
-  
-  // If no event found, show a generic message
-  if (!event) {
-    return (
-      <section className="relative bg-masonic-navy py-20 text-white">
-        <div className="container mx-auto px-4">
-          <div className="mx-auto max-w-5xl text-center">
-            <h1 className="mb-4 text-4xl font-bold md:text-5xl lg:text-6xl">No Upcoming Events</h1>
-            <p className="mb-8 text-lg">Please check back later for upcoming Masonic events.</p>
+  try {
+    // Get featured function details
+    const functionData = await featuredFunctionApi.getDetails();
+    const featuredFunction = await getFeaturedFunctionInfo(true);
+    
+    // If no function found, show a generic message
+    if (!functionData) {
+      return (
+        <section className="relative bg-masonic-navy py-20 text-white">
+          <div className="container mx-auto px-4">
+            <div className="mx-auto max-w-5xl text-center">
+              <h1 className="mb-4 text-4xl font-bold md:text-5xl lg:text-6xl">No Upcoming Events</h1>
+              <p className="mb-8 text-lg">Please check back later for upcoming Masonic events.</p>
+            </div>
           </div>
-        </div>
-      </section>
-    );
-  }
-  
-  // Use actual event data
-  const title = event.title;
-  const subtitle = event.subtitle || "";
-  const organiser = event.organiser || "United Grand Lodge of NSW & ACT";
-  const dateLocation = `${event.date} • ${event.location}`;
-  const imageUrl = event.imageUrl || "/placeholder.svg?height=800&width=1600";
-  const logoUrl = event.logo || "/placeholder.svg?height=120&width=120";
-  const slug = event.slug;
+        </section>
+      );
+    }
+    
+    // Use actual function data
+    const title = functionData.name;
+    const subtitle = functionData.description || "";
+    const organiser = "United Grand Lodge of NSW & ACT";
+    const startDate = new Date(functionData.startDate).toLocaleDateString('en-AU', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+    const dateLocation = `${startDate} • ${functionData.location?.name || 'Sydney'}`;
+    const imageUrl = functionData.imageUrl || "/placeholder.svg?height=800&width=1600";
+    const logoUrl = "/placeholder.svg?height=120&width=120";
+    const slug = featuredFunction.slug;
 
   return (
     <section className="relative bg-masonic-navy py-20 text-white">
@@ -68,5 +78,19 @@ export async function HeroFunctionHero() {
         style={{ clipPath: "polygon(0 100%, 100% 100%, 100% 0)" }}
       ></div>
     </section>
-  )
+  );
+  } catch (error) {
+    console.error('Failed to load hero function:', error);
+    // Fallback to generic message on error
+    return (
+      <section className="relative bg-masonic-navy py-20 text-white">
+        <div className="container mx-auto px-4">
+          <div className="mx-auto max-w-5xl text-center">
+            <h1 className="mb-4 text-4xl font-bold md:text-5xl lg:text-6xl">Welcome to LodgeTix</h1>
+            <p className="mb-8 text-lg">Your gateway to Masonic events and functions.</p>
+          </div>
+        </div>
+      </section>
+    );
+  }
 }

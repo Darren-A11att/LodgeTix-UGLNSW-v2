@@ -5,6 +5,7 @@ import { useRegistrationStore, selectCurrentStep, selectRegistrationType, select
 import { RegistrationStepIndicator } from "./Shared/registration-step-indicator"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { User } from "lucide-react"
+import { resolveFunctionSlug } from '@/lib/utils/function-slug-resolver-client'
 // Import the layout components
 // WizardShellLayout is now handled by layout.tsx
 import { WizardBodyStructureLayout } from "./Layouts/WizardBodyStructureLayout"
@@ -32,7 +33,9 @@ const ConfirmationStep = lazy(() => import('./Steps/confirmation-step'))
 
 export interface RegistrationWizardProps {
   functionSlug: string; // Function slug for the registration
+  functionId?: string; // Function UUID (optional - will be resolved from slug if not provided)
   registrationId?: string; // Registration ID from URL
+  isNewRegistration?: boolean; // Whether this is a new registration
 }
 
 // Helper to check for non-empty value
@@ -259,7 +262,7 @@ const validateAttendeeData = (attendees: ReturnType<typeof selectAttendees>): st
   return errors;
 };
 
-export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ functionSlug, registrationId }) => {
+export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ functionSlug, functionId: providedFunctionId, registrationId, isNewRegistration }) => {
   const currentStep = useRegistrationStore(selectCurrentStep)
   const registrationType = useRegistrationStore(selectRegistrationType)
   const confirmationNumber = useRegistrationStore(selectConfirmationNumber)
@@ -287,6 +290,7 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ function
   // Function-related state
   const [functionData, setFunctionData] = useState<any>(null);
   const [selectedEvents, setSelectedEventsLocal] = useState<string[]>([]);
+  const [resolvedFunctionId, setResolvedFunctionId] = useState<string | null>(providedFunctionId || null);
   
   // Effect to handle function loading and registration initialization
   useEffect(() => {
@@ -317,11 +321,19 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ function
     if (functionSlug) {
       const loadFunction = async () => {
         try {
+          // Resolve function ID if not provided
+          let functionId = providedFunctionId;
+          if (!functionId) {
+            functionId = await resolveFunctionSlug(functionSlug); // client-side
+            setResolvedFunctionId(functionId);
+          }
+          
           // Import FunctionService dynamically
           const { FunctionService } = await import('@/lib/services/function-service');
           const functionService = new FunctionService();
           
-          const func = await functionService.getFunctionBySlug(functionSlug);
+          // Use getFunctionById instead of getFunctionBySlug
+          const func = await functionService.getFunctionById(functionId);
           setFunctionData(func);
           
           const storeState = useRegistrationStore.getState();
@@ -335,12 +347,15 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ function
           }
           
           // Always go to registration type selection first
-          console.log(`Setting up function: ${functionSlug}`);
+          console.log(`Setting up function: ${functionSlug} (ID: ${functionId})`);
           
           // Always set current step to 1 (Registration Type) on initial load
           setCurrentStep(1);
           
           setFunctionSlug(functionSlug);
+          // Store the function ID in the registration store as well
+          useRegistrationStore.getState().setFunctionId?.(functionId);
+          
           // Set initializing to false to proceed to the registration type step
           setIsInitializing(false);
           // Never show modal on initial load - it's handled in registration type step
@@ -353,7 +368,7 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ function
       
       loadFunction();
     }
-  }, [functionSlug, setFunctionSlug, setCurrentStep, clearRegistration]);
+  }, [functionSlug, providedFunctionId, setFunctionSlug, setCurrentStep, clearRegistration]);
   
   // Handler for continuing existing draft
   const handleContinueDraft = () => {
@@ -615,7 +630,7 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ function
       
       const registrationData = {
         registrationType: storeState.registrationType,
-        functionId: functionData?.id,
+        functionId: functionData?.id || resolvedFunctionId || providedFunctionId,
         functionSlug: storeState.functionSlug,
         selectedEvents: storeState.selectedEvents || selectedEvents,
         primaryAttendee: storeState.attendees.find(att => att.isPrimary),
@@ -757,7 +772,7 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ function
       return (
         <Suspense fallback={<StepLoadingFallback />}>
           <LodgeRegistrationStep 
-            functionId={functionData?.id}
+            functionId={functionData?.id || resolvedFunctionId || providedFunctionId}
             functionSlug={functionSlug}
             selectedEvents={selectedEvents}
           />

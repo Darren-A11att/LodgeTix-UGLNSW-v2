@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getSupabaseClient } from '@/lib/supabase-singleton';
+import { createClient } from '@/utils/supabase/server';
 import type { Database } from '@/shared/types/database';
 
 interface CreateFunctionRegistrationRequest {
@@ -53,17 +53,17 @@ interface CreateFunctionRegistrationRequest {
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { slug: string } }
+  { params }: { params: { functionId: string } }
 ) {
   try {
-    const supabase = getSupabaseClient(true);
+    const supabase = await createClient();
     const body: CreateFunctionRegistrationRequest = await request.json();
 
-    // First, verify the function exists and matches the slug
+    // First, verify the function exists using the function ID
     const { data: functionData, error: functionError } = await supabase
       .from('functions')
       .select('function_id, name, slug')
-      .eq('slug', params.slug)
+      .eq('function_id', params.functionId)
       .single();
 
     if (functionError || !functionData) {
@@ -73,8 +73,8 @@ export async function POST(
       );
     }
 
-    // Validate that the provided functionId matches the slug
-    if (body.functionId !== functionData.function_id) {
+    // Validate that the provided functionId matches the route parameter
+    if (body.functionId !== params.functionId) {
       return NextResponse.json(
         { error: 'Function ID mismatch' },
         { status: 400 }

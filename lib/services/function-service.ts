@@ -148,22 +148,22 @@ export class FunctionService {
     
     // Get prices from packages
     packages.forEach(pkg => {
-      if (pkg.total_cost) packagePrices.push(pkg.total_cost)
+      if (pkg.package_price) packagePrices.push(pkg.package_price)
     })
     
     const minPrice = Math.min(...[...eventPrices, ...packagePrices].filter(p => p > 0))
     const durationDays = this.calculateDurationDays(functionRow.start_date, functionRow.end_date)
 
     return {
-      id: functionRow.function_id,
+      function_id: functionRow.function_id,
       name: functionRow.name,
       slug: functionRow.slug,
       description: functionRow.description,
-      imageUrl: functionRow.image_url,
-      startDate: functionRow.start_date,
-      endDate: functionRow.end_date,
-      locationId: functionRow.location_id,
-      organiserId: functionRow.organiser_id,
+      image_url: functionRow.image_url,
+      start_date: functionRow.start_date,
+      end_date: functionRow.end_date,
+      location_id: functionRow.location_id,
+      organiser_id: functionRow.organiser_id,
       events: events.map(event => this.transformEvent(event, { 
         name: functionRow.name, 
         slug: functionRow.slug 
@@ -174,9 +174,9 @@ export class FunctionService {
       minPrice: isFinite(minPrice) ? minPrice : 0,
       durationDays,
       location: location ? {
-        id: location.location_id,
-        name: location.name,
-        city: location.city,
+        location_id: location.location_id,
+        place_name: location.place_name || location.name,
+        suburb: location.suburb || location.city,
         state: location.state
       } : undefined
     }
@@ -184,44 +184,44 @@ export class FunctionService {
 
   private transformEvent(event: EventRow, functionData?: { name: string; slug: string } | null): EventType {
     return {
-      id: event.event_id,
+      event_id: event.event_id,
       slug: event.slug,
-      eventStart: event.event_start,
-      eventEnd: event.event_end,
-      functionId: event.function_id,
+      event_start: event.event_start,
+      event_end: event.event_end,
+      function_id: event.function_id,
       functionName: functionData?.name || '',
       functionSlug: functionData?.slug || '',
       title: event.title,
       description: event.description,
-      location: event.location,
+      location_id: event.location_id,
       type: event.type,
       featured: event.featured,
-      imageUrl: event.image_url,
-      isMultiDay: event.is_multi_day,
-      eventIncludes: event.event_includes,
-      importantInformation: event.important_information,
-      latitude: event.latitude,
-      longitude: event.longitude,
-      isPurchasableIndividually: event.is_purchasable_individually,
-      createdAt: event.created_at,
-      dressCode: event.dress_code,
+      image_url: event.image_url,
+      is_multi_day: event.is_multi_day,
+      event_includes: event.event_includes,
+      important_information: event.important_information,
+      is_purchasable_individually: event.is_purchasable_individually,
+      created_at: event.created_at,
+      dress_code: event.dress_code,
       regalia: event.regalia,
-      category: event.category,
-      status: event.status,
-      organiserName: event.organiser_name
+      max_attendees: event.max_attendees,
+      is_published: event.is_published,
+      organiser_id: event.organiser_id
     }
   }
 
   private transformPackage(pkg: PackageRow): PackageType {
     return {
-      id: pkg.package_id,
+      package_id: pkg.package_id,
       name: pkg.name,
       description: pkg.description,
-      fullPrice: pkg.full_price,
+      package_price: pkg.package_price,
+      original_price: pkg.original_price,
       discount: pkg.discount,
-      totalCost: pkg.total_cost,
-      inclusions: pkg.inclusions,
-      functionId: pkg.function_id
+      included_items: pkg.included_items,
+      includes_description: pkg.includes_description,
+      function_id: pkg.function_id,
+      is_active: pkg.is_active
     }
   }
 
