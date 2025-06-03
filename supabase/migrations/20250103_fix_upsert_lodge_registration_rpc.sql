@@ -86,8 +86,8 @@ BEGIN
         p_booking_contact->>'lastName',
         p_booking_contact->>'suffix',  -- Map to suffix_1
         p_booking_contact->>'email',
-        p_booking_contact->>'mobile',
-        p_booking_contact->>'phone',
+        p_booking_contact->>'mobile',  -- Maps to mobile_number
+        p_booking_contact->>'phone',   -- Maps to billing_phone
         p_booking_contact->>'addressLine1',
         p_booking_contact->>'addressLine2',
         p_booking_contact->>'suburb',
@@ -95,7 +95,7 @@ BEGIN
         p_booking_contact->>'postcode',
         COALESCE(p_booking_contact->'country'->>'name', 'Australia'),
         p_booking_contact->>'dietaryRequirements',
-        p_booking_contact->>'additionalInfo',
+        p_booking_contact->>'additionalInfo',  -- Maps to special_needs
         'organisation'::contact_type,  -- Lodge registrations are organisations
         v_auth_user_id,
         p_lodge_details->>'lodgeName'  -- Store lodge name as business name

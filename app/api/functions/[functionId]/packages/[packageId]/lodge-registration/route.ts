@@ -213,7 +213,7 @@ export async function POST(
           const { data: { user } } = await supabase.auth.getUser();
           const authUserId = user?.id;
           
-          // First create or update contact
+          // First create or update contact with correct field mappings
           const { data: contact, error: contactError } = await supabase
             .from('contacts')
             .upsert({
@@ -221,11 +221,21 @@ export async function POST(
               first_name: bookingContact.firstName,
               last_name: bookingContact.lastName,
               title: bookingContact.title,
-              mobile_number: bookingContact.mobile,
+              suffix_1: bookingContact.suffix,  // Map suffix to suffix_1
+              mobile_number: bookingContact.mobile,  // Correct column name
               billing_phone: bookingContact.phone,  // Use billing_phone not phone
+              dietary_requirements: bookingContact.dietaryRequirements,
+              special_needs: bookingContact.additionalInfo,  // Map additionalInfo to special_needs
               auth_user_id: authUserId,
               type: 'organisation',  // Lodge registrations are organisations
               business_name: lodgeDetails.lodgeName,
+              // Add address fields if provided
+              address_line_1: bookingContact.addressLine1,
+              address_line_2: bookingContact.addressLine2,
+              suburb_city: bookingContact.suburb,
+              state: bookingContact.stateTerritory?.name || bookingContact.state,
+              postcode: bookingContact.postcode,
+              country: bookingContact.country?.name || 'Australia',
             })
             .select()
             .single();
