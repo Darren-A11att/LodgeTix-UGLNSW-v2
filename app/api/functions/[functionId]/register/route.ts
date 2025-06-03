@@ -53,9 +53,10 @@ interface CreateFunctionRegistrationRequest {
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { functionId: string } }
+  { params }: { params: Promise<{ functionId: string }> }
 ) {
   try {
+    const { functionId } = await params;
     const supabase = await createClient();
     const body: CreateFunctionRegistrationRequest = await request.json();
 
@@ -63,7 +64,7 @@ export async function POST(
     const { data: functionData, error: functionError } = await supabase
       .from('functions')
       .select('function_id, name, slug')
-      .eq('function_id', params.functionId)
+      .eq('function_id', functionId)
       .single();
 
     if (functionError || !functionData) {
@@ -74,7 +75,7 @@ export async function POST(
     }
 
     // Validate that the provided functionId matches the route parameter
-    if (body.functionId !== params.functionId) {
+    if (body.functionId !== functionId) {
       return NextResponse.json(
         { error: 'Function ID mismatch' },
         { status: 400 }

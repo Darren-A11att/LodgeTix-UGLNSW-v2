@@ -136,7 +136,7 @@ export class PostPaymentService {
           
           const ticketInfo = ticketTypeMap.get(ticket.event_ticket_id);
           const qrData = {
-            ticketId: ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket_id,
+            ticketId: ticket.ticket_id,
             registrationId: registration.registration_id,
             attendeeId: ticket.attendee.attendee.attendee.attendee.attendee.attendee_id,
             eventId: registration.event_id,
@@ -150,15 +150,15 @@ export class PostPaymentService {
             await supabase
               .from('tickets')
               .update({ qr_code_url: qrUrl })
-              .eq('ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket_id', ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket_id);
+              .eq('ticket.ticket_id', ticket_id);
             
             qrCodesGenerated++;
           }
           
           return qrUrl;
         } catch (error) {
-          errors.push(`Failed to generate QR code for ticket ${ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket_id}`);
-          console.error(`Error generating QR code for ticket ${ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket_id}:`, error);
+          errors.push(`Failed to generate QR code for ticket ${ticket.ticket_id}`);
+          console.error(`Error generating QR code for ticket ${ticket.ticket_id}:`, error);
           return null;
         }
       });
@@ -174,7 +174,7 @@ export class PostPaymentService {
           for (const ticket of attendeeTickets) {
             const ticketInfo = ticketTypeMap.get(ticket.event_ticket_id);
             const ticketData: TicketData = {
-              ticketId: ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket_id,
+              ticketId: ticket.ticket_id,
               registrationId: registration.registration_id,
               ticketType: ticketInfo?.title || 'General Admission',
               attendeeId: attendee.attendee.attendee.attendee.attendee.attendee_id,
@@ -370,12 +370,12 @@ export class PostPaymentService {
             try {
               // Delete existing QR code if force regenerate
               if (force && ticket.qr_code_url) {
-                await qrCodeService.deleteQRCode(registrationId, ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket_id);
+                await qrCodeService.deleteQRCode(registrationId, ticket.ticket_id);
               }
               
               // Generate new QR code
               const qrData = {
-                ticketId: ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket_id,
+                ticketId: ticket.ticket_id,
                 registrationId: registrationId,
                 attendeeId: ticket.attendee.attendee.attendee.attendee.attendee.attendee_id,
                 eventId: registration.event_id,
@@ -387,11 +387,11 @@ export class PostPaymentService {
                 await supabase
                   .from('tickets')
                   .update({ qr_code_url: qrUrl })
-                  .eq('ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket_id', ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket_id);
+                  .eq('ticket.ticket_id', ticket_id);
                 regenerated.qrCodes++;
               }
             } catch (error) {
-              errors.push(`Failed to regenerate QR code for ticket ${ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket_id}`);
+              errors.push(`Failed to regenerate QR code for ticket ${ticket.ticket_id}`);
             }
           }
         }

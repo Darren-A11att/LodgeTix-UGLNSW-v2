@@ -184,7 +184,7 @@ export default async function AttendeeDetailPage({
           <div className="space-y-4">
             {attendee.tickets?.map((ticket: any) => (
               <div
-                key={ticket.ticket.ticket_id}
+                key={ticket_id}
                 className="flex items-center justify-between p-4 border rounded-lg hover:bg-gray-50"
               >
                 <div>
@@ -201,7 +201,7 @@ export default async function AttendeeDetailPage({
                   </p>
                 </div>
                 <Button variant="outline" size="sm" asChild>
-                  <Link href={`/registrations/${registrationId}/tickets/${ticket.ticket.ticket_id}`}>
+                  <Link href={`/registrations/${registrationId}/tickets/${ticket_id}`}>
                     View Ticket
                   </Link>
                 </Button>

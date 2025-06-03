@@ -34,7 +34,41 @@ import { RealtimeErrorBoundary } from '@/components/ui/realtime-error-boundary'
 // Define AttendeeType for eligibility checking, leveraging existing types
 export type AttendeeType = Attendee['type'];
 
-// Remove hardcoded parent event ID - we should always use the eventId from props/store
+// Helper function to check eligibility criteria
+function checkEligibilityCriteria(criteria: any, attendee: any): boolean {
+  // If no criteria or empty rules, everyone is eligible
+  if (!criteria || !criteria.rules || criteria.rules.length === 0) {
+    return true;
+  }
+
+  const operator = criteria.operator || 'AND';
+  const results = criteria.rules.map((rule: any) => {
+    switch (rule.type) {
+      case 'attendee_type':
+        const attendeeType = attendee.attendeeType?.toLowerCase() || '';
+        const expectedType = rule.value?.toLowerCase() || '';
+        return rule.operator === 'equals' ? attendeeType === expectedType : attendeeType !== expectedType;
+      
+      case 'grand_lodge':
+        const grandLodge = attendee.grandLodge || '';
+        const expectedLodge = rule.value || '';
+        return rule.operator === 'equals' ? grandLodge === expectedLodge : grandLodge !== expectedLodge;
+      
+      default:
+        // Unknown rule type, default to true
+        return true;
+    }
+  });
+
+  // Apply operator logic
+  if (operator === 'AND') {
+    return results.every(r => r);
+  } else if (operator === 'OR') {
+    return results.some(r => r);
+  }
+  
+  return true;
+}
 
 const TicketSelectionStep: React.FC = () => {
   const allStoreAttendees = useRegistrationStore((s) => s.attendees);
@@ -94,7 +128,11 @@ const TicketSelectionStep: React.FC = () => {
         
         // Use the FunctionTicketsService to fetch tickets and packages
         const ticketsService = getFunctionTicketsService()
-        const { tickets, packages } = await ticketsService.getFunctionTicketsAndPackages(targetFunctionId)
+        // Pass the registration type to filter appropriately
+        const { tickets, packages } = await ticketsService.getFunctionTicketsAndPackages(
+          targetFunctionId, 
+          registrationType === 'individuals' ? 'individual' : registrationType
+        )
         
         // The service already returns data in the correct format
         setTicketTypes(tickets)
@@ -706,17 +744,17 @@ const TicketSelectionStep: React.FC = () => {
                                 if (isBulkMode) {
                                   // Handle bulk mode selection
                                   const currentSelection = packages['lodge-bulk'] || { ticketDefinitionId: null, selectedEvents: [] };
-                                  const isCurrentlySelected = currentSelection.selectedEvents.includes(ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket_id);
+                                  const isCurrentlySelected = currentSelection.selectedEvents.includes(ticket.ticket_id);
                                   
                                   let newSelectedEvents = currentSelection.ticketDefinitionId 
                                     ? [] // Clear if switching from package
                                     : [...currentSelection.selectedEvents];
                                   
                                   if (isCurrentlySelected) {
-                                    newSelectedEvents = newSelectedEvents.filter(id => id !== ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket_id);
+                                    newSelectedEvents = newSelectedEvents.filter(id => id !== ticket.ticket_id);
                                   } else {
-                                    if (!newSelectedEvents.includes(ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket_id)) {
-                                      newSelectedEvents.push(ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket_id);
+                                    if (!newSelectedEvents.includes(ticket.ticket_id)) {
+                                      newSelectedEvents.push(ticket.ticket_id);
                                     }
                                   }
                                   
@@ -728,21 +766,21 @@ const TicketSelectionStep: React.FC = () => {
                                   // Original logic for individual attendees
                                   const isCurrentlySelected = allStoreAttendees.length > 0 && 
                                     allStoreAttendees.every(attendee => 
-                                      isIndividualTicketDirectlySelected(attendee.attendeeId, ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket_id)
+                                      isIndividualTicketDirectlySelected(attendee.attendeeId, ticket.ticket_id)
                                     );
                                   
                                   allStoreAttendees.forEach(attendee => {
                                     if (isCurrentlySelected) {
                                       // Deselect for all
                                       const currentSelection = packages[attendee.attendeeId] || { ticketDefinitionId: null, selectedEvents: [] };
-                                      const newSelectedEvents = currentSelection.selectedEvents.filter(id => id !== ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket_id);
+                                      const newSelectedEvents = currentSelection.selectedEvents.filter(id => id !== ticket.ticket_id);
                                       updatePackageSelection(attendee.attendeeId, { 
                                         ticketDefinitionId: null, 
                                         selectedEvents: newSelectedEvents 
                                       });
                                     } else {
                                       // Select for all
-                                      handleToggleIndividualTicket(attendee.attendeeId, ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket_id);
+                                      handleToggleIndividualTicket(attendee.attendeeId, ticket.ticket_id);
                                     }
                                   });
                                 }
@@ -759,7 +797,7 @@ const TicketSelectionStep: React.FC = () => {
                               />
                             }>
                               {(() => {
-                                const liveData = getTicketAvailability(ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket_id)
+                                const liveData = getTicketAvailability(ticket.ticket_id)
                                 const available = liveData?.actualAvailable ?? ticket.available_count
                                 const isSoldOut = liveData?.isSoldOut ?? (ticket.available_count === 0)
                                 
@@ -868,19 +906,19 @@ const TicketSelectionStep: React.FC = () => {
                                     return ticket.eligibleAttendeeTypes.includes(effectiveType as AttendeeType);
                                   })
                                   .map(ticket => (
-                                    <label key={ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket_id} className="flex items-center gap-2 text-sm">
+                                    <label key={ticket.ticket_id} className="flex items-center gap-2 text-sm">
                                       <Checkbox
-                                        checked={isIndividualTicketDirectlySelected(attendee.attendeeId, ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket_id)}
-                                        onCheckedChange={() => handleToggleIndividualTicket(attendee.attendeeId, ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket_id)}
-                                        disabled={!!packages[attendee.attendeeId]?.ticketDefinitionId || ticket.status !== 'Active' || !isTicketAvailable(ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket_id)}
+                                        checked={isIndividualTicketDirectlySelected(attendee.attendeeId, ticket.ticket_id)}
+                                        onCheckedChange={() => handleToggleIndividualTicket(attendee.attendeeId, ticket.ticket_id)}
+                                        disabled={!!packages[attendee.attendeeId]?.ticketDefinitionId || ticket.status !== 'Active' || !isTicketAvailable(ticket.ticket_id)}
                                       />
                                       <span className={cn(
-                                        packages[attendee.attendeeId]?.ticketDefinitionId || ticket.status !== 'Active' || !isTicketAvailable(ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket_id) ? "text-gray-400" : ""
+                                        packages[attendee.attendeeId]?.ticketDefinitionId || ticket.status !== 'Active' || !isTicketAvailable(ticket.ticket_id) ? "text-gray-400" : ""
                                       )}>
                                         {ticket.name} - ${ticket.price}
                                         {ticket.status !== 'Active' ? (
                                           <span className="text-gray-500 text-xs ml-1">(Inactive)</span>
-                                        ) : !isTicketAvailable(ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket_id) ? (
+                                        ) : !isTicketAvailable(ticket.ticket_id) ? (
                                           <span className="text-red-500 text-xs ml-1">(Sold Out)</span>
                                         ) : null}
                                       </span>
@@ -1053,7 +1091,8 @@ const TicketSelectionStep: React.FC = () => {
                                   }
                                 }
                                 
-                                return true;
+                                // Check eligibility criteria if defined
+                                return checkEligibilityCriteria(pkg.eligibility_criteria, attendee);
                               })
                               .map((pkg) => (
                               <Card
@@ -1145,16 +1184,21 @@ const TicketSelectionStep: React.FC = () => {
                                   const effectiveType = mappedType === 'mason' ? 'mason' : 'guest';
                                   
                                   // Check if ticket is eligible for this attendee type
-                                  return ticket.eligibleAttendeeTypes.includes(effectiveType as AttendeeType);
+                                  if (!ticket.eligibleAttendeeTypes.includes(effectiveType as AttendeeType)) {
+                                    return false;
+                                  }
+                                  
+                                  // Check eligibility criteria if defined
+                                  return checkEligibilityCriteria(ticket.eligibility_criteria, attendee);
                                 })
                                 .map((ticket) => (
-                                <TableRow key={ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket_id}>
+                                <TableRow key={ticket.ticket_id}>
                                   <TableCell>
                                     <Checkbox
-                                      id={`${attendee.attendeeId}-${ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket_id}`}
-                                      disabled={ticket.status !== 'Active' || !isTicketAvailable(ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket_id)}
-                                      checked={isIndividualTicketDirectlySelected(attendee.attendeeId, ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket_id)}
-                                      onCheckedChange={() => handleToggleIndividualTicket(attendee.attendeeId, ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket_id)}
+                                      id={`${attendee.attendeeId}-${ticket.ticket_id}`}
+                                      disabled={ticket.status !== 'Active' || !isTicketAvailable(ticket.ticket_id)}
+                                      checked={isIndividualTicketDirectlySelected(attendee.attendeeId, ticket.ticket_id)}
+                                      onCheckedChange={() => handleToggleIndividualTicket(attendee.attendeeId, ticket.ticket_id)}
                                     />
                                   </TableCell>
                                   <TableCell>
@@ -1177,7 +1221,7 @@ const TicketSelectionStep: React.FC = () => {
                                       />
                                     }>
                                       {(() => {
-                                        const liveData = getTicketAvailability(ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket_id)
+                                        const liveData = getTicketAvailability(ticket.ticket_id)
                                         const available = liveData?.actualAvailable ?? ticket.available_count
                                         const previousAvailable = ticket.available_count
                                         
@@ -1219,7 +1263,7 @@ const TicketSelectionStep: React.FC = () => {
                             <div className="space-y-2">
                               {getAttendeeTickets(attendee.attendeeId).map((ticket) => (
                                 <div
-                                  key={ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket_id}
+                                  key={ticket.ticket_id}
                                   className="flex justify-between items-center p-2 border rounded-md bg-gray-50"
                                 >
                                   <div>
@@ -1245,8 +1289,8 @@ const TicketSelectionStep: React.FC = () => {
                                           updateAttendeeStore(ticket.attendeeId, { ticket: { ticketDefinitionId: null, selectedEvents: [] } } as any);
                                         } else {
                                           // Remove an individual ticket - find original ticketTypeId
-                                          // The ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket_id for individual tickets is attendeeId-ticketTypeId
-                                          const originalTicketTypeId = ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket_id.replace(`${ticket.attendeeId}-`, '');
+                                          // The ticket.ticket_id for individual tickets is attendeeId-ticketTypeId
+                                          const originalTicketTypeId = ticket.ticket_id.replace(`${ticket.attendeeId}-`, '');
                                           const foundAttendee = allStoreAttendees.find(a => (a as any).attendeeId === ticket.attendeeId);
                                           const existingAttendeeSelection = (foundAttendee as any)?.ticket;
                                           const updatedSelectedEvents = existingAttendeeSelection?.selectedEvents.filter((id: string) => id !== originalTicketTypeId) || [];
@@ -1312,7 +1356,7 @@ const TicketSelectionStep: React.FC = () => {
                         <table className="w-full text-xs text-muted-foreground">
                           <tbody>
                             {getAttendeeTickets(attendee.attendeeId).map((ticket) => (
-                              <tr key={ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket.ticket_id} className="align-middle">
+                              <tr key={ticket.ticket_id} className="align-middle">
                                 <td className="font-medium py-1 align-middle w-[22.5%]">
                                   {ticket.name}
                                 </td>

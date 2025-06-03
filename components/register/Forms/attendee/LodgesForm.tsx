@@ -10,6 +10,8 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import formSaveManager from '@/lib/formSaveManager';
 import { getFunctionTicketsService, FunctionTicketDefinition, FunctionPackage } from '@/lib/services/function-tickets-service';
 import { getEnvironmentConfig } from '@/lib/config/environment';
+import { calculateStripeFees, getFeeDisclaimer, getFeeModeFromEnv, getPlatformFeePercentage, getProcessingFeeLabel, isDomesticCard } from '@/lib/utils/stripe-fee-calculator';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 // Import form components
 import { GrandLodgeSelection } from '../mason/lib/GrandLodgeSelection';
@@ -40,6 +42,8 @@ interface PackageOrder {
   packageCount: number;
   totalTickets: number;
   totalPrice: number;
+  stripeFee: number;
+  totalWithFees: number;
 }
 
 export const LodgesForm: React.FC<LodgesFormProps> = ({
@@ -94,7 +98,9 @@ export const LodgesForm: React.FC<LodgesFormProps> = ({
   const [calculatedPackageOrder, setCalculatedPackageOrder] = useState<PackageOrder>({
     packageCount: 1,
     totalTickets: baseQuantity,
-    totalPrice: packagePrice
+    totalPrice: packagePrice,
+    stripeFee: 0,
+    totalWithFees: packagePrice
   });
 
   // Fetch function tickets and packages data
@@ -143,10 +149,21 @@ export const LodgesForm: React.FC<LodgesFormProps> = ({
   
   // Update package order when count or package data changes
   useEffect(() => {
+    const subtotal = packageCount * packagePrice;
+    
+    // Calculate Stripe fees
+    const feeCalculation = calculateStripeFees(subtotal, {
+      isDomestic: true, // Default to domestic for Australian lodges
+      feeMode: getFeeModeFromEnv(),
+      platformFeePercentage: getPlatformFeePercentage()
+    });
+    
     setCalculatedPackageOrder({
       packageCount,
       totalTickets: packageCount * baseQuantity,
-      totalPrice: packageCount * packagePrice
+      totalPrice: subtotal,
+      stripeFee: feeCalculation.stripeFee,
+      totalWithFees: feeCalculation.total
     });
   }, [packageCount, baseQuantity, packagePrice]);
 
@@ -457,14 +474,58 @@ export const LodgesForm: React.FC<LodgesFormProps> = ({
                   </div>
                 </div>
 
-                <div className="border-t pt-4">
+                <div className="border-t pt-4 space-y-2">
+                  {/* Subtotal */}
                   <div className="flex justify-between items-center">
-                    <span className="text-lg font-semibold">Total Amount</span>
-                    <span className="text-2xl font-bold text-primary">
+                    <span className="text-gray-600">Subtotal</span>
+                    <span className="font-medium">
                       ${calculatedPackageOrder.totalPrice.toLocaleString()}
                     </span>
                   </div>
+                  
+                  {/* Processing Fee */}
+                  {getFeeModeFromEnv() === 'pass_to_customer' && (
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-600 flex items-center gap-1">
+                        {getProcessingFeeLabel(true)}
+                        <TooltipProvider>
+                          <Tooltip>
+                            <TooltipTrigger>
+                              <Info className="h-3 w-3 text-gray-400" />
+                            </TooltipTrigger>
+                            <TooltipContent className="max-w-xs">
+                              <p className="text-sm">{getFeeDisclaimer()}</p>
+                              <div className="mt-2 text-xs space-y-1">
+                                <p>• Australian cards: 1.75% + $0.30</p>
+                                <p>• International cards: 2.9% + $0.30</p>
+                              </div>
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
+                      </span>
+                      <span className="font-medium">
+                        ${calculatedPackageOrder.stripeFee.toFixed(2)}
+                      </span>
+                    </div>
+                  )}
+                  
+                  {/* Total Amount */}
+                  <div className="border-t pt-3 mt-3">
+                    <div className="flex justify-between items-center">
+                      <span className="text-lg font-semibold">Total Amount</span>
+                      <span className="text-2xl font-bold text-primary">
+                        ${calculatedPackageOrder.totalWithFees.toLocaleString()}
+                      </span>
+                    </div>
+                  </div>
                 </div>
+                
+                {/* Fee disclaimer */}
+                {getFeeModeFromEnv() === 'pass_to_customer' && (
+                  <div className="text-xs text-gray-500 pt-2">
+                    {getFeeDisclaimer()}
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -484,6 +545,14 @@ export const LodgeFormSummary: React.FC = () => {
   if (!lodgeTicketOrder) {
     return null;
   }
+
+  // Calculate fees for the summary
+  const subtotal = lodgeTicketOrder.tableCount * 1950;
+  const feeCalculation = calculateStripeFees(subtotal, {
+    isDomestic: true, // Default to domestic for Australian lodges
+    feeMode: getFeeModeFromEnv(),
+    platformFeePercentage: getPlatformFeePercentage()
+  });
 
   return (
     <div className="space-y-4">
@@ -524,11 +593,23 @@ export const LodgeFormSummary: React.FC = () => {
               </div>
             </div>
             
-            <div className="border-t pt-3">
-              <div className="flex justify-between items-center">
+            <div className="border-t pt-3 space-y-2">
+              <div className="flex justify-between">
+                <span className="text-sm text-gray-600">Subtotal</span>
+                <span className="font-medium">${subtotal.toLocaleString()}</span>
+              </div>
+              
+              {getFeeModeFromEnv() === 'pass_to_customer' && (
+                <div className="flex justify-between">
+                  <span className="text-sm text-gray-600">Processing Fee</span>
+                  <span className="font-medium">${feeCalculation.stripeFee.toFixed(2)}</span>
+                </div>
+              )}
+              
+              <div className="flex justify-between items-center pt-2">
                 <span className="font-medium">Total Amount</span>
                 <span className="text-lg font-bold text-primary">
-                  ${(lodgeTicketOrder.tableCount * 1950).toLocaleString()}
+                  ${feeCalculation.total.toLocaleString()}
                 </span>
               </div>
             </div>

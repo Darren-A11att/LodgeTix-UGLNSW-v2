@@ -3,19 +3,22 @@ import { createClient } from '@/utils/supabase/server';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { functionId: string } }
+  { params }: { params: Promise<{ functionId: string }> }
 ) {
   try {
+    // Await params as required in Next.js 15
+    const { functionId } = await params;
+    
     // Use server client - let RLS handle access control
     const supabase = await createClient();
     
-    console.log('[API] Fetching packages for function_id:', params.functionId);
+    console.log('[API] Fetching packages for function_id:', functionId);
     
     // Query the function_packages_view which should have proper RLS policies
     const { data: packages, error } = await supabase
       .from('function_packages_view')
       .select('*')
-      .eq('function_id', params.functionId)
+      .eq('function_id', functionId)
       .order('package_name');
 
     if (error) {
@@ -26,7 +29,7 @@ export async function GET(
       );
     }
 
-    console.log(`[API] Found ${packages?.length || 0} packages for function ${params.functionId}`);
+    console.log(`[API] Found ${packages?.length || 0} packages for function ${functionId}`);
     
     // Transform the view data to match the expected format
     const transformedPackages = (packages || []).map((pkg: any) => ({

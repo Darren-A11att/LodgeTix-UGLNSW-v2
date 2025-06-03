@@ -16,6 +16,7 @@ import { useLodgeRegistrationStore } from '@/lib/lodgeRegistrationStore';
 import { useRegistrationStore } from '@/lib/registrationStore';
 import { StripeBillingDetailsForClient } from '../payment/types';
 import { getFunctionTicketsService, FunctionPackage } from '@/lib/services/function-tickets-service';
+import { calculateStripeFees, getFeeModeFromEnv, getPlatformFeePercentage } from '@/lib/utils/stripe-fee-calculator';
 
 // Get Stripe publishable key
 const stripePublishableKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!;
@@ -78,8 +79,14 @@ export const LodgeRegistrationStep: React.FC<LodgeRegistrationStepProps> = ({
   const selectedPackage = lodgePackages[0]; // Use the first available lodge package
   const packagePrice = selectedPackage?.price || 1950; // fallback to 1950
   
-  // Calculate total amount
-  const totalAmount = lodgeTicketOrder ? lodgeTicketOrder.tableCount * packagePrice : 0;
+  // Calculate total amount including Stripe fees
+  const subtotal = lodgeTicketOrder ? lodgeTicketOrder.tableCount * packagePrice : 0;
+  const feeCalculation = calculateStripeFees(subtotal, {
+    isDomestic: true, // Default to domestic for Australian lodges
+    feeMode: getFeeModeFromEnv(),
+    platformFeePercentage: getPlatformFeePercentage()
+  });
+  const totalAmount = feeCalculation.total;
 
   // Handle form completion
   const handleFormComplete = useCallback(() => {
@@ -121,7 +128,9 @@ export const LodgeRegistrationStep: React.FC<LodgeRegistrationStepProps> = ({
           lodgeDetails,
           tableOrder: lodgeTicketOrder,
           paymentMethodId,
-          amount: totalAmount * 100, // Convert to cents
+          amount: totalAmount * 100, // Convert to cents (includes fees)
+          subtotal: subtotal * 100, // Convert to cents (before fees)
+          stripeFee: feeCalculation.stripeFee * 100, // Convert to cents
           billingDetails,
         }),
       });

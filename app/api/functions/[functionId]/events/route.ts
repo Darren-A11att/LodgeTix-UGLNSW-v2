@@ -3,9 +3,10 @@ import { createClient } from '@/utils/supabase/server';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { functionId: string } }
+  { params }: { params: Promise<{ functionId: string }> }
 ) {
   try {
+    const { functionId } = await params;
     const supabase = await createClient();
     
     // Get all events for this function using the function ID directly
@@ -22,7 +23,7 @@ export async function GET(
           eligibility_criteria
         )
       `)
-      .eq('function_id', params.functionId)
+      .eq('function_id', functionId)
       .eq('is_published', true)
       .order('event_start', { ascending: true });
 

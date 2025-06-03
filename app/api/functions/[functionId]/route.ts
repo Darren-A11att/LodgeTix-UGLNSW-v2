@@ -3,14 +3,15 @@ import { createClient } from '@/utils/supabase/server';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { functionId: string } }
+  { params }: { params: Promise<{ functionId: string }> }
 ) {
   try {
+    const { functionId } = await params;
     const supabase = await createClient();
     
     // Use RPC to get function details - now using function ID
     const { data, error } = await supabase
-      .rpc('get_function_details', { p_function_id: params.functionId });
+      .rpc('get_function_details', { p_function_id: functionId });
 
     if (error) {
       console.error('Error fetching function details:', error);

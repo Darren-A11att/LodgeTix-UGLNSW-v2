@@ -363,11 +363,11 @@ export async function POST(request: Request) {
           // Group tickets by attendee
           if (!acc[ticket.attendeeId]) {
             acc[ticket.attendeeId] = {
-              ticketDefinitionId: ticket.isPackage ? ticket.ticket.ticket.ticket_id : null,
-              selectedEvents: ticket.isPackage ? [] : [ticket.ticket.ticket.ticket_id]
+              ticketDefinitionId: ticket.isPackage ? ticket.ticket_id : null,
+              selectedEvents: ticket.isPackage ? [] : [ticket.ticket_id]
             };
           } else if (!ticket.isPackage) {
-            acc[ticket.attendeeId].selectedEvents.push(ticket.ticket.ticket.ticket_id);
+            acc[ticket.attendeeId].selectedEvents.push(ticket.ticket_id);
           }
           return acc;
         }, {}),

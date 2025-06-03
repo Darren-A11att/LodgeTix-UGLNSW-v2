@@ -172,7 +172,7 @@ export async function getEventTickets(eventId: string): Promise<Ticket[]> {
         }
         
         return (data || []).map(ticket => ({
-          id: ticket.ticket.ticket_id,
+          id: ticket_id,
           event_id: ticket.event_id,
           name: ticket.name,
           price: ticket.price,

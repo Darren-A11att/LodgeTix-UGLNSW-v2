@@ -1,5 +1,4 @@
 // Service for fetching function tickets and packages using the new database views
-import { getSupabaseClient } from '@/lib/supabase-singleton'
 import { api } from '@/lib/api-logger'
 
 // Raw database interface
@@ -37,6 +36,7 @@ export interface FunctionTicketDefinition {
   reserved_count: number | null
   sold_count: number | null
   status: string | null
+  eligibility_criteria: any | null
   eligibleAttendeeTypes: string[]
 }
 
@@ -70,6 +70,7 @@ export interface FunctionPackage {
   qty: number | null
   includes: string[]
   includes_description: string[] | null
+  eligibility_criteria: any | null
   eligibleAttendeeTypes: string[]
   eligibleRegistrationTypes: string[]
 }
@@ -97,6 +98,7 @@ function adaptTicketToFrontend(rawTicket: FunctionTicketDefinitionRaw): Function
     reserved_count: rawTicket.reserved_count,
     sold_count: rawTicket.sold_count,
     status: rawTicket.status,
+    eligibility_criteria: rawTicket.eligibility_criteria,
     eligibleAttendeeTypes: rawTicket.eligibility_criteria?.attendeeTypes || rawTicket.eligibility_criteria?.attendee_types || ['mason', 'guest']
   }
 }
@@ -121,6 +123,7 @@ function adaptPackageToFrontend(rawPackage: FunctionPackageRaw): FunctionPackage
     qty: rawPackage.qty,
     includes: rawPackage.included_items || [],
     includes_description: rawPackage.includes_description,
+    eligibility_criteria: rawPackage.eligibility_criteria,
     eligibleAttendeeTypes: rawPackage.eligibility_criteria?.attendeeTypes || rawPackage.eligibility_criteria?.attendee_types || ['mason', 'guest'],
     // Use the direct registration_types column from your view!
     eligibleRegistrationTypes: rawPackage.registration_types || ['individual', 'delegation', 'lodges']
@@ -128,34 +131,39 @@ function adaptPackageToFrontend(rawPackage: FunctionPackageRaw): FunctionPackage
 }
 
 class FunctionTicketsService {
-  private supabase = getSupabaseClient()
-
   /**
-   * Get all tickets for a function using function_event_tickets_view
+   * Get all tickets for a function using function_event_tickets_view via API
+   * @param functionId - The function UUID
+   * @param registrationType - Optional registration type filter
    */
-  async getFunctionTickets(functionId: string): Promise<FunctionTicketDefinition[]> {
+  async getFunctionTickets(functionId: string, registrationType?: string): Promise<FunctionTicketDefinition[]> {
     try {
       if (!functionId) {
         console.error('getFunctionTickets called without functionId')
         throw new Error('Function ID is required to fetch tickets')
       }
       
-      api.debug(`Fetching function tickets for function: ${functionId}`)
+      api.debug(`Fetching function tickets for function: ${functionId}, registrationType: ${registrationType}`)
       
-      const { data, error } = await this.supabase
-        .from('function_event_tickets_view')
-        .select('*')
-        .eq('function_id', functionId)
-        .eq('ticket_is_active', true)
-        .order('event_title', { ascending: true })
-
-      if (error) {
-        api.error('Error fetching function tickets:', error)
-        throw new Error(`Failed to fetch function tickets: ${error.message}`)
+      // Build URL with optional registration type filter
+      let url = `/api/functions/${functionId}/tickets`
+      if (registrationType) {
+        url += `?registrationType=${encodeURIComponent(registrationType)}`
       }
-
-      api.debug(`Fetched ${data?.length || 0} tickets for function ${functionId}`)
-      return (data || []).map(adaptTicketToFrontend)
+      
+      const response = await fetch(url)
+      
+      if (!response.ok) {
+        const error = await response.json()
+        throw new Error(error.error || 'Failed to fetch tickets')
+      }
+      
+      const { tickets } = await response.json()
+      
+      api.debug(`Fetched ${tickets?.length || 0} tickets for function ${functionId}`)
+      
+      // Transform and return tickets
+      return (tickets || []).map(adaptTicketToFrontend)
     } catch (error) {
       api.error('Exception in getFunctionTickets:', error)
       throw error
@@ -164,15 +172,17 @@ class FunctionTicketsService {
 
   /**
    * Get all packages for a function using API route to bypass RLS
+   * @param functionId - The function UUID
+   * @param registrationType - Optional registration type filter
    */
-  async getFunctionPackages(functionId: string): Promise<FunctionPackage[]> {
+  async getFunctionPackages(functionId: string, registrationType?: string): Promise<FunctionPackage[]> {
     try {
       if (!functionId) {
         console.error('getFunctionPackages called without functionId')
         throw new Error('Function ID is required to fetch packages')
       }
       
-      api.debug(`Fetching function packages for function: ${functionId}`)
+      api.debug(`Fetching function packages for function: ${functionId}, registrationType: ${registrationType}`)
       console.log('Fetching packages via API for function_id:', functionId)
       
       // Use API route to bypass RLS issues
@@ -188,7 +198,7 @@ class FunctionTicketsService {
       console.log('Raw packages from API:', packages)
       
       // Map the raw package data to match our expected format
-      const adapted = (packages || []).map((pkg: any) => ({
+      let adapted = (packages || []).map((pkg: any) => ({
         id: pkg.package_id,
         name: pkg.name,
         description: pkg.description,
@@ -200,9 +210,17 @@ class FunctionTicketsService {
         qty: pkg.qty,
         includes: pkg.included_items || [],
         includes_description: pkg.includes_description,
+        eligibility_criteria: pkg.eligibility_criteria,
         eligibleAttendeeTypes: pkg.eligibility_criteria?.attendeeTypes || pkg.eligibility_criteria?.attendee_types || ['mason', 'guest'],
         eligibleRegistrationTypes: pkg.registration_types || ['individual', 'delegation', 'lodges']
       }))
+      
+      // Filter by registration type if provided
+      if (registrationType) {
+        adapted = adapted.filter(pkg => 
+          pkg.eligibleRegistrationTypes.includes(registrationType)
+        )
+      }
       
       console.log('Adapted packages:', adapted)
       return adapted
@@ -214,19 +232,21 @@ class FunctionTicketsService {
 
   /**
    * Get both tickets and packages for a function
+   * @param functionId - The function UUID
+   * @param registrationType - Optional registration type filter
    */
-  async getFunctionTicketsAndPackages(functionId: string): Promise<FunctionTicketsAndPackages> {
+  async getFunctionTicketsAndPackages(functionId: string, registrationType?: string): Promise<FunctionTicketsAndPackages> {
     try {
       if (!functionId) {
         console.error('getFunctionTicketsAndPackages called without functionId')
         throw new Error('Function ID is required to fetch tickets and packages')
       }
       
-      api.debug(`Fetching tickets and packages for function: ${functionId}`)
+      api.debug(`Fetching tickets and packages for function: ${functionId}, registrationType: ${registrationType}`)
       
       const [tickets, packages] = await Promise.all([
-        this.getFunctionTickets(functionId),
-        this.getFunctionPackages(functionId)
+        this.getFunctionTickets(functionId, registrationType),
+        this.getFunctionPackages(functionId, registrationType)
       ])
 
       return {

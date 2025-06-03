@@ -366,8 +366,8 @@ export class EventTicketsService {
     }
     
     return {
-      id: ticket.ticket.ticket_id, // Use the ticket ID
-      ticket_definition_id: ticket.ticket.ticket_id, // Keep for backward compatibility
+      id: ticket_id, // Use the ticket ID
+      ticket_definition_id: ticket_id, // Keep for backward compatibility
       name: ticket.name,
       price: ticket.price,
       description: ticket.description,
