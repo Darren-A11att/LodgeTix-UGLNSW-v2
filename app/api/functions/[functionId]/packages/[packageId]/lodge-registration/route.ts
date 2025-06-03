@@ -13,9 +13,9 @@ interface RouteParams {
   };
 }
 
-export async function POST(request: NextRequest, { params }: RouteParams) {
+export async function POST(request: NextRequest, { params }: { params: Promise<{ functionId: string; packageId: string }> }) {
   try {
-    const { functionId, packageId } = params;
+    const { functionId, packageId } = await params;
     console.log('[Lodge Registration API] Received request:', { functionId, packageId });
     
     const body = await request.json();
@@ -172,7 +172,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         );
       }
       
-      paymentStatus = 'paid';
+      paymentStatus = 'completed';
     }
 
     // Call the upsert RPC
@@ -206,16 +206,42 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         try {
           // Get user from auth
           const { data: { user } } = await supabase.auth.getUser();
-          const customerId = user?.id;
+          const authUserId = user?.id;
+          
+          // First create or update contact
+          const { data: contact, error: contactError } = await supabase
+            .from('contacts')
+            .upsert({
+              email: bookingContact.email,
+              first_name: bookingContact.firstName,
+              last_name: bookingContact.lastName,
+              title: bookingContact.title,
+              mobile_number: bookingContact.mobile,
+              phone: bookingContact.phone,
+              auth_user_id: authUserId,
+              type: 'organisation',  // Lodge registrations are organisations
+              business_name: lodgeDetails.lodgeName,
+            })
+            .select()
+            .single();
+            
+          if (contactError) {
+            throw new Error(`Failed to create contact: ${contactError.message}`);
+          }
+          
+          // Generate registration ID and confirmation number
+          const registrationId = crypto.randomUUID();
+          const confirmationNumber = `LDG-${new Date().toISOString().slice(2,10).replace(/-/g,'')}-${Math.random().toString(36).substring(2, 10).toUpperCase()}`;
           
           // Create registration record directly
           const { data: registration, error: regError } = await supabase
             .from('registrations')
             .insert({
+              registration_id: registrationId,  // Explicitly set the registration_id
               function_id: functionId,
-              customer_id: customerId,
-              registration_type: 'lodges',
-              status: paymentStatus === 'paid' ? 'confirmed' : 'pending',
+              contact_id: contact.contact_id,  // Use contact_id not customer_id
+              registration_type: 'lodge',  // Changed from 'lodges' to 'lodge'
+              status: paymentStatus === 'completed' ? 'confirmed' : 'pending',
               payment_status: paymentStatus,
               stripe_payment_intent_id: paymentIntent?.id || null,
               total_amount_paid: amount || 0,
@@ -224,12 +250,13 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
               includes_processing_fee: stripeFee > 0,
               registration_date: new Date().toISOString(),
               agree_to_terms: true,
-              metadata: {
+              registration_data: {
                 lodge_details: lodgeDetails,
                 table_count: tableCount,
                 booking_contact: bookingContact,
                 package_id: packageId
-              }
+              },
+              confirmation_number: confirmationNumber
             })
             .select()
             .single();
@@ -238,10 +265,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
             throw new Error(`Failed to create registration: ${regError.message}`);
           }
           
-          // Get package details to create tickets
+          // Get package details
           const { data: packageData, error: packageError } = await supabase
             .from('packages')
-            .select('*, package_includes(*, event_tickets(*))')
+            .select('*')
             .eq('package_id', packageId)
             .single();
             
@@ -249,29 +276,62 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
             throw new Error(`Failed to fetch package details: ${packageError?.message}`);
           }
           
-          // Create tickets for each included event
+          // Create tickets based on included_items array
           const tickets = [];
-          for (const include of packageData.package_includes || []) {
-            const ticketCount = tableCount * 10; // 10 tickets per table
-            for (let i = 0; i < ticketCount; i++) {
-              tickets.push({
-                registration_id: registration.registration_id,
-                event_id: include.event_tickets.event_id,
-                customer_id: customerId,
-                ticket_type: include.event_tickets.ticket_type,
-                status: paymentStatus === 'paid' ? 'confirmed' : 'reserved',
-                price: include.event_tickets.price,
-                currency: 'AUD',
-                attendee_number: i + 1,
-                is_primary: false,
-                metadata: {
-                  lodge_registration: true,
-                  lodge_name: lodgeDetails.lodgeName,
-                  table_number: Math.ceil((i + 1) / 10),
-                  seat_number: ((i) % 10) + 1,
-                  package_id: packageId
+          const ticketsPerTable = packageData.qty || 10;
+          const totalTickets = tableCount * ticketsPerTable;
+          
+          // Process included_items array if it exists
+          if (packageData.included_items && Array.isArray(packageData.included_items)) {
+            for (const item of packageData.included_items) {
+              if (item.item_type === 'event_ticket' && item.item_id) {
+                // Fetch event ticket details
+                const { data: eventTicket } = await supabase
+                  .from('event_tickets')
+                  .select('*, events!event_tickets_event_id_fkey(event_id)')
+                  .eq('id', item.item_id)
+                  .single();
+                  
+                if (eventTicket) {
+                  const ticketsForThisItem = totalTickets * (item.quantity || 1);
+                  for (let i = 0; i < ticketsForThisItem; i++) {
+                    tickets.push({
+                      registration_id: registrationId,
+                      event_id: eventTicket.event_id,
+                      ticket_type_id: item.item_id,
+                      ticket_price: eventTicket.price,
+                      ticket_status: paymentStatus === 'completed' ? 'sold' : 'reserved',
+                      status: paymentStatus === 'completed' ? 'sold' : 'reserved',
+                      price_paid: eventTicket.price,
+                      currency: 'AUD',
+                      package_id: packageId,
+                    });
+                  }
                 }
-              });
+              }
+            }
+          } else if (packageData.event_id) {
+            // Fallback: If no included_items, use direct event_id link
+            const { data: eventTickets } = await supabase
+              .from('event_tickets')
+              .select('*')
+              .eq('event_id', packageData.event_id);
+              
+            if (eventTickets && eventTickets.length > 0) {
+              const eventTicket = eventTickets[0]; // Use first ticket type
+              for (let i = 0; i < totalTickets; i++) {
+                tickets.push({
+                  registration_id: registrationId,
+                  event_id: packageData.event_id,
+                  ticket_type_id: eventTicket.id,
+                  ticket_price: eventTicket.price,
+                  ticket_status: paymentStatus === 'completed' ? 'sold' : 'reserved',
+                  status: paymentStatus === 'completed' ? 'sold' : 'reserved',
+                  price_paid: packageData.package_price / ticketsPerTable,
+                  currency: 'AUD',
+                  package_id: packageId,
+                });
+              }
             }
           }
           
@@ -288,9 +348,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           // Return success with registration details
           return NextResponse.json({
             success: true,
-            registrationId: registration.registration_id,
-            confirmationNumber: registration.confirmation_number || `REG-${registration.registration_id.substring(0, 8).toUpperCase()}`,
-            customerId: customerId,
+            registrationId: registrationId,  // Use the generated registration ID
+            confirmationNumber: confirmationNumber,  // Use the generated confirmation number
+            customerId: authUserId,  // Return auth user ID as customer ID for compatibility
             totalTickets: tickets.length,
             createdTickets: tickets.length,
           });
@@ -361,9 +421,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 }
 
 // PUT endpoint for updating registration after payment
-export async function PUT(request: NextRequest, { params }: RouteParams) {
+export async function PUT(request: NextRequest, { params }: { params: Promise<{ functionId: string; packageId: string }> }) {
   try {
-    const { functionId, packageId } = params;
+    const { functionId, packageId } = await params;
     const body = await request.json();
     const {
       registrationId,
