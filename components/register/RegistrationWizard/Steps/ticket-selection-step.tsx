@@ -655,12 +655,17 @@ const TicketSelectionStep: React.FC = () => {
                         return (
                           <Card
                             key={pkg.id}
-                            className={`cursor-pointer border-2 transition-all ${
+                            className={`border-2 transition-all ${
                               isSelected
                                 ? "border-masonic-gold bg-masonic-lightgold/10"
-                                : "border-gray-200 hover:border-masonic-lightgold"
+                                : pkg.is_active === false
+                                ? "border-gray-200 opacity-50"
+                                : "border-gray-200 hover:border-masonic-lightgold cursor-pointer"
                             }`}
                             onClick={() => {
+                              // Only allow click if package is active
+                              if (pkg.is_active === false) return;
+                              
                               if (isBulkMode) {
                                 // For bulk mode, store selection under a special key
                                 updatePackageSelection('lodge-bulk', { 
@@ -678,7 +683,11 @@ const TicketSelectionStep: React.FC = () => {
                             <CardContent className="p-4">
                           <div className="flex justify-between items-start mb-2">
                             <h4 className="font-medium">{pkg.name}</h4>
-                            <Badge className="bg-masonic-navy">${pkg.price}</Badge>
+                            {pkg.is_active === false ? (
+                              <Badge variant="outline" className="bg-gray-100 text-gray-500">UNAVAILABLE</Badge>
+                            ) : (
+                              <Badge className="bg-masonic-navy">${pkg.price}</Badge>
+                            )}
                           </div>
                           <p className="text-sm text-gray-600 mb-3">{pkg.description}</p>
                           <div className="text-xs text-gray-500">
@@ -740,22 +749,17 @@ const TicketSelectionStep: React.FC = () => {
                         .map((ticket) => (
                         <TableRow key={ticket.id}>
                           <TableCell>
-                            <Checkbox
-                              id={`all-${ticket.id}`}
-                              disabled={
-                                // Only disable if we have real-time data showing it's sold out
-                                (isConnected && !isTicketAvailable(ticket.id)) ||
-                                // Or if the ticket is explicitly marked as inactive
-                                ticket.is_active === false
-                              }
-                              checked={
-                                isBulkMode 
-                                  ? (packages['lodge-bulk']?.selectedEvents || []).includes(ticket.id)
-                                  : allStoreAttendees.length > 0 && allStoreAttendees.every(attendee => 
-                                      isIndividualTicketDirectlySelected(attendee.attendeeId, ticket.id)
-                                    )
-                              }
-                              onCheckedChange={() => {
+                            {ticket.is_active !== false && (!isConnected || isTicketAvailable(ticket.id)) ? (
+                              <Checkbox
+                                id={`all-${ticket.id}`}
+                                checked={
+                                  isBulkMode 
+                                    ? (packages['lodge-bulk']?.selectedEvents || []).includes(ticket.id)
+                                    : allStoreAttendees.length > 0 && allStoreAttendees.every(attendee => 
+                                        isIndividualTicketDirectlySelected(attendee.attendeeId, ticket.id)
+                                      )
+                                }
+                                onCheckedChange={() => {
                                 if (isBulkMode) {
                                   // Handle bulk mode selection
                                   const currentSelection = packages['lodge-bulk'] || { ticketDefinitionId: null, selectedEvents: [] };
@@ -800,30 +804,41 @@ const TicketSelectionStep: React.FC = () => {
                                   });
                                 }
                               }}
-                            />
+                              />
+                            ) : (
+                              <div className="w-5 h-5" /> // Empty space to maintain alignment
+                            )}
                           </TableCell>
                           <TableCell className="font-medium">{ticket.name}</TableCell>
                           <TableCell>{ticket.description || 'No description available'}</TableCell>
                           <TableCell className="text-right">
-                            <RealtimeErrorBoundary fallback={
-                              <TicketAvailabilityBadge
-                                available={ticket.available_count}
-                                status={ticket.status}
-                              />
-                            }>
-                              {(() => {
-                                const liveData = getTicketAvailability(ticket.id)
-                                const available = liveData?.actualAvailable ?? ticket.available_count
-                                const isSoldOut = liveData?.isSoldOut ?? (ticket.available_count === 0)
-                                
-                                return (
-                                  <TicketAvailabilityBadge
-                                    available={available}
-                                    status={ticket.status}
-                                  />
-                                )
-                              })()}
-                            </RealtimeErrorBoundary>
+                            {ticket.is_active === false ? (
+                              <Badge variant="outline" className="bg-gray-100 text-gray-500">Inactive</Badge>
+                            ) : (
+                              <RealtimeErrorBoundary fallback={
+                                <TicketAvailabilityBadge
+                                  available={ticket.available_count}
+                                  status={ticket.status}
+                                />
+                              }>
+                                {(() => {
+                                  const liveData = getTicketAvailability(ticket.id)
+                                  const available = liveData?.actualAvailable ?? ticket.available_count
+                                  const isSoldOut = isConnected && !isTicketAvailable(ticket.id)
+                                  
+                                  if (isSoldOut) {
+                                    return <Badge variant="destructive">SOLD OUT</Badge>
+                                  }
+                                  
+                                  return (
+                                    <TicketAvailabilityBadge
+                                      available={available}
+                                      status={ticket.status}
+                                    />
+                                  )
+                                })()}
+                              </RealtimeErrorBoundary>
+                            )}
                           </TableCell>
                           <TableCell className="text-right">${ticket.price}</TableCell>
                         </TableRow>
@@ -918,35 +933,18 @@ const TicketSelectionStep: React.FC = () => {
                                   .filter(ticket => {
                                     const mappedType = attendee.attendeeType?.toLowerCase() || '';
                                     const effectiveType = mappedType === 'mason' ? 'mason' : 'guest';
-                                    return ticket.eligibleAttendeeTypes.includes(effectiveType as AttendeeType);
+                                    return ticket.eligibleAttendeeTypes.includes(effectiveType as AttendeeType) &&
+                                           ticket.is_active !== false &&
+                                           (!isConnected || isTicketAvailable(ticket.id));
                                   })
                                   .map(ticket => (
                                     <label key={ticket.id} className="flex items-center gap-2 text-sm">
                                       <Checkbox
                                         checked={isIndividualTicketDirectlySelected(attendee.attendeeId, ticket.id)}
                                         onCheckedChange={() => handleToggleIndividualTicket(attendee.attendeeId, ticket.id)}
-                                        disabled={
-                                          // Disable if a package is selected
-                                          !!packages[attendee.attendeeId]?.ticketDefinitionId ||
-                                          // Or if we have real-time data showing it's sold out
-                                          (isConnected && !isTicketAvailable(ticket.id)) ||
-                                          // Or if the ticket is explicitly marked as inactive
-                                          ticket.is_active === false
-                                        }
                                       />
-                                      <span className={cn(
-                                        packages[attendee.attendeeId]?.ticketDefinitionId || 
-                                        ticket.is_active === false || 
-                                        (isConnected && !isTicketAvailable(ticket.id)) 
-                                          ? "text-gray-400" 
-                                          : ""
-                                      )}>
+                                      <span>
                                         {ticket.name} - ${ticket.price}
-                                        {ticket.is_active === false ? (
-                                          <span className="text-gray-500 text-xs ml-1">(Inactive)</span>
-                                        ) : (isConnected && !isTicketAvailable(ticket.id)) ? (
-                                          <span className="text-red-500 text-xs ml-1">(Sold Out)</span>
-                                        ) : null}
                                       </span>
                                     </label>
                                   ))}
@@ -1220,17 +1218,15 @@ const TicketSelectionStep: React.FC = () => {
                                 .map((ticket) => (
                                 <TableRow key={ticket.id}>
                                   <TableCell>
-                                    <Checkbox
-                                      id={`${attendee.attendeeId}-${ticket.id}`}
-                                      disabled={
-                                        // Only disable if we have real-time data showing it's sold out
-                                        (isConnected && !isTicketAvailable(ticket.id)) ||
-                                        // Or if the ticket is explicitly marked as inactive
-                                        ticket.is_active === false
-                                      }
-                                      checked={isIndividualTicketDirectlySelected(attendee.attendeeId, ticket.id)}
-                                      onCheckedChange={() => handleToggleIndividualTicket(attendee.attendeeId, ticket.id)}
-                                    />
+                                    {ticket.is_active !== false && (!isConnected || isTicketAvailable(ticket.id)) ? (
+                                      <Checkbox
+                                        id={`${attendee.attendeeId}-${ticket.id}`}
+                                        checked={isIndividualTicketDirectlySelected(attendee.attendeeId, ticket.id)}
+                                        onCheckedChange={() => handleToggleIndividualTicket(attendee.attendeeId, ticket.id)}
+                                      />
+                                    ) : (
+                                      <div className="w-5 h-5" /> // Empty space to maintain alignment
+                                    )}
                                   </TableCell>
                                   <TableCell>
                                     <div>
@@ -1242,32 +1238,40 @@ const TicketSelectionStep: React.FC = () => {
                                   </TableCell>
                                   <TableCell>{ticket.description || 'No description available'}</TableCell>
                                   <TableCell className="text-right">
-                                    <RealtimeErrorBoundary fallback={
-                                      <TicketAvailabilityIndicator
-                                        available={ticket.available_count}
-                                        status={ticket.status}
-                                        showNumbers={true}
-                                        size="sm"
-                                        animate={false}
-                                      />
-                                    }>
-                                      {(() => {
-                                        const liveData = getTicketAvailability(ticket.id)
-                                        const available = liveData?.actualAvailable ?? ticket.available_count
-                                        const previousAvailable = ticket.available_count
-                                        
-                                        return (
-                                          <TicketAvailabilityIndicator
-                                            available={available}
-                                            status={ticket.status}
-                                            showNumbers={true}
-                                            size="sm"
-                                            animate={true}
-                                            previousAvailable={previousAvailable}
-                                          />
-                                        )
-                                      })()}
-                                    </RealtimeErrorBoundary>
+                                    {ticket.is_active === false ? (
+                                      <Badge variant="outline" className="bg-gray-100 text-gray-500">Inactive</Badge>
+                                    ) : (
+                                      <RealtimeErrorBoundary fallback={
+                                        <TicketAvailabilityIndicator
+                                          available={ticket.available_count}
+                                          status={ticket.status}
+                                          showNumbers={true}
+                                          size="sm"
+                                          animate={false}
+                                        />
+                                      }>
+                                        {(() => {
+                                          const liveData = getTicketAvailability(ticket.id)
+                                          const available = liveData?.actualAvailable ?? ticket.available_count
+                                          const isSoldOut = isConnected && !isTicketAvailable(ticket.id)
+                                          
+                                          if (isSoldOut) {
+                                            return <Badge variant="destructive">SOLD OUT</Badge>
+                                          }
+                                          
+                                          return (
+                                            <TicketAvailabilityIndicator
+                                              available={available}
+                                              status={ticket.status}
+                                              showNumbers={true}
+                                              size="sm"
+                                              animate={true}
+                                              previousAvailable={ticket.available_count}
+                                            />
+                                          )
+                                        })()}
+                                      </RealtimeErrorBoundary>
+                                    )}
                                   </TableCell>
                                   <TableCell className="text-right">
                                     <div>

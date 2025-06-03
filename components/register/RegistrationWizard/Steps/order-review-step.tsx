@@ -232,7 +232,10 @@ function OrderReviewStep() {
 
   // Get billing details from store to determine domestic/international fees
   const billingDetails = useRegistrationStore((s) => s.billingDetails);
-  const billingCountry = billingDetails?.country; // This is already the ISO code string
+  // Handle both string and object types for country
+  const billingCountry = typeof billingDetails?.country === 'string' 
+    ? billingDetails.country 
+    : (billingDetails?.country as any)?.isoCode;
   const isDomestic = isDomesticCard(billingCountry);
 
   const subtotal = currentTickets.reduce((sum, ticket) => sum + ticket.price, 0)
