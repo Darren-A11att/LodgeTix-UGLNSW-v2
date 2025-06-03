@@ -6,9 +6,6 @@ import { RegistrationAdminService } from './registrationAdminService';
 import { CustomerAdminService } from './customerAdminService';
 import { PackageAdminService } from './packageAdminService';
 
-// Export API types
-export * from './types';
-
 // Export Stripe queries
 export * from './stripe-queries';
 

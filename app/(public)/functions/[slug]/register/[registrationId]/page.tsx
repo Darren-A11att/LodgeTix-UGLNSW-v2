@@ -96,12 +96,17 @@ export default async function RegistrationWizardPage({ params, searchParams }: R
   }
 
   // Check if registration is completed - but allow showing confirmation if requested
-  if (!showConfirmation && (registration.status === 'completed' || registration.status === 'paid')) {
+  if (!showConfirmation && (registration.status === 'completed' || registration.status === 'paid' || registration.status === 'confirmed')) {
     redirect(`/registrations/${registrationId}`);
   }
   
   // For confirmed registrations with showConfirmation flag, show the wizard at step 6
-  const isShowingConfirmation = showConfirmation && (registration.status === 'confirmed' || registration.status === 'completed');
+  // Include all possible statuses that indicate a completed payment
+  const isShowingConfirmation = showConfirmation && (
+    registration.status === 'confirmed' || 
+    registration.status === 'completed' || 
+    registration.status === 'paid'
+  );
 
   return (
     <RegistrationWizard 

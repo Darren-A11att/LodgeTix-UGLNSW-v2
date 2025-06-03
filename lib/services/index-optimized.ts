@@ -33,13 +33,8 @@ export { batchOperations, serverBatchOperations, BatchOperations } from '../batc
 export { queryOptimizer, queryBuilder } from '../query-optimizer';
 
 // Optimized API functions
-export { getAllGrandLodges } from '../api/grandLodges-optimized';
-export { 
-  getLodgesByGrandLodgeId, 
-  searchAllLodges, 
-  getLodgesByStateRegionCode,
-  createLodge 
-} from '../api/lodges-optimized';
+// Note: grandLodges-optimized and lodges-optimized have been removed
+// Use the standard grandLodges and lodges modules instead
 
 // Re-export types
 export type { GrandLodge, Lodge, Country } from './static-data-service';

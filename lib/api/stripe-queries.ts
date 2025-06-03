@@ -167,31 +167,21 @@ export async function getRegistrationWithFullContext(
   const supabase = await createClient();
   
   try {
-    // Main registration query with event and organization
+    // Main registration query with function and organization
     const { data: registration, error: regError } = await supabase
       .from('registrations')
       .select(`
         *,
-        events!inner (
-          event_id,
-          title,
-          subtitle,
+        functions!inner (
+          function_id,
+          name,
+          description,
           slug,
-          type,
-          parent_event_id,
-          event_start,
-          event_end,
-          location_id,
-          max_attendees,
-          is_multi_day,
-          is_published,
-          featured,
-          degree_type,
-          dress_code,
-          regalia,
-          regalia_description,
-          important_information,
-          organisations!inner (
+          start_date,
+          end_date,
+          image_url,
+          organiser_id,
+          organisations!organiser_id (
             organisation_id,
             name,
             type,
@@ -531,8 +521,9 @@ export async function getPaymentProcessingData(registrationId: string) {
     console.log('RPC function not available, falling back to regular queries');
   }
   
-  // Fallback to regular queries
-  return await getRegistrationWithFullContext(registrationId);
+  // Import and use the fixed version that works with function_id
+  const { getRegistrationWithFullContext: getFixedRegistration } = await import('./stripe-queries-fixed');
+  return await getFixedRegistration(registrationId);
 }
 
 /**
