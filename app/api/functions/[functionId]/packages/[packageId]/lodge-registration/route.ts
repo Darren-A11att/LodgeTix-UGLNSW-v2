@@ -136,8 +136,16 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
             );
           }
           
-          paymentIntentOptions.on_behalf_of = connectedAccountId;
-          paymentIntentOptions.application_fee_amount = applicationFeeAmount;
+          // For application fees, we need to create the payment on the platform account
+          // and use transfer_data to send funds to the connected account
+          paymentIntentOptions.transfer_data = {
+            destination: connectedAccountId,
+            amount: amount - applicationFeeAmount, // Amount to transfer after fee
+          };
+          
+          // Don't use on_behalf_of with application_fee_amount
+          // paymentIntentOptions.on_behalf_of = connectedAccountId;
+          // paymentIntentOptions.application_fee_amount = applicationFeeAmount;
           
           // Add statement descriptor
           const statementDescriptor = functionData.name
@@ -149,6 +157,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           }
         } catch (accountError: any) {
           console.error('Connected account validation failed:', accountError);
+          // Continue without connected account features
+          console.log('Processing payment without connected account features');
         }
       }
       
@@ -208,7 +218,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
               status: paymentStatus === 'paid' ? 'confirmed' : 'pending',
               payment_status: paymentStatus,
               stripe_payment_intent_id: paymentIntent?.id || null,
-              total_amount_paid: totalAmount || 0,
+              total_amount_paid: amount || 0,
               subtotal: subtotal || 0,
               stripe_fee: stripeFee || 0,
               includes_processing_fee: stripeFee > 0,
