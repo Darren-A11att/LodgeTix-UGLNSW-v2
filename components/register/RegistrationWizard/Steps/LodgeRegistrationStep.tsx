@@ -11,7 +11,7 @@ import { CheckoutForm, CheckoutFormHandle } from '../payment/CheckoutForm';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Loader2, CreditCard, ShieldCheck, AlertCircle } from 'lucide-react';
+import { Loader2, CreditCard, ShieldCheck, AlertCircle, ArrowLeft } from 'lucide-react';
 import { useLodgeRegistrationStore } from '@/lib/lodgeRegistrationStore';
 import { useRegistrationStore } from '@/lib/registrationStore';
 import { StripeBillingDetailsForClient } from '../payment/types';
@@ -45,7 +45,10 @@ export const LodgeRegistrationStep: React.FC<LodgeRegistrationStepProps> = ({
     getValidationErrors 
   } = useLodgeRegistrationStore();
   
-  const { lodgeTicketOrder } = useRegistrationStore();
+  const { lodgeTicketOrder, goToPrevStep: storeGoToPrevStep } = useRegistrationStore();
+  
+  // Use prop if provided, otherwise use store function
+  const goToPrevStep = onPrevStep || storeGoToPrevStep;
   
   // Local state
   const [termsAccepted, setTermsAccepted] = useState(false);
@@ -260,25 +263,17 @@ export const LodgeRegistrationStep: React.FC<LodgeRegistrationStepProps> = ({
             </Alert>
           )}
 
-          {/* Submit Button */}
-          <div className="flex justify-end pt-4">
-            <Button
-              size="lg"
-              onClick={handleSubmit}
-              disabled={!termsAccepted || isProcessing || !isFormComplete}
-              className="min-w-[200px]"
+          {/* Navigation - Only Back Button */}
+          <div className="flex justify-between pt-4">
+            <Button 
+              type="button"
+              variant="outline" 
+              onClick={goToPrevStep} 
+              disabled={isProcessing}
             >
-              {isProcessing ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Processing...
-                </>
-              ) : (
-                <>
-                  Pay ${totalAmount.toLocaleString()}
-                </>
-              )}
+              <ArrowLeft className="mr-2 h-4 w-4" /> Previous Step
             </Button>
+            <div></div> {/* Empty div to maintain flex spacing */}
           </div>
         </CardContent>
       </Card>

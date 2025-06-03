@@ -782,6 +782,7 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ function
             functionId={functionData?.id || resolvedFunctionId || providedFunctionId}
             functionSlug={functionSlug}
             selectedEvents={selectedEvents}
+            onPrevStep={goToPrevStep}
           />
         </Suspense>
       );
