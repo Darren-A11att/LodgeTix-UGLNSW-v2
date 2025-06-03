@@ -138,6 +138,16 @@ const TicketSelectionStep: React.FC = () => {
         setTicketTypes(tickets)
         setTicketPackages(packages)
         
+        // Debug ticket status values
+        console.log('Ticket status values:', tickets.map(t => ({ 
+          id: t.id, 
+          name: t.name, 
+          status: t.status,
+          statusType: typeof t.status,
+          isActive: t.is_active,
+          available: t.available_count
+        })))
+        
         api.debug(`Loaded ${tickets.length} tickets and ${packages.length} packages`)
       } catch (error) {
         console.error('Full error details:', error)
@@ -732,7 +742,12 @@ const TicketSelectionStep: React.FC = () => {
                           <TableCell>
                             <Checkbox
                               id={`all-${ticket.id}`}
-                              disabled={ticket.status !== 'Active' || !isTicketAvailable(ticket.id)}
+                              disabled={
+                                // Only disable if we have real-time data showing it's sold out
+                                (isConnected && !isTicketAvailable(ticket.id)) ||
+                                // Or if the ticket is explicitly marked as inactive
+                                ticket.is_active === false
+                              }
                               checked={
                                 isBulkMode 
                                   ? (packages['lodge-bulk']?.selectedEvents || []).includes(ticket.id)
@@ -910,15 +925,26 @@ const TicketSelectionStep: React.FC = () => {
                                       <Checkbox
                                         checked={isIndividualTicketDirectlySelected(attendee.attendeeId, ticket.id)}
                                         onCheckedChange={() => handleToggleIndividualTicket(attendee.attendeeId, ticket.id)}
-                                        disabled={!!packages[attendee.attendeeId]?.ticketDefinitionId || ticket.status !== 'Active' || !isTicketAvailable(ticket.id)}
+                                        disabled={
+                                          // Disable if a package is selected
+                                          !!packages[attendee.attendeeId]?.ticketDefinitionId ||
+                                          // Or if we have real-time data showing it's sold out
+                                          (isConnected && !isTicketAvailable(ticket.id)) ||
+                                          // Or if the ticket is explicitly marked as inactive
+                                          ticket.is_active === false
+                                        }
                                       />
                                       <span className={cn(
-                                        packages[attendee.attendeeId]?.ticketDefinitionId || ticket.status !== 'Active' || !isTicketAvailable(ticket.id) ? "text-gray-400" : ""
+                                        packages[attendee.attendeeId]?.ticketDefinitionId || 
+                                        ticket.is_active === false || 
+                                        (isConnected && !isTicketAvailable(ticket.id)) 
+                                          ? "text-gray-400" 
+                                          : ""
                                       )}>
                                         {ticket.name} - ${ticket.price}
-                                        {ticket.status !== 'Active' ? (
+                                        {ticket.is_active === false ? (
                                           <span className="text-gray-500 text-xs ml-1">(Inactive)</span>
-                                        ) : !isTicketAvailable(ticket.id) ? (
+                                        ) : (isConnected && !isTicketAvailable(ticket.id)) ? (
                                           <span className="text-red-500 text-xs ml-1">(Sold Out)</span>
                                         ) : null}
                                       </span>
@@ -1196,7 +1222,12 @@ const TicketSelectionStep: React.FC = () => {
                                   <TableCell>
                                     <Checkbox
                                       id={`${attendee.attendeeId}-${ticket.id}`}
-                                      disabled={ticket.status !== 'Active' || !isTicketAvailable(ticket.id)}
+                                      disabled={
+                                        // Only disable if we have real-time data showing it's sold out
+                                        (isConnected && !isTicketAvailable(ticket.id)) ||
+                                        // Or if the ticket is explicitly marked as inactive
+                                        ticket.is_active === false
+                                      }
                                       checked={isIndividualTicketDirectlySelected(attendee.attendeeId, ticket.id)}
                                       onCheckedChange={() => handleToggleIndividualTicket(attendee.attendeeId, ticket.id)}
                                     />
