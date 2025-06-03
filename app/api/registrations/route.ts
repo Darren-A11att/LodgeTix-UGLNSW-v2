@@ -144,7 +144,8 @@ export async function POST(request: Request) {
     const registrationRecord: TablesInsert<'registrations'> = {
       registration_id: newRegistrationId,
       function_id: functionId, // Use function_id from request
-      contact_id: customerId, // This is contact_id in the database, not customer_id
+      contact_id: null, // Set to null - contacts table is separate from auth users
+      auth_user_id: user.id, // Link to authenticated user for RLS policies
       registration_date: new Date().toISOString(),
       status: "unpaid",
       total_amount_paid: 0,

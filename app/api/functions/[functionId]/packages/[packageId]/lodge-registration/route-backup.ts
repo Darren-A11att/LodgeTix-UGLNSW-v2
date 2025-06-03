@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
+import { createClient as createServiceClient } from '@supabase/supabase-js';
 import Stripe from 'stripe';
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
@@ -47,6 +48,18 @@ export async function POST(
 
     // Create Supabase client
     const supabase = await createClient();
+    
+    // Create service role client for RPC calls (bypasses RLS)
+    const supabaseServiceRole = createServiceClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
+        }
+      }
+    );
 
     // Get or create anonymous session
     const { data: { session }, error: sessionError } = await supabase.auth.getSession();
@@ -68,7 +81,7 @@ export async function POST(
     
     if (paymentMethodId) {
       // Fetch function for Stripe Connect details
-      const { data: functionData } = await supabase
+      const { data: functionData } = await supabaseServiceRole
         .from('functions')
         .select(`
           function_id,
@@ -148,6 +161,10 @@ export async function POST(
             amount: amount - applicationFeeAmount, // Amount to transfer after fee
           };
           
+          // Don't use on_behalf_of with application_fee_amount
+          // paymentIntentOptions.on_behalf_of = connectedAccountId;
+          // paymentIntentOptions.application_fee_amount = applicationFeeAmount;
+          
           // Add statement descriptor
           const statementDescriptor = functionData.name
             ?.substring(0, 22)
@@ -176,9 +193,9 @@ export async function POST(
       paymentStatus = 'completed';
     }
 
-    // Call the upsert RPC - it has SECURITY DEFINER so it bypasses RLS
-    console.log('[Lodge Registration API] Calling upsert_lodge_registration RPC');
-    const { data: registrationResult, error: registrationError } = await supabase
+    // Call the upsert RPC using service role client to bypass RLS
+    console.log('[Lodge Registration API] Calling upsert_lodge_registration RPC with service role');
+    const { data: registrationResult, error: registrationError } = await supabaseServiceRole
       .rpc('upsert_lodge_registration', {
         p_function_id: functionId,
         p_package_id: packageId,
@@ -198,6 +215,189 @@ export async function POST(
 
     if (registrationError) {
       console.error('[Lodge Registration API] Registration error:', registrationError);
+      
+      // Check if RPC doesn't exist
+      if (registrationError.code === '42883' || registrationError.message?.includes('function') || registrationError.message?.includes('does not exist')) {
+        console.warn('[Lodge Registration API] RPC function not available, using fallback method');
+        
+        // FALLBACK: Use direct database operations
+        try {
+          // Get user from auth
+          const { data: { user } } = await supabase.auth.getUser();
+          const authUserId = user?.id;
+          
+          // Create new contact (no upsert) with correct field mappings - use service role to bypass RLS
+          const { data: contact, error: contactError } = await supabaseServiceRole
+            .from('contacts')
+            .insert({
+              email: bookingContact.email,
+              first_name: bookingContact.firstName,
+              last_name: bookingContact.lastName,
+              title: bookingContact.title,
+              suffix_1: bookingContact.suffix,  // Map suffix to suffix_1
+              mobile_number: bookingContact.mobile,  // Correct column name
+              billing_phone: bookingContact.phone,  // Use billing_phone not phone
+              dietary_requirements: bookingContact.dietaryRequirements,
+              special_needs: bookingContact.additionalInfo,  // Map additionalInfo to special_needs
+              auth_user_id: authUserId,
+              type: 'organisation',  // Lodge registrations are organisations
+              business_name: lodgeDetails.lodgeName,
+              // Add address fields if provided
+              address_line_1: bookingContact.addressLine1,
+              address_line_2: bookingContact.addressLine2,
+              suburb_city: bookingContact.suburb,
+              state: bookingContact.stateTerritory?.name || bookingContact.state,
+              postcode: bookingContact.postcode,
+              country: bookingContact.country?.name || 'Australia',
+            })
+            .select()
+            .single();
+            
+          if (contactError) {
+            throw new Error(`Failed to create contact: ${contactError.message}`);
+          }
+          
+          // Generate registration ID and confirmation number
+          const registrationId = crypto.randomUUID();
+          const confirmationNumber = `LDG-${new Date().toISOString().slice(2,10).replace(/-/g,'')}-${Math.random().toString(36).substring(2, 10).toUpperCase()}`;
+          
+          // Create registration record directly - use service role to bypass RLS
+          const { data: registration, error: regError } = await supabaseServiceRole
+            .from('registrations')
+            .insert({
+              registration_id: registrationId,  // Explicitly set the registration_id
+              function_id: functionId,
+              contact_id: contact.contact_id,  // Use contact_id not customer_id
+              registration_type: 'lodge',  // Changed from 'lodges' to 'lodge'
+              status: paymentStatus === 'completed' ? 'confirmed' : 'pending',
+              payment_status: paymentStatus,
+              stripe_payment_intent_id: paymentIntent?.id || null,
+              total_amount_paid: amount || 0,
+              subtotal: subtotal || 0,
+              stripe_fee: stripeFee || 0,
+              includes_processing_fee: stripeFee > 0,
+              registration_date: new Date().toISOString(),
+              agree_to_terms: true,
+              registration_data: {
+                lodge_details: lodgeDetails,
+                table_count: tableCount,
+                booking_contact: bookingContact,
+                package_id: packageId
+              },
+              confirmation_number: confirmationNumber
+            })
+            .select()
+            .single();
+            
+          if (regError) {
+            throw new Error(`Failed to create registration: ${regError.message}`);
+          }
+          
+          // Get package details - use service role
+          const { data: packageData, error: packageError } = await supabaseServiceRole
+            .from('packages')
+            .select('*')
+            .eq('package_id', packageId)
+            .single();
+            
+          if (packageError || !packageData) {
+            throw new Error(`Failed to fetch package details: ${packageError?.message}`);
+          }
+          
+          // Create tickets based on included_items array
+          const tickets = [];
+          const ticketsPerTable = packageData.qty || 10;
+          const totalTickets = tableCount * ticketsPerTable;
+          
+          // Process included_items array if it exists
+          if (packageData.included_items && Array.isArray(packageData.included_items)) {
+            for (const item of packageData.included_items) {
+              if (item.item_type === 'event_ticket' && item.item_id) {
+                // Fetch event ticket details
+                const { data: eventTicket } = await supabaseServiceRole
+                  .from('event_tickets')
+                  .select('*, events!event_tickets_event_id_fkey(event_id)')
+                  .eq('id', item.item_id)
+                  .single();
+                  
+                if (eventTicket) {
+                  const ticketsForThisItem = totalTickets * (item.quantity || 1);
+                  for (let i = 0; i < ticketsForThisItem; i++) {
+                    tickets.push({
+                      registration_id: registrationId,
+                      event_id: eventTicket.event_id,
+                      ticket_type_id: item.item_id,
+                      price_paid: eventTicket.price,
+                      original_price: eventTicket.price,
+                      status: paymentStatus === 'completed' ? 'sold' : 'reserved',
+                      currency: 'AUD',
+                      package_id: packageId,
+                    });
+                  }
+                }
+              }
+            }
+          } else if (packageData.event_id) {
+            // Fallback: If no included_items, use direct event_id link
+            const { data: eventTickets } = await supabaseServiceRole
+              .from('event_tickets')
+              .select('*')
+              .eq('event_id', packageData.event_id);
+              
+            if (eventTickets && eventTickets.length > 0) {
+              const eventTicket = eventTickets[0]; // Use first ticket type
+              for (let i = 0; i < totalTickets; i++) {
+                tickets.push({
+                  registration_id: registrationId,
+                  event_id: packageData.event_id,
+                  ticket_type_id: eventTicket.id,
+                  price_paid: packageData.package_price / ticketsPerTable,
+                  original_price: eventTicket.price,
+                  status: paymentStatus === 'completed' ? 'sold' : 'reserved',
+                  currency: 'AUD',
+                  package_id: packageId,
+                });
+              }
+            }
+          }
+          
+          if (tickets.length > 0) {
+            const { error: ticketError } = await supabaseServiceRole
+              .from('tickets')
+              .insert(tickets);
+              
+            if (ticketError) {
+              console.error('[Lodge Registration API] Failed to create tickets:', ticketError);
+            }
+          }
+          
+          // Return success with registration details
+          return NextResponse.json({
+            success: true,
+            registrationId: registrationId,  // Use the generated registration ID
+            confirmationNumber: confirmationNumber,  // Use the generated confirmation number
+            customerId: authUserId,  // Return auth user ID as customer ID for compatibility
+            totalTickets: tickets.length,
+            createdTickets: tickets.length,
+          });
+          
+        } catch (fallbackError: any) {
+          console.error('[Lodge Registration API] Fallback method failed:', fallbackError);
+          
+          // Refund payment if fallback fails
+          if (paymentIntent && paymentIntent.status === 'succeeded') {
+            await stripe.refunds.create({
+              payment_intent: paymentIntent.id,
+              reason: 'requested_by_customer',
+            });
+          }
+          
+          return NextResponse.json(
+            { success: false, error: fallbackError.message },
+            { status: 500 }
+          );
+        }
+      }
       
       // Refund the payment if registration fails and payment was made
       if (paymentIntent && paymentIntent.status === 'succeeded') {
@@ -269,9 +469,21 @@ export async function PUT(
     }
 
     const supabase = await createClient();
+    
+    // Create service role client for RPC calls (bypasses RLS)
+    const supabaseServiceRole = createServiceClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
+        }
+      }
+    );
 
-    // Call the upsert RPC to update status - it has SECURITY DEFINER
-    const { data: registrationResult, error: registrationError } = await supabase
+    // Call the upsert RPC to update status using service role
+    const { data: registrationResult, error: registrationError } = await supabaseServiceRole
       .rpc('upsert_lodge_registration', {
         p_function_id: functionId,
         p_package_id: packageId,
