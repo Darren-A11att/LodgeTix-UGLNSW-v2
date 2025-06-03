@@ -275,6 +275,7 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ function
   const goToPrevStep = useRegistrationStore(state => state.goToPrevStep)
   const setCurrentStep = useRegistrationStore(state => state.setCurrentStep) // Direct step setting
   const setFunctionSlug = useRegistrationStore(state => state.setFunctionSlug) // For setting the function
+  const setFunctionId = useRegistrationStore(state => state.setFunctionId) // For setting the function ID
   const setSelectedEvents = useRegistrationStore(state => state.setSelectedEvents) // For setting selected events
   const startNewRegistration = useRegistrationStore(state => state.startNewRegistration)
   const clearRegistration = useRegistrationStore(state => state.clearRegistration)
@@ -354,7 +355,7 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ function
           
           setFunctionSlug(functionSlug);
           // Store the function ID in the registration store as well
-          useRegistrationStore.getState().setFunctionId?.(functionId);
+          setFunctionId(functionId);
           
           // Set initializing to false to proceed to the registration type step
           setIsInitializing(false);
@@ -368,7 +369,7 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ function
       
       loadFunction();
     }
-  }, [functionSlug, providedFunctionId, setFunctionSlug, setCurrentStep, clearRegistration]);
+  }, [functionSlug, providedFunctionId, setFunctionSlug, setFunctionId, setCurrentStep, clearRegistration]);
   
   // Handler for continuing existing draft
   const handleContinueDraft = () => {
@@ -376,9 +377,12 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ function
     setShowDraftRecoveryModal(false);
     setDraftRecoveryHandled(true);
     
-    // Set the function slug for the existing registration if needed
+    // Set the function slug and ID for the existing registration if needed
     if (functionSlug) {
       setFunctionSlug(functionSlug);
+    }
+    if (resolvedFunctionId) {
+      setFunctionId(resolvedFunctionId);
     }
     
     // Always reset to step 1 (Registration Type) as per requirement
@@ -401,6 +405,9 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ function
     startNewRegistration('individual');
     if (functionSlug) {
       setFunctionSlug(functionSlug);
+    }
+    if (resolvedFunctionId) {
+      setFunctionId(resolvedFunctionId);
     }
     
     // Reset to step 1 (Registration Type)
