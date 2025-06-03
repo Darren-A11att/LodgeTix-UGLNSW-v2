@@ -71,10 +71,10 @@ export function EventsPageHeader({ functionData }: EventsPageHeaderProps) {
       </div>
       
       <div className="mx-auto max-w-7xl px-6 lg:px-8">
-        <div className="mx-auto max-w-2xl lg:mx-0">
-          <h1 className="text-5xl font-semibold tracking-tight text-white sm:text-7xl">{functionData.name}</h1>
-          <div className="masonic-divider mt-6 mb-8 border-white/20"></div>
-          <p className="mt-8 text-lg font-medium text-pretty text-gray-300 sm:text-xl/8">
+        <div className="mx-auto max-w-none">
+          <h1 className="text-4xl font-bold text-white">{functionData.name}</h1>
+          <div className="masonic-divider mt-4 mb-6 border-white/20"></div>
+          <p className="text-lg text-gray-300 max-w-4xl">
             {functionData.description || 'Explore our upcoming events and register for those that interest you'}
           </p>
         </div>
