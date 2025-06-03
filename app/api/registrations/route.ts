@@ -212,6 +212,15 @@ export async function POST(request: Request) {
     console.log("Using authenticated client with RLS policies");
     const userClient = supabase;
     
+    if (!userClient) {
+      console.error("Failed to create Supabase client");
+      console.groupEnd();
+      return NextResponse.json(
+        { error: "Database connection error. Please try again." },
+        { status: 500 }
+      );
+    }
+    
     // First, ensure customer exists or create/update one
     console.log("Checking if customer exists for user:", customerId);
     const { error: customerCheckError } = await userClient
@@ -224,8 +233,7 @@ export async function POST(request: Request) {
       // Customer doesn't exist, create one
       console.log("Customer doesn't exist, creating new customer record");
       const customerRecord = {
-        id: customerId,
-        user_id: customerId, // Link to auth user
+        customer_id: customerId, // This is the primary key
         
         // Basic contact info from booking contact
         email: billingDetails?.emailAddress || primaryAttendee?.primaryEmail || null,
@@ -252,10 +260,8 @@ export async function POST(request: Request) {
         billing_postal_code: billingDetails?.postcode || null,
         billing_country: billingDetails?.country?.name || null,
         
-        // Customer type based on registration type
-        customer_type: finalRegistrationType === 'lodge' ? 'lodge' : 
-                      finalRegistrationType === 'officials' ? 'grandlodge' : 
-                      'individual',
+        // Customer type - all registrations are booking contacts
+        customer_type: 'booking_contact' as Database["public"]["Enums"]["customer_type"],
         
         created_at: new Date().toISOString()
       };
