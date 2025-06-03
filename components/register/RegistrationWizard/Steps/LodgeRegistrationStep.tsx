@@ -200,6 +200,12 @@ export const LodgeRegistrationStep: React.FC<LodgeRegistrationStepProps> = ({
       }
 
       if (result.success && result.registrationId) {
+        console.log('[LodgeRegistrationStep] Registration successful:', {
+          registrationId: result.registrationId,
+          confirmationNumber: result.confirmationNumber,
+          redirectUrl: `/functions/${functionSlug}/register/${result.registrationId}?showConfirmation=true`
+        });
+        
         // Store registration data in the registration store
         const store = useRegistrationStore.getState();
         store.setConfirmationNumber(result.confirmationNumber);
@@ -208,7 +214,9 @@ export const LodgeRegistrationStep: React.FC<LodgeRegistrationStepProps> = ({
         
         // Navigate after the current render cycle to avoid React hooks error
         setTimeout(() => {
-          router.push(`/functions/${functionSlug}/register/${result.registrationId}?showConfirmation=true`);
+          const redirectUrl = `/functions/${functionSlug}/register/${result.registrationId}?showConfirmation=true`;
+          console.log('[LodgeRegistrationStep] Redirecting to:', redirectUrl);
+          router.push(redirectUrl);
         }, 0);
       } else {
         throw new Error('Registration failed');

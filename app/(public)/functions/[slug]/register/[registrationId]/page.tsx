@@ -14,6 +14,14 @@ export default async function RegistrationWizardPage({ params, searchParams }: R
   const { slug, registrationId } = await params;
   const resolvedSearchParams = searchParams ? await searchParams : {};
   const showConfirmation = resolvedSearchParams.showConfirmation === 'true';
+  
+  console.log('[RegistrationPage] Page loaded:', {
+    slug,
+    registrationId,
+    showConfirmation,
+    searchParams: resolvedSearchParams
+  });
+  
   const supabase = await createClient();
   
   // First check if this is an existing registration
@@ -39,6 +47,12 @@ export default async function RegistrationWizardPage({ params, searchParams }: R
   // If registration doesn't exist, this might be a new registration
   // Verify the function exists for new registrations
   if (regError || !registration) {
+    console.log('[RegistrationPage] Registration not found:', {
+      registrationId,
+      slug,
+      error: regError,
+      showConfirmation
+    });
     const { data: functionData, error: functionError } = await supabase
       .from('functions')
       .select('function_id, slug, name, is_published')
@@ -64,6 +78,18 @@ export default async function RegistrationWizardPage({ params, searchParams }: R
         is_published: functionData.is_published
       }
     };
+
+    // If showConfirmation is true but registration doesn't exist, this is an error
+    if (showConfirmation) {
+      console.error('[RegistrationPage] Registration not found for confirmation:', {
+        registrationId,
+        slug,
+        error: regError?.message || 'Registration not found',
+        hint: 'This might be a draftId instead of actual registrationId'
+      });
+      // Show error page or redirect
+      redirect(`/functions/${slug}?error=registration_not_found`);
+    }
 
     return (
       <RegistrationWizard 

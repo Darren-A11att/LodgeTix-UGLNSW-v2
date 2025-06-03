@@ -343,9 +343,12 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ function
           
           // Check if there's a completed registration (confirmationNumber exists or status is completed)
           // According to requirements: if status is paid/completed then always start a new registration
-          if (hasCompletedRegistration) {
+          // UNLESS we're explicitly showing the confirmation step
+          if (hasCompletedRegistration && initialStep !== 6) {
             console.log('Detected completed registration - clearing to start fresh');
             clearRegistration();
+          } else if (initialStep === 6) {
+            console.log('Showing confirmation step for completed registration');
           }
           
           // Always go to registration type selection first

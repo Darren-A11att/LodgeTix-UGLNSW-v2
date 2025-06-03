@@ -196,6 +196,11 @@ export async function POST(
         }
       });
 
+    console.log('[Lodge Registration API] RPC Result:', {
+      data: registrationResult,
+      error: registrationError
+    });
+
     if (registrationError) {
       console.error('[Lodge Registration API] Registration error:', registrationError);
       

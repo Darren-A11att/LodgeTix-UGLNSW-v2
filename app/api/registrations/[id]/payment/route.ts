@@ -232,9 +232,12 @@ export async function PUT(
             throw new Error('The organization\'s payment account is not properly configured');
           }
           
-          // Add Connect parameters
-          paymentIntentOptions.on_behalf_of = connectedAccountId;
-          paymentIntentOptions.application_fee_amount = applicationFeeAmount;
+          // For application fees, we need to create the payment on the platform account
+          // and use transfer_data to send funds to the connected account
+          paymentIntentOptions.transfer_data = {
+            destination: connectedAccountId,
+            amount: Math.round(totalAmount * 100) - applicationFeeAmount, // Amount to transfer after fee
+          };
           
           // Add statement descriptor
           const statementDescriptor = paymentData.event.title
@@ -261,13 +264,11 @@ export async function PUT(
         return_url: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/events/${paymentData.event.slug || existingRegistration.event_id}/register/${registrationId}/confirmation`,
       };
       
-      // If using connected account, must specify stripeAccount
-      const stripeAccountOptions = connectedAccountId ? { stripeAccount: connectedAccountId } : {};
-      
+      // When using transfer_data, the payment intent is on the platform account
+      // so we don't need to specify stripeAccount
       const confirmedIntent = await stripe.paymentIntents.confirm(
         paymentIntent.id, 
-        confirmOptions,
-        stripeAccountOptions
+        confirmOptions
       );
       
       finalPaymentIntentId = confirmedIntent.id;
