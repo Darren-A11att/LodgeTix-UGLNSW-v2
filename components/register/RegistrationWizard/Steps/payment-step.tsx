@@ -501,20 +501,68 @@ function PaymentStep(props: PaymentStepProps) {
             ticketPackages
           );
           
-          const registrationData = {
-            registrationType,
-            primaryAttendee,
-            additionalAttendees: otherAttendees,
-            tickets: expandedTickets,  // Use expanded tickets
-            subtotal,
-            totalAmount,
-            stripeFee: feeCalculation.stripeFee,
-            billingDetails: billingData,
-            functionId: functionId || storeFunctionId,
-            contactId: user.id
+          // Transform attendees data for the new API
+          const transformedAttendees = [primaryAttendee, ...otherAttendees].map(attendee => ({
+            attendeeId: attendee.attendeeId,
+            attendeeType: attendee.attendeeType,
+            title: attendee.title,
+            firstName: attendee.firstName,
+            lastName: attendee.lastName,
+            suffix: attendee.suffix,
+            email: attendee.primaryEmail,
+            phone: attendee.primaryPhone,
+            dietaryRequirements: attendee.dietaryRequirements,
+            specialNeeds: attendee.specialNeeds,
+            contactPreference: attendee.contactPreference,
+            isPrimary: attendee.isPrimary,
+            hasPartner: attendee.hasPartner,
+            relationship: attendee.relationship,
+            grand_lodge_id: attendee.grand_lodge_id,
+            lodge_id: attendee.lodge_id,
+            rank: attendee.rank,
+            isGrandOfficer: attendee.grandOfficerStatus === 'Present' || attendee.grandOfficerStatus === 'Past',
+            grandOfficerRole: attendee.presentGrandOfficerRole || attendee.otherGrandOfficerRole
+          }));
+
+          // Transform ticket selections for the new API
+          const selectedTickets = expandedTickets.map(ticket => ({
+            attendeeId: ticket.attendeeId,
+            packageId: ticket.isFromPackage ? ticket.packageId : null,
+            eventTicketId: ticket.isFromPackage ? null : ticket.eventTicketId,
+            quantity: 1
+          }));
+
+          // Transform booking contact for the new API
+          const bookingContact = {
+            title: billingData.title,
+            firstName: billingData.firstName,
+            lastName: billingData.lastName,
+            suffix: billingData.suffix,
+            email: billingData.emailAddress,
+            mobile: billingData.mobileNumber,
+            phone: billingData.phoneNumber,
+            addressLine1: billingData.addressLine1,
+            addressLine2: billingData.addressLine2,
+            suburb: billingData.suburb,
+            stateTerritory: billingData.stateTerritory,
+            postcode: billingData.postcode,
+            country: billingData.country,
+            businessName: billingData.businessName,
+            dietaryRequirements: primaryAttendee?.dietaryRequirements,
+            additionalInfo: primaryAttendee?.specialNeeds
           };
 
-          const response = await fetch('/api/registrations', {
+          const registrationData = {
+            attendees: transformedAttendees,
+            selectedTickets,
+            bookingContact,
+            paymentMethodId: null, // Will be set in the payment step
+            totalAmount,
+            subtotal,
+            stripeFee: feeCalculation.stripeFee
+          };
+
+          const response = await fetch(`/api/functions/${functionId || storeFunctionId}/individual-registration`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(registrationData)

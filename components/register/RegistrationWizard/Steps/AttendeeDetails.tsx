@@ -4,7 +4,7 @@ import { useRegistrationStore } from '@/lib/registrationStore';
 import { useLodgeRegistrationStore } from '@/lib/lodgeRegistrationStore';
 import { IndividualsForm } from '../../Forms/attendee/IndividualsForm';
 import { LodgesForm } from '../../Forms/attendee/LodgesForm';
-import { LodgesForm as GrandLodgesForm } from '../../Forms/attendee/GrandLodgesForm';
+import { DelegationsForm } from '../../Forms/attendee/DelegationsForm';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import TermsAndConditions from '../../Functions/TermsAndConditions';
@@ -30,7 +30,7 @@ const AttendeeDetails: React.FC<AttendeeDetailsProps> = ({
   prevStep,
   validationErrors,
 }) => {
-  const { registrationType, goToNextStep, goToPrevStep, attendees, delegationType } = useRegistrationStore();
+  const { registrationType, goToNextStep, goToPrevStep, attendees, delegationType, functionId } = useRegistrationStore();
   const { isValid: isLodgeFormValid, getValidationErrors: getLodgeValidationErrors } = useLodgeRegistrationStore();
   const [showErrors, setShowErrors] = useState(false);
   const [showValidationModal, setShowValidationModal] = useState(false);
@@ -134,6 +134,7 @@ const AttendeeDetails: React.FC<AttendeeDetailsProps> = ({
       case 'lodge':
         return (
           <LodgesForm
+            functionId={functionId || ''}
             minTables={1}
             maxTables={10}
             onComplete={handleContinue}
@@ -142,9 +143,10 @@ const AttendeeDetails: React.FC<AttendeeDetailsProps> = ({
         );
       
       case 'delegation':
-        // Official Delegation goes directly to GrandLodgesForm
+        // Official Delegation uses DelegationsForm
         return (
-          <GrandLodgesForm
+          <DelegationsForm
+            functionId={functionId || ''}
             onComplete={handleContinue}
             fieldErrors={showErrors ? fieldErrorsByAttendee : {}}
           />

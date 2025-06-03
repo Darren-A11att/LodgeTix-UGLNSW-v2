@@ -75,7 +75,7 @@ export function formatEventForDisplay(dbEvent: DbEvent): EventTypes.EventType {
     // LINTER FIX: Use type assertion to bypass conflicting errors for now
     imageUrl: (dbEvent.imageUrl ?? undefined) as any, 
     isMultiDay: dbEvent.isMultiDay, // Keep for now, might be derivable
-    parentEventId: dbEvent.parentEventId,
+    // Removed parentEventId - using function-based architecture now
     eventIncludes: dbEvent.eventIncludes,
     importantInformation: dbEvent.importantInformation,
     latitude: dbEvent.latitude,
@@ -93,9 +93,7 @@ export function formatEventForDisplay(dbEvent: DbEvent): EventTypes.EventType {
     // LINTER FIX: Use type assertion to bypass conflicting errors for now
     imageSrc: (dbEvent.imageUrl ?? undefined) as any,
     
-    // Deprecated/Removed - check component usage before fully removing these from EventType
-    // startTimeFormatted: undefined, 
-    // endTimeFormatted: undefined,
+    // Removed deprecated fields: startTimeFormatted, endTimeFormatted
   };
 
   return formattedEvent;
@@ -143,26 +141,7 @@ export function formatTicketDefinitionForDisplay(dbTicketDef: DbTicketDefinition
   };
 }
 
-// LINTER FIX: Comment out function using potentially incorrect DbEventDay type
-/*
-export function formatEventDayForDisplay(dbEventDay: DbEventDay): DayTypes.EventDayType {
-  // Basic passthrough for now, add formatting as needed
-  let formattedDate = '';
-  if (dbEventDay.date) {
-    try {
-      formattedDate = format(parseISO(dbEventDay.date), 'MMMM d'); // Example: Format as "September 12"
-    } catch (e) {
-      // Keep this error log
-      console.error(`Error parsing event day date: ${dbEventDay.date}`, e);
-    }
-  }
-
-  return {
-    ...dbEventDay, // Spread raw data
-    formattedDate: formattedDate || undefined, // Add formatted field
-  };
-} 
-*/
+// Removed unused formatEventDayForDisplay function
 
 /**
  * Formats an event date for display from event-utils Event type

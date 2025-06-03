@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { v4 as uuidv4 } from "uuid";
 import { createClient } from '@/utils/supabase/server';
 import { Tables, TablesInsert, Database } from "@/shared/types/database";
-import { createRegistrationViaRPC, USE_RPC_REGISTRATION } from '@/lib/api/registration-rpc';
+// Removed deprecated RPC registration imports
 
 export async function POST(request: Request) {
   // Use a single try/catch block to handle all errors
@@ -351,66 +351,8 @@ export async function POST(request: Request) {
       }
     }
 
-    // Check if we should use RPC registration
-    if (USE_RPC_REGISTRATION) {
-      console.log("🚀 Using RPC registration function");
-      
-      // Build registration state object to match what RPC expects
-      const registrationState = {
-        registrationType: clientRegistrationType || 'individual',
-        attendees: [primaryAttendee, ...additionalAttendees],
-        packages: tickets.reduce((acc: any, ticket: any) => {
-          // Group tickets by attendee
-          if (!acc[ticket.attendeeId]) {
-            acc[ticket.attendeeId] = {
-              ticketDefinitionId: ticket.isPackage ? ticket.ticket_id : null,
-              selectedEvents: ticket.isPackage ? [] : [ticket.ticket_id]
-            };
-          } else if (!ticket.isPackage) {
-            acc[ticket.attendeeId].selectedEvents.push(ticket.ticket_id);
-          }
-          return acc;
-        }, {}),
-        billingDetails,
-        agreeToTerms: data.agreeToTerms || true,
-        eventId: finalEventId,
-        draftId: data.draftId || null,
-        lodgeTicketOrder: data.lodgeTicketOrder || null
-      } as any;
-
-      // Call RPC function with raw payload and event title
-      const rpcResult = await createRegistrationViaRPC(
-        registrationState,
-        customerId,
-        finalEventId,
-        data.ticketTypes || [],
-        data.ticketPackages || [],
-        data, // Pass the complete raw request payload
-        eventTitle || undefined // Pass event title for attendees
-      );
-
-      if (!rpcResult.success) {
-        console.error("RPC registration failed:", rpcResult.error);
-        console.groupEnd();
-        return NextResponse.json(
-          { 
-            error: rpcResult.error || "Failed to create registration",
-            detail: rpcResult.detail 
-          },
-          { status: 500 }
-        );
-      }
-
-      console.log("✅ RPC registration successful:", rpcResult.registrationId);
-      console.groupEnd();
-      
-      return NextResponse.json({
-        success: true,
-        registrationId: rpcResult.registrationId,
-        confirmationNumber: rpcResult.confirmationNumber,
-        registrationData: rpcResult.registrationData
-      });
-    }
+    // Removed deprecated RPC registration code
+    // Always use direct database inserts
 
     // Original direct insert logic continues here...
     // Insert registration record

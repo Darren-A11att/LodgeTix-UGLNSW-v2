@@ -158,45 +158,26 @@ export function getBrowserClient() {
 }
 
 /**
- * @deprecated The getServerClient function has been removed for security reasons.
- * Use createServerClient() from '@/utils/supabase/server' instead.
+ * Get the browser-only Supabase client
+ * For server-side usage, use createClient() from '@/utils/supabase/server'
  */
-export function getServerClient() {
-  throw new Error(
-    'getServerClient() has been removed for security reasons. ' +
-    'Please use createServerClient() from @/utils/supabase/server instead, ' +
-    'which respects Row Level Security (RLS) policies.'
-  );
-}
-
-/**
- * Get the appropriate client based on environment
- */
-export function getSupabaseClient(isServer = false) {
-  if (isServer) {
-    throw new Error(
-      'Server-side Supabase client with service role has been removed for security. ' +
-      'Please use createServerClient() from @/utils/supabase/server instead.'
-    );
-  }
+export function getSupabaseClient() {
   return getBrowserClient();
 }
 
 /**
  * Helper function to get a Supabase query with the correct table name casing
+ * Note: This is for browser-only usage. For server-side, use createClient() from '@/utils/supabase/server'
  */
-export function table(tableName: string, isServer = false) {
-  const client = getSupabaseClient(isServer);
+export function table(tableName: string) {
+  const client = getSupabaseClient();
   if (!client) {
-    // This case should ideally not happen if clients are initialized correctly
-    // and called after initialization.
-    console.error("Supabase client is not initialized when calling table(). isServer:", isServer);
+    console.error("Supabase client is not initialized when calling table().");
     throw new Error("Supabase client not initialized.");
   }
   // Normalize the table name to its snake_case version regardless of input case
   const normalizedName = 
     supabaseTables[tableName as keyof typeof supabaseTables] || tableName.toLowerCase();
-  // console.log(`Accessing table via singleton: "${normalizedName}" (original input: "${tableName}")`); // Optional: for debugging
   return client.from(normalizedName as keyof Database['public']['Tables']);
 }
 
@@ -204,17 +185,7 @@ export function table(tableName: string, isServer = false) {
 // This ensures the client is only created when actually needed
 export const getSupabase = () => getBrowserClient();
 
-/**
- * @deprecated The getSupabaseAdmin function has been removed for security reasons.
- * Use createServerClient() from '@/utils/supabase/server' instead.
- */
-export const getSupabaseAdmin = () => {
-  throw new Error(
-    'getSupabaseAdmin() has been removed for security reasons. ' +
-    'Please use createServerClient() from @/utils/supabase/server instead, ' +
-    'which respects Row Level Security (RLS) policies.'
-  );
-};
+// Removed deprecated getSupabaseAdmin function - use createClient() from '@/utils/supabase/server' instead
 
 // For backward compatibility, export the getter as 'supabase'
 // Note: Consumers should ideally use getBrowserClient() directly

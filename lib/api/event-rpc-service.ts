@@ -1,7 +1,6 @@
 import { createClient } from '@/utils/supabase/server'
 import { Database } from '@/shared/types/database'
 import { supabase } from '@/lib/supabase-singleton'
-import { getEventDetailDataFallback } from './event-rpc-service-fallback'
 import { getFilterParams, isFilteringEnabled } from '@/lib/config/environment'
 
 // Types for RPC function returns

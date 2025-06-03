@@ -15,26 +15,31 @@ import { GrandLodgeSelection } from '../mason/lib/GrandLodgeSelection';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import formSaveManager from '@/lib/formSaveManager';
 import { useAttendeeDataWithDebounce } from './lib/useAttendeeData';
+import { getFunctionTicketsService, FunctionTicketDefinition, FunctionPackage } from '@/lib/services/function-tickets-service';
 
 interface DelegationsFormProps {
+  functionId: string;
   delegationType?: 'GrandLodge' | 'MasonicGoverningBody';
   minDelegates?: number;
   maxDelegates?: number;
   allowPartners?: boolean;
   onComplete?: () => void;
   className?: string;
+  fieldErrors?: Record<string, Record<string, string>>;
 }
 
 // Constants
 const DEBOUNCE_DELAY = 300; // Changed from implicit 500ms to explicit 300ms
 
 export const DelegationsForm: React.FC<DelegationsFormProps> = ({
+  functionId,
   delegationType = 'GrandLodge',
   minDelegates = 1,
   maxDelegates = 20,
   allowPartners = true,
   onComplete,
   className,
+  fieldErrors = {},
 }) => {
   const { 
     attendees, 
@@ -53,6 +58,12 @@ export const DelegationsForm: React.FC<DelegationsFormProps> = ({
     grand_lodge_id: undefined,
   });
 
+  // Dynamic data state for function tickets and packages
+  const [functionTickets, setFunctionTickets] = useState<FunctionTicketDefinition[]>([]);
+  const [functionPackages, setFunctionPackages] = useState<FunctionPackage[]>([]);
+  const [isLoadingData, setIsLoadingData] = useState(true);
+  const [dataError, setDataError] = useState<string | null>(null);
+
   // Filter to only show delegates (not partners)
   const delegateAttendees = attendees.filter(
     a => !a.isPartner
@@ -60,6 +71,39 @@ export const DelegationsForm: React.FC<DelegationsFormProps> = ({
 
   // Find the head of delegation (primary)
   const headOfDelegation = delegateAttendees.find(a => a.isPrimary);
+
+  // Fetch function tickets and packages data
+  useEffect(() => {
+    const fetchFunctionData = async () => {
+      try {
+        setIsLoadingData(true);
+        setDataError(null);
+        
+        if (!functionId) {
+          throw new Error('No function ID provided to DelegationsForm');
+        }
+        
+        const ticketsService = getFunctionTicketsService();
+        const { tickets, packages } = await ticketsService.getFunctionTicketsAndPackages(functionId);
+        
+        setFunctionTickets(tickets);
+        setFunctionPackages(packages);
+        
+        console.log('Delegation packages fetched:', packages);
+        console.log('Package eligibility types:', packages.map(p => ({
+          name: p.name,
+          eligibleRegistrationTypes: p.eligibleRegistrationTypes
+        })));
+      } catch (error) {
+        console.error('Failed to fetch function data:', error);
+        setDataError(error instanceof Error ? error.message : 'Failed to load data');
+      } finally {
+        setIsLoadingData(false);
+      }
+    };
+    
+    fetchFunctionData();
+  }, [functionId]);
 
   // Update delegation grand lodge when head changes
   useEffect(() => {
@@ -170,6 +214,34 @@ export const DelegationsForm: React.FC<DelegationsFormProps> = ({
     
     setShowDelegateTypeDialog(false);
   }, [addMasonAttendee, addGuestAttendee, updateAttendee, delegationDetails]);
+
+  // Show loading state
+  if (isLoadingData) {
+    return (
+      <div className={cn("space-y-6", className)}>
+        <Card>
+          <CardContent className="pt-6">
+            <div className="text-center">
+              <p className="text-gray-600">Loading delegation registration options...</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Show error state
+  if (dataError) {
+    return (
+      <div className={cn("space-y-6", className)}>
+        <Alert variant="destructive">
+          <AlertDescription>
+            Error loading function data: {dataError}
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
 
   return (
     <div className={cn("space-y-6", className)}>

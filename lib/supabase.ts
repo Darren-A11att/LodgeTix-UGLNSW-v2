@@ -7,13 +7,11 @@
 export {
   supabase,
   getBrowserClient,
-  getServerClient,
   getSupabaseClient,
   supabaseTables,
   supabaseSchemas,
   table,
-  getSupabase,
-  getSupabaseAdmin
+  getSupabase
 } from './supabase-singleton';
 
 // Type exports

@@ -2,6 +2,7 @@
 
 import React, { useState, useCallback, useEffect } from 'react';
 import { useRegistrationStore } from '@/lib/registrationStore';
+import { useLodgeRegistrationStore } from '@/lib/lodgeRegistrationStore';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
@@ -220,6 +221,17 @@ export function RegistrationTypeStep() {
       (attendee.primaryEmail && attendee.primaryEmail.trim()) || 
       (attendee.lodgeNameNumber && attendee.lodgeNameNumber.trim()));
     
+    // Check lodge registration store for existing data
+    const lodgeState = useLodgeRegistrationStore.getState();
+    const hasLodgeData = currentDraftType === 'lodge' && (
+      (lodgeState.customer.firstName && lodgeState.customer.firstName.trim()) ||
+      (lodgeState.customer.lastName && lodgeState.customer.lastName.trim()) ||
+      (lodgeState.customer.email && lodgeState.customer.email.trim()) ||
+      (lodgeState.lodgeDetails.lodge_id && lodgeState.lodgeDetails.lodge_id.trim()) ||
+      (lodgeState.lodgeDetails.grand_lodge_id && lodgeState.lodgeDetails.grand_lodge_id.trim()) ||
+      lodgeState.tableOrder > 0
+    );
+    
     // Check if we're already on the selected type with existing data
     const isSelectingCurrentType = currentDraftType === type;
     
@@ -238,11 +250,11 @@ export function RegistrationTypeStep() {
       return;
     }
     
-    // Simplified draft detection:
+    // Enhanced draft detection that includes lodge data
     // Show modal if there's an incomplete registration (draft)
     // But don't show it if the user is selecting the same type they already have
     const hasIncompleteDraft = currentDraftType !== null && 
-                               (hasExistingAttendees || currentStep > 1 || hasFilledData) &&
+                               (hasExistingAttendees || currentStep > 1 || hasFilledData || hasLodgeData) &&
                                !isSelectingCurrentType; // Don't show modal if selecting the same type
     
     console.log("Registration type selection check:", { 
@@ -250,6 +262,7 @@ export function RegistrationTypeStep() {
       newType: type, 
       hasExistingAttendees, 
       hasFilledData,
+      hasLodgeData,
       currentStep,
       confirmationNumber,
       hasIncompleteDraft,
@@ -261,8 +274,8 @@ export function RegistrationTypeStep() {
       console.log("Showing draft modal - incomplete registration detected");
       setPendingRegistrationType(type);
       setShowDraftModal(true);
-    } else if (isSelectingCurrentType && hasExistingAttendees) {
-      // If selecting the same type and we have attendees, just proceed without reinitializing
+    } else if (isSelectingCurrentType && (hasExistingAttendees || hasLodgeData)) {
+      // If selecting the same type and we have attendees OR lodge data, just proceed without reinitializing
       console.log("Selecting current type with existing data - proceeding without reinitializing");
       setSelectedType(type);
       
@@ -303,17 +316,33 @@ export function RegistrationTypeStep() {
     const registrationType = currentState.registrationType;
     const hasAttendees = currentState.attendees && currentState.attendees.length > 0;
     
+    // Check lodge store data
+    const lodgeState = useLodgeRegistrationStore.getState();
+    const hasLodgeData = registrationType === 'lodge' && (
+      lodgeState.customer.firstName || 
+      lodgeState.customer.email || 
+      lodgeState.lodgeDetails.lodge_id ||
+      lodgeState.tableOrder > 0
+    );
+    
     console.log("Continuing with existing draft - detailed info:", {
       registrationType,
       attendeesCount: currentState.attendees.length,
-      attendees: currentState.attendees
+      attendees: currentState.attendees,
+      hasLodgeData,
+      lodgeData: registrationType === 'lodge' ? {
+        customer: lodgeState.customer,
+        lodgeDetails: lodgeState.lodgeDetails,
+        tableOrder: lodgeState.tableOrder
+      } : null
     });
     
     // Make sure the registration type is properly set in the UI state
     setSelectedType(registrationType);
     
     // Extra verification step - check if we need to reinitialize attendees
-    if (!hasAttendees && registrationType) {
+    // For lodge registrations, we don't need attendees
+    if (!hasAttendees && registrationType && registrationType !== 'lodge') {
       console.log("No attendees found for draft, reinitializing");
       initializeAttendees(registrationType);
     }
@@ -321,7 +350,7 @@ export function RegistrationTypeStep() {
     // Always go to step 2 (attendee details) when continuing a draft
     const goToNextStep = useRegistrationStore.getState().goToNextStep;
     goToNextStep();
-    console.log(`Moving to attendee details for existing draft`);
+    console.log(`Moving to ${registrationType === 'lodge' ? 'lodge registration' : 'attendee details'} for existing draft`);
     
     setPendingRegistrationType(null);
   };
@@ -332,15 +361,31 @@ export function RegistrationTypeStep() {
     console.log("Starting new registration - clearing existing data");
     storeClearRegistration();
     
+    // Clear lodge registration store if it was a lodge registration
+    const currentRegistrationType = useRegistrationStore.getState().registrationType;
+    if (currentRegistrationType === 'lodge') {
+      const lodgeStore = require('@/lib/lodgeRegistrationStore').useLodgeRegistrationStore.getState();
+      if (lodgeStore.reset) {
+        console.log("Clearing lodge registration store");
+        lodgeStore.reset();
+      }
+    }
+    
     if (pendingRegistrationType) {
       console.log("Setting new registration type:", pendingRegistrationType);
       setSelectedType(pendingRegistrationType);
       storeSetRegistrationType(pendingRegistrationType);
       initializeAttendees(pendingRegistrationType);
       
-      // Explicitly go to step 2 (attendee details)
-      const setCurrentStep = useRegistrationStore.getState().setCurrentStep;
-      setCurrentStep(2);
+      // For lodge registration, go to step 2 directly
+      if (pendingRegistrationType === 'lodge') {
+        const setCurrentStep = useRegistrationStore.getState().setCurrentStep;
+        setCurrentStep(2);
+      } else {
+        // Explicitly go to step 2 (attendee details)
+        const goToNextStep = useRegistrationStore.getState().goToNextStep;
+        goToNextStep();
+      }
     }
     setPendingRegistrationType(null);
   };

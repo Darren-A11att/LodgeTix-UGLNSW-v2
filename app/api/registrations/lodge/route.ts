@@ -10,7 +10,8 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     const {
-      eventId,
+      functionId,
+      eventId, // The main event ID within the function
       customerData,
       lodgeDetails,
       tableOrder,
@@ -20,7 +21,7 @@ export async function POST(request: NextRequest) {
     } = body;
 
     // Validate required fields
-    if (!eventId || !customerData || !lodgeDetails || !tableOrder || !paymentMethodId || !amount) {
+    if (!functionId || !eventId || !customerData || !lodgeDetails || !tableOrder || !paymentMethodId || !amount) {
       return NextResponse.json(
         { success: false, error: 'Missing required fields' },
         { status: 400 }
@@ -45,34 +46,33 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Fetch event and organization data for Stripe Connect
-    const { data: event } = await supabase
-      .from('events')
+    // Fetch function and organization data for Stripe Connect
+    const { data: functionData } = await supabase
+      .from('functions')
       .select(`
-        event_id,
-        title,
+        function_id,
+        name,
         slug,
         organiser_id,
-        parent_event_id,
-        organisations!events_organiser_id_fkey(
+        organisations!functions_organiser_id_fkey(
           organisation_id,
           name,
           stripe_onbehalfof
         )
       `)
-      .eq('event_id', eventId)
+      .eq('function_id', functionId)
       .single();
       
-    if (!event) {
+    if (!functionData) {
       return NextResponse.json(
-        { success: false, error: 'Event not found' },
+        { success: false, error: 'Function not found' },
         { status: 404 }
       );
     }
     
     // Check for connected account
-    const connectedAccountId = event.organisations?.stripe_onbehalfof;
-    const organisationName = event.organisations?.name;
+    const connectedAccountId = functionData.organisations?.stripe_onbehalfof;
+    const organisationName = functionData.organisations?.name;
     
     // Calculate platform fee
     let applicationFeeAmount = 0;
@@ -89,16 +89,18 @@ export async function POST(request: NextRequest) {
       payment_method: paymentMethodId,
       confirmation_method: 'manual',
       confirm: true,
-      return_url: `${process.env.NEXT_PUBLIC_APP_URL}/events/${event.slug || eventId}/register/success`,
+      return_url: `${process.env.NEXT_PUBLIC_APP_URL}/functions/${functionData.slug || functionId}/register/success`,
       metadata: {
+        // Function details
+        function_id: functionId,
+        function_name: functionData.name?.substring(0, 100) || '',
+        function_slug: functionData.slug || '',
+        
         // Event details
         event_id: eventId,
-        event_title: event.title?.substring(0, 100) || '',
-        event_slug: event.slug || '',
-        parent_event_id: event.parent_event_id || '',
         
         // Organization details
-        organisation_id: event.organisations?.organisation_id || '',
+        organisation_id: functionData.organisations?.organisation_id || '',
         organisation_name: organisationName?.substring(0, 100) || '',
         
         // Registration type details
@@ -146,7 +148,7 @@ export async function POST(request: NextRequest) {
         paymentIntentOptions.application_fee_amount = applicationFeeAmount;
         
         // Add statement descriptor
-        const statementDescriptor = event.title
+        const statementDescriptor = functionData.name
           ?.substring(0, 22)
           .replace(/[^a-zA-Z0-9 ]/g, '')
           .trim();

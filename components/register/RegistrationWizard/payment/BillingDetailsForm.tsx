@@ -75,7 +75,6 @@ export const BillingDetailsForm: React.FC<BillingDetailsFormProps> = ({
   const ipStateName = ipData?.region || null;
 
   const [hasAttemptedGeoCountryPreselection, setHasAttemptedGeoCountryPreselection] = useState(false);
-  const [hasAttemptedGeoStatePreselection, setHasAttemptedGeoStatePreselection] = useState(false);
   
   // Get stored billing details from Zustand store
   const storeBillingDetails = useRegistrationStore(state => state.billingDetails);
@@ -289,6 +288,62 @@ export const BillingDetailsForm: React.FC<BillingDetailsFormProps> = ({
   }, []);
 
 
+  // Helper function to fetch and pre-select states
+  const fetchAndPreselectStates = useCallback(async (countryId: number, countryIsoCode: string) => {
+    setIsLoadingStates(true);
+    try {
+      const result = await GetState(countryId);
+      const sortedStates = result.sort((a, b) => a.name.localeCompare(b.name));
+      setStates(sortedStates);
+      setFetchError(prev => ({...prev, states: undefined}));
+      
+      // Pre-select state if we have geo data and the country matches
+      if (sortedStates.length > 0 && !form.getValues('stateTerritory')) {
+        // Check stored billing details first
+        if (storeBillingDetails?.stateProvince && typeof storeBillingDetails.stateProvince === 'string') {
+          const matchingState = sortedStates.find(s => 
+            s.name.toLowerCase() === storeBillingDetails.stateProvince.toLowerCase() ||
+            s.state_code === storeBillingDetails.stateProvince
+          );
+          
+          if (matchingState) {
+            const stateToSet: StateTerritoryType = { 
+              id: matchingState.id, 
+              name: matchingState.name, 
+              isoCode: matchingState.state_code, 
+              countryCode: countryIsoCode 
+            };
+            form.setValue('stateTerritory', stateToSet, { shouldValidate: true });
+            console.log('💳 Set state from stored billing details:', stateToSet.name);
+          }
+        }
+        // Otherwise check geolocation
+        else if (ipStateName && countryIsoCode === ipCountryIsoCode) {
+          const matchingState = sortedStates.find(s => 
+            s.name.toLowerCase() === ipStateName.toLowerCase() ||
+            s.state_code === ipStateName
+          );
+          
+          if (matchingState) {
+            const stateToSet: StateTerritoryType = { 
+              id: matchingState.id, 
+              name: matchingState.name, 
+              isoCode: matchingState.state_code, 
+              countryCode: countryIsoCode 
+            };
+            form.setValue('stateTerritory', stateToSet, { shouldValidate: true });
+            console.log('💳 Set state from geolocation:', stateToSet.name);
+          }
+        }
+      }
+    } catch (err) {
+      setFetchError(prev => ({...prev, states: 'Failed to load states for the selected country.'}));
+      setStates([]);
+    } finally {
+      setIsLoadingStates(false);
+    }
+  }, [form, ipStateName, ipCountryIsoCode, storeBillingDetails?.stateProvince]);
+
   // Pre-select country based on stored billing details or IP geolocation data
   useEffect(() => {
     // Note: We allow country pre-selection from stored data as it's address-related, not personal info
@@ -309,6 +364,8 @@ export const BillingDetailsForm: React.FC<BillingDetailsFormProps> = ({
           };
           form.setValue('country', countryToSet, { shouldValidate: true });
           console.log('💳 Set country from stored billing details:', countryToSet.name);
+          // Immediately fetch states for this country
+          fetchAndPreselectStates(storedCountry.id, storedCountry.iso2);
         }
       }
     }
@@ -319,79 +376,25 @@ export const BillingDetailsForm: React.FC<BillingDetailsFormProps> = ({
         const countryToSet: ZodCountryType = { name: geoCountry.name, isoCode: geoCountry.iso2, id: geoCountry.id };
         form.setValue('country', countryToSet, { shouldValidate: true });
         console.log('💳 Set country from geolocation:', countryToSet.name);
+        // Immediately fetch states for this country
+        fetchAndPreselectStates(geoCountry.id, geoCountry.iso2);
       }
       setHasAttemptedGeoCountryPreselection(true);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [countries, ipCountryIsoCode, hasAttemptedGeoCountryPreselection, storeBillingDetails?.country]);
+  }, [countries, ipCountryIsoCode, hasAttemptedGeoCountryPreselection, storeBillingDetails?.country, fetchAndPreselectStates]);
 
-  // Fetch states when selected country changes
+  // Fetch states when selected country changes (manual selection)
   useEffect(() => {
-    const fetchStates = async () => {
-      if (!selectedCountry?.id) {
-        setStates([]);
-        return;
-      }
-      
-      setIsLoadingStates(true);
-      try {
-        const result = await GetState(selectedCountry.id);
-        const sortedStates = result.sort((a, b) => a.name.localeCompare(b.name));
-        setStates(sortedStates);
-        setFetchError(prev => ({...prev, states: undefined}));
-        
-        // Pre-select state if we have geo data and haven't already pre-selected
-        if (sortedStates.length > 0 && !form.getValues('stateTerritory')) {
-          // Check stored billing details first
-          if (storeBillingDetails?.stateProvince && typeof storeBillingDetails.stateProvince === 'string') {
-            const matchingState = sortedStates.find(s => 
-              s.name.toLowerCase() === storeBillingDetails.stateProvince.toLowerCase() ||
-              s.state_code === storeBillingDetails.stateProvince
-            );
-            
-            if (matchingState) {
-              const stateToSet: StateTerritoryType = { 
-                id: matchingState.id, 
-                name: matchingState.name, 
-                isoCode: matchingState.state_code, 
-                countryCode: selectedCountry.isoCode 
-              };
-              form.setValue('stateTerritory', stateToSet, { shouldValidate: true });
-              console.log('💳 Set state from stored billing details:', stateToSet.name);
-            }
-          }
-          // Otherwise check geolocation
-          else if (ipStateName && selectedCountry.isoCode === ipCountryIsoCode && !hasAttemptedGeoStatePreselection) {
-            const matchingState = sortedStates.find(s => 
-              s.name.toLowerCase() === ipStateName.toLowerCase() ||
-              s.state_code === ipStateName
-            );
-            
-            if (matchingState) {
-              const stateToSet: StateTerritoryType = { 
-                id: matchingState.id, 
-                name: matchingState.name, 
-                isoCode: matchingState.state_code, 
-                countryCode: selectedCountry.isoCode 
-              };
-              form.setValue('stateTerritory', stateToSet, { shouldValidate: true });
-              console.log('💳 Set state from geolocation:', stateToSet.name);
-              setHasAttemptedGeoStatePreselection(true);
-            }
-          }
-        }
-      } catch (err) {
-        // Handle error silently without console logs
-        setFetchError(prev => ({...prev, states: 'Failed to load states for the selected country.'}));
-        setStates([]);
-      } finally {
-        setIsLoadingStates(false);
-      }
-    };
+    if (!selectedCountry?.id) {
+      setStates([]);
+      return;
+    }
     
-    fetchStates();
+    // Use the helper function to fetch and pre-select states
+    fetchAndPreselectStates(selectedCountry.id, selectedCountry.isoCode);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedCountry?.id, ipStateName, ipCountryIsoCode, storeBillingDetails?.stateProvince]);
+  }, [selectedCountry?.id, fetchAndPreselectStates]);
   
 
   // Clear state selection when country changes
@@ -399,10 +402,6 @@ export const BillingDetailsForm: React.FC<BillingDetailsFormProps> = ({
     // Only clear if the change wasn't from our geo-preselection of state
     if (form.getValues('stateTerritory')?.countryCode !== selectedCountry?.isoCode) {
       form.setValue('stateTerritory', undefined, { shouldValidate: true });
-    }
-    // Reset geo state preselection flag when country changes away from geo country
-    if (selectedCountry?.isoCode !== ipCountryIsoCode) {
-      setHasAttemptedGeoStatePreselection(false);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedCountry]);

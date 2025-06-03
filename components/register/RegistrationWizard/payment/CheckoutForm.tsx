@@ -148,7 +148,7 @@ export const CheckoutForm = forwardRef<CheckoutFormHandle, CheckoutFormProps>(
             </div>
             <div className="ml-3">
               <h3 className="text-sm font-medium text-blue-800">
-                Total amount: ${totalAmount.toFixed(2)} AUD
+                Total amount: ${totalAmount.toLocaleString('en-AU', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} AUD
               </h3>
               <div className="mt-2 text-sm text-blue-700">
                 <p>Your card will be charged upon confirmation.</p>
@@ -171,7 +171,7 @@ export const CheckoutForm = forwardRef<CheckoutFormHandle, CheckoutFormProps>(
                 Processing...
               </>
             ) : (
-              `Complete Payment - $${totalAmount.toFixed(2)}`
+              'Complete Payment'
             )}
           </Button>
         )}

@@ -1,12 +1,11 @@
 "use client"
 
-import React, { useState, useCallback, useRef, useEffect } from 'react';
+import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements } from '@stripe/react-stripe-js';
 import { OneColumnStepLayout } from '../Layouts/OneColumnStepLayout';
 import { LodgesForm } from '../../Forms/attendee/LodgesForm';
-import TermsAndConditions from '../../Functions/TermsAndConditions';
 import { CheckoutForm, CheckoutFormHandle } from '../payment/CheckoutForm';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -51,7 +50,6 @@ export const LodgeRegistrationStep: React.FC<LodgeRegistrationStepProps> = ({
   const goToPrevStep = onPrevStep || storeGoToPrevStep;
   
   // Local state
-  const [termsAccepted, setTermsAccepted] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isFormComplete, setIsFormComplete] = useState(false);
@@ -65,8 +63,13 @@ export const LodgeRegistrationStep: React.FC<LodgeRegistrationStepProps> = ({
     const fetchFunctionPricing = async () => {
       try {
         setIsLoadingPricing(true);
+        console.log('[LodgeRegistrationStep] Fetching packages for function:', functionId);
         const ticketsService = getFunctionTicketsService();
         const { packages } = await ticketsService.getFunctionTicketsAndPackages(functionId);
+        console.log('[LodgeRegistrationStep] Fetched packages:', packages);
+        console.log('[LodgeRegistrationStep] Lodge packages:', packages.filter(pkg => 
+          pkg.eligibleRegistrationTypes.includes('lodges')
+        ));
         setFunctionPackages(packages);
       } catch (error) {
         console.error('Failed to fetch function pricing:', error);
@@ -79,9 +82,12 @@ export const LodgeRegistrationStep: React.FC<LodgeRegistrationStepProps> = ({
   }, [functionId]);
   
   // Calculate dynamic pricing - filter for packages with "lodges" registration type
-  const lodgePackages = functionPackages.filter(pkg => 
-    pkg.eligibleRegistrationTypes.includes('lodges')
-  );
+  const lodgePackages = useMemo(() => {
+    return functionPackages.filter(pkg => 
+      pkg.eligibleRegistrationTypes.includes('lodges')
+    );
+  }, [functionPackages]);
+  
   const selectedPackage = lodgePackages[0]; // Use the first available lodge package
   const packagePrice = selectedPackage?.price || 1950; // fallback to 1950
   
@@ -121,18 +127,63 @@ export const LodgeRegistrationStep: React.FC<LodgeRegistrationStepProps> = ({
   const handlePaymentSuccess = async (paymentMethodId: string, billingDetails: StripeBillingDetailsForClient) => {
     console.log('💳 Payment method created:', paymentMethodId);
     
+    // Debug: Check validation state
+    if (!isFormValid()) {
+      const errors = getValidationErrors();
+      console.error('Validation failed:', errors);
+      setError(`Please complete all required fields: ${errors.join(', ')}`);
+      setIsProcessing(false);
+      return;
+    }
+    
+    // Check if packages are loaded
+    if (isLoadingPricing) {
+      console.error('Packages are still loading');
+      setError('Please wait while we load pricing information');
+      setIsProcessing(false);
+      return;
+    }
+    
+    // Check if we have a selected package
+    if (!selectedPackage) {
+      console.error('No lodge package available', { functionPackages, lodgePackages });
+      setError('No lodge package is available for this function');
+      setIsProcessing(false);
+      return;
+    }
+    
     try {
-      // Create payment intent and process registration
-      const response = await fetch('/api/registrations/lodge', {
+      // Get package ID from the selected package
+      console.log('[LodgeRegistrationStep] Selected package:', selectedPackage);
+      const packageId = selectedPackage.id; // Use 'id' not 'package_id' based on FunctionPackage interface
+      
+      if (!packageId) {
+        console.error('[LodgeRegistrationStep] Package structure:', selectedPackage);
+        throw new Error('Package has no ID');
+      }
+
+      console.log('[LodgeRegistrationStep] Sending registration request:', {
+        functionId,
+        packageId,
+        tableCount: lodgeTicketOrder?.tableCount || 0,
+        lodgeName: lodgeDetails.lodgeName,
+        totalAmount: totalAmount * 100
+      });
+
+      // Create payment intent and process registration using new endpoint
+      const response = await fetch(`/api/functions/${functionId}/packages/${packageId}/lodge-registration`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          functionId,
-          customerData: customer,
-          lodgeDetails,
-          tableOrder: lodgeTicketOrder,
+          tableCount: lodgeTicketOrder?.tableCount || 0,
+          bookingContact: customer,
+          lodgeDetails: {
+            lodgeName: lodgeDetails.lodgeName,
+            lodgeId: lodgeDetails.lodge_id,
+            organisation_id: lodgeDetails.organisation_id,
+          },
           paymentMethodId,
           amount: totalAmount * 100, // Convert to cents (includes fees)
           subtotal: subtotal * 100, // Convert to cents (before fees)
@@ -177,11 +228,6 @@ export const LodgeRegistrationStep: React.FC<LodgeRegistrationStepProps> = ({
     if (!isFormValid()) {
       const errors = getValidationErrors();
       setError(errors.join(', '));
-      return;
-    }
-
-    if (!termsAccepted) {
-      setError('Please accept the terms and conditions');
       return;
     }
 
@@ -234,26 +280,34 @@ export const LodgeRegistrationStep: React.FC<LodgeRegistrationStepProps> = ({
             </AlertDescription>
           </Alert>
 
-          {/* Stripe Elements */}
-          <Elements stripe={stripePromise}>
-            <CheckoutForm
-              ref={checkoutFormRef}
-              totalAmount={totalAmount}
-              onPaymentSuccess={handlePaymentSuccess}
-              onPaymentError={handlePaymentError}
-              setIsProcessingPayment={setIsProcessing}
-              billingDetails={getBillingDetails()}
-              isProcessing={isProcessing}
-            />
-          </Elements>
+          {/* Show loading state while fetching packages */}
+          {isLoadingPricing ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="animate-spin h-6 w-6 mr-2" />
+              <span>Loading pricing information...</span>
+            </div>
+          ) : !selectedPackage ? (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                No lodge package is available for this function. Please contact support.
+              </AlertDescription>
+            </Alert>
+          ) : (
+            /* Stripe Elements */
+            <Elements stripe={stripePromise}>
+              <CheckoutForm
+                ref={checkoutFormRef}
+                totalAmount={totalAmount}
+                onPaymentSuccess={handlePaymentSuccess}
+                onPaymentError={handlePaymentError}
+                setIsProcessingPayment={setIsProcessing}
+                billingDetails={getBillingDetails()}
+                isProcessing={isProcessing}
+              />
+            </Elements>
+          )}
 
-          {/* Terms and Conditions */}
-          <div className="border-t pt-4">
-            <TermsAndConditions
-              checked={termsAccepted}
-              onChange={setTermsAccepted}
-            />
-          </div>
 
           {/* Error Display */}
           {error && (

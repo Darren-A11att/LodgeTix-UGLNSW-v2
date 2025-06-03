@@ -50,15 +50,7 @@ export const api = {
       return response.json()
     },
 
-    /**
-     * Get a single function by slug (for backward compatibility)
-     * @deprecated Use getById instead
-     */
-    getBySlug: async (slug: string): Promise<FunctionType> => {
-      // This would need to first convert slug to ID
-      // For now, throw an error to force migration
-      throw new Error('getBySlug is deprecated. Use getById with function UUID instead.')
-    },
+    // Removed deprecated getBySlug method - use getById with function UUID instead
 
     /**
      * Get all events for a function
@@ -160,13 +152,7 @@ export const api = {
     /**
      * Get a single event by slug (requires function slug for context)
      */
-    getBySlug: async (functionSlug: string, eventSlug: string): Promise<EventType> => {
-      const response = await fetch(`/api/functions/${functionSlug}/functions/${eventSlug}`)
-      if (!response.ok) {
-        throw new Error('Event not found')
-      }
-      return response.json()
-    }
+    // Removed getBySlug method - use function UUID-based routes instead
   },
 
   packages: {

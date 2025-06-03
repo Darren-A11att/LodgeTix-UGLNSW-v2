@@ -167,6 +167,21 @@ export const LodgesForm: React.FC<LodgesFormProps> = ({
     });
   }, [packageCount, baseQuantity, packagePrice]);
 
+  // Set initial package order in store when component mounts or package data changes
+  useEffect(() => {
+    if (setLodgeTicketOrder && baseQuantity > 0 && functionTickets.length > 0) {
+      setLodgeTicketOrder({
+        tableCount: packageCount,
+        totalTickets: packageCount * baseQuantity,
+        galaDinnerTickets: packageCount * baseQuantity,
+        ceremonyTickets: packageCount * baseQuantity,
+        eventId: functionTickets[0]?.event_id || '',
+        galaDinnerEventId: functionTickets.find(t => t.name.toLowerCase().includes('gala') || t.name.toLowerCase().includes('dinner'))?.event_id || '',
+        ceremonyEventId: functionTickets.find(t => t.name.toLowerCase().includes('ceremony') || t.name.toLowerCase().includes('installation'))?.event_id || '',
+      });
+    }
+  }, [packageCount, baseQuantity, functionTickets, setLodgeTicketOrder]);
+
   // Update package count
   const handlePackageCountChange = useCallback((newCount: number) => {
     if (newCount >= minPackages && newCount <= maxPackages) {
@@ -412,19 +427,8 @@ export const LodgesForm: React.FC<LodgesFormProps> = ({
                 </div>
               )}
 
-              {/* Info about the package */}
-              <Alert className="border-blue-200 bg-blue-50">
-                <Info className="h-4 w-4 text-blue-600" />
-                <AlertDescription className="text-sm">
-                  Each package includes {baseQuantity} tickets. Purchase multiple packages for larger groups.
-                  Attendee details can be provided later.
-                </AlertDescription>
-              </Alert>
-            </div>
-
-            {/* Column 2: Package Selection and Order Summary */}
-            <div className="space-y-6">
-              <div>
+              {/* Package Selection - moved from column 2 */}
+              <div className="mt-4">
                 <Label htmlFor="package-count" className="text-base font-medium mb-2 block">
                   Number of Packages
                 </Label>
@@ -441,6 +445,10 @@ export const LodgesForm: React.FC<LodgesFormProps> = ({
                   {packageCount} {packageCount === 1 ? 'package' : 'packages'} = {packageCount * baseQuantity} tickets
                 </p>
               </div>
+            </div>
+
+            {/* Column 2: Order Summary */}
+            <div className="space-y-6">
 
               {/* Order Summary */}
               <div className="bg-gray-50 rounded-lg p-6 space-y-4">

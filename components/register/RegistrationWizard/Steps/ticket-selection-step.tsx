@@ -86,15 +86,16 @@ const TicketSelectionStep: React.FC = () => {
   const [ticketsError, setTicketsError] = useState<string | null>(null)
   const { toast } = useToast()
   
-  // Real-time ticket availability (using functionId for now, may need to be updated for function-level monitoring)
+  // Real-time ticket availability - DISABLED until we can pass correct event IDs
+  // The hook expects eventId but we only have functionId
   const { 
     availability: realtimeAvailability, 
     isConnected, 
     connectionStatus,
     getTicketAvailability,
     isTicketAvailable 
-  } = useTicketAvailability(functionId, {
-    enabled: true,
+  } = useTicketAvailability(null, { // Pass null to disable
+    enabled: false, // Explicitly disable
     onLowStock: (ticketName, available) => {
       toast({
         title: "Low Stock Alert",
@@ -110,6 +111,14 @@ const TicketSelectionStep: React.FC = () => {
       })
     }
   })
+  
+  // Since realtime is disabled, create fallback functions that use static data
+  const isTicketActuallyAvailable = (ticket: FunctionTicketDefinition) => {
+    // Show as available if is_active is true and either:
+    // 1. available_count is null (unlimited)
+    // 2. available_count is greater than 0
+    return ticket.is_active !== false && (ticket.available_count === null || ticket.available_count > 0);
+  }
 
   // Fetch tickets and packages on component mount
   useEffect(() => {
@@ -587,12 +596,7 @@ const TicketSelectionStep: React.FC = () => {
         stepName="Ticket Selection"
       >
         <div className="space-y-6">
-          {/* Connection status indicator */}
-          {isConnected && (
-            <div className="flex justify-end -mt-4 mb-4">
-              <ConnectionStatus status={connectionStatus} showText={true} size="sm" />
-            </div>
-          )}
+          {/* Connection status indicator - hidden when realtime disabled */}
           
           {/* Show lodge order info */}
           {lodgeTicketOrder && (
@@ -735,10 +739,7 @@ const TicketSelectionStep: React.FC = () => {
                         <TableHead>Ticket</TableHead>
                         <TableHead>Description</TableHead>
                         <TableHead className="text-right">
-                          <div className="flex items-center justify-end gap-2">
-                            Availability
-                            <ConnectionStatus status={connectionStatus} size="sm" />
-                          </div>
+                          Availability
                         </TableHead>
                         <TableHead className="text-right">Price</TableHead>
                       </TableRow>
@@ -749,7 +750,7 @@ const TicketSelectionStep: React.FC = () => {
                         .map((ticket) => (
                         <TableRow key={ticket.id}>
                           <TableCell>
-                            {ticket.is_active !== false && (!isConnected || isTicketAvailable(ticket.id)) ? (
+                            {isTicketActuallyAvailable(ticket) ? (
                               <Checkbox
                                 id={`all-${ticket.id}`}
                                 checked={
@@ -824,7 +825,7 @@ const TicketSelectionStep: React.FC = () => {
                                 {(() => {
                                   const liveData = getTicketAvailability(ticket.id)
                                   const available = liveData?.actualAvailable ?? ticket.available_count
-                                  const isSoldOut = isConnected && !isTicketAvailable(ticket.id)
+                                  const isSoldOut = !isTicketActuallyAvailable(ticket)
                                   
                                   if (isSoldOut) {
                                     return <Badge variant="destructive">SOLD OUT</Badge>
@@ -934,8 +935,7 @@ const TicketSelectionStep: React.FC = () => {
                                     const mappedType = attendee.attendeeType?.toLowerCase() || '';
                                     const effectiveType = mappedType === 'mason' ? 'mason' : 'guest';
                                     return ticket.eligibleAttendeeTypes.includes(effectiveType as AttendeeType) &&
-                                           ticket.is_active !== false &&
-                                           (!isConnected || isTicketAvailable(ticket.id));
+                                           isTicketActuallyAvailable(ticket);
                                   })
                                   .map(ticket => (
                                     <label key={ticket.id} className="flex items-center gap-2 text-sm">
@@ -1133,11 +1133,6 @@ const TicketSelectionStep: React.FC = () => {
                                     <h4 className="font-medium">{pkg.name}</h4>
                                     <div className="text-right">
                                       <Badge className="bg-masonic-navy">${pkg.price}</Badge>
-                                      {getFeeModeFromEnv() === 'pass_to_customer' && (
-                                        <p className="text-xs text-gray-500 mt-1">
-                                          +${calculateStripeFees(pkg.price).stripeFee.toFixed(2)} fee
-                                        </p>
-                                      )}
                                     </div>
                                   </div>
                                   <p className="text-sm text-gray-600 mb-3">{pkg.description}</p>
@@ -1190,10 +1185,7 @@ const TicketSelectionStep: React.FC = () => {
                                 <TableHead>Ticket</TableHead>
                                 <TableHead>Description</TableHead>
                                 <TableHead className="text-right">
-                                  <div className="flex items-center justify-end gap-2">
-                                    Availability
-                                    {isConnected && <ConnectionStatus status={connectionStatus} size="sm" />}
-                                  </div>
+                                  Availability
                                 </TableHead>
                                 <TableHead className="text-right">Price</TableHead>
                               </TableRow>
@@ -1218,7 +1210,7 @@ const TicketSelectionStep: React.FC = () => {
                                 .map((ticket) => (
                                 <TableRow key={ticket.id}>
                                   <TableCell>
-                                    {ticket.is_active !== false && (!isConnected || isTicketAvailable(ticket.id)) ? (
+                                    {isTicketActuallyAvailable(ticket) ? (
                                       <Checkbox
                                         id={`${attendee.attendeeId}-${ticket.id}`}
                                         checked={isIndividualTicketDirectlySelected(attendee.attendeeId, ticket.id)}
@@ -1274,14 +1266,7 @@ const TicketSelectionStep: React.FC = () => {
                                     )}
                                   </TableCell>
                                   <TableCell className="text-right">
-                                    <div>
-                                      <span>${ticket.price}</span>
-                                      {getFeeModeFromEnv() === 'pass_to_customer' && (
-                                        <p className="text-xs text-gray-500">
-                                          +${calculateStripeFees(ticket.price).stripeFee.toFixed(2)} fee
-                                        </p>
-                                      )}
-                                    </div>
+                                    ${ticket.price}
                                   </TableCell>
                                 </TableRow>
                               ))}
@@ -1308,11 +1293,6 @@ const TicketSelectionStep: React.FC = () => {
                                   <div className="flex items-center gap-3">
                                     <div className="text-right">
                                       <span className="font-bold">${ticket.price}</span>
-                                      {getFeeModeFromEnv() === 'pass_to_customer' && (
-                                        <p className="text-xs text-gray-500">
-                                          +${calculateStripeFees(ticket.price).stripeFee.toFixed(2)} fee
-                                        </p>
-                                      )}
                                     </div>
                                     <Button
                                       variant="ghost"

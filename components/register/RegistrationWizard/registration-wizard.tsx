@@ -635,11 +635,79 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ function
       
       console.log("✅ Found authenticated user:", user.id, user.is_anonymous ? '(anonymous)' : '(signed in)')
       
+      // We need to get the event_id from the selected tickets or packages
+      // First, let's collect all selected ticket IDs and package IDs
+      const allSelectedTicketIds = new Set<string>();
+      const allSelectedPackageIds = new Set<string>();
+      
+      storeState.attendees.forEach(attendee => {
+        const attendeePackage = storeState.packages[attendee.attendeeId];
+        if (attendeePackage) {
+          if (attendeePackage.ticketDefinitionId) {
+            // This is a package selection
+            allSelectedPackageIds.add(attendeePackage.ticketDefinitionId);
+          } else if (attendeePackage.selectedEvents) {
+            // These are individual ticket selections
+            attendeePackage.selectedEvents.forEach(ticketId => allSelectedTicketIds.add(ticketId));
+          }
+        }
+      });
+
+      // Load ticket data to get event_id
+      let eventIdForRegistration: string | undefined;
+      const functionIdToUse = functionData?.id || resolvedFunctionId || providedFunctionId;
+      
+      if ((allSelectedTicketIds.size > 0 || allSelectedPackageIds.size > 0) && functionIdToUse) {
+        try {
+          // Import the function tickets service
+          const { getFunctionTicketsService } = await import('@/lib/services/function-tickets-service');
+          const ticketsService = getFunctionTicketsService();
+          
+          // Fetch all tickets and packages for this function
+          const { tickets, packages } = await ticketsService.getFunctionTicketsAndPackages(functionIdToUse);
+          
+          // Try to get event_id from individual tickets first
+          if (allSelectedTicketIds.size > 0) {
+            const firstSelectedTicketId = Array.from(allSelectedTicketIds)[0];
+            const selectedTicket = tickets.find(t => t.id === firstSelectedTicketId);
+            
+            if (selectedTicket) {
+              eventIdForRegistration = selectedTicket.event_id;
+              console.log("📅 Found event_id from selected ticket:", eventIdForRegistration);
+            }
+          }
+          
+          // If no event_id yet and we have packages, get event_id from package's first included ticket
+          if (!eventIdForRegistration && allSelectedPackageIds.size > 0) {
+            const firstSelectedPackageId = Array.from(allSelectedPackageIds)[0];
+            const selectedPackage = packages.find(p => p.id === firstSelectedPackageId);
+            
+            if (selectedPackage && selectedPackage.includes && selectedPackage.includes.length > 0) {
+              // The includes array contains event_ticket IDs
+              const firstIncludedTicketId = selectedPackage.includes[0];
+              const includedTicket = tickets.find(t => t.id === firstIncludedTicketId);
+              
+              if (includedTicket) {
+                eventIdForRegistration = includedTicket.event_id;
+                console.log("📅 Found event_id from package's included ticket:", eventIdForRegistration);
+              }
+            }
+          }
+          
+          if (!eventIdForRegistration) {
+            console.warn("⚠️ Could not find event_id from selected tickets or packages");
+          }
+        } catch (error) {
+          console.error("❌ Error loading ticket data:", error);
+        }
+      }
+
       const registrationData = {
         registrationType: storeState.registrationType,
         functionId: functionData?.id || resolvedFunctionId || providedFunctionId,
         functionSlug: storeState.functionSlug,
         selectedEvents: storeState.selectedEvents || selectedEvents,
+        eventId: eventIdForRegistration, // Use the event_id from the selected ticket
         primaryAttendee: storeState.attendees.find(att => att.isPrimary),
         additionalAttendees: storeState.attendees.filter(att => !att.isPrimary),
         tickets: storeState.attendees.flatMap(attendee => {
