@@ -140,29 +140,6 @@ export async function POST(request: Request) {
       );
     }
 
-    // Prepare registration record using snake_case for database columns
-    const registrationRecord: TablesInsert<'registrations'> = {
-      registration_id: newRegistrationId,
-      function_id: functionId, // Use function_id from request
-      contact_id: null, // Set to null - contacts table is separate from auth users
-      auth_user_id: user.id, // Link to authenticated user for RLS policies
-      registration_date: new Date().toISOString(),
-      status: "unpaid",
-      total_amount_paid: 0,
-      total_price_paid: totalAmount, 
-      subtotal: subtotal || null,
-      stripe_fee: stripeFee || null,
-      includes_processing_fee: stripeFee > 0,
-      payment_status: "pending", 
-      agree_to_terms: data.agreeToTerms || true,
-      stripe_payment_intent_id: paymentIntentId,
-      primary_attendee_id: null, // Will be updated after primary attendee is created
-      registration_type: finalRegistrationType, // Already correctly typed
-      registration_data: [data], // Store the complete raw request payload as backup (as array)
-    };
-    
-    console.log("Registration record to insert:", registrationRecord);
-    
     // Try to authenticate using multiple methods
     let user = null;
     let supabase = null;
@@ -370,6 +347,29 @@ export async function POST(request: Request) {
 
     // Removed deprecated RPC registration code
     // Always use direct database inserts
+
+    // Prepare registration record using snake_case for database columns
+    const registrationRecord: TablesInsert<'registrations'> = {
+      registration_id: newRegistrationId,
+      function_id: functionId, // Use function_id from request
+      contact_id: null, // Set to null - contacts table is separate from auth users
+      auth_user_id: user.id, // Link to authenticated user for RLS policies
+      registration_date: new Date().toISOString(),
+      status: "unpaid",
+      total_amount_paid: 0,
+      total_price_paid: totalAmount, 
+      subtotal: subtotal || null,
+      stripe_fee: stripeFee || null,
+      includes_processing_fee: stripeFee > 0,
+      payment_status: "pending", 
+      agree_to_terms: data.agreeToTerms || true,
+      stripe_payment_intent_id: paymentIntentId,
+      primary_attendee_id: null, // Will be updated after primary attendee is created
+      registration_type: finalRegistrationType, // Already correctly typed
+      registration_data: [data], // Store the complete raw request payload as backup (as array)
+    };
+    
+    console.log("Registration record to insert:", registrationRecord);
 
     // Original direct insert logic continues here...
     // Insert registration record

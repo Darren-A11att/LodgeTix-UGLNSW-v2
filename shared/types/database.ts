@@ -85,6 +85,13 @@ export type Database = {
             referencedRelation: "events_with_id"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "attendee_events_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "function_event_tickets_view"
+            referencedColumns: ["event_id"]
+          },
         ]
       }
       attendees: {
@@ -161,13 +168,6 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
-          {
-            foreignKeyName: "attendees_contact_id_fkey"
-            columns: ["contact_id"]
-            isOneToOne: false
-            referencedRelation: "auth_user_customer_view"
-            referencedColumns: ["contact_id"]
-          },
           {
             foreignKeyName: "attendees_contact_id_fkey"
             columns: ["contact_id"]
@@ -467,13 +467,6 @@ export type Database = {
             foreignKeyName: "customers_contact_id_fkey"
             columns: ["contact_id"]
             isOneToOne: false
-            referencedRelation: "auth_user_customer_view"
-            referencedColumns: ["contact_id"]
-          },
-          {
-            foreignKeyName: "customers_contact_id_fkey"
-            columns: ["contact_id"]
-            isOneToOne: false
             referencedRelation: "contacts"
             referencedColumns: ["contact_id"]
           },
@@ -592,6 +585,13 @@ export type Database = {
             referencedRelation: "events_with_id"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "event_tickets_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "function_event_tickets_view"
+            referencedColumns: ["event_id"]
+          },
         ]
       }
       events: {
@@ -707,6 +707,20 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "display_scopes"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "events_function_id_fkey"
+            columns: ["function_id"]
+            isOneToOne: false
+            referencedRelation: "function_event_tickets_view"
+            referencedColumns: ["function_id"]
+          },
+          {
+            foreignKeyName: "events_function_id_fkey"
+            columns: ["function_id"]
+            isOneToOne: false
+            referencedRelation: "function_packages_view"
+            referencedColumns: ["function_id"]
           },
           {
             foreignKeyName: "events_function_id_fkey"
@@ -995,13 +1009,6 @@ export type Database = {
             foreignKeyName: "masonic_profiles_contact_id_fkey"
             columns: ["contact_id"]
             isOneToOne: true
-            referencedRelation: "auth_user_customer_view"
-            referencedColumns: ["contact_id"]
-          },
-          {
-            foreignKeyName: "masonic_profiles_contact_id_fkey"
-            columns: ["contact_id"]
-            isOneToOne: true
             referencedRelation: "contacts"
             referencedColumns: ["contact_id"]
           },
@@ -1059,13 +1066,6 @@ export type Database = {
           updated_at?: string
         }
         Relationships: [
-          {
-            foreignKeyName: "memberships_contact_id_fkey"
-            columns: ["contact_id"]
-            isOneToOne: false
-            referencedRelation: "auth_user_customer_view"
-            referencedColumns: ["contact_id"]
-          },
           {
             foreignKeyName: "memberships_contact_id_fkey"
             columns: ["contact_id"]
@@ -1247,6 +1247,7 @@ export type Database = {
           package_id: string
           package_price: number
           qty: number | null
+          registration_types: string[] | null
           updated_at: string | null
         }
         Insert: {
@@ -1266,6 +1267,7 @@ export type Database = {
           package_id?: string
           package_price: number
           qty?: number | null
+          registration_types?: string[] | null
           updated_at?: string | null
         }
         Update: {
@@ -1285,6 +1287,7 @@ export type Database = {
           package_id?: string
           package_price?: number
           qty?: number | null
+          registration_types?: string[] | null
           updated_at?: string | null
         }
         Relationships: [
@@ -1308,6 +1311,27 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "events_with_id"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "packages_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "function_event_tickets_view"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "packages_function_id_fkey"
+            columns: ["function_id"]
+            isOneToOne: false
+            referencedRelation: "function_event_tickets_view"
+            referencedColumns: ["function_id"]
+          },
+          {
+            foreignKeyName: "packages_function_id_fkey"
+            columns: ["function_id"]
+            isOneToOne: false
+            referencedRelation: "function_packages_view"
+            referencedColumns: ["function_id"]
           },
           {
             foreignKeyName: "packages_function_id_fkey"
@@ -1444,15 +1468,22 @@ export type Database = {
             foreignKeyName: "registrations_customer_id_fkey"
             columns: ["contact_id"]
             isOneToOne: false
-            referencedRelation: "auth_user_customer_view"
+            referencedRelation: "contacts"
             referencedColumns: ["contact_id"]
           },
           {
-            foreignKeyName: "registrations_customer_id_fkey"
-            columns: ["contact_id"]
+            foreignKeyName: "registrations_function_id_fkey"
+            columns: ["function_id"]
             isOneToOne: false
-            referencedRelation: "contacts"
-            referencedColumns: ["contact_id"]
+            referencedRelation: "function_event_tickets_view"
+            referencedColumns: ["function_id"]
+          },
+          {
+            foreignKeyName: "registrations_function_id_fkey"
+            columns: ["function_id"]
+            isOneToOne: false
+            referencedRelation: "function_packages_view"
+            referencedColumns: ["function_id"]
           },
           {
             foreignKeyName: "registrations_function_id_fkey"
@@ -1573,6 +1604,20 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "tickets_eventid_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "function_event_tickets_view"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "tickets_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "function_packages_view"
+            referencedColumns: ["package_id"]
+          },
+          {
             foreignKeyName: "tickets_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
@@ -1613,6 +1658,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "event_tickets_with_id"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tickets_ticket_type_id_fkey"
+            columns: ["ticket_type_id"]
+            isOneToOne: false
+            referencedRelation: "function_event_tickets_view"
+            referencedColumns: ["event_ticket_id"]
           },
           {
             foreignKeyName: "tickets_ticket_type_id_fkey"
@@ -1659,18 +1711,44 @@ export type Database = {
     Views: {
       auth_user_customer_view: {
         Row: {
+          address_line1: string | null
+          address_line2: string | null
           auth_email: string | null
           auth_user_id: string | null
-          contact_email: string | null
+          billing_city: string | null
+          billing_country: string | null
+          billing_email: string | null
+          billing_organisation_name: string | null
+          billing_phone: string | null
+          billing_postal_code: string | null
+          billing_state: string | null
+          billing_street_address: string | null
+          business_name: string | null
+          city: string | null
           contact_id: string | null
+          country: string | null
+          created_at: string | null
+          customer_email: string | null
           customer_id: string | null
           customer_type: Database["public"]["Enums"]["customer_type"] | null
           first_name: string | null
           last_name: string | null
-          user_created: string | null
-          user_type: string | null
+          organisation_id: string | null
+          phone: string | null
+          postal_code: string | null
+          state: string | null
+          stripe_customer_id: string | null
+          updated_at: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "customers_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "contacts"
+            referencedColumns: ["contact_id"]
+          },
+        ]
       }
       event_tickets_with_id: {
         Row: {
@@ -1748,6 +1826,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "events_with_id"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_tickets_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "function_event_tickets_view"
+            referencedColumns: ["event_id"]
           },
         ]
       }
@@ -1872,6 +1957,20 @@ export type Database = {
             foreignKeyName: "events_function_id_fkey"
             columns: ["function_id"]
             isOneToOne: false
+            referencedRelation: "function_event_tickets_view"
+            referencedColumns: ["function_id"]
+          },
+          {
+            foreignKeyName: "events_function_id_fkey"
+            columns: ["function_id"]
+            isOneToOne: false
+            referencedRelation: "function_packages_view"
+            referencedColumns: ["function_id"]
+          },
+          {
+            foreignKeyName: "events_function_id_fkey"
+            columns: ["function_id"]
+            isOneToOne: false
             referencedRelation: "functions"
             referencedColumns: ["function_id"]
           },
@@ -1898,6 +1997,95 @@ export type Database = {
           },
         ]
       }
+      function_event_tickets_view: {
+        Row: {
+          available_count: number | null
+          event_end: string | null
+          event_id: string | null
+          event_is_published: boolean | null
+          event_slug: string | null
+          event_start: string | null
+          event_ticket_id: string | null
+          event_title: string | null
+          event_type: string | null
+          function_description: string | null
+          function_end_date: string | null
+          function_id: string | null
+          function_name: string | null
+          function_slug: string | null
+          function_start_date: string | null
+          reserved_count: number | null
+          sold_count: number | null
+          stripe_price_id: string | null
+          ticket_created_at: string | null
+          ticket_description: string | null
+          ticket_eligibility_criteria: Json | null
+          ticket_is_active: boolean | null
+          ticket_name: string | null
+          ticket_price: number | null
+          ticket_status: string | null
+          ticket_updated_at: string | null
+          total_capacity: number | null
+        }
+        Relationships: []
+      }
+      function_packages_view: {
+        Row: {
+          discount: number | null
+          eligibility_criteria: Json | null
+          event_id: string | null
+          function_description: string | null
+          function_end_date: string | null
+          function_id: string | null
+          function_name: string | null
+          function_slug: string | null
+          function_start_date: string | null
+          included_items:
+            | Database["public"]["CompositeTypes"]["package_item"][]
+            | null
+          includes_description: string[] | null
+          is_active: boolean | null
+          original_price: number | null
+          package_created_at: string | null
+          package_description: string | null
+          package_id: string | null
+          package_name: string | null
+          package_price: number | null
+          package_updated_at: string | null
+          qty: number | null
+          registration_types: string[] | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "packages_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "packages_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events_with_id"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "packages_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "events_with_id"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "packages_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "function_event_tickets_view"
+            referencedColumns: ["event_id"]
+          },
+        ]
+      }
       memberships_view: {
         Row: {
           contact_id: string | null
@@ -1916,13 +2104,6 @@ export type Database = {
           role: string | null
         }
         Relationships: [
-          {
-            foreignKeyName: "memberships_contact_id_fkey"
-            columns: ["contact_id"]
-            isOneToOne: false
-            referencedRelation: "auth_user_customer_view"
-            referencedColumns: ["contact_id"]
-          },
           {
             foreignKeyName: "memberships_contact_id_fkey"
             columns: ["contact_id"]
@@ -2002,6 +2183,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "events_with_id"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "event_tickets_event_id_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "function_event_tickets_view"
+            referencedColumns: ["event_id"]
           },
         ]
       }
@@ -2111,6 +2299,20 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "tickets_eventid_fkey"
+            columns: ["event_id"]
+            isOneToOne: false
+            referencedRelation: "function_event_tickets_view"
+            referencedColumns: ["event_id"]
+          },
+          {
+            foreignKeyName: "tickets_package_id_fkey"
+            columns: ["package_id"]
+            isOneToOne: false
+            referencedRelation: "function_packages_view"
+            referencedColumns: ["package_id"]
+          },
+          {
             foreignKeyName: "tickets_package_id_fkey"
             columns: ["package_id"]
             isOneToOne: false
@@ -2151,6 +2353,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "event_tickets_with_id"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "tickets_ticket_type_id_fkey"
+            columns: ["ticket_type_id"]
+            isOneToOne: false
+            referencedRelation: "function_event_tickets_view"
+            referencedColumns: ["event_ticket_id"]
           },
           {
             foreignKeyName: "tickets_ticket_type_id_fkey"
@@ -2224,6 +2433,30 @@ export type Database = {
         Args: { p_event_slug: string }
         Returns: Json
       }
+      get_function_details: {
+        Args: { p_function_id: string }
+        Returns: Json
+      }
+      get_function_details_formatted: {
+        Args: { p_function_id: string }
+        Returns: {
+          function_id: string
+          name: string
+          slug: string
+          description: string
+          image_url: string
+          start_date: string
+          end_date: string
+          location_id: string
+          organiser_id: string
+          events: Json
+          packages: Json
+          location: Json
+          registration_count: number
+          metadata: Json
+          is_published: boolean
+        }[]
+      }
       get_registration_summary: {
         Args: { p_registration_id: string }
         Returns: Json
@@ -2256,6 +2489,20 @@ export type Database = {
       }
       reserve_tickets: {
         Args: { p_ticket_selections: Json }
+        Returns: Json
+      }
+      upsert_lodge_registration: {
+        Args: {
+          p_function_id: string
+          p_package_id: string
+          p_table_count: number
+          p_booking_contact: Json
+          p_lodge_details: Json
+          p_payment_status?: string
+          p_stripe_payment_intent_id?: string
+          p_registration_id?: string
+          p_metadata?: Json
+        }
         Returns: Json
       }
     }

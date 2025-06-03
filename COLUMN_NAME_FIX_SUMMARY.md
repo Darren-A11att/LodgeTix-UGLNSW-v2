@@ -1,95 +1,66 @@
-# Database Column Name Mismatches - Comprehensive Fix Summary
+# Column Name Fixes Summary
 
-## Overview
-This document tracks all database column name mismatches found in the codebase and their fixes.
+This document tracks all database column name mismatches that have been fixed to align with the actual database schema defined in `shared/types/database.ts`.
 
-## 1. Suffix Column Mismatches
-**Issue**: Code uses `suffix` but database has `suffix_1`, `suffix_2`, `suffix_3`
-**Fix**: Use `suffix_1` for primary suffix
+## Fixed Issues
 
-### Files to Fix:
-- [ ] `/app/api/registrations/lodge/route.ts:252`
-- [ ] `/app/api/registrations/route.ts:436, 454`
+### 1. Phone vs billing_phone in contacts table
+**File**: `/app/api/functions/[functionId]/packages/[packageId]/lodge-registration/route.ts`  
+**Issue**: Using 'phone' instead of 'billing_phone'  
+**Fix**: Changed from `phone: booking_contact.phone` to `billing_phone: booking_contact.phone`
 
-## 2. Registration Table: customer_id → contact_id
-**Issue**: Code uses `customer_id` but registrations table uses `contact_id`
-**Fix**: Replace all `customer_id` references with `contact_id`
+### 2. Customer metadata column
+**File**: `/supabase/migrations/20250103_fix_upsert_lodge_registration_rpc.sql`  
+**Issue**: Inserting into non-existent 'metadata' column in customers table  
+**Fix**: Removed metadata field from customers insert
 
-### Files to Fix:
-- [ ] `/app/api/functions/[functionId]/individual-registration/route.ts:207`
-- [ ] `/app/api/functions/[functionId]/register/route.ts:149`
-- [ ] `/app/api/functions/[functionId]/packages/[packageId]/lodge-registration/route.ts:392`
-- [ ] `/app/api/registrations/lodge/route.ts:360, 393`
-- [ ] `/app/api/registrations/route.ts:137, 219, 220, 276, 277, 345`
+### 3. Customer type enum value
+**Files**: 
+- `/app/api/functions/[functionId]/packages/[packageId]/lodge-registration/route.ts`
+- `/supabase/migrations/20250103_fix_upsert_lodge_registration_rpc.sql`
+**Issue**: Using invalid enum value 'individual' for customer_type  
+**Valid enum values**: 'booking_contact', 'sponsor', 'donor'  
+**Fix**: Changed to use 'booking_contact' for lodge registrations
 
-## 3. Phone Column References
-**Issue**: Code uses generic `phone` but should use specific columns
-**Fix**: Use `mobile_number` for mobile, `billing_phone` for billing
+### 4. Contact type enum value  
+**File**: `/supabase/migrations/20250103_fix_upsert_lodge_registration_rpc.sql`
+**Issue**: Using invalid enum value 'booking_contact' for contact_type  
+**Valid enum values**: 'individual', 'organisation'  
+**Fix**: Changed to use 'organisation' for lodge contacts
 
-### Files to Fix:
-- [ ] `/app/api/registrations/lodge/route.ts:255`
-- [ ] `/app/api/registrations/route.ts:234, 319, 456`
-- [ ] `/lib/services/registration-service.ts:153, 183, 298`
+### 5. Payment status enum casting
+**File**: `/supabase/migrations/20250103_fix_upsert_lodge_registration_rpc.sql`  
+**Issue**: Not casting text parameter to payment_status enum  
+**Fix**: Added explicit cast `p_payment_status::payment_status`
 
-## 4. Tickets Table Columns
-**Issue**: Code uses `ticket_price` and `ticket_status` which don't exist
-**Fix**: Use `price_paid` and `status`
+### 6. Event tickets column name
+**File**: `/supabase/migrations/20250103_fix_upsert_lodge_registration_rpc.sql`  
+**Issue**: Using 'et.id' instead of 'et.event_ticket_id'  
+**Fix**: Changed to use correct column name 'event_ticket_id'
 
-### Files to Fix:
-- [ ] `/app/api/functions/[functionId]/tickets/route.ts:73, 83`
-- [ ] `/app/api/registrations/route.ts:605`
-- [ ] `/app/api/registrations/[id]/payment/route.ts:331`
-- [ ] `/app/api/registrations/[id]/verify-payment/route.ts:83`
-- [ ] `/app/api/stripe/webhook/route.ts:217`
-- [ ] `/lib/services/function-tickets-service.ts:9, 90`
+### 7. Confirmation page attendee handling
+**File**: `/components/register/RegistrationWizard/Steps/confirmation-step.tsx`  
+**Issue**: Trying to access attendee properties for lodge registrations (which have no attendees)  
+**Fix**: Added checks for registration type and handled lodge registrations separately:
+- Display booking contact instead of primary attendee
+- Show table count instead of attendee count  
+- Display lodge-specific ticket information
+- Handle null/undefined attendees in getAttendeeTitle function
 
-## 5. Enum Value Mismatches
+## Key Learnings
 
-### 5.1 Payment Status: 'paid' → 'completed'
-**Issue**: Code uses 'paid' but enum expects 'completed'
-**Fix**: Replace 'paid' with 'completed'
+1. **Always check database types**: The source of truth is `shared/types/database.ts`
+2. **Enum values matter**: PostgreSQL enums are strict - must use exact valid values
+3. **Column names are case-sensitive**: Use exact names from schema
+4. **Cast when needed**: Explicit casting required for enum types in RPC functions
+5. **Lodge registrations are different**: They don't have attendees, only booking contacts and table bookings
 
-### Files to Fix:
-- [ ] `/app/api/functions/[functionId]/individual-registration/route.ts:164`
-- [ ] `/app/api/registrations/lodge/route.ts:341`
-- [ ] `/app/api/registrations/[id]/verify-payment/route.ts:76`
-- [ ] `/app/api/stripe/webhook/route.ts:402`
+## Migration Applied
 
-### 5.2 Registration Type: 'lodges' → 'lodge'
-**Issue**: Code uses 'lodges' (plural) but enum expects 'lodge' (singular)
-**Fix**: Replace 'lodges' with 'lodge'
+Created and applied: `/supabase/migrations/20250103_fix_all_enums_and_columns.sql`
 
-### Files to Fix:
-- [ ] `/lib/services/function-tickets-service.ts:129, 215`
-- [ ] `/components/register/Forms/attendee/LodgesForm.tsx:83`
-- [ ] `/components/register/RegistrationWizard/Steps/LodgeRegistrationStep.tsx:71, 87`
-- [ ] `/supabase/migrations/20250103_create_upsert_lodge_registration_rpc.sql:183`
-
-## Database Schema Reference
-
-### contacts table
-```sql
-suffix_1 text,
-suffix_2 text, 
-suffix_3 text,
-mobile_number text,
-billing_phone character varying,
-address_line_1 text,
-address_line_2 text,
-```
-
-### registrations table
-```sql
-contact_id uuid, -- NOT customer_id
-payment_status USER-DEFINED -- values: 'pending', 'processing', 'completed', 'failed', 'cancelled', 'refunded', 'partially_refunded', 'expired'
-registration_type USER-DEFINED -- values: 'individual', 'lodge', 'delegation'
-```
-
-### tickets table
-```sql
-price_paid numeric(10, 2) NOT NULL,
-original_price numeric(10, 2) null,
-status character varying(50) -- values: 'available', 'reserved', 'sold', 'used', 'cancelled'
--- NO ticket_price or ticket_status columns
-```
-EOF < /dev/null
+This migration updates the `upsert_lodge_registration` RPC function with all the correct:
+- Column names
+- Enum values  
+- Type casting
+- Composite type field references

@@ -98,6 +98,11 @@ function ConfirmationStep() {
 
   // Use Supabase data if available, otherwise fall back to store data
   const primaryAttendee = useMemo(() => {
+    // Lodge registrations don't have attendees
+    if (registrationType === 'lodge') {
+      return null;
+    }
+    
     if (registrationData) {
       return registrationData.attendees.find(att => 
         att.attendeetype === 'primary' || 
@@ -105,9 +110,14 @@ function ConfirmationStep() {
       );
     }
     return allStoreAttendees?.find(att => att.isPrimary);
-  }, [registrationData, allStoreAttendees]);
+  }, [registrationData, allStoreAttendees, registrationType]);
   
   const additionalAttendees = useMemo(() => {
+    // Lodge registrations don't have attendees
+    if (registrationType === 'lodge') {
+      return [];
+    }
+    
     if (registrationData) {
       return registrationData.attendees.filter(att => 
         att.attendeetype !== 'primary' && 
@@ -115,7 +125,7 @@ function ConfirmationStep() {
       );
     }
     return allStoreAttendees?.filter(att => !att.isPrimary) || [];
-  }, [registrationData, allStoreAttendees]);
+  }, [registrationData, allStoreAttendees, registrationType]);
 
   // Map DB ticket data to the format expected by the UI
   const currentTickets = useMemo(() => {
@@ -245,6 +255,11 @@ function ConfirmationStep() {
 
   // Get attendee title based on their type
   const getAttendeeTitle = (att: any) => {
+    // Handle null/undefined attendees (e.g., lodge registrations)
+    if (!att) {
+      return '';
+    }
+    
     // For Supabase data
     if (att.attendeetype) {
       return att.attendeetype.toLowerCase() === 'mason' ? att.rank : att.title;
@@ -349,21 +364,49 @@ function ConfirmationStep() {
                 </div>
 
                 <div className="space-y-2 rounded-lg border p-3">
-                  <h3 className="font-medium text-gray-700">Primary Attendee</h3>
-                  <p className="text-masonic-navy">
-                    {getAttendeeTitle(primaryAttendee)} {primaryAttendee?.firstName} {primaryAttendee?.lastName}
-                  </p>
-                  {primaryAttendee?.primaryEmail && (
-                    <div className="flex items-center text-sm text-gray-500">
-                      <Mail className="mr-1 h-3 w-3" />
-                      {primaryAttendee.primaryEmail}
-                    </div>
-                  )}
-                  {primaryAttendee?.primaryPhone && (
-                    <div className="flex items-center text-sm text-gray-500">
-                      <Phone className="mr-1 h-3 w-3" />
-                      {primaryAttendee.primaryPhone}
-                    </div>
+                  <h3 className="font-medium text-gray-700">
+                    {registrationType === 'lodge' ? 'Booking Contact' : 'Primary Attendee'}
+                  </h3>
+                  {registrationType === 'lodge' ? (
+                    <>
+                      {/* Lodge registration - show booking contact from registration data */}
+                      <p className="text-masonic-navy">
+                        {registrationData?.registration?.registration_data?.booking_contact?.title || ''} {' '}
+                        {registrationData?.registration?.registration_data?.booking_contact?.firstName || ''} {' '}
+                        {registrationData?.registration?.registration_data?.booking_contact?.lastName || ''}
+                      </p>
+                      {registrationData?.registration?.registration_data?.booking_contact?.email && (
+                        <div className="flex items-center text-sm text-gray-500">
+                          <Mail className="mr-1 h-3 w-3" />
+                          {registrationData.registration.registration_data.booking_contact.email}
+                        </div>
+                      )}
+                      {registrationData?.registration?.registration_data?.booking_contact?.phone && (
+                        <div className="flex items-center text-sm text-gray-500">
+                          <Phone className="mr-1 h-3 w-3" />
+                          {registrationData.registration.registration_data.booking_contact.phone}
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      {/* Individual/other registration - show primary attendee */}
+                      <p className="text-masonic-navy">
+                        {getAttendeeTitle(primaryAttendee)} {primaryAttendee?.firstName} {primaryAttendee?.lastName}
+                      </p>
+                      {primaryAttendee?.primaryEmail && (
+                        <div className="flex items-center text-sm text-gray-500">
+                          <Mail className="mr-1 h-3 w-3" />
+                          {primaryAttendee.primaryEmail}
+                        </div>
+                      )}
+                      {primaryAttendee?.primaryPhone && (
+                        <div className="flex items-center text-sm text-gray-500">
+                          <Phone className="mr-1 h-3 w-3" />
+                          {primaryAttendee.primaryPhone}
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
 
@@ -385,7 +428,11 @@ function ConfirmationStep() {
                 <Alert className="border-amber-200 bg-amber-50">
                   <AlertCircle className="h-4 w-4 text-amber-600" />
                   <AlertDescription className="text-amber-800">
-                    A confirmation email has been sent to {primaryAttendee?.primaryEmail}. Please check your inbox.
+                    A confirmation email has been sent to {
+                      registrationType === 'lodge' 
+                        ? registrationData?.registration?.registration_data?.booking_contact?.email 
+                        : primaryAttendee?.primaryEmail
+                    }. Please check your inbox.
                   </AlertDescription>
                 </Alert>
               </CardContent>
@@ -404,7 +451,34 @@ function ConfirmationStep() {
 
           <TabsContent value="tickets" className="mt-4 space-y-4">
             <div className="space-y-4">
-              {allAttendees.map((attendee) => {
+              {registrationType === 'lodge' ? (
+                // Lodge registration - show bulk ticket information
+                <Card className="overflow-hidden border-masonic-lightgold">
+                  <CardHeader className="bg-masonic-navy text-white">
+                    <CardTitle className="text-lg">
+                      {registrationData?.registration?.registration_data?.lodge_details?.lodgeName || 'Lodge Registration'}
+                    </CardTitle>
+                    <CardDescription className="text-gray-200">
+                      {registrationData?.registration?.registration_data?.table_count || 0} Tables ({(registrationData?.registration?.registration_data?.table_count || 0) * 10} seats)
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="p-6">
+                    <h4 className="font-semibold mb-3">Package Details:</h4>
+                    {registrationData && (
+                      <div className="space-y-2">
+                        <p className="text-sm">
+                          <span className="font-medium">Total Tickets:</span> {currentTickets.length}
+                        </p>
+                        <p className="text-sm">
+                          <span className="font-medium">Package Price:</span> ${totalAmount.toFixed(2)}
+                        </p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              ) : (
+                // Individual registration - show attendee tickets
+                allAttendees.map((attendee) => {
                 const attendeeTickets = currentTickets.filter(t => t.attendeeId === attendee.attendeeId);
                 if (attendeeTickets.length === 0) return null;
                 
@@ -470,7 +544,8 @@ function ConfirmationStep() {
                     </CardContent>
                   </Card>
                 );
-              })}
+              })
+              )}
               
               {/* Summary Card */}
               <Card className="border-masonic-navy">
@@ -480,8 +555,10 @@ function ConfirmationStep() {
                 <CardContent>
                   <div className="space-y-3">
                     <div className="flex justify-between items-center text-sm">
-                      <span>Total attendees:</span>
-                      <span>{allAttendees.length}</span>
+                      <span>{registrationType === 'lodge' ? 'Total tables:' : 'Total attendees:'}</span>
+                      <span>{registrationType === 'lodge' 
+                        ? registrationData?.registration?.registration_data?.table_count || 0
+                        : allAttendees.length}</span>
                     </div>
                     <div className="flex justify-between items-center text-sm">
                       <span>Total tickets:</span>
@@ -607,7 +684,11 @@ function ConfirmationStep() {
           <h2 className="mb-4 text-xl font-bold text-masonic-navy">What's Next?</h2>
           <div className="masonic-divider"></div>
           <p className="mb-6 text-gray-600">
-            A confirmation email has been sent to {primaryAttendee?.primaryEmail} with all the details of your
+            A confirmation email has been sent to {
+              registrationType === 'lodge' 
+                ? registrationData?.registration?.registration_data?.booking_contact?.email 
+                : primaryAttendee?.primaryEmail
+            } with all the details of your
             registration.
           </p>
 
