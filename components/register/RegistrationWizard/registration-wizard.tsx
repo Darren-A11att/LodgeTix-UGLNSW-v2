@@ -36,6 +36,7 @@ export interface RegistrationWizardProps {
   functionId?: string; // Function UUID (optional - will be resolved from slug if not provided)
   registrationId?: string; // Registration ID from URL
   isNewRegistration?: boolean; // Whether this is a new registration
+  initialStep?: number; // Optional initial step to display
 }
 
 // Helper to check for non-empty value
@@ -262,7 +263,7 @@ const validateAttendeeData = (attendees: ReturnType<typeof selectAttendees>): st
   return errors;
 };
 
-export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ functionSlug, functionId: providedFunctionId, registrationId, isNewRegistration }) => {
+export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ functionSlug, functionId: providedFunctionId, registrationId, isNewRegistration, initialStep }) => {
   const currentStep = useRegistrationStore(selectCurrentStep)
   const registrationType = useRegistrationStore(selectRegistrationType)
   const confirmationNumber = useRegistrationStore(selectConfirmationNumber)
@@ -350,8 +351,8 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ function
           // Always go to registration type selection first
           console.log(`Setting up function: ${functionSlug} (ID: ${functionId})`);
           
-          // Always set current step to 1 (Registration Type) on initial load
-          setCurrentStep(1);
+          // Set current step - use initialStep if provided, otherwise default to 1
+          setCurrentStep(initialStep || 1);
           
           setFunctionSlug(functionSlug);
           // Store the function ID in the registration store as well
@@ -385,8 +386,8 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ function
       setFunctionId(resolvedFunctionId);
     }
     
-    // Always reset to step 1 (Registration Type) as per requirement
-    setCurrentStep(1);
+    // Reset to step 1 or initialStep if provided
+    setCurrentStep(initialStep || 1);
     
     // Initialization is complete after user makes their choice
     setIsInitializing(false);

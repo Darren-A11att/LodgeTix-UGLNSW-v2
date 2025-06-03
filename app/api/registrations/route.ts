@@ -27,6 +27,7 @@ export async function POST(request: Request) {
       paymentIntentId = null,
       billingDetails,
       eventId,
+      functionId,
       customerId
     } = data;
     
@@ -36,6 +37,15 @@ export async function POST(request: Request) {
       return NextResponse.json(
         { error: "User authentication token not provided or invalid." },
         { status: 401 } // Unauthorized
+      );
+    }
+    
+    if (!functionId) {
+      console.error("Missing function ID in registration request");
+      console.groupEnd();
+      return NextResponse.json(
+        { error: "Function ID is required for registration" },
+        { status: 400 }
       );
     }
     
@@ -133,8 +143,8 @@ export async function POST(request: Request) {
     // Prepare registration record using snake_case for database columns
     const registrationRecord: TablesInsert<'registrations'> = {
       registration_id: newRegistrationId,
-      event_id: finalEventId,
-      customer_id: customerId,
+      function_id: functionId, // Use function_id from request
+      contact_id: customerId, // This is contact_id in the database, not customer_id
       registration_date: new Date().toISOString(),
       status: "unpaid",
       total_amount_paid: 0,

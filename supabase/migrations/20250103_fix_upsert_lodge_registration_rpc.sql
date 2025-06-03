@@ -68,7 +68,7 @@ BEGIN
         suffix_1,  -- Use suffix_1 instead of suffix
         email,
         mobile_number,
-        phone,
+        billing_phone,
         address_line_1,
         address_line_2,
         suburb_city,
@@ -106,7 +106,7 @@ BEGIN
         last_name = EXCLUDED.last_name,
         suffix_1 = EXCLUDED.suffix_1,
         mobile_number = EXCLUDED.mobile_number,
-        phone = EXCLUDED.phone,
+        billing_phone = EXCLUDED.billing_phone,
         address_line_1 = EXCLUDED.address_line_1,
         address_line_2 = EXCLUDED.address_line_2,
         suburb_city = EXCLUDED.suburb_city,

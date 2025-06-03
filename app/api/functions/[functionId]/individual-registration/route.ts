@@ -204,7 +204,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       success: true,
       registrationId: registrationResult.registration_id,
       confirmationNumber: registrationResult.confirmation_number,
-      customerId: registrationResult.customer_id,
+      customerId: registrationResult.contact_id,
       paymentIntentId: paymentIntent?.id,
       totalAttendees: registrationResult.total_attendees,
       totalTickets: registrationResult.total_tickets,

@@ -7,10 +7,13 @@ interface RegistrationWizardPageProps {
     slug: string;
     registrationId: string;
   }>;
+  searchParams?: Promise<{ [key: string]: string | string[] | undefined }>;
 }
 
-export default async function RegistrationWizardPage({ params }: RegistrationWizardPageProps) {
+export default async function RegistrationWizardPage({ params, searchParams }: RegistrationWizardPageProps) {
   const { slug, registrationId } = await params;
+  const resolvedSearchParams = searchParams ? await searchParams : {};
+  const showConfirmation = resolvedSearchParams.showConfirmation === 'true';
   const supabase = await createClient();
   
   // First check if this is an existing registration
@@ -76,16 +79,29 @@ export default async function RegistrationWizardPage({ params }: RegistrationWiz
   // The registration wizard will handle contact creation and auth as needed
   const { data: { user } } = await supabase.auth.getUser();
   
-  // If there's a contact_id and it doesn't match the current user, redirect to login
-  if (registration.contact_id && (!user || user.id !== registration.contact_id)) {
-    console.error('User not authorized for registration');
-    redirect('/login');
+  // For existing registrations, check if the user has access
+  // Lodge registrations may use anonymous auth, so we need to check the contact's auth_user_id
+  if (registration.contact_id) {
+    const { data: contact } = await supabase
+      .from('contacts')
+      .select('auth_user_id')
+      .eq('contact_id', registration.contact_id)
+      .single();
+    
+    // Only enforce auth check if the contact has an auth_user_id
+    if (contact?.auth_user_id && (!user || user.id !== contact.auth_user_id)) {
+      console.error('User not authorized for registration');
+      redirect('/login');
+    }
   }
 
-  // Check if registration is completed
-  if (registration.status === 'completed' || registration.status === 'paid') {
+  // Check if registration is completed - but allow showing confirmation if requested
+  if (!showConfirmation && (registration.status === 'completed' || registration.status === 'paid')) {
     redirect(`/registrations/${registrationId}`);
   }
+  
+  // For confirmed registrations with showConfirmation flag, show the wizard at step 6
+  const isShowingConfirmation = showConfirmation && (registration.status === 'confirmed' || registration.status === 'completed');
 
   return (
     <RegistrationWizard 
@@ -93,6 +109,7 @@ export default async function RegistrationWizardPage({ params }: RegistrationWiz
       functionId={registration.function_id}
       registrationId={registrationId}
       isNewRegistration={false}
+      initialStep={isShowingConfirmation ? 6 : undefined}
     />
   );
 }

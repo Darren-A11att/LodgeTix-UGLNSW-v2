@@ -23,7 +23,7 @@ const stripePromise = loadStripe(stripePublishableKey);
 
 interface LodgeRegistrationStepProps {
   functionId: string;
-  functionSlug?: string;
+  functionSlug: string; // Make functionSlug required as it's needed for navigation
   onPrevStep?: () => void;
   selectedEvents?: any;
 }
@@ -159,6 +159,7 @@ export const LodgeRegistrationStep: React.FC<LodgeRegistrationStepProps> = ({
       
       if (!packageId) {
         console.error('[LodgeRegistrationStep] Package structure:', selectedPackage);
+        console.error('[LodgeRegistrationStep] Available packages:', lodgePackages);
         throw new Error('Package has no ID');
       }
 
@@ -199,12 +200,16 @@ export const LodgeRegistrationStep: React.FC<LodgeRegistrationStepProps> = ({
       }
 
       if (result.success && result.registrationId) {
-        // Navigate to confirmation page using function-based routing
-        const confirmationPath = functionSlug
-          ? `/functions/${functionSlug}/register/${result.registrationId}/confirmation`
-          : `/registrations/${result.registrationId}`;
+        // Store registration data in the registration store
+        const store = useRegistrationStore.getState();
+        store.setConfirmationNumber(result.confirmationNumber);
+        store.setCurrentStep(6); // Go to confirmation step
+        store._updateStatus('completed'); // Mark as completed
         
-        router.push(confirmationPath);
+        // Navigate after the current render cycle to avoid React hooks error
+        setTimeout(() => {
+          router.push(`/functions/${functionSlug}/register/${result.registrationId}?showConfirmation=true`);
+        }, 0);
       } else {
         throw new Error('Registration failed');
       }

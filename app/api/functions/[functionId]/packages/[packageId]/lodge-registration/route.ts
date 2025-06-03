@@ -13,9 +13,13 @@ interface RouteParams {
   };
 }
 
-export async function POST(request: NextRequest, { params }: { params: Promise<{ functionId: string; packageId: string }> }) {
+export async function POST(
+  request: NextRequest,
+  context: { params: Promise<{ functionId: string; packageId: string }> }
+) {
   try {
-    const { functionId, packageId } = await params;
+    const params = await context.params;
+    const { functionId, packageId } = params;
     console.log('[Lodge Registration API] Received request:', { functionId, packageId });
     
     const body = await request.json();
@@ -109,7 +113,8 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
         payment_method: paymentMethodId,
         confirmation_method: 'manual',
         confirm: true,
-        return_url: `${baseUrl}/functions/${functionData.slug || functionId}/register/success`,
+        // Use functionId in return URL to avoid issues with undefined slug
+        return_url: `${baseUrl}/api/functions/${functionId}/register/success`,
         metadata: {
           function_id: functionId,
           function_name: functionData.name?.substring(0, 100) || '',
@@ -217,7 +222,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
               last_name: bookingContact.lastName,
               title: bookingContact.title,
               mobile_number: bookingContact.mobile,
-              phone: bookingContact.phone,
+              billing_phone: bookingContact.phone,  // Use billing_phone not phone
               auth_user_id: authUserId,
               type: 'organisation',  // Lodge registrations are organisations
               business_name: lodgeDetails.lodgeName,
@@ -299,10 +304,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
                       registration_id: registrationId,
                       event_id: eventTicket.event_id,
                       ticket_type_id: item.item_id,
-                      ticket_price: eventTicket.price,
-                      ticket_status: paymentStatus === 'completed' ? 'sold' : 'reserved',
-                      status: paymentStatus === 'completed' ? 'sold' : 'reserved',
                       price_paid: eventTicket.price,
+                      original_price: eventTicket.price,
+                      status: paymentStatus === 'completed' ? 'sold' : 'reserved',
                       currency: 'AUD',
                       package_id: packageId,
                     });
@@ -324,10 +328,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
                   registration_id: registrationId,
                   event_id: packageData.event_id,
                   ticket_type_id: eventTicket.id,
-                  ticket_price: eventTicket.price,
-                  ticket_status: paymentStatus === 'completed' ? 'sold' : 'reserved',
-                  status: paymentStatus === 'completed' ? 'sold' : 'reserved',
                   price_paid: packageData.package_price / ticketsPerTable,
+                  original_price: eventTicket.price,
+                  status: paymentStatus === 'completed' ? 'sold' : 'reserved',
                   currency: 'AUD',
                   package_id: packageId,
                 });
@@ -421,9 +424,13 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 }
 
 // PUT endpoint for updating registration after payment
-export async function PUT(request: NextRequest, { params }: { params: Promise<{ functionId: string; packageId: string }> }) {
+export async function PUT(
+  request: NextRequest,
+  context: { params: Promise<{ functionId: string; packageId: string }> }
+) {
   try {
-    const { functionId, packageId } = await params;
+    const params = await context.params;
+    const { functionId, packageId } = params;
     const body = await request.json();
     const {
       registrationId,
