@@ -19,11 +19,11 @@ export interface FeeCalculatorOptions {
 // Australian Stripe fee rates
 const STRIPE_RATES = {
   domestic: {
-    percentage: 0.0175, // 1.75%
+    percentage: 0.017, // 1.7%
     fixed: 0.30 // $0.30 AUD
   },
   international: {
-    percentage: 0.029, // 2.9%
+    percentage: 0.035, // 3.5%
     fixed: 0.30 // $0.30 AUD
   }
 } as const;
@@ -33,12 +33,12 @@ export const STRIPE_FEE_CONFIG = {
   domestic: {
     percentage: STRIPE_RATES.domestic.percentage,
     fixed: STRIPE_RATES.domestic.fixed,
-    description: "1.75% + $0.30 AUD"
+    description: "1.7% + $0.30 AUD"
   },
   international: {
     percentage: STRIPE_RATES.international.percentage,
     fixed: STRIPE_RATES.international.fixed,
-    description: "2.9% + $0.30 AUD"
+    description: "3.5% + $0.30 AUD"
   }
 } as const;
 
@@ -55,7 +55,7 @@ export function calculateStripeFees(
 ): StripeFeeCalculation {
   const {
     isDomestic = true, // Assume domestic by default
-    platformFeePercentage = 0.05, // 5% platform fee
+    platformFeePercentage = 0, // 0% platform fee
     feeMode = 'pass_to_customer'
   } = options;
   
@@ -65,20 +65,24 @@ export function calculateStripeFees(
   let stripeFee: number;
   let total: number;
   
+  // Platform fee is ALWAYS calculated on the subtotal only
+  const platformFee = subtotal * platformFeePercentage;
+  
   if (feeMode === 'pass_to_customer') {
-    // Calculate fees to pass to customer
-    // For pass-through fees, we need to solve: total = (subtotal + fee) where fee = total * % + fixed
-    // Rearranging: total = (subtotal + fixed) / (1 - percentage)
+    // With 0% platform fee, calculation is simpler:
+    // Total = subtotal + stripe processing fee
+    
+    // Calculate total including Stripe fee using the formula:
+    // total = (subtotal + fixed) / (1 - percentage)
     total = (subtotal + rates.fixed) / (1 - rates.percentage);
+    
+    // Stripe fee is the difference between total and subtotal
     stripeFee = total - subtotal;
   } else {
     // Absorb fees - customer pays subtotal only
     stripeFee = subtotal * rates.percentage + rates.fixed;
     total = subtotal;
   }
-  
-  // Platform fee is calculated on the subtotal
-  const platformFee = subtotal * platformFeePercentage;
   
   return {
     subtotal: Number(subtotal.toFixed(2)),
@@ -140,7 +144,7 @@ export function getFeeModeFromEnv(): 'pass_to_customer' | 'absorb' {
  */
 export function getPlatformFeePercentage(): number {
   const percentage = process.env.NEXT_PUBLIC_PLATFORM_FEE_PERCENTAGE;
-  return percentage ? parseFloat(percentage) : 0.05; // Default 5%
+  return percentage ? parseFloat(percentage) : 0; // Default 0%
 }
 
 /**

@@ -120,13 +120,22 @@ export async function PUT(
       const connectedAccountId = paymentData.organization.stripe_onbehalfof;
       const organisationName = paymentData.organization.name;
       
-      // Calculate platform fee
+      // Platform fee is now 0%
       let applicationFeeAmount = 0;
-      if (connectedAccountId) {
-        const platformFeePercentage = parseFloat(process.env.STRIPE_PLATFORM_FEE_PERCENTAGE || '0.05');
-        applicationFeeAmount = Math.round(totalAmount * 100 * platformFeePercentage);
-        console.log(`Platform fee (${platformFeePercentage * 100}%): $${applicationFeeAmount / 100}`);
-      }
+      const platformFeePercentage = parseFloat(process.env.STRIPE_PLATFORM_FEE_PERCENTAGE || '0');
+      console.log(`Platform fee: ${platformFeePercentage * 100}% = $${applicationFeeAmount / 100}`);
+      
+      // Determine if card is domestic based on billing country
+      const isDomesticCard = billingDetails?.address?.country?.toUpperCase() === 'AU';
+      console.log(`Card type: ${isDomesticCard ? 'Domestic (AU)' : 'International'} - Country: ${billingDetails?.address?.country}`);
+      console.log(`Stripe fee rate: ${isDomesticCard ? '1.7% + $0.30' : '3.5% + $0.30'}`);
+      
+      // Calculate expected Stripe fee for logging
+      const stripeRate = isDomesticCard ? 0.017 : 0.035;
+      const expectedStripeFee = (totalAmount * stripeRate) + 0.30;
+      console.log(`Expected Stripe processing fee: $${expectedStripeFee.toFixed(2)}`);
+      console.log(`Connected account will receive: $${subtotal.toFixed(2)}`);
+      console.log(`Platform will receive: $${platformFeePercentage * subtotal} (after Stripe takes their fee)`);
       
       // Get device type from request
       const deviceType = getDeviceTypeFromRequest(request);
@@ -194,9 +203,11 @@ export async function PUT(
         subtotal: subtotal || paymentData.registration.subtotal || 0,
         stripeFee: stripeFee || 0,
         totalAmount: totalAmount,
-        platformFee: applicationFeeAmount / 100,
-        platformFeePercentage: parseFloat(process.env.STRIPE_PLATFORM_FEE_PERCENTAGE || '0.05'),
+        platformFee: 0,
+        platformFeePercentage: 0,
         currency: 'aud',
+        cardCountry: billingDetails?.address?.country || 'unknown',
+        isDomesticCard: isDomesticCard,
         
         // Tracking
         sessionId: sessionId,
@@ -232,11 +243,14 @@ export async function PUT(
             throw new Error('The organization\'s payment account is not properly configured');
           }
           
-          // For application fees, we need to create the payment on the platform account
-          // and use transfer_data to send funds to the connected account
+          // For destination charges with Stripe Connect:
+          // - Customer pays the total (subtotal + platform fee + stripe fee)
+          // - Connected account receives the subtotal
+          // - Platform keeps the platform fee
+          // - Stripe takes their processing fee from the platform
           paymentIntentOptions.transfer_data = {
             destination: connectedAccountId,
-            amount: Math.round(totalAmount * 100) - applicationFeeAmount, // Amount to transfer after fee
+            amount: Math.round(subtotal * 100), // Transfer the subtotal to connected account
           };
           
           // Add statement descriptor
@@ -324,24 +338,54 @@ export async function PUT(
       );
     }
     
-    // Also update related tickets to 'completed' status
-    console.log("Updating tickets for registration:", registrationId);
-    const { data: updatedTickets, error: ticketUpdateError } = await supabase
-      .from("tickets") 
-      .update({ 
-        ticket_status: requiresAction ? "pending" : "completed",
-        updated_at: new Date().toISOString()
-      })
-      .eq("registration_id", registrationId)
-      .select();
-    
-    if (ticketUpdateError) {
-      console.error("Error updating tickets:", ticketUpdateError);
-      console.log("Error details:", JSON.stringify(ticketUpdateError, null, 2));
-      // Don't fail the whole request if tickets can't be updated
-      // The registration is already marked as paid which is the critical part
+    // Check if this is an individuals registration and payment is successful
+    if (!requiresAction && existingRegistration.registration_type === 'individuals') {
+      console.log("Processing completed payment for individuals registration");
+      
+      // Use the same upsert RPC function with payment completion flag
+      const rpcData = {
+        registrationId: registrationId,
+        functionId: existingRegistration.function_id,
+        totalAmountPaid: totalAmount,
+        paymentIntentId: finalPaymentIntentId,
+        paymentCompleted: true,
+        confirmationNumber: confirmationNumber,
+        subtotal: subtotal,
+        stripeFee: stripeFee,
+        authUserId: existingRegistration.auth_user_id // Pass the auth_user_id from existing registration
+      };
+      
+      const { data: completeResult, error: completeError } = await supabase
+        .rpc('upsert_individual_registration', {
+          p_registration_data: rpcData
+        });
+      
+      if (completeError) {
+        console.error("Error completing individual payment via upsert:", completeError);
+        // Continue with fallback update
+      } else {
+        console.log("Individual payment completed successfully via upsert RPC:", completeResult);
+      }
     } else {
-      console.log(`Successfully updated ${updatedTickets?.length || 0} tickets to completed status`);
+      // For other registration types or pending payments, update tickets normally
+      console.log("Updating tickets for registration:", registrationId);
+      const { data: updatedTickets, error: ticketUpdateError } = await supabase
+        .from("tickets") 
+        .update({ 
+          ticket_status: requiresAction ? "pending" : "completed",
+          updated_at: new Date().toISOString()
+        })
+        .eq("registration_id", registrationId)
+        .select();
+      
+      if (ticketUpdateError) {
+        console.error("Error updating tickets:", ticketUpdateError);
+        console.log("Error details:", JSON.stringify(ticketUpdateError, null, 2));
+        // Don't fail the whole request if tickets can't be updated
+        // The registration is already marked as paid which is the critical part
+      } else {
+        console.log(`Successfully updated ${updatedTickets?.length || 0} tickets to completed status`);
+      }
     }
     
     // Note: Attendees table doesn't have payment_status column

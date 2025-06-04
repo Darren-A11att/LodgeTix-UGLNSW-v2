@@ -17,13 +17,13 @@ describe('Stripe Fee Calculator', () => {
         feeMode: 'pass_to_customer'
       });
       
-      // For $100 with 1.75% + $0.30:
-      // total = (100 + 0.30) / (1 - 0.0175) = 102.08
-      // stripeFee = 102.08 - 100 = 2.08
+      // For $100 with 1.7% + $0.30:
+      // total = (100 + 0.30) / (1 - 0.017) = 102.03
+      // stripeFee = 102.03 - 100 = 2.03
       expect(result.subtotal).toBe(100);
-      expect(result.stripeFee).toBeCloseTo(2.08, 2);
-      expect(result.total).toBeCloseTo(102.08, 2);
-      expect(result.platformFee).toBe(5); // 5% of $100
+      expect(result.stripeFee).toBeCloseTo(2.03, 2);
+      expect(result.total).toBeCloseTo(102.03, 2);
+      expect(result.platformFee).toBe(0); // 0% platform fee
     });
 
     it('calculates international card fees correctly in pass-to-customer mode', () => {
@@ -32,12 +32,13 @@ describe('Stripe Fee Calculator', () => {
         feeMode: 'pass_to_customer'
       });
       
-      // For $100 with 2.9% + $0.30:
-      // total = (100 + 0.30) / (1 - 0.029) = 103.31
-      // stripeFee = 103.31 - 100 = 3.31
+      // For $100 with 3.5% + $0.30:
+      // total = (100 + 0.30) / (1 - 0.035) = 103.94
+      // stripeFee = 103.94 - 100 = 3.94
       expect(result.subtotal).toBe(100);
-      expect(result.stripeFee).toBeCloseTo(3.31, 2);
-      expect(result.total).toBeCloseTo(103.31, 2);
+      expect(result.stripeFee).toBeCloseTo(3.94, 2);
+      expect(result.total).toBeCloseTo(103.94, 2);
+      expect(result.platformFee).toBe(0); // 0% platform fee
     });
 
     it('calculates fees correctly in absorb mode', () => {
@@ -48,7 +49,7 @@ describe('Stripe Fee Calculator', () => {
       
       // In absorb mode, customer pays subtotal only
       expect(result.subtotal).toBe(100);
-      expect(result.stripeFee).toBeCloseTo(2.05, 2); // 1.75% of 100 + 0.30
+      expect(result.stripeFee).toBeCloseTo(2.00, 2); // 1.7% of 100 + 0.30
       expect(result.total).toBe(100); // Customer pays subtotal only
     });
 
@@ -65,12 +66,12 @@ describe('Stripe Fee Calculator', () => {
         feeMode: 'pass_to_customer'
       });
       
-      // For $10,000 with 1.75% + $0.30:
-      // total = (10000 + 0.30) / (1 - 0.0175) = 10178.59
-      // stripeFee = 178.59
+      // For $10,000 with 1.7% + $0.30:
+      // total = (10000 + 0.30) / (1 - 0.017) = 10173.52
+      // stripeFee = 173.52
       expect(result.subtotal).toBe(10000);
-      expect(result.stripeFee).toBeCloseTo(178.59, 2);
-      expect(result.total).toBeCloseTo(10178.59, 2);
+      expect(result.stripeFee).toBeCloseTo(173.52, 2);
+      expect(result.total).toBeCloseTo(10173.52, 2);
     });
 
     it('rounds to 2 decimal places', () => {
@@ -86,17 +87,33 @@ describe('Stripe Fee Calculator', () => {
       });
       expect(result.platformFee).toBe(10);
     });
+    
+    it('calculates $4 order correctly', () => {
+      const result = calculateStripeFees(4, { 
+        isDomestic: true,
+        feeMode: 'pass_to_customer',
+        platformFeePercentage: 0
+      });
+      
+      // For $4 with 1.7% + $0.30:
+      // total = (4 + 0.30) / (1 - 0.017) = 4.37
+      // stripeFee = 4.37 - 4 = 0.37
+      expect(result.subtotal).toBe(4);
+      expect(result.stripeFee).toBeCloseTo(0.37, 2);
+      expect(result.total).toBeCloseTo(4.37, 2);
+      expect(result.platformFee).toBe(0);
+    });
   });
 
   describe('calculateAbsorbedStripeFee', () => {
     it('calculates domestic absorbed fee correctly', () => {
       const fee = calculateAbsorbedStripeFee(100, true);
-      expect(fee).toBe(2.05); // 1.75% of 100 + 0.30
+      expect(fee).toBe(2.00); // 1.7% of 100 + 0.30
     });
 
     it('calculates international absorbed fee correctly', () => {
       const fee = calculateAbsorbedStripeFee(100, false);
-      expect(fee).toBe(3.20); // 2.9% of 100 + 0.30
+      expect(fee).toBe(3.80); // 3.5% of 100 + 0.30
     });
   });
 
@@ -146,9 +163,9 @@ describe('Stripe Fee Calculator', () => {
       expect(mode).toBe('pass_to_customer');
     });
 
-    it('getPlatformFeePercentage defaults to 5%', () => {
+    it('getPlatformFeePercentage defaults to 0%', () => {
       const percentage = getPlatformFeePercentage();
-      expect(percentage).toBe(0.05);
+      expect(percentage).toBe(0);
     });
   });
 });
