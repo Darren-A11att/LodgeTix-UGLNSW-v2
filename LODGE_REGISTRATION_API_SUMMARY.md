@@ -17,12 +17,21 @@ This document summarizes the implementation of the dedicated Lodge Registration 
 - Updates `upsert_lodge_registration` RPC function to use customer_id
 - Removes all references to contacts table
 - Creates customer records directly for lodge representatives
-- Stores lodge details in registrations table fields
+- Stores lodge details in both dedicated columns and registration_data JSONB
 
-#### Migration: `20250607_004_create_lodge_registration_view.sql` (New)
+#### Migration: `20250607_005_add_missing_columns_to_registrations.sql` (New)
+- Adds missing columns to registrations table:
+  - `organisation_name` (TEXT)
+  - `organisation_number` (TEXT)
+  - `primary_attendee` (TEXT)
+  - `attendee_count` (INTEGER)
+- Adds indexes for performance
+- Migrates existing data from registration_data JSONB to new columns
+
+#### Migration: `20250607_006_create_lodge_registration_view.sql` (New)
 - Creates `lodge_registration_complete_view` for comprehensive lodge data
+- Uses new columns with fallback to registration_data JSONB
 - Includes customer, function, and lodge details
-- Extracts package and lodge information from registration_data JSONB
 
 ### 2. API Route Structure
 
@@ -122,7 +131,8 @@ To complete the lodge registration flow:
    - Run migrations in order:
      1. `20250607_001_update_registrations_customer_id.sql`
      2. `20250607_003_update_lodge_rpc_customer_id.sql`
-     3. `20250607_004_create_lodge_registration_view.sql`
+     3. `20250607_005_add_missing_columns_to_registrations.sql`
+     4. `20250607_006_create_lodge_registration_view.sql`
 
 ## Benefits
 
