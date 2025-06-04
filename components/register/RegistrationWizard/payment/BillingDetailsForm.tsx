@@ -107,8 +107,6 @@ export const BillingDetailsForm: React.FC<BillingDetailsFormProps> = ({
       
       // Only update store when values actually change (not on first render)
       if (type === 'change') {
-        console.log('Billing field changed:', name, value);
-        
         // Get all current form values
         const currentValues = form.getValues();
         
@@ -128,7 +126,6 @@ export const BillingDetailsForm: React.FC<BillingDetailsFormProps> = ({
         };
         
         // Update the store
-        console.log('Updating billing details in Zustand store:', billingDataForStore);
         updateStoreBillingDetails(billingDataForStore);
         
         // Also call the prop callback if provided
@@ -168,12 +165,10 @@ export const BillingDetailsForm: React.FC<BillingDetailsFormProps> = ({
       
       // Auto-populate country for Mason with Grand Lodge
       if (primaryAttendee.attendeeType === 'Mason' && primaryAttendee.grand_lodge_id) {
-        console.log('Mason with Grand Lodge detected, fetching country...', primaryAttendee.grand_lodge_id);
         // Fetch Grand Lodge data to get country
         getAllGrandLodges().then(grandLodges => {
           const grandLodge = grandLodges.find(gl => gl.id === primaryAttendee.grand_lodge_id);
           if (grandLodge && grandLodge.country) {
-            console.log('Found Grand Lodge country:', grandLodge.country);
             // Find matching country in the countries list
             const matchingCountry = countries.find(c => 
               c.name.toLowerCase() === grandLodge.country.toLowerCase() ||
@@ -187,21 +182,13 @@ export const BillingDetailsForm: React.FC<BillingDetailsFormProps> = ({
                 id: matchingCountry.id 
               };
               form.setValue('country', countryToSet, { shouldValidate: true });
-              console.log('Set country to:', countryToSet.name);
             }
           }
         }).catch(err => {
-          console.error('Failed to fetch Grand Lodge data:', err);
+          // Silent error handling
         });
       }
       
-      // Log to verify the data being set
-      console.log('Setting billing details from primary:', { 
-        firstName: primaryAttendee.firstName,
-        lastName: primaryAttendee.lastName,
-        mobileNumber: primaryAttendee.primaryPhone, // Log the phone specifically
-        emailAddress: primaryAttendee.primaryEmail 
-      });
     } else if (!billToPrimaryWatched && prevBillToPrimary) {
       // Checkbox was just unchecked - clear the personal details
       shouldUpdate = true;
@@ -252,7 +239,6 @@ export const BillingDetailsForm: React.FC<BillingDetailsFormProps> = ({
       };
       
       // Update the store
-      console.log('Updating billing details from "Bill to Primary" change:', billingDataForStore);
       updateStoreBillingDetails(billingDataForStore);
       
       // Call prop callback if provided
@@ -314,7 +300,6 @@ export const BillingDetailsForm: React.FC<BillingDetailsFormProps> = ({
               countryCode: countryIsoCode 
             };
             form.setValue('stateTerritory', stateToSet, { shouldValidate: true });
-            console.log('💳 Set state from stored billing details:', stateToSet.name);
           }
         }
         // Otherwise check geolocation
@@ -332,7 +317,6 @@ export const BillingDetailsForm: React.FC<BillingDetailsFormProps> = ({
               countryCode: countryIsoCode 
             };
             form.setValue('stateTerritory', stateToSet, { shouldValidate: true });
-            console.log('💳 Set state from geolocation:', stateToSet.name);
           }
         }
       }
@@ -363,7 +347,6 @@ export const BillingDetailsForm: React.FC<BillingDetailsFormProps> = ({
             id: storedCountry.id 
           };
           form.setValue('country', countryToSet, { shouldValidate: true });
-          console.log('💳 Set country from stored billing details:', countryToSet.name);
           // Immediately fetch states for this country
           fetchAndPreselectStates(storedCountry.id, storedCountry.iso2);
         }
@@ -375,7 +358,6 @@ export const BillingDetailsForm: React.FC<BillingDetailsFormProps> = ({
       if (geoCountry) {
         const countryToSet: ZodCountryType = { name: geoCountry.name, isoCode: geoCountry.iso2, id: geoCountry.id };
         form.setValue('country', countryToSet, { shouldValidate: true });
-        console.log('💳 Set country from geolocation:', countryToSet.name);
         // Immediately fetch states for this country
         fetchAndPreselectStates(geoCountry.id, geoCountry.iso2);
       }
@@ -477,17 +459,10 @@ export const BillingDetailsForm: React.FC<BillingDetailsFormProps> = ({
                 
                 // Special effect to handle bill to primary changes specifically for phone
                 useEffect(() => {
-                  console.log("Phone field effect triggered:", { 
-                    billToPrimaryWatched, 
-                    primaryPhone: primaryAttendee?.primaryPhone,
-                    currentValue: field.value
-                  });
-                  
                   if (billToPrimaryWatched && primaryAttendee?.primaryPhone && field.value !== primaryAttendee.primaryPhone) {
                     // Update the field value and ref
                     phoneRef.current = primaryAttendee.primaryPhone;
                     field.onChange(primaryAttendee.primaryPhone);
-                    console.log("Setting phone value to:", primaryAttendee.primaryPhone);
                   }
                 }, [billToPrimaryWatched, primaryAttendee?.primaryPhone]);
                 

@@ -9,6 +9,14 @@ export async function POST(request: Request) {
     const data = await request.json();
     console.log("Received lodge registration data:", JSON.stringify(data, null, 2));
     
+    // Store the raw payload data for tracking
+    const rawPayloadData = {
+      endpoint: '/api/registrations/lodge',
+      method: 'POST',
+      timestamp: new Date().toISOString(),
+      payload: data
+    };
+    
     // Extract the auth token from headers
     const authHeader = request.headers.get('authorization');
     console.log("Auth header present:", !!authHeader);
@@ -125,6 +133,24 @@ export async function POST(request: Request) {
       );
     }
     
+    // Save raw payload to raw_payloads table
+    console.log("Saving raw payload to tracking table");
+    const { error: payloadError } = await supabase
+      .from('raw_payloads')
+      .insert([
+        { 
+          raw_data: rawPayloadData,
+          created_at: new Date().toISOString()
+        }
+      ]);
+    
+    if (payloadError) {
+      console.error('Error inserting raw payload data:', payloadError);
+      // Don't fail the request, just log the error
+    } else {
+      console.log('Raw payload data saved successfully');
+    }
+    
     // Prepare booking contact data
     const bookingContact = {
       email: billingDetails.emailAddress,
@@ -144,39 +170,49 @@ export async function POST(request: Request) {
       additionalInfo: billingDetails.specialNeeds
     };
     
-    console.log("Calling upsert_lodge_registration RPC with data:", {
-      functionId,
-      packageId,
-      tableCount,
-      lodgeDetails,
-      bookingContact,
-      paymentStatus: 'pending',
-      paymentIntentId,
-      registrationId,
-      totalAmount,
-      subtotal,
-      stripeFee
-    });
+    // Prepare RPC payload
+    const rpcPayload = {
+      p_function_id: functionId,
+      p_package_id: packageId,
+      p_table_count: tableCount,
+      p_booking_contact: bookingContact,
+      p_lodge_details: lodgeDetails,
+      p_payment_status: 'pending',
+      p_stripe_payment_intent_id: paymentIntentId,
+      p_registration_id: registrationId,
+      p_total_amount: totalAmount,
+      p_subtotal: subtotal,
+      p_stripe_fee: stripeFee,
+      p_metadata: {
+        agreeToTerms,
+        createdVia: 'lodge_registration_api'
+      }
+    };
+    
+    console.log("Calling upsert_lodge_registration RPC with data:", rpcPayload);
+    
+    // Save RPC payload to raw_payloads table
+    const { error: rpcPayloadError } = await supabase
+      .from('raw_payloads')
+      .insert([
+        { 
+          raw_data: {
+            endpoint: '/api/registrations/lodge',
+            method: 'RPC:upsert_lodge_registration',
+            timestamp: new Date().toISOString(),
+            payload: rpcPayload
+          },
+          created_at: new Date().toISOString()
+        }
+      ]);
+    
+    if (rpcPayloadError) {
+      console.error('Error inserting RPC payload data:', rpcPayloadError);
+    }
     
     // Call the RPC function
     const { data: rpcResult, error: rpcError } = await supabase
-      .rpc('upsert_lodge_registration', {
-        p_function_id: functionId,
-        p_package_id: packageId,
-        p_table_count: tableCount,
-        p_booking_contact: bookingContact,
-        p_lodge_details: lodgeDetails,
-        p_payment_status: 'pending',
-        p_stripe_payment_intent_id: paymentIntentId,
-        p_registration_id: registrationId,
-        p_total_amount: totalAmount,
-        p_subtotal: subtotal,
-        p_stripe_fee: stripeFee,
-        p_metadata: {
-          agreeToTerms,
-          createdVia: 'lodge_registration_api'
-        }
-      });
+      .rpc('upsert_lodge_registration', rpcPayload);
     
     if (rpcError) {
       console.error("RPC Error:", rpcError);
@@ -231,6 +267,14 @@ export async function PUT(request: Request) {
     const data = await request.json();
     const { registrationId, paymentIntentId, totalAmountPaid } = data;
     
+    // Store the raw payload data for tracking
+    const rawPayloadData = {
+      endpoint: '/api/registrations/lodge',
+      method: 'PUT',
+      timestamp: new Date().toISOString(),
+      payload: data
+    };
+    
     if (!registrationId) {
       console.error("Missing registration ID");
       console.groupEnd();
@@ -253,6 +297,23 @@ export async function PUT(request: Request) {
     
     const supabase = await createClient();
     
+    // Save raw payload to raw_payloads table
+    console.log("Saving raw payload to tracking table");
+    const { error: payloadError } = await supabase
+      .from('raw_payloads')
+      .insert([
+        { 
+          raw_data: rawPayloadData,
+          created_at: new Date().toISOString()
+        }
+      ]);
+    
+    if (payloadError) {
+      console.error('Error inserting raw payload data:', payloadError);
+    } else {
+      console.log('Raw payload data saved successfully');
+    }
+    
     // Fetch existing registration
     const { data: existingRegistration, error: fetchError } = await supabase
       .from('registrations')
@@ -271,22 +332,44 @@ export async function PUT(request: Request) {
     
     console.log("Calling upsert_lodge_registration for payment completion");
     
+    // Prepare RPC payload for update
+    const rpcUpdatePayload = {
+      p_function_id: existingRegistration.function_id,
+      p_package_id: null, // Not needed for updates
+      p_table_count: 1, // Not needed for updates
+      p_booking_contact: {}, // Not needed for updates
+      p_lodge_details: {}, // Not needed for updates
+      p_payment_status: 'completed',
+      p_stripe_payment_intent_id: paymentIntentId,
+      p_registration_id: registrationId,
+      p_total_amount: totalAmountPaid,
+      p_subtotal: existingRegistration.subtotal,
+      p_stripe_fee: existingRegistration.stripe_fee,
+      p_metadata: null
+    };
+    
+    // Save RPC payload to raw_payloads table
+    const { error: rpcPayloadError } = await supabase
+      .from('raw_payloads')
+      .insert([
+        { 
+          raw_data: {
+            endpoint: '/api/registrations/lodge',
+            method: 'RPC:upsert_lodge_registration_update',
+            timestamp: new Date().toISOString(),
+            payload: rpcUpdatePayload
+          },
+          created_at: new Date().toISOString()
+        }
+      ]);
+    
+    if (rpcPayloadError) {
+      console.error('Error inserting RPC update payload data:', rpcPayloadError);
+    }
+    
     // Call RPC to update payment status
     const { data: rpcResult, error: rpcError } = await supabase
-      .rpc('upsert_lodge_registration', {
-        p_function_id: existingRegistration.function_id,
-        p_package_id: null, // Not needed for updates
-        p_table_count: 1, // Not needed for updates
-        p_booking_contact: {}, // Not needed for updates
-        p_lodge_details: {}, // Not needed for updates
-        p_payment_status: 'completed',
-        p_stripe_payment_intent_id: paymentIntentId,
-        p_registration_id: registrationId,
-        p_total_amount: totalAmountPaid,
-        p_subtotal: existingRegistration.subtotal,
-        p_stripe_fee: existingRegistration.stripe_fee,
-        p_metadata: null
-      });
+      .rpc('upsert_lodge_registration', rpcUpdatePayload);
     
     if (rpcError) {
       console.error("RPC Error during payment update:", rpcError);
