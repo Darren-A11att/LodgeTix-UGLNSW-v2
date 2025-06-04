@@ -61,7 +61,7 @@ export function Footer({ eventSlug }: FooterProps = {}) {
                 </Link>
               </li>
               <li>
-                <Link href="/account/tickets" className="hover:text-masonic-gold">
+                <Link href="/customer/tickets" className="hover:text-masonic-gold">
                   My Tickets
                 </Link>
               </li>

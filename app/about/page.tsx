@@ -55,7 +55,7 @@ export default function AboutPage() {
                   </Link>
                 </li>
                 <li>
-                  <Link href="/account/tickets" className="hover:text-white">
+                  <Link href="/customer/tickets" className="hover:text-white">
                     My Tickets
                   </Link>
                 </li>

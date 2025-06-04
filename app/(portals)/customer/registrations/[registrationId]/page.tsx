@@ -68,7 +68,7 @@ export default async function RegistrationOverviewPage({
         asChild
         className="mb-6"
       >
-        <Link href="/account/tickets">
+        <Link href="/customer/tickets">
           <ArrowLeft className="mr-2 h-4 w-4" />
           Back to My Tickets
         </Link>
