@@ -756,7 +756,14 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ function
         headers['Authorization'] = `Bearer ${session.access_token}`
       }
       
-      const response = await fetch('/api/registrations', {
+      // Use the appropriate endpoint based on registration type
+      const endpoint = storeState.registrationType === 'individuals' || storeState.registrationType === 'individual'
+        ? '/api/registrations/individuals'
+        : storeState.registrationType === 'lodge'
+        ? '/api/registrations/lodge'
+        : '/api/registrations'; // Fallback for other types
+      
+      const response = await fetch(endpoint, {
         method: 'POST',
         headers,
         body: JSON.stringify(registrationData),

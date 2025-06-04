@@ -342,40 +342,74 @@ export async function PUT(
     if (!requiresAction && existingRegistration.registration_type === 'individuals') {
       console.log("Processing completed payment for individuals registration");
       
-      // Use the same upsert RPC function with payment completion flag
-      const rpcData = {
-        registrationId: registrationId,
-        functionId: existingRegistration.function_id,
-        totalAmountPaid: totalAmount,
-        paymentIntentId: finalPaymentIntentId,
-        paymentCompleted: true,
-        confirmationNumber: confirmationNumber,
-        subtotal: subtotal,
-        stripeFee: stripeFee,
-        authUserId: existingRegistration.auth_user_id // Pass the auth_user_id from existing registration
-      };
-      
-      const { data: completeResult, error: completeError } = await supabase
-        .rpc('upsert_individual_registration', {
-          p_registration_data: rpcData
+      // Use the dedicated individuals API endpoint
+      try {
+        const updateResponse = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/registrations/individuals`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            registrationId,
+            paymentIntentId: finalPaymentIntentId,
+            totalAmountPaid: totalAmount
+          })
         });
-      
-      if (completeError) {
-        console.error("Error completing individual payment via upsert:", completeError);
-        // Continue with fallback update
-      } else {
-        console.log("Individual payment completed successfully via upsert RPC:", completeResult);
+        
+        if (!updateResponse.ok) {
+          const errorData = await updateResponse.json();
+          console.error("Error updating individuals registration payment:", errorData);
+        } else {
+          console.log("Individual payment completed successfully via dedicated endpoint");
+        }
+      } catch (error) {
+        console.error("Failed to call individuals payment update:", error);
       }
-    } else {
-      // For other registration types or pending payments, update tickets normally
+    }
+    
+    // Check if this is a lodge registration and payment is successful
+    if (!requiresAction && existingRegistration.registration_type === 'lodge') {
+      console.log("Processing completed payment for lodge registration");
+      
+      // Use the dedicated lodge API endpoint
+      try {
+        const updateResponse = await fetch(`${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/registrations/lodge`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            registrationId,
+            paymentIntentId: finalPaymentIntentId,
+            totalAmountPaid: totalAmount
+          })
+        });
+        
+        if (!updateResponse.ok) {
+          const errorData = await updateResponse.json();
+          console.error("Error updating lodge registration payment:", errorData);
+        } else {
+          console.log("Lodge payment completed successfully via dedicated endpoint");
+        }
+      } catch (error) {
+        console.error("Failed to call lodge payment update:", error);
+      }
+    }
+    
+    // For all registration types, update tickets after payment
+    if (!requiresAction) {
       console.log("Updating tickets for registration:", registrationId);
       const { data: updatedTickets, error: ticketUpdateError } = await supabase
         .from("tickets") 
         .update({ 
-          ticket_status: requiresAction ? "pending" : "completed",
+          status: 'sold',
+          ticket_status: 'sold',
+          payment_status: 'paid',
+          purchased_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         })
         .eq("registration_id", registrationId)
+        .eq("status", "reserved")
         .select();
       
       if (ticketUpdateError) {
@@ -384,7 +418,7 @@ export async function PUT(
         // Don't fail the whole request if tickets can't be updated
         // The registration is already marked as paid which is the critical part
       } else {
-        console.log(`Successfully updated ${updatedTickets?.length || 0} tickets to completed status`);
+        console.log(`Successfully updated ${updatedTickets?.length || 0} tickets to sold status`);
       }
     }
     

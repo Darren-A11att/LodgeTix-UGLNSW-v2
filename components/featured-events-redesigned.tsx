@@ -12,8 +12,8 @@ export async function FeaturedEventsRedesigned() {
     // Get featured function info (including slug)
     const featuredFunction = await getFeaturedFunctionInfo(true);
     
-    // Fetch events for the featured function - limit to 2 for alternating layout
-    const response = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/events?function_id=eq.${FEATURED_FUNCTION_ID}&is_published=eq.true&order=event_start.asc&limit=2`, {
+    // Fetch events for the featured function with location details - limit to 2 for alternating layout
+    const response = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/events?function_id=eq.${FEATURED_FUNCTION_ID}&is_published=eq.true&order=event_start.asc&limit=2&select=*,locations(place_name,suburb,state)`, {
       headers: {
         'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
         'Content-Type': 'application/json'
@@ -27,22 +27,35 @@ export async function FeaturedEventsRedesigned() {
     const events = await response.json();
     
     // Transform data for display
-    const eventsForDisplay = events.map(event => ({
-      id: event.event_id,
-      slug: event.slug,
-      title: event.title,
-      description: event.description,
-      date: new Date(event.event_start).toLocaleDateString('en-AU', {
-        weekday: 'long',
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric'
-      }),
-      location: event.location_id, // Will need location details separately
-      imageUrl: event.image_url || '/placeholder.svg?height=400&width=1000',
-      price: 'View pricing',
-      functionSlug: featuredFunction.slug
-    }));
+    const eventsForDisplay = events.map(event => {
+      // Format location string from nested location data
+      let locationString = '';
+      if (event.locations) {
+        locationString = event.locations.place_name;
+        if (event.locations.suburb && event.locations.state) {
+          locationString += `, ${event.locations.suburb}, ${event.locations.state}`;
+        } else if (event.locations.suburb || event.locations.state) {
+          locationString += `, ${event.locations.suburb || event.locations.state}`;
+        }
+      }
+      
+      return {
+        id: event.event_id,
+        slug: event.slug,
+        title: event.title,
+        description: event.description,
+        date: new Date(event.event_start).toLocaleDateString('en-AU', {
+          weekday: 'long',
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric'
+        }),
+        location: locationString || 'Location TBA',
+        imageUrl: event.image_url || '/placeholder.svg?height=400&width=1000',
+        price: 'View pricing',
+        functionSlug: featuredFunction.slug
+      };
+    });
     
     // If no events from database, use defaults
     if (eventsForDisplay.length === 0) {

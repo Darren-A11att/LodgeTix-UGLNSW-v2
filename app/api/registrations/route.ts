@@ -58,10 +58,6 @@ export async function POST(request: Request) {
       );
     }
     
-    // Always generate a proper UUID for registration_id on the server
-    const newRegistrationId = uuidv4();
-    console.log(`[Server] Generating new UUID for registration: ${newRegistrationId}`);
-    
     // Corrected validRegistrationTypes to match enum and default value from supabase/types.ts
     const validRegistrationTypes: Database["public"]["Enums"]["registration_type"][] = ['individuals', 'groups', 'officials', 'lodge', 'delegation'];
     let finalRegistrationType: Database["public"]["Enums"]["registration_type"] = "individuals"; // Default to a valid enum member
@@ -209,6 +205,31 @@ export async function POST(request: Request) {
       );
     }
     
+    // For individuals registration, redirect to dedicated endpoint
+    if (finalRegistrationType === 'individuals') {
+      console.log("Individuals registration should use /api/registrations/individuals endpoint");
+      console.groupEnd();
+      return NextResponse.json(
+        { error: "Please use /api/registrations/individuals endpoint for individual registrations" },
+        { status: 400 }
+      );
+    }
+    
+    // For lodge registration, redirect to dedicated endpoint
+    if (finalRegistrationType === 'lodge') {
+      console.log("Lodge registration should use /api/registrations/lodge endpoint");
+      console.groupEnd();
+      return NextResponse.json(
+        { error: "Please use /api/registrations/lodge endpoint for lodge registrations" },
+        { status: 400 }
+      );
+    }
+    
+    // For non-individuals registrations, continue with existing logic
+    // Always generate a proper UUID for registration_id on the server
+    const newRegistrationId = uuidv4();
+    console.log(`[Server] Generating new UUID for registration: ${newRegistrationId}`);
+    
     // First, ensure customer exists or create/update one
     console.log("Checking if customer exists for user:", customerId);
     const { error: customerCheckError } = await userClient
@@ -352,7 +373,7 @@ export async function POST(request: Request) {
     const registrationRecord: TablesInsert<'registrations'> = {
       registration_id: newRegistrationId,
       function_id: functionId, // Use function_id from request
-      contact_id: null, // Set to null - contacts table is separate from auth users
+      customer_id: customerId, // Use customer_id which is auth.uid()
       auth_user_id: user.id, // Link to authenticated user for RLS policies
       registration_date: new Date().toISOString(),
       status: "unpaid",

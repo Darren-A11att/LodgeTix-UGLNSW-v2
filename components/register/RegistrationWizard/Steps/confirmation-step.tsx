@@ -76,7 +76,12 @@ function ConfirmationStep() {
         setIsLoading(true);
         setError(null);
         
-        const response = await fetch(`/api/registrations/${draftId}`);
+        // Use the appropriate endpoint based on registration type
+        const endpoint = registrationType === 'individuals' 
+          ? `/api/registrations/individuals?registrationId=${draftId}`
+          : `/api/registrations/${draftId}`;
+          
+        const response = await fetch(endpoint);
         
         if (!response.ok) {
           const errorData = await response.json();
@@ -84,7 +89,25 @@ function ConfirmationStep() {
         }
         
         const data = await response.json();
-        setRegistrationData(data);
+        
+        // Handle different response formats
+        if (registrationType === 'individuals' && data.success) {
+          // New format from individuals endpoint
+          setRegistrationData({
+            registration: data.registration,
+            attendees: data.registration.attendees || [],
+            tickets: [],
+            customer: {
+              customer_id: data.registration.customer_id,
+              email: data.registration.customer_email,
+              first_name: data.registration.customer_first_name,
+              last_name: data.registration.customer_last_name
+            }
+          });
+        } else {
+          // Legacy format
+          setRegistrationData(data);
+        }
       } catch (error: any) {
         console.error("Error fetching registration:", error);
         setError("Failed to load registration details. Using locally stored data instead.");
@@ -104,9 +127,14 @@ function ConfirmationStep() {
     }
     
     if (registrationData) {
-      return registrationData.attendees.find(att => 
+      // Handle new format from individuals endpoint
+      if (registrationType === 'individuals' && registrationData.attendees) {
+        return registrationData.attendees.find(att => att.is_primary === true);
+      }
+      // Legacy format
+      return registrationData.attendees?.find(att => 
         att.attendeetype === 'primary' || 
-        att.attendeeid === registrationData.registration.primaryAttendeeId
+        att.attendeeid === registrationData.registration?.primaryAttendeeId
       );
     }
     return allStoreAttendees?.find(att => att.isPrimary);
@@ -119,10 +147,15 @@ function ConfirmationStep() {
     }
     
     if (registrationData) {
-      return registrationData.attendees.filter(att => 
+      // Handle new format from individuals endpoint
+      if (registrationType === 'individuals' && registrationData.attendees) {
+        return registrationData.attendees.filter(att => att.is_primary !== true);
+      }
+      // Legacy format
+      return registrationData.attendees?.filter(att => 
         att.attendeetype !== 'primary' && 
-        att.attendeeid !== registrationData.registration.primaryAttendeeId
-      );
+        att.attendeeid !== registrationData.registration?.primaryAttendeeId
+      ) || [];
     }
     return allStoreAttendees?.filter(att => !att.isPrimary) || [];
   }, [registrationData, allStoreAttendees, registrationType]);
@@ -130,14 +163,36 @@ function ConfirmationStep() {
   // Map DB ticket data to the format expected by the UI
   const currentTickets = useMemo(() => {
     if (registrationData) {
-      return registrationData.tickets.map(ticket => ({
+      // Handle new format from individuals endpoint
+      if (registrationType === 'individuals' && registrationData.attendees) {
+        const allTickets: any[] = [];
+        registrationData.attendees.forEach((attendee: any) => {
+          if (attendee.tickets) {
+            attendee.tickets.forEach((ticket: any) => {
+              allTickets.push({
+                id: ticket.ticket_id,
+                ticket_id: ticket.ticket_id,
+                name: ticket.event_title || "Ticket",
+                price: parseFloat(ticket.price_paid) || 0,
+                attendeeId: attendee.attendee_id,
+                isPackage: !!ticket.package_id,
+                description: ticket.event_title || "Event ticket",
+              });
+            });
+          }
+        });
+        return allTickets;
+      }
+      
+      // Legacy format
+      return registrationData.tickets?.map(ticket => ({
         id: ticket.ticketid,
-        name: ticket.ticket_name || "Ticket", // You'll need to join with ticket definitions for better names
+        name: ticket.ticket_name || "Ticket",
         price: parseFloat(ticket.pricepaid) || 0,
         attendeeId: ticket.attendeeid,
         isPackage: !!ticket.packageId,
         description: ticket.description || "Event ticket",
-      }));
+      })) || [];
     }
     
     // Fall back to store data
@@ -229,8 +284,10 @@ function ConfirmationStep() {
   // Use confirmation number from Supabase if available, otherwise from store
   const confirmationNumber = useMemo(() => {
     if (registrationData?.registration) {
-      // Generate confirmation number from registration ID if not explicitly stored
-      return `REG-${registrationData.registration.registrationId.substring(0, 8).toUpperCase()}`;
+      // Use confirmation_number if available, otherwise generate from registration ID
+      return registrationData.registration.confirmation_number || 
+             registrationData.registration.confirmationNumber ||
+             `REG-${(registrationData.registration.registration_id || registrationData.registration.registrationId).substring(0, 8).toUpperCase()}`;
     }
     return storeConfirmationNumber;
   }, [registrationData, storeConfirmationNumber]);
@@ -248,7 +305,13 @@ function ConfirmationStep() {
   const eventDate = new Date(2023, 10, 25) // November 25, 2023
   const registrationDate = useMemo(() => {
     if (registrationData?.registration) {
-      return new Date(registrationData.registration.registrationDate || registrationData.registration.createdAt);
+      return new Date(
+        registrationData.registration.registration_date || 
+        registrationData.registration.registrationDate || 
+        registrationData.registration.created_at ||
+        registrationData.registration.createdAt ||
+        new Date()
+      );
     }
     return new Date();
   }, [registrationData]);
@@ -260,12 +323,16 @@ function ConfirmationStep() {
       return '';
     }
     
-    // For Supabase data
-    if (att.attendeetype) {
-      return att.attendeetype.toLowerCase() === 'mason' ? att.rank : att.title;
+    // Handle new format (snake_case)
+    const attendeeType = att.attendee_type || att.attendeetype || att.attendeeType;
+    const rank = att.suffix || att.rank;
+    const title = att.title;
+    
+    if (attendeeType) {
+      return attendeeType.toLowerCase() === 'mason' ? rank : title;
     }
-    // For store data (UnifiedAttendeeData)
-    return att.attendeeType === 'Mason' ? att.rank : att.title;
+    
+    return title || '';
   };
 
   // Prepare summary content
@@ -479,17 +546,23 @@ function ConfirmationStep() {
               ) : (
                 // Individual registration - show attendee tickets
                 allAttendees.map((attendee) => {
-                const attendeeTickets = currentTickets.filter(t => t.attendeeId === attendee.attendeeId);
+                const attendeeId = attendee.attendee_id || attendee.attendeeId;
+                const attendeeTickets = currentTickets.filter(t => t.attendeeId === attendeeId);
                 if (attendeeTickets.length === 0) return null;
                 
-                const isRankMason = attendee.attendeeType === 'Mason' && attendee.rank;
-                const titleDisplay = isRankMason 
-                  ? `${attendee.title} ${attendee.firstName} ${attendee.lastName}`
-                  : `${attendee.title} ${attendee.firstName} ${attendee.lastName}`;
-                const subtitleDisplay = isRankMason ? `${attendee.rank} - ${attendee.lodgeNameNumber || 'Lodge details pending'}` : '';
+                // Handle both new and legacy data formats
+                const firstName = attendee.first_name || attendee.firstName;
+                const lastName = attendee.last_name || attendee.lastName;
+                const attendeeType = attendee.attendee_type || attendee.attendeeType;
+                const rank = attendee.suffix || attendee.rank;
+                const title = attendee.title;
+                
+                const isRankMason = attendeeType === 'mason' && rank;
+                const titleDisplay = `${title || ''} ${firstName} ${lastName}`.trim();
+                const subtitleDisplay = isRankMason ? `${rank} - ${attendee.lodgeNameNumber || 'Lodge details pending'}` : '';
                 
                 return (
-                  <Card key={attendee.attendeeId} className="overflow-hidden border-masonic-lightgold">
+                  <Card key={attendeeId} className="overflow-hidden border-masonic-lightgold">
                     <CardHeader className="bg-masonic-navy text-white">
                       <CardTitle className="text-lg">{titleDisplay}</CardTitle>
                       {subtitleDisplay && (
@@ -508,7 +581,7 @@ function ConfirmationStep() {
                           <h4 className="font-semibold mb-3">Tickets:</h4>
                           <ul className="space-y-2">
                             {attendeeTickets.map((ticket) => (
-                              <li key={ticket.ticket_id} className="flex items-start">
+                              <li key={ticket.ticket_id || ticket.id} className="flex items-start">
                                 <span className="mr-2">•</span>
                                 <div className="flex-1">
                                   <span className="font-medium">{ticket.name}</span>
@@ -525,16 +598,17 @@ function ConfirmationStep() {
                           </ul>
                           
                           {/* Attendee Information */}
-                          {(attendee.dietaryRequirements || attendee.specialNeeds) && (
+                          {((attendee.dietary_requirements || attendee.dietaryRequirements) || 
+                            (attendee.special_needs || attendee.specialNeeds)) && (
                             <div className="mt-4 pt-4 border-t border-gray-200">
-                              {attendee.dietaryRequirements && (
+                              {(attendee.dietary_requirements || attendee.dietaryRequirements) && (
                                 <p className="text-sm text-gray-600">
-                                  <span className="font-medium">Dietary:</span> {attendee.dietaryRequirements}
+                                  <span className="font-medium">Dietary:</span> {attendee.dietary_requirements || attendee.dietaryRequirements}
                                 </p>
                               )}
-                              {attendee.specialNeeds && (
+                              {(attendee.special_needs || attendee.specialNeeds) && (
                                 <p className="text-sm text-gray-600 mt-1">
-                                  <span className="font-medium">Assistance:</span> {attendee.specialNeeds}
+                                  <span className="font-medium">Assistance:</span> {attendee.special_needs || attendee.specialNeeds}
                                 </p>
                               )}
                             </div>

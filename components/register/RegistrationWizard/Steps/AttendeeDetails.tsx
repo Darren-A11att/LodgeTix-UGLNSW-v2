@@ -14,6 +14,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { ValidationModal } from '@/components/ui/validation-modal';
 import { getAttendeeSummaryData } from '../Summary/summary-data/attendee-summary-data';
 import { SummaryRenderer } from '../Summary/SummaryRenderer';
+import { FEATURED_FUNCTION_ID } from '@/lib/utils/function-slug-resolver-client';
 
 interface AttendeeDetailsProps {
   agreeToTerms: boolean;
@@ -134,7 +135,7 @@ const AttendeeDetails: React.FC<AttendeeDetailsProps> = ({
       case 'lodge':
         return (
           <LodgesForm
-            functionId={functionId || ''}
+            functionId={FEATURED_FUNCTION_ID}
             minTables={1}
             maxTables={10}
             onComplete={handleContinue}
@@ -146,7 +147,7 @@ const AttendeeDetails: React.FC<AttendeeDetailsProps> = ({
         // Official Delegation uses DelegationsForm
         return (
           <DelegationsForm
-            functionId={functionId || ''}
+            functionId={FEATURED_FUNCTION_ID}
             onComplete={handleContinue}
             fieldErrors={showErrors ? fieldErrorsByAttendee : {}}
           />

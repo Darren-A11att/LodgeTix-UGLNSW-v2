@@ -98,6 +98,7 @@ export type Database = {
         Row: {
           attendee_id: string
           attendee_type: Database["public"]["Enums"]["attendee_type"]
+          auth_user_id: string | null
           contact_id: string | null
           contact_preference: Database["public"]["Enums"]["attendee_contact_preference"]
           created_at: string
@@ -122,6 +123,7 @@ export type Database = {
         Insert: {
           attendee_id?: string
           attendee_type: Database["public"]["Enums"]["attendee_type"]
+          auth_user_id?: string | null
           contact_id?: string | null
           contact_preference: Database["public"]["Enums"]["attendee_contact_preference"]
           created_at?: string
@@ -146,6 +148,7 @@ export type Database = {
         Update: {
           attendee_id?: string
           attendee_type?: Database["public"]["Enums"]["attendee_type"]
+          auth_user_id?: string | null
           contact_id?: string | null
           contact_preference?: Database["public"]["Enums"]["attendee_contact_preference"]
           created_at?: string
@@ -169,11 +172,39 @@ export type Database = {
         }
         Relationships: [
           {
+            foreignKeyName: "attendees_auth_user_id_fkey"
+            columns: ["auth_user_id"]
+            isOneToOne: false
+            referencedRelation: "auth_user_customer_view"
+            referencedColumns: ["auth_user_id"]
+          },
+          {
             foreignKeyName: "attendees_contact_id_fkey"
             columns: ["contact_id"]
             isOneToOne: false
             referencedRelation: "contacts"
             referencedColumns: ["contact_id"]
+          },
+          {
+            foreignKeyName: "attendees_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "individuals_registration_complete_view"
+            referencedColumns: ["booking_contact_id"]
+          },
+          {
+            foreignKeyName: "attendees_registration_id_fkey"
+            columns: ["registration_id"]
+            isOneToOne: false
+            referencedRelation: "individuals_registered_view"
+            referencedColumns: ["registration_id"]
+          },
+          {
+            foreignKeyName: "attendees_registration_id_fkey"
+            columns: ["registration_id"]
+            isOneToOne: false
+            referencedRelation: "individuals_registration_complete_view"
+            referencedColumns: ["registration_id"]
           },
           {
             foreignKeyName: "attendees_registration_id_fkey"
@@ -233,6 +264,20 @@ export type Database = {
           status?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "connected_account_payments_registration_id_fkey"
+            columns: ["registration_id"]
+            isOneToOne: false
+            referencedRelation: "individuals_registered_view"
+            referencedColumns: ["registration_id"]
+          },
+          {
+            foreignKeyName: "connected_account_payments_registration_id_fkey"
+            columns: ["registration_id"]
+            isOneToOne: false
+            referencedRelation: "individuals_registration_complete_view"
+            referencedColumns: ["registration_id"]
+          },
           {
             foreignKeyName: "connected_account_payments_registration_id_fkey"
             columns: ["registration_id"]
@@ -469,6 +514,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "contacts"
             referencedColumns: ["contact_id"]
+          },
+          {
+            foreignKeyName: "customers_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "individuals_registration_complete_view"
+            referencedColumns: ["booking_contact_id"]
           },
         ]
       }
@@ -1013,6 +1065,13 @@ export type Database = {
             referencedColumns: ["contact_id"]
           },
           {
+            foreignKeyName: "masonic_profiles_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: true
+            referencedRelation: "individuals_registration_complete_view"
+            referencedColumns: ["booking_contact_id"]
+          },
+          {
             foreignKeyName: "masonic_profiles_grand_lodge_id_fkey"
             columns: ["grand_lodge_id"]
             isOneToOne: false
@@ -1072,6 +1131,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "contacts"
             referencedColumns: ["contact_id"]
+          },
+          {
+            foreignKeyName: "memberships_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "individuals_registration_complete_view"
+            referencedColumns: ["booking_contact_id"]
           },
           {
             foreignKeyName: "memberships_profile_id_fkey"
@@ -1381,11 +1447,12 @@ export type Database = {
       registrations: {
         Row: {
           agree_to_terms: boolean | null
+          auth_user_id: string | null
           confirmation_number: string | null
           confirmation_pdf_url: string | null
           connected_account_id: string | null
-          contact_id: string | null
           created_at: string | null
+          customer_id: string | null
           function_id: string
           includes_processing_fee: boolean | null
           organisation_id: string | null
@@ -1409,11 +1476,12 @@ export type Database = {
         }
         Insert: {
           agree_to_terms?: boolean | null
+          auth_user_id?: string | null
           confirmation_number?: string | null
           confirmation_pdf_url?: string | null
           connected_account_id?: string | null
-          contact_id?: string | null
           created_at?: string | null
+          customer_id?: string | null
           function_id: string
           includes_processing_fee?: boolean | null
           organisation_id?: string | null
@@ -1437,11 +1505,12 @@ export type Database = {
         }
         Update: {
           agree_to_terms?: boolean | null
+          auth_user_id?: string | null
           confirmation_number?: string | null
           confirmation_pdf_url?: string | null
           connected_account_id?: string | null
-          contact_id?: string | null
           created_at?: string | null
+          customer_id?: string | null
           function_id?: string
           includes_processing_fee?: boolean | null
           organisation_id?: string | null
@@ -1465,11 +1534,25 @@ export type Database = {
         }
         Relationships: [
           {
-            foreignKeyName: "registrations_customer_id_fkey"
-            columns: ["contact_id"]
+            foreignKeyName: "registrations_auth_user_id_fkey"
+            columns: ["auth_user_id"]
             isOneToOne: false
-            referencedRelation: "contacts"
-            referencedColumns: ["contact_id"]
+            referencedRelation: "auth_user_customer_view"
+            referencedColumns: ["auth_user_id"]
+          },
+          {
+            foreignKeyName: "registrations_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "auth_user_customer_view"
+            referencedColumns: ["customer_id"]
+          },
+          {
+            foreignKeyName: "registrations_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["customer_id"]
           },
           {
             foreignKeyName: "registrations_function_id_fkey"
@@ -1628,6 +1711,20 @@ export type Database = {
             foreignKeyName: "tickets_registration_id_fkey"
             columns: ["registration_id"]
             isOneToOne: false
+            referencedRelation: "individuals_registered_view"
+            referencedColumns: ["registration_id"]
+          },
+          {
+            foreignKeyName: "tickets_registration_id_fkey"
+            columns: ["registration_id"]
+            isOneToOne: false
+            referencedRelation: "individuals_registration_complete_view"
+            referencedColumns: ["registration_id"]
+          },
+          {
+            foreignKeyName: "tickets_registration_id_fkey"
+            columns: ["registration_id"]
+            isOneToOne: false
             referencedRelation: "registration_payments"
             referencedColumns: ["registration_id"]
           },
@@ -1747,6 +1844,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "contacts"
             referencedColumns: ["contact_id"]
+          },
+          {
+            foreignKeyName: "customers_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "individuals_registration_complete_view"
+            referencedColumns: ["booking_contact_id"]
           },
         ]
       }
@@ -2086,6 +2190,133 @@ export type Database = {
           },
         ]
       }
+      individuals_registered_view: {
+        Row: {
+          attendees: Json | null
+          billing_city: string | null
+          billing_postal_code: string | null
+          billing_state: string | null
+          billing_street_address: string | null
+          booking_email: string | null
+          booking_first_name: string | null
+          booking_last_name: string | null
+          booking_phone: string | null
+          confirmation_number: string | null
+          function_end_date: string | null
+          function_name: string | null
+          function_start_date: string | null
+          payment_status: Database["public"]["Enums"]["payment_status"] | null
+          registration_date: string | null
+          registration_id: string | null
+          stripe_fee: number | null
+          subtotal: number | null
+          total_amount_paid: number | null
+          total_price_paid: number | null
+        }
+        Relationships: []
+      }
+      individuals_registration_complete_view: {
+        Row: {
+          agree_to_terms: boolean | null
+          attendees: Json | null
+          auth_user_id: string | null
+          billing_city: string | null
+          billing_country: string | null
+          billing_email: string | null
+          billing_organisation_name: string | null
+          billing_phone: string | null
+          billing_postal_code: string | null
+          billing_state: string | null
+          billing_street_address: string | null
+          booking_auth_user_id: string | null
+          booking_contact_id: string | null
+          booking_email: string | null
+          booking_first_name: string | null
+          booking_last_name: string | null
+          booking_phone: string | null
+          confirmation_number: string | null
+          customer_business_name: string | null
+          customer_email: string | null
+          customer_first_name: string | null
+          customer_id: string | null
+          customer_last_name: string | null
+          customer_phone: string | null
+          customer_type: Database["public"]["Enums"]["customer_type"] | null
+          function_end_date: string | null
+          function_id: string | null
+          function_name: string | null
+          function_slug: string | null
+          function_start_date: string | null
+          includes_processing_fee: boolean | null
+          payment_status: Database["public"]["Enums"]["payment_status"] | null
+          primary_attendee_id: string | null
+          registration_created_at: string | null
+          registration_date: string | null
+          registration_id: string | null
+          registration_status: string | null
+          registration_type:
+            | Database["public"]["Enums"]["registration_type"]
+            | null
+          registration_updated_at: string | null
+          stripe_fee: number | null
+          stripe_payment_intent_id: string | null
+          subtotal: number | null
+          total_amount_paid: number | null
+          total_attendees: number | null
+          total_contacts_created: number | null
+          total_guests: number | null
+          total_masonic_profiles: number | null
+          total_masons: number | null
+          total_price_paid: number | null
+          total_reserved_tickets: number | null
+          total_sold_tickets: number | null
+          total_tickets: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "registrations_auth_user_id_fkey"
+            columns: ["auth_user_id"]
+            isOneToOne: false
+            referencedRelation: "auth_user_customer_view"
+            referencedColumns: ["auth_user_id"]
+          },
+          {
+            foreignKeyName: "registrations_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "auth_user_customer_view"
+            referencedColumns: ["customer_id"]
+          },
+          {
+            foreignKeyName: "registrations_customer_id_fkey"
+            columns: ["customer_id"]
+            isOneToOne: false
+            referencedRelation: "customers"
+            referencedColumns: ["customer_id"]
+          },
+          {
+            foreignKeyName: "registrations_function_id_fkey"
+            columns: ["function_id"]
+            isOneToOne: false
+            referencedRelation: "function_event_tickets_view"
+            referencedColumns: ["function_id"]
+          },
+          {
+            foreignKeyName: "registrations_function_id_fkey"
+            columns: ["function_id"]
+            isOneToOne: false
+            referencedRelation: "function_packages_view"
+            referencedColumns: ["function_id"]
+          },
+          {
+            foreignKeyName: "registrations_function_id_fkey"
+            columns: ["function_id"]
+            isOneToOne: false
+            referencedRelation: "functions"
+            referencedColumns: ["function_id"]
+          },
+        ]
+      }
       memberships_view: {
         Row: {
           contact_id: string | null
@@ -2110,6 +2341,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "contacts"
             referencedColumns: ["contact_id"]
+          },
+          {
+            foreignKeyName: "memberships_contact_id_fkey"
+            columns: ["contact_id"]
+            isOneToOne: false
+            referencedRelation: "individuals_registration_complete_view"
+            referencedColumns: ["booking_contact_id"]
           },
           {
             foreignKeyName: "memberships_profile_id_fkey"
@@ -2323,6 +2561,20 @@ export type Database = {
             foreignKeyName: "tickets_registration_id_fkey"
             columns: ["registration_id"]
             isOneToOne: false
+            referencedRelation: "individuals_registered_view"
+            referencedColumns: ["registration_id"]
+          },
+          {
+            foreignKeyName: "tickets_registration_id_fkey"
+            columns: ["registration_id"]
+            isOneToOne: false
+            referencedRelation: "individuals_registration_complete_view"
+            referencedColumns: ["registration_id"]
+          },
+          {
+            foreignKeyName: "tickets_registration_id_fkey"
+            columns: ["registration_id"]
+            isOneToOne: false
             referencedRelation: "registration_payments"
             referencedColumns: ["registration_id"]
           },
@@ -2491,6 +2743,10 @@ export type Database = {
         Args: { p_ticket_selections: Json }
         Returns: Json
       }
+      upsert_individual_registration: {
+        Args: { p_registration_data: Json }
+        Returns: Json
+      }
       upsert_lodge_registration: {
         Args: {
           p_function_id: string
@@ -2501,6 +2757,9 @@ export type Database = {
           p_payment_status?: string
           p_stripe_payment_intent_id?: string
           p_registration_id?: string
+          p_total_amount?: number
+          p_subtotal?: number
+          p_stripe_fee?: number
           p_metadata?: Json
         }
         Returns: Json

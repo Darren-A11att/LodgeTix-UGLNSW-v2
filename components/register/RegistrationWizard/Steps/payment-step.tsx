@@ -552,19 +552,49 @@ function PaymentStep(props: PaymentStepProps) {
             additionalInfo: primaryAttendee?.specialNeeds
           };
 
+          // Prepare data for the new individuals registration API
           const registrationData = {
-            attendees: transformedAttendees,
-            selectedTickets,
-            bookingContact,
-            paymentMethodId: null, // Will be set in the payment step
+            functionId: functionId || storeFunctionId,
+            eventId: undefined, // Will be determined from tickets
+            customerId: user.id,
+            primaryAttendee: transformedAttendees.find(a => a.isPrimary),
+            additionalAttendees: transformedAttendees.filter(a => !a.isPrimary),
+            tickets: expandedTickets.map(ticket => ({
+              attendeeId: ticket.attendeeId,
+              ticketTypeId: ticket.eventTicketId,
+              eventId: ticket.eventId,
+              price: ticket.price,
+              isFromPackage: ticket.isFromPackage || false,
+              packageId: ticket.packageId || undefined
+            })),
+            billingDetails: {
+              firstName: billingData.firstName,
+              lastName: billingData.lastName,
+              emailAddress: billingData.emailAddress,
+              mobileNumber: billingData.mobileNumber,
+              businessName: billingData.businessName,
+              addressLine1: billingData.addressLine1,
+              addressLine2: billingData.addressLine2,
+              suburb: billingData.suburb,
+              stateTerritory: billingData.stateTerritory,
+              postcode: billingData.postcode,
+              country: billingData.country,
+              title: billingData.title
+            },
+            billToPrimaryAttendee: form.getValues('billToPrimaryAttendee') || false,
             totalAmount,
             subtotal,
-            stripeFee: feeCalculation.stripeFee
+            stripeFee: feeCalculation.stripeFee,
+            agreeToTerms: true,
+            registrationId: currentRegistrationId // For draft recovery
           };
 
-          const response = await fetch(`/api/functions/${functionId || storeFunctionId}/individual-registration`, {
+          const response = await fetch('/api/registrations/individuals', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
+            },
             body: JSON.stringify(registrationData)
           });
 

@@ -9,6 +9,36 @@ export interface TicketQRData {
   ticketType?: string;
 }
 
+export interface TicketQRDataV2 {
+  type: 'TICKET';
+  fid: string; // function_id
+  tid: string; // ticket_id
+  rid: string; // registration_id
+  ttid: string; // ticket_type_id
+  pid: string | null; // package_id
+  tca: string; // ticket created_at
+  qca: string; // qr code created_at
+  spi: string | null; // stripe_payment_intent_id
+  rt: string | null; // registration_type
+  uid: string | null; // auth_user_id
+  fn: string; // function_name
+  en: string; // event_name
+  checksum: string;
+}
+
+export interface AttendeeQRData {
+  type: 'ATTENDEE';
+  fid: string; // function_id
+  aid: string; // attendee_id
+  rid: string; // registration_id
+  qca: string; // qr code created_at
+  spi: string | null; // stripe_payment_intent_id
+  rt: string | null; // registration_type
+  uid: string | null; // auth_user_id
+  fn: string; // function_name
+  checksum: string;
+}
+
 export interface QRCodeOptions {
   size?: number;
   margin?: number;
@@ -67,6 +97,46 @@ export class QRCodeService {
       hash = hash & hash; // Convert to 32-bit integer
     }
     return Math.abs(hash).toString(16);
+  }
+
+  /**
+   * Generate SHA-256 checksum for V2 QR data
+   */
+  private async generateChecksumV2(data: any): Promise<string> {
+    const dataForChecksum = JSON.stringify({
+      ...data,
+      checksum: undefined
+    });
+    const encoder = new TextEncoder();
+    const dataBuffer = encoder.encode(dataForChecksum);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', dataBuffer);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  }
+
+  /**
+   * Parse QR code data and determine version
+   */
+  static parseQRCode(qrData: string): TicketQRData | TicketQRDataV2 | AttendeeQRData {
+    try {
+      const parsed = JSON.parse(qrData);
+      
+      // Check if it's V2 format (has 'type' field)
+      if (parsed.type) {
+        return parsed as TicketQRDataV2 | AttendeeQRData;
+      }
+      
+      // Otherwise it's V1 format, convert to interface
+      return {
+        ticketId: parsed.tid,
+        registrationId: parsed.rid,
+        attendeeId: parsed.aid,
+        eventId: parsed.eid,
+        ticketType: parsed.type
+      } as TicketQRData;
+    } catch (error) {
+      throw new Error('Invalid QR code data');
+    }
   }
 
   /**

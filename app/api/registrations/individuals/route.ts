@@ -4,10 +4,10 @@ import { createClientWithToken } from '@/utils/supabase/server-with-token';
 
 export async function POST(request: Request) {
   try {
-    console.group("🏛️ Lodge Registration API");
+    console.group("📝 Individuals Registration API");
     
     const data = await request.json();
-    console.log("Received lodge registration data:", JSON.stringify(data, null, 2));
+    console.log("Received registration data:", JSON.stringify(data, null, 2));
     
     // Extract the auth token from headers
     const authHeader = request.headers.get('authorization');
@@ -15,16 +15,18 @@ export async function POST(request: Request) {
     
     // Extract data from the request
     const {
-      functionId,
-      packageId,
-      tableCount = 1,
-      lodgeDetails,
-      billingDetails,
+      primaryAttendee,
+      additionalAttendees = [],
+      tickets = [],
       totalAmount = 0,
       subtotal = 0,
       stripeFee = 0,
       paymentIntentId = null,
+      billingDetails,
+      eventId,
+      functionId,
       customerId,
+      billToPrimaryAttendee = false,
       agreeToTerms = true,
       registrationId = null // Optional for draft recovery
     } = data;
@@ -48,20 +50,11 @@ export async function POST(request: Request) {
       );
     }
     
-    if (!packageId) {
-      console.error("Missing package ID");
+    if (!primaryAttendee) {
+      console.error("Missing primary attendee data");
       console.groupEnd();
       return NextResponse.json(
-        { error: "Package ID is required for lodge registration" },
-        { status: 400 }
-      );
-    }
-    
-    if (!lodgeDetails || !lodgeDetails.lodgeName || !lodgeDetails.lodge_id) {
-      console.error("Missing or incomplete lodge details");
-      console.groupEnd();
-      return NextResponse.json(
-        { error: "Complete lodge details are required" },
+        { error: "Primary attendee data is required" },
         { status: 400 }
       );
     }
@@ -71,6 +64,20 @@ export async function POST(request: Request) {
       console.groupEnd();
       return NextResponse.json(
         { error: "Complete billing details are required" },
+        { status: 400 }
+      );
+    }
+    
+    // Validate event ID if provided
+    let finalEventId = eventId;
+    let eventTitle = null;
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    
+    if (finalEventId && !uuidRegex.test(finalEventId)) {
+      console.error(`Invalid event ID format: ${finalEventId}`);
+      console.groupEnd();
+      return NextResponse.json(
+        { error: "Invalid event ID format. Must be a valid UUID." },
         { status: 400 }
       );
     }
@@ -125,64 +132,58 @@ export async function POST(request: Request) {
       );
     }
     
-    // Prepare booking contact data
-    const bookingContact = {
-      email: billingDetails.emailAddress,
-      firstName: billingDetails.firstName,
-      lastName: billingDetails.lastName,
-      title: billingDetails.title,
-      mobile: billingDetails.mobileNumber,
-      phone: billingDetails.phone,
-      addressLine1: billingDetails.addressLine1,
-      addressLine2: billingDetails.addressLine2,
-      suburb: billingDetails.suburb,
-      postcode: billingDetails.postcode,
-      stateTerritory: billingDetails.stateTerritory,
-      country: billingDetails.country || { code: 'AU', name: 'Australia' },
-      businessName: lodgeDetails.lodgeName,
-      dietaryRequirements: billingDetails.dietaryRequirements,
-      additionalInfo: billingDetails.specialNeeds
-    };
+    // Get event title if eventId provided
+    if (finalEventId) {
+      try {
+        const { data: eventData, error: eventError } = await supabase
+          .from('events')
+          .select('title')
+          .eq('event_id', finalEventId)
+          .single();
+          
+        if (!eventError && eventData) {
+          eventTitle = eventData.title;
+          console.log(`Found event title: ${eventTitle}`);
+        }
+      } catch (error) {
+        console.log("Could not fetch event title, continuing without it");
+      }
+    }
     
-    console.log("Calling upsert_lodge_registration RPC with data:", {
+    // Prepare the data for the RPC function
+    const rpcData = {
+      registrationId: registrationId, // Use provided ID or let RPC generate one
       functionId,
-      packageId,
-      tableCount,
-      lodgeDetails,
-      bookingContact,
-      paymentStatus: 'pending',
-      paymentIntentId,
-      registrationId,
+      eventId: finalEventId,
+      eventTitle,
+      registrationType: 'individuals',
+      primaryAttendee,
+      additionalAttendees,
+      tickets,
       totalAmount,
       subtotal,
-      stripeFee
-    });
+      stripeFee,
+      paymentIntentId,
+      billingDetails,
+      agreeToTerms,
+      billToPrimaryAttendee,
+      authUserId: user.id,
+      paymentCompleted: false // Initial registration, not payment completion
+    };
+    
+    console.log("Calling upsert_individual_registration RPC with data:", JSON.stringify(rpcData, null, 2));
     
     // Call the RPC function
     const { data: rpcResult, error: rpcError } = await supabase
-      .rpc('upsert_lodge_registration', {
-        p_function_id: functionId,
-        p_package_id: packageId,
-        p_table_count: tableCount,
-        p_booking_contact: bookingContact,
-        p_lodge_details: lodgeDetails,
-        p_payment_status: 'pending',
-        p_stripe_payment_intent_id: paymentIntentId,
-        p_registration_id: registrationId,
-        p_total_amount: totalAmount,
-        p_subtotal: subtotal,
-        p_stripe_fee: stripeFee,
-        p_metadata: {
-          agreeToTerms,
-          createdVia: 'lodge_registration_api'
-        }
+      .rpc('upsert_individual_registration', {
+        p_registration_data: rpcData
       });
     
     if (rpcError) {
       console.error("RPC Error:", rpcError);
       console.groupEnd();
       return NextResponse.json(
-        { error: `Failed to create lodge registration: ${rpcError.message}` },
+        { error: `Failed to create registration: ${rpcError.message}` },
         { status: 500 }
       );
     }
@@ -191,12 +192,31 @@ export async function POST(request: Request) {
       console.error("RPC returned unsuccessful result:", rpcResult);
       console.groupEnd();
       return NextResponse.json(
-        { error: "Failed to create lodge registration. Please try again." },
+        { error: "Failed to create registration. Please try again." },
         { status: 500 }
       );
     }
     
-    console.log("Lodge registration created successfully:", rpcResult);
+    console.log("Individual registration created successfully:", rpcResult);
+    
+    // Fetch the complete registration data from the view
+    const { data: registrationView, error: viewError } = await supabase
+      .from('individuals_registration_complete_view')
+      .select('*')
+      .eq('registration_id', rpcResult.registrationId)
+      .single();
+    
+    if (viewError) {
+      console.warn("Could not fetch registration view:", viewError);
+      // Don't fail the request, just log the warning
+    } else {
+      console.log("Registration view data:", {
+        attendees: registrationView?.attendees?.length || 0,
+        tickets: registrationView?.total_tickets || 0,
+        contacts: registrationView?.total_contacts_created || 0
+      });
+    }
+    
     console.groupEnd();
     
     return NextResponse.json({
@@ -207,18 +227,17 @@ export async function POST(request: Request) {
         registration_id: rpcResult.registrationId,
         confirmation_number: rpcResult.confirmationNumber,
         customer_id: rpcResult.customerId,
-        organisation_name: rpcResult.organisationName,
-        table_count: rpcResult.tableCount,
-        total_attendees: rpcResult.totalAttendees
+        booking_contact_id: rpcResult.bookingContactId,
+        primary_attendee_id: rpcResult.primaryAttendeeId
       }
     });
     
   } catch (error: any) {
-    console.error("Error in lodge registration API:", error);
+    console.error("Error in individuals registration API:", error);
     console.error("Stack trace:", error.stack);
     console.groupEnd();
     return NextResponse.json(
-      { error: `Failed to process lodge registration: ${error.message}` },
+      { error: `Failed to process registration: ${error.message}` },
       { status: 500 }
     );
   }
@@ -226,7 +245,7 @@ export async function POST(request: Request) {
 
 export async function PUT(request: Request) {
   try {
-    console.group("💲 Update Lodge Registration Payment");
+    console.group("💲 Update Individuals Registration Payment");
     
     const data = await request.json();
     const { registrationId, paymentIntentId, totalAmountPaid } = data;
@@ -269,23 +288,25 @@ export async function PUT(request: Request) {
       );
     }
     
-    console.log("Calling upsert_lodge_registration for payment completion");
+    // Prepare payment completion data
+    const rpcData = {
+      registrationId,
+      functionId: existingRegistration.function_id,
+      totalAmountPaid,
+      paymentIntentId,
+      paymentCompleted: true,
+      confirmationNumber: existingRegistration.confirmation_number,
+      subtotal: existingRegistration.subtotal,
+      stripeFee: existingRegistration.stripe_fee,
+      authUserId: existingRegistration.auth_user_id
+    };
+    
+    console.log("Calling upsert_individual_registration for payment completion:", rpcData);
     
     // Call RPC to update payment status
     const { data: rpcResult, error: rpcError } = await supabase
-      .rpc('upsert_lodge_registration', {
-        p_function_id: existingRegistration.function_id,
-        p_package_id: null, // Not needed for updates
-        p_table_count: 1, // Not needed for updates
-        p_booking_contact: {}, // Not needed for updates
-        p_lodge_details: {}, // Not needed for updates
-        p_payment_status: 'completed',
-        p_stripe_payment_intent_id: paymentIntentId,
-        p_registration_id: registrationId,
-        p_total_amount: totalAmountPaid,
-        p_subtotal: existingRegistration.subtotal,
-        p_stripe_fee: existingRegistration.stripe_fee,
-        p_metadata: null
+      .rpc('upsert_individual_registration', {
+        p_registration_data: rpcData
       });
     
     if (rpcError) {
@@ -330,34 +351,17 @@ export async function GET(request: Request) {
     
     const supabase = await createClient();
     
-    // Fetch registration with customer details
+    // Fetch from the comprehensive view
     const { data: registration, error } = await supabase
-      .from('registrations')
-      .select(`
-        *,
-        customers (
-          customer_id,
-          email,
-          first_name,
-          last_name,
-          phone,
-          business_name,
-          address_line1,
-          address_line2,
-          city,
-          state,
-          postal_code,
-          country
-        )
-      `)
+      .from('individuals_registration_complete_view')
+      .select('*')
       .eq('registration_id', registrationId)
-      .eq('registration_type', 'lodge')
       .single();
     
     if (error) {
-      console.error("Error fetching lodge registration:", error);
+      console.error("Error fetching registration:", error);
       return NextResponse.json(
-        { error: "Lodge registration not found" },
+        { error: "Registration not found" },
         { status: 404 }
       );
     }
