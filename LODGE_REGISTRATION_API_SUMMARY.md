@@ -7,13 +7,13 @@ This document summarizes the implementation of the dedicated Lodge Registration 
 
 ### 1. Database Schema Updates
 
-#### Migration: `20250607_001_update_registrations_customer_id.sql` (Existing)
-- Adds `customer_id` column to registrations table
-- Updates foreign key constraints to reference customers table instead of contacts
-- Migrates existing data from contact_id to customer_id
-- Updates RLS policies to use customer_id
+#### Migration: `20250607_001_update_registrations_customer_id.sql` (New)
+- Adds `customer_id` column to registrations table if it doesn't exist
+- Updates foreign key constraints to reference customers table
+- Updates RLS policies to use customer_id and auth_user_id
+- Note: No data migration needed as registrations table doesn't have contact_id column
 
-#### Migration: `20250607_003_update_lodge_rpc_customer_id.sql` (New)
+#### Migration: `20250607_002_update_lodge_rpc_customer_id.sql` (New)
 - Updates `upsert_lodge_registration` RPC function to use customer_id
 - Removes all references to contacts table
 - Creates customer records directly for lodge representatives
@@ -130,7 +130,7 @@ To complete the lodge registration flow:
 3. **Migration Deployment**:
    - Run migrations in order:
      1. `20250607_001_update_registrations_customer_id.sql`
-     2. `20250607_003_update_lodge_rpc_customer_id.sql`
+     2. `20250607_002_update_lodge_rpc_customer_id.sql`
      3. `20250607_005_add_missing_columns_to_registrations.sql`
      4. `20250607_006_create_lodge_registration_view.sql`
 

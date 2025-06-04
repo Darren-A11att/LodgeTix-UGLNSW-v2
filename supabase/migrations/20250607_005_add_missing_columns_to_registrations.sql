@@ -29,27 +29,47 @@ COMMENT ON COLUMN registrations.primary_attendee IS 'Name of the primary attende
 COMMENT ON COLUMN registrations.attendee_count IS 'Total number of attendees for the registration';
 
 -- Migrate existing data from registration_data JSONB to new columns
+-- Using proper JSONB navigation syntax
 UPDATE registrations
 SET 
-    organisation_name = COALESCE(
-        organisation_name,
-        registration_data->0->>'lodge_name',
-        registration_data->0->'lodge_details'->>'lodgeName'
-    ),
-    organisation_number = COALESCE(
-        organisation_number,
-        registration_data->0->>'lodge_number',
-        registration_data->0->'lodge_details'->>'lodgeNumber'
-    ),
-    primary_attendee = COALESCE(
-        primary_attendee,
-        registration_data->0->>'primary_attendee_name',
-        registration_data->0->'booking_contact'->>'firstName' || ' ' || registration_data->0->'booking_contact'->>'lastName'
-    ),
-    attendee_count = COALESCE(
-        attendee_count,
-        (registration_data->0->>'total_attendees')::INTEGER,
-        (registration_data->0->>'table_count')::INTEGER * 10 -- Default 10 per table
-    )
+    organisation_name = CASE
+        WHEN organisation_name IS NOT NULL THEN organisation_name
+        WHEN jsonb_array_length(registration_data) > 0 AND registration_data->0->>'lodge_name' IS NOT NULL 
+            THEN registration_data->0->>'lodge_name'
+        WHEN jsonb_array_length(registration_data) > 0 AND registration_data->0->'lodge_details'->>'lodgeName' IS NOT NULL
+            THEN registration_data->0->'lodge_details'->>'lodgeName'
+        ELSE organisation_name
+    END,
+    organisation_number = CASE
+        WHEN organisation_number IS NOT NULL THEN organisation_number
+        WHEN jsonb_array_length(registration_data) > 0 AND registration_data->0->>'lodge_number' IS NOT NULL
+            THEN registration_data->0->>'lodge_number'
+        WHEN jsonb_array_length(registration_data) > 0 AND registration_data->0->'lodge_details'->>'lodgeNumber' IS NOT NULL
+            THEN registration_data->0->'lodge_details'->>'lodgeNumber'
+        ELSE organisation_number
+    END,
+    primary_attendee = CASE
+        WHEN primary_attendee IS NOT NULL THEN primary_attendee
+        WHEN jsonb_array_length(registration_data) > 0 AND registration_data->0->>'primary_attendee_name' IS NOT NULL
+            THEN registration_data->0->>'primary_attendee_name'
+        WHEN jsonb_array_length(registration_data) > 0 
+            AND registration_data->0->'booking_contact' IS NOT NULL
+            AND registration_data->0->'booking_contact'->>'firstName' IS NOT NULL
+            THEN CONCAT(
+                COALESCE(registration_data->0->'booking_contact'->>'firstName', ''),
+                ' ',
+                COALESCE(registration_data->0->'booking_contact'->>'lastName', '')
+            )
+        ELSE primary_attendee
+    END,
+    attendee_count = CASE
+        WHEN attendee_count IS NOT NULL AND attendee_count > 0 THEN attendee_count
+        WHEN jsonb_array_length(registration_data) > 0 AND registration_data->0->>'total_attendees' IS NOT NULL
+            THEN (registration_data->0->>'total_attendees')::INTEGER
+        WHEN jsonb_array_length(registration_data) > 0 AND registration_data->0->>'table_count' IS NOT NULL
+            THEN (registration_data->0->>'table_count')::INTEGER * 10
+        ELSE COALESCE(attendee_count, 0)
+    END
 WHERE registration_type = 'lodge' 
-  AND (organisation_name IS NULL OR primary_attendee IS NULL OR attendee_count = 0);
+  AND registration_data IS NOT NULL
+  AND jsonb_typeof(registration_data) = 'array';

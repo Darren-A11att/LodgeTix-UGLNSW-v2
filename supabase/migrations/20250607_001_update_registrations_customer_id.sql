@@ -6,12 +6,9 @@ ADD COLUMN IF NOT EXISTS customer_id UUID REFERENCES customers(customer_id);
 -- Create index for performance
 CREATE INDEX IF NOT EXISTS idx_registrations_customer_id ON registrations(customer_id);
 
--- Migrate existing data if any (map contact_id to customer_id through customers table)
-UPDATE registrations r
-SET customer_id = c.customer_id
-FROM customers c
-WHERE c.contact_id = r.contact_id
-  AND r.customer_id IS NULL;
+-- Note: Since registrations table doesn't have contact_id column,
+-- we'll need to ensure customer_id is properly set during registration creation
+-- via the RPC functions. No data migration needed here.
 
 -- Now we need to update the foreign key constraint
 -- First drop the old constraint if it exists
@@ -55,4 +52,3 @@ CREATE POLICY "registrations_update_own" ON registrations
 
 -- Add comment explaining the change
 COMMENT ON COLUMN registrations.customer_id IS 'References the booking contact customer record';
-COMMENT ON COLUMN registrations.contact_id IS 'Deprecated - use customer_id instead. Will be removed in future migration.';
