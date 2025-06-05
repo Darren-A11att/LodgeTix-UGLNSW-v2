@@ -95,7 +95,7 @@ export const validateAttendee = (attendee: AttendeeData): ValidationResult => {
   }
 
   // Mason-specific validation
-  if (attendee.attendeeType === 'Mason') {
+  if (attendee.attendeeType === 'mason') {
     if (!attendee.rank) {
       errors.push({ field: 'rank', message: 'Rank is required' });
     }

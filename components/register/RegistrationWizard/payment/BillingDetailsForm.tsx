@@ -164,7 +164,7 @@ export const BillingDetailsForm: React.FC<BillingDetailsFormProps> = ({
       };
       
       // Auto-populate country for Mason with Grand Lodge
-      if (primaryAttendee.attendeeType === 'Mason' && primaryAttendee.grand_lodge_id) {
+      if (primaryAttendee.attendeeType === 'mason' && primaryAttendee.grand_lodge_id) {
         // Fetch Grand Lodge data to get country
         getAllGrandLodges().then(grandLodges => {
           const grandLodge = grandLodges.find(gl => gl.id === primaryAttendee.grand_lodge_id);

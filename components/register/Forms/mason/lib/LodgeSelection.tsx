@@ -52,7 +52,7 @@ export const LodgeSelection: React.FC<LodgeSelectionProps> = ({
 }) => {
   // Get primary Mason for "use same lodge" functionality
   const primaryAttendee = useRegistrationStore(state => 
-    state.attendees.find(att => att.isPrimary && att.attendeeType === 'Mason')
+    state.attendees.find(att => att.isPrimary && att.attendeeType === 'mason')
   );
   const [inputValue, setInputValue] = useState('');
   const [selectedLodge, setSelectedLodge] = useState<LodgeOption | null>(null);

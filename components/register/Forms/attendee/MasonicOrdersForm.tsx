@@ -158,7 +158,7 @@ export const LodgesForm: React.FC<LodgesFormProps> = ({
         const primaryId = addMasonAttendee();
         updateAttendeeImmediate(primaryId, {
           isPrimary: true,
-          attendeeType: 'Mason',
+          attendeeType: 'mason',
         });
         setPrimaryAttendeeId(primaryId);
       }

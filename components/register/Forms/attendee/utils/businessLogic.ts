@@ -52,7 +52,7 @@ export const handleRankChange = (
 export const shouldShowGrandOfficerFields = (
   attendee: Partial<AttendeeData>
 ): boolean => {
-  return attendee.attendeeType === 'Mason' && attendee.rank === 'GL';
+  return attendee.attendeeType === 'mason' && attendee.rank === 'GL';
 };
 
 export const shouldShowOtherGrandOfficerInput = (
@@ -83,9 +83,9 @@ export const shouldShowUseSameLodge = (
   primaryAttendee?: Partial<AttendeeData>
 ): boolean => {
   return !attendee.isPrimary && 
-         attendee.attendeeType === 'Mason' &&
+         attendee.attendeeType === 'mason' &&
          !!primaryAttendee &&
-         primaryAttendee.attendeeType === 'Mason' &&
+         primaryAttendee.attendeeType === 'mason' &&
          (!!primaryAttendee.lodge_id || !!primaryAttendee.lodgeNameNumber);
 };
 
@@ -136,7 +136,7 @@ export const handleUseSameLodgeChange = (
 export const getRequiredFields = (attendee: Partial<AttendeeData>): string[] => {
   const required = ['title', 'firstName', 'lastName'];
   
-  if (attendee.attendeeType === 'Mason') {
+  if (attendee.attendeeType === 'mason') {
     required.push('rank');
     
     // Add suffix (Grand Rank) as required field when rank is 'GL'

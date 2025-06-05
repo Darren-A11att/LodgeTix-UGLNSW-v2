@@ -15,7 +15,7 @@ const calculateAttendeeStatus = (attendee: UnifiedAttendeeData): {
   const requiredFields = ['firstName', 'lastName', 'primaryEmail'];
   const masonRequiredFields = [...requiredFields, 'lodgeNameNumber'];
   
-  const fieldsToCheck = attendee.attendeeType === 'Mason' ? masonRequiredFields : requiredFields;
+  const fieldsToCheck = attendee.attendeeType === 'mason' ? masonRequiredFields : requiredFields;
   
   const missingFields = fieldsToCheck.filter(field => {
     const value = attendee[field as keyof UnifiedAttendeeData];
@@ -68,8 +68,8 @@ export const AttendeeDetailsSummary: React.FC = () => {
           icon: <Users className="h-4 w-4 text-indigo-600" />,
           requirements: [
             { text: 'Minimum 3 lodge members', 
-              met: attendees.filter(a => a.attendeeType === 'Mason').length >= 3,
-              status: attendees.filter(a => a.attendeeType === 'Mason').length >= 3 ? 'success' : 'error'
+              met: attendees.filter(a => a.attendeeType === 'mason').length >= 3,
+              status: attendees.filter(a => a.attendeeType === 'mason').length >= 3 ? 'success' : 'error'
             },
             { text: 'Lodge name and number', 
               met: attendees.some(a => a.lodgeNameNumber && a.lodgeNameNumber.trim() !== ''),
@@ -111,16 +111,16 @@ export const AttendeeDetailsSummary: React.FC = () => {
   
   // Determine which attendees can have partners added
   const getCanAddPartner = (attendee: UnifiedAttendeeData): boolean => {
-    return !attendee.partner && (attendee.attendeeType === 'Mason' || attendee.attendeeType === 'Guest');
+    return !attendee.partner && (attendee.attendeeType === 'mason' || attendee.attendeeType === 'guest');
   };
   
   // Helper to get the right icon for attendee type
   const getAttendeeIcon = (attendee: UnifiedAttendeeData): React.ReactNode => {
     if (attendee.isPrimary) return <Crown className="w-4 h-4 text-masonic-gold" />;
-    if (attendee.attendeeType === 'Mason') return <ShieldCheck className="w-4 h-4 text-masonic-navy" />;
+    if (attendee.attendeeType === 'mason') return <ShieldCheck className="w-4 h-4 text-masonic-navy" />;
     if (attendee.attendeeType === 'LadyPartner') return <UserCheck className="w-4 h-4 text-pink-500" />;
     if (attendee.attendeeType === 'GuestPartner') return <Users className="w-4 h-4 text-teal-500" />;
-    if (attendee.attendeeType === 'Guest') return <User className="w-4 h-4 text-gray-600" />;
+    if (attendee.attendeeType === 'guest') return <User className="w-4 h-4 text-gray-600" />;
     return <CircleUserRound className="w-4 h-4 text-gray-400" />;
   };
   

@@ -173,11 +173,11 @@ const createDefaultAttendee = (
     contactPreference: '', // Default empty string
     contactConfirmed: false,
     isCheckedIn: false,
-    firstTime: attendeeType === 'Mason' ? false : undefined, // Only relevant for Mason
-    rank: attendeeType === 'Mason' ? '' : undefined, // Only relevant for Mason
-    postNominals: attendeeType === 'Mason' ? '' : undefined, // Only relevant for Mason
-    grand_lodge_id: attendeeType === 'Mason' ? null : undefined,
-    lodge_id: attendeeType === 'Mason' ? null : undefined,
+    firstTime: attendeeType === 'mason' ? false : undefined, // Only relevant for Mason
+    rank: attendeeType === 'mason' ? '' : undefined, // Only relevant for Mason
+    postNominals: attendeeType === 'mason' ? '' : undefined, // Only relevant for Mason
+    grand_lodge_id: attendeeType === 'mason' ? null : undefined,
+    lodge_id: attendeeType === 'mason' ? null : undefined,
     tableAssignment: null,
     notes: '',
     paymentStatus: 'pending',
@@ -307,7 +307,7 @@ export const useRegistrationStore = create<RegistrationState>(
           }
 
           // For now, assume primary is always mason. Refine if needed.
-          const primaryAttendee = createDefaultAttendee('Mason', { isPrimary: true });
+          const primaryAttendee = createDefaultAttendee('mason', { isPrimary: true });
           // IMPORTANT: No default contact preference
           // User must explicitly select this
           primaryAttendee.contactPreference = '';
@@ -364,7 +364,7 @@ export const useRegistrationStore = create<RegistrationState>(
 
       // Generic attendee addition function
       addAttendee: (type) => {
-        const normalizedType = type.charAt(0).toUpperCase() + type.slice(1).toLowerCase();
+        const normalizedType = type.toLowerCase();
         const newAttendee = createDefaultAttendee(normalizedType as UnifiedAttendeeData['attendeeType']);
         
         // No default contact preference - user must select
@@ -377,14 +377,14 @@ export const useRegistrationStore = create<RegistrationState>(
       },
 
       addMasonAttendee: () => {
-        const newMason = createDefaultAttendee('Mason');
+        const newMason = createDefaultAttendee('mason');
         set(state => ({ attendees: [...state.attendees, newMason] }));
         console.log(`[Store] Added Mason Attendee (ID: ${newMason.attendeeId}, Type: ${newMason.attendeeType})`);
         return newMason.attendeeId;
       },
 
       addGuestAttendee: (guestOfId = null) => {
-        const newGuest = createDefaultAttendee('Guest', { guestOfId });
+        const newGuest = createDefaultAttendee('guest', { guestOfId });
         // Initial state is empty string which will show as "Please Select"
         set(state => ({ attendees: [...state.attendees, newGuest] }));
         console.log(`[Store] Added Guest Attendee (ID: ${newGuest.attendeeId}, GuestOf: ${guestOfId || 'None'}, ContactPref: ${newGuest.contactPreference})`);
@@ -405,7 +405,7 @@ export const useRegistrationStore = create<RegistrationState>(
         }
 
         // Create a Guest with isPartner set to the parent attendee's ID
-        const newPartner = createDefaultAttendee('Guest', { partnerOf: attendeeId });
+        const newPartner = createDefaultAttendee('guest', { partnerOf: attendeeId });
         newPartner.isPartner = attendeeId; // Set the FK
         
         // No default values - let user fill them in

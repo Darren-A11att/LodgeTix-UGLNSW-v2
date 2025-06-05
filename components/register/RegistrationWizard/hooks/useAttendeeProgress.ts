@@ -6,7 +6,7 @@ import type { AttendeeData } from '../../Forms/attendee/types';
 const getRequiredFields = (attendee: AttendeeData): string[] => {
   const baseFields = ['title', 'firstName', 'lastName'];
   
-  if (attendee.attendeeType === 'Mason') {
+  if (attendee.attendeeType === 'mason') {
     const masonFields = [...baseFields, 'rank', 'grandLodgeId', 'lodgeId'];
     
     // Add contact fields for primary or direct contact

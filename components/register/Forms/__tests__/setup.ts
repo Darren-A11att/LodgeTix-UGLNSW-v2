@@ -18,7 +18,7 @@ export const renderWithProviders = (
 // Mock data generators
 export const createMockAttendee = (overrides = {}) => ({
   attendeeId: 'test-123',
-  attendeeType: 'Mason',
+  attendeeType: 'mason',
   firstName: 'John',
   lastName: 'Doe',
   title: 'Bro',

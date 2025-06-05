@@ -38,12 +38,12 @@ describe('Business Logic', () => {
 
   describe('shouldShowGrandOfficerFields', () => {
     it('should show for Mason with GL rank', () => {
-      const mason = createMockAttendee({ attendeeType: 'Mason', rank: 'GL' });
+      const mason = createMockAttendee({ attendeeType: 'mason', rank: 'GL' });
       expect(shouldShowGrandOfficerFields(mason)).toBe(true);
     });
 
     it('should not show for other ranks', () => {
-      const mason = createMockAttendee({ attendeeType: 'Mason', rank: 'MM' });
+      const mason = createMockAttendee({ attendeeType: 'mason', rank: 'MM' });
       expect(shouldShowGrandOfficerFields(mason)).toBe(false);
     });
 
@@ -87,7 +87,7 @@ describe('Business Logic', () => {
     });
 
     it('should include rank for Mason', () => {
-      const mason = createMockAttendee({ attendeeType: 'Mason' });
+      const mason = createMockAttendee({ attendeeType: 'mason' });
       const required = getRequiredFields(mason);
       
       expect(required).toContain('rank');
@@ -95,7 +95,7 @@ describe('Business Logic', () => {
 
     it('should include Grand Officer fields for GL rank', () => {
       const mason = createMockAttendee({ 
-        attendeeType: 'Mason',
+        attendeeType: 'mason',
         rank: 'GL',
         grandOfficerStatus: 'Present',
         isPrimary: true

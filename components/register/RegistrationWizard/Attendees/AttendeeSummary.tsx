@@ -19,8 +19,8 @@ const AttendeeSummary: React.FC<AttendeeSummaryProps> = ({ attendees }) => {
     if (b.isPrimary) return 1;
 
     // Masons before Guests/Partners
-    if (a.attendeeType === 'Mason' && b.attendeeType !== 'Mason') return -1;
-    if (b.attendeeType === 'Mason' && a.attendeeType !== 'Mason') return 1;
+    if (a.attendeeType === 'mason' && b.attendeeType !== 'mason') return -1;
+    if (b.attendeeType === 'mason' && a.attendeeType !== 'mason') return 1;
 
     // Partners immediately after their related attendee (if possible)
     // This requires finding the related attendee for comparison
@@ -69,23 +69,23 @@ const AttendeeSummary: React.FC<AttendeeSummaryProps> = ({ attendees }) => {
 
   const getAttendeeTitle = (attendee: UnifiedAttendeeData): string => {
     if (attendee.isPrimary) return "Primary Registrant";
-    if (attendee.attendeeType === 'Mason') return "Mason Attendee";
+    if (attendee.attendeeType === 'mason') return "Mason Attendee";
     if (attendee.attendeeType === 'LadyPartner') return "Lady Partner";
     if (attendee.attendeeType === 'GuestPartner') return "Guest Partner";
-    if (attendee.attendeeType === 'Guest') return "Guest Attendee"; 
+    if (attendee.attendeeType === 'guest') return "Guest Attendee"; 
     return "Attendee"; // Fallback
   };
 
   const getAttendeeIcon = (attendee: UnifiedAttendeeData): React.ReactNode => {
     if (attendee.isPrimary) return <Crown className="w-5 h-5 mr-3 text-masonic-gold flex-shrink-0" />;
-    if (attendee.attendeeType === 'Mason') return <ShieldCheck className="w-5 h-5 mr-3 text-masonic-navy flex-shrink-0" />;
+    if (attendee.attendeeType === 'mason') return <ShieldCheck className="w-5 h-5 mr-3 text-masonic-navy flex-shrink-0" />;
     if (attendee.attendeeType === 'LadyPartner') {
       return <UserCheck className="w-5 h-5 mr-3 text-pink-500 flex-shrink-0" />;
     }
     if (attendee.attendeeType === 'GuestPartner') {
       return <Users className="w-5 h-5 mr-3 text-teal-500 flex-shrink-0" />; // Changed guest partner icon color
     }
-    if (attendee.attendeeType === 'Guest') return <User className="w-5 h-5 mr-3 text-gray-600 flex-shrink-0" />;
+    if (attendee.attendeeType === 'guest') return <User className="w-5 h-5 mr-3 text-gray-600 flex-shrink-0" />;
     return <CircleUserRound className="w-5 h-5 mr-3 text-gray-400 flex-shrink-0" />; // Fallback icon
   };
 

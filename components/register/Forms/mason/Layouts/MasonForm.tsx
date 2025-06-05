@@ -36,13 +36,13 @@ export const MasonForm: React.FC<MasonFormProps> = ({ attendeeId, attendeeNumber
   
   // Get primary mason for lodge selection
   const primaryMason = useRegistrationStore(state => 
-    state.attendees.find(a => a.isPrimary && a.attendeeType === 'Mason')
+    state.attendees.find(a => a.isPrimary && a.attendeeType === 'mason')
   );
   
   // Determine the label used for this attendee in validation errors
   const attendeeLabel = useMemo(() => {
     if (isPrimary) return 'Primary Mason';
-    const masons = useRegistrationStore.getState().attendees.filter(a => a.attendeeType === 'Mason' && !a.isPartner);
+    const masons = useRegistrationStore.getState().attendees.filter(a => a.attendeeType === 'mason' && !a.isPartner);
     const index = masons.findIndex(a => a.attendeeId === attendeeId);
     return `Mason ${index + 1}`;
   }, [attendeeId, isPrimary]);
@@ -142,7 +142,7 @@ export const MasonForm: React.FC<MasonFormProps> = ({ attendeeId, attendeeNumber
   
   // Check if we should show "use same lodge" option
   const showSameLodgeOption = !isPrimary && 
-                              attendee.attendeeType === 'Mason' && 
+                              attendee.attendeeType === 'mason' && 
                               primaryMason?.lodge_id;
   
   // Title options for Mason

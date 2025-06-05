@@ -71,7 +71,7 @@ export type UnifiedAttendeeData = {
   id?: string
   firstName: string
   lastName: string
-  attendeeType: "Mason" | "Guest" | "Partner"
+  attendeeType: "mason" | "guest" | "partner"
   type?: "mason" | "guest" | "partner"
   title?: string
   masonicTitle?: MasonicTitle

@@ -135,7 +135,7 @@ export const normalizeFieldValue = (field: string, value: any): any => {
 export const formatAttendeeSummary = (attendee: AttendeeData): string => {
   const name = formatTitle(attendee.title, attendee.firstName, attendee.lastName, attendee.suffix);
   
-  if (attendee.attendeeType === 'Mason') {
+  if (attendee.attendeeType === 'mason') {
     const lodgeInfo = attendee.lodgeNameNumber || 
                      (attendee.lodge_id ? formatLodgeDisplay(attendee.lodge_id, null) : '');
     return lodgeInfo ? `${name} - ${lodgeInfo}` : name;

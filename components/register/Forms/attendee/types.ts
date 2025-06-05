@@ -4,7 +4,7 @@ import { UnifiedAttendeeData } from '@/lib/registrationStore';
 export interface AttendeeData {
   // Identity
   attendeeId: string;
-  attendeeType: 'Mason' | 'Guest';
+  attendeeType: 'mason' | 'guest';
   
   // Person Data
   title: string;
@@ -59,10 +59,10 @@ export interface SectionProps<T = AttendeeData | UnifiedAttendeeData> {
 
 // Type guards and utility types
 export const isMason = (attendee: AttendeeData | UnifiedAttendeeData): boolean => 
-  attendee.attendeeType === 'Mason';
+  attendee.attendeeType === 'mason';
 
 export const isGuest = (attendee: AttendeeData | UnifiedAttendeeData): boolean => 
-  attendee.attendeeType === 'Guest';
+  attendee.attendeeType === 'guest';
 
 export const hasPartner = (attendee: AttendeeData | UnifiedAttendeeData): boolean => 
   !!attendee.partner;

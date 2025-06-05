@@ -42,11 +42,11 @@ export const IndividualsForm: React.FC<IndividualsFormProps> = ({
   
   // Compute mason and guest counts
   const masonCount = useMemo(() => {
-    return primaryAttendees.filter(a => a.attendeeType === 'Mason').length;
+    return primaryAttendees.filter(a => a.attendeeType === 'mason').length;
   }, [primaryAttendees]);
   
   const guestCount = useMemo(() => {
-    return primaryAttendees.filter(a => a.attendeeType === 'Guest').length;
+    return primaryAttendees.filter(a => a.attendeeType === 'guest').length;
   }, [primaryAttendees]);
 
   // Add new attendee - first attendee is Mason, rest can be selected
@@ -57,8 +57,8 @@ export const IndividualsForm: React.FC<IndividualsFormProps> = ({
     formSaveManager.saveBeforeNavigation();
     
     // Default behavior for backward compatibility
-    const attendeeType = primaryAttendees.length === 0 ? 'Mason' : 'Guest';
-    const newAttendeeId = attendeeType === 'Mason' 
+    const attendeeType = primaryAttendees.length === 0 ? 'mason' : 'guest';
+    const newAttendeeId = attendeeType === 'mason' 
       ? addMasonAttendee() 
       : addGuestAttendee();
     
@@ -207,7 +207,7 @@ export const IndividualsForm: React.FC<IndividualsFormProps> = ({
         <div className="flex items-center gap-4">
           <LegacyAddRemoveControl
             label="Mason"
-            count={primaryAttendees.filter(a => a.attendeeType === 'Mason').length}
+            count={primaryAttendees.filter(a => a.attendeeType === 'mason').length}
             onAdd={() => {
               // Save current form state before adding a new attendee
               formSaveManager.saveBeforeNavigation();
@@ -221,7 +221,7 @@ export const IndividualsForm: React.FC<IndividualsFormProps> = ({
               }, 100);
             }}
             onRemove={() => {
-              const masonAttendees = primaryAttendees.filter(a => a.attendeeType === 'Mason');
+              const masonAttendees = primaryAttendees.filter(a => a.attendeeType === 'mason');
               // Don't remove the first Mason if it's the only one
               if (masonAttendees.length > 1) {
                 const lastMason = masonAttendees[masonAttendees.length - 1];
@@ -230,11 +230,11 @@ export const IndividualsForm: React.FC<IndividualsFormProps> = ({
             }}
             min={1}
             max={5}
-            removeDisabled={primaryAttendees.filter(a => a.attendeeType === 'Mason').length <= 1}
+            removeDisabled={primaryAttendees.filter(a => a.attendeeType === 'mason').length <= 1}
           />
           <LegacyAddRemoveControl
             label="Guest"
-            count={primaryAttendees.filter(a => a.attendeeType === 'Guest').length}
+            count={primaryAttendees.filter(a => a.attendeeType === 'guest').length}
             onAdd={() => {
               // Save current form state before adding a new attendee
               formSaveManager.saveBeforeNavigation();
@@ -248,7 +248,7 @@ export const IndividualsForm: React.FC<IndividualsFormProps> = ({
               }, 100);
             }}
             onRemove={() => {
-              const guestAttendees = primaryAttendees.filter(a => a.attendeeType === 'Guest');
+              const guestAttendees = primaryAttendees.filter(a => a.attendeeType === 'guest');
               if (guestAttendees.length > 0) {
                 const lastGuest = guestAttendees[guestAttendees.length - 1];
                 handleRemoveAttendee(lastGuest.attendeeId);
@@ -297,7 +297,7 @@ export const IndividualsFormSummary: React.FC = () => {
                 </p>
                 <p className="text-sm text-gray-600">
                   {group.primary.title} {group.primary.firstName} {group.primary.lastName}
-                  {group.primary.attendeeType === 'Mason' && group.primary.lodgeNameNumber && (
+                  {group.primary.attendeeType === 'mason' && group.primary.lodgeNameNumber && (
                     <span> - {group.primary.lodgeNameNumber}</span>
                   )}
                 </p>

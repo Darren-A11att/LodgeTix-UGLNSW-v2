@@ -61,7 +61,7 @@ export const EditAttendeeDialog: React.FC<EditAttendeeDialogProps> = ({
                 {isPartner ? "Guest Partner" : "Mason"}
               </Badge>
               <span className="text-sm text-gray-500">
-                {attendee.attendeeType === 'Mason' ? 
+                {attendee.attendeeType === 'mason' ? 
                   `From ${lodgeName || 'selected lodge'}` : 
                   isPartner && parentAttendee ? 
                     `Partner of ${parentAttendee.firstName || 'member'}` : 
@@ -78,14 +78,14 @@ export const EditAttendeeDialog: React.FC<EditAttendeeDialogProps> = ({
               </svg>
               Fill in the details for this {isPartner ? 'partner' : 'lodge member'}.
             </p>
-            {attendee.attendeeType === 'Mason' && (
+            {attendee.attendeeType === 'mason' && (
               <p className="mt-2">
                 Lodge information will be automatically applied to this member.
               </p>
             )}
           </div>
           
-          {attendee.attendeeType === 'Mason' ? (
+          {attendee.attendeeType === 'mason' ? (
             <MasonForm
               attendeeId={attendee.attendeeId}
               attendeeNumber={1}

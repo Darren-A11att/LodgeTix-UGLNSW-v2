@@ -14,7 +14,7 @@ export const useTicketEligibility = () => {
   const getVIPEligibility = useCallback(() => {
     // VIP tickets only for Masons with certain ranks
     return attendees.some(attendee => 
-      attendee.attendeeType === 'Mason' && 
+      attendee.attendeeType === 'mason' && 
       ['GL', 'IM'].includes(attendee.rank || '')
     );
   }, [attendees]);

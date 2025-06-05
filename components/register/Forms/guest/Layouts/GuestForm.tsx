@@ -33,10 +33,10 @@ export const GuestForm: React.FC<GuestFormProps> = ({ attendeeId, attendeeNumber
       const parentAttendee = allAttendees.find(a => a.attendeeId === attendee.isPartner);
       
       if (parentAttendee) {
-        const masons = allAttendees.filter(a => a.attendeeType === 'Mason' && !a.isPartner);
-        const guests = allAttendees.filter(a => a.attendeeType === 'Guest' && !a.isPartner);
+        const masons = allAttendees.filter(a => a.attendeeType === 'mason' && !a.isPartner);
+        const guests = allAttendees.filter(a => a.attendeeType === 'guest' && !a.isPartner);
         
-        if (parentAttendee.attendeeType === 'Mason') {
+        if (parentAttendee.attendeeType === 'mason') {
           const masonIndex = masons.findIndex(a => a.attendeeId === parentAttendee.attendeeId);
           return `Mason ${masonIndex + 1}'s Lady/Partner`;
         } else {
@@ -47,7 +47,7 @@ export const GuestForm: React.FC<GuestFormProps> = ({ attendeeId, attendeeNumber
     }
     
     // Not a partner, regular guest
-    const guests = useRegistrationStore.getState().attendees.filter(a => a.attendeeType === 'Guest' && !a.isPartner);
+    const guests = useRegistrationStore.getState().attendees.filter(a => a.attendeeType === 'guest' && !a.isPartner);
     const index = guests.findIndex(a => a.attendeeId === attendeeId);
     return `Guest ${index + 1}`;
   }, [attendeeId, attendee]);

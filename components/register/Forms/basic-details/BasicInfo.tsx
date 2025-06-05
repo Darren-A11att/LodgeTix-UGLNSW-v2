@@ -18,7 +18,7 @@ import { InfoIcon } from 'lucide-react';
  * ```tsx
  * <BasicInfo
  *   data={attendeeData}
- *   type="Mason"
+ *   type="mason"
  *   isPrimary={true}
  *   onChange={(field, value) => updateField(field, value)}
  * />
@@ -26,7 +26,7 @@ import { InfoIcon } from 'lucide-react';
  * 
  * @param {Object} props - Component props
  * @param {AttendeeData} props.data - Attendee data object
- * @param {'Mason' | 'Guest'} props.type - Attendee type
+ * @param {'mason' | 'guest'} props.type - Attendee type
  * @param {boolean} [props.isPrimary] - Whether this is the primary attendee
  * @param {Function} props.onChange - Callback for field changes
  * 
@@ -39,12 +39,12 @@ export const BasicInfo = React.memo<SectionProps>(({
   onChange 
 }) => {
   // Get appropriate title options based on attendee type
-  const titles = type === 'Mason' ? MASON_TITLES : GUEST_TITLES;
+  const titles = type === 'mason' ? MASON_TITLES : GUEST_TITLES;
   const titleOptions = titles.map(title => ({ value: title, label: title }));
 
   // Handle title change with rank logic for Masons
   const handleTitleChangeWithLogic = useCallback((newTitle: string) => {
-    if (type === 'Mason') {
+    if (type === 'mason') {
       const updates = handleTitleChange(newTitle, data.rank || '');
       
       // First update the title to ensure order of operations
@@ -62,7 +62,7 @@ export const BasicInfo = React.memo<SectionProps>(({
   
   // Handle rank change with title logic for Masons
   const handleRankChangeWithLogic = useCallback((newRank: string) => {
-    if (type === 'Mason') {
+    if (type === 'mason') {
       const updates = handleRankChange(newRank, data.title || '', data.rank || '');
       
       // First update the rank to ensure order of operations
@@ -87,7 +87,7 @@ export const BasicInfo = React.memo<SectionProps>(({
   
   // Check for title/rank mismatches and show warnings
   const titleRankMismatch = useMemo(() => {
-    if (type !== 'Mason') return null;
+    if (type !== 'mason') return null;
     
     if (isGrandTitle(data.title || '') && data.rank !== 'GL') {
       return {
@@ -115,7 +115,7 @@ export const BasicInfo = React.memo<SectionProps>(({
   }));
 
   // Render Mason-specific layout
-  if (type === 'Mason') {
+  if (type === 'mason') {
     return (
       <div className="space-y-6">
         <div className="grid grid-cols-12 gap-4">
@@ -253,7 +253,7 @@ export const MasonBasicInfo: React.FC<{
   return (
     <BasicInfo
       data={mason}
-      type="Mason"
+      type="mason"
       isPrimary={mason.isPrimary}
       onChange={handleChange}
     />
@@ -273,7 +273,7 @@ export const GuestBasicInfo: React.FC<{
   return (
     <BasicInfo
       data={guest}
-      type="Guest"
+      type="guest"
       isPrimary={guest.isPrimary}
       onChange={handleChange}
     />

@@ -203,7 +203,7 @@ export const DelegationsForm: React.FC<DelegationsFormProps> = ({
 
   // Handle delegate type selection
   const handleDelegateTypeSelection = useCallback((type: 'Mason' | 'Guest') => {
-    const newDelegateId = type === 'Mason' ? addMasonAttendee() : addGuestAttendee();
+    const newDelegateId = type === 'mason' ? addMasonAttendee() : addGuestAttendee();
     
     if (delegationDetails.grand_lodge_id) {
       updateAttendee(newDelegateId, {
@@ -519,7 +519,7 @@ export const DelegationFormSummary: React.FC = () => {
             {delegate.isPrimary && <Badge variant="secondary">Head</Badge>}
             <span className="text-sm">
               {delegate.title} {delegate.firstName} {delegate.lastName}
-              {delegate.attendeeType === 'Mason' && delegate.rank && ` (${delegate.rank})`}
+              {delegate.attendeeType === 'mason' && delegate.rank && ` (${delegate.rank})`}
             </span>
           </div>
         ))}

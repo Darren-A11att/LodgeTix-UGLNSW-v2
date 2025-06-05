@@ -76,7 +76,7 @@ export const BookingContactSection: React.FC<BookingContactSectionProps> = React
     const customerData = {
       // Map customer data to UnifiedAttendeeData format for the form components
       attendeeId: 'lodge-booking-contact',
-      attendeeType: 'Mason' as const,
+      attendeeType: 'mason' as const,
       title: customer.title || '',
       firstName: customer.firstName || '',
       lastName: customer.lastName || '',

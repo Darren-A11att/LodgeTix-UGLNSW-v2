@@ -87,10 +87,10 @@ const isValidEmail = (email: string | undefined | null): boolean => {
 // Helper function to normalize attendee type
 const normalizeAttendeeType = (type: string): string => {
   const typeMap: Record<string, string> = {
-    'mason': 'Mason',
-    'guest': 'Guest', 
-    'ladypartner': 'LadyPartner',
-    'guestpartner': 'GuestPartner'
+    'Mason': 'mason',
+    'Guest': 'guest', 
+    'LadyPartner': 'ladypartner',
+    'GuestPartner': 'guestpartner'
   };
   return typeMap[type.toLowerCase()] || type;
 };
@@ -125,8 +125,8 @@ const validateAttendeeData = (attendees: ReturnType<typeof selectAttendees>): st
     return `Guest ${index + 1}`;
   };
   
-  const masons = attendees.filter(att => normalizeAttendeeType(att.attendeeType) === 'Mason');
-  const guests = attendees.filter(att => normalizeAttendeeType(att.attendeeType) === 'Guest');
+  const masons = attendees.filter(att => normalizeAttendeeType(att.attendeeType) === 'mason');
+  const guests = attendees.filter(att => normalizeAttendeeType(att.attendeeType) === 'guest');
 
   attendees.forEach((attendee) => {
     // For lodge registrations, only validate the primary (booking contact)
@@ -136,7 +136,7 @@ const validateAttendeeData = (attendees: ReturnType<typeof selectAttendees>): st
     let descriptiveLabel = "";
     const normalizedType = normalizeAttendeeType(attendee.attendeeType);
 
-    if (normalizedType === 'Mason') {
+    if (normalizedType === 'mason') {
       descriptiveLabel = getMasonOrderLabel(attendee, masons);
       // Debug log for primary mason validation
       if (attendee.isPrimary) {
@@ -149,15 +149,15 @@ const validateAttendeeData = (attendees: ReturnType<typeof selectAttendees>): st
           lastName: attendee.lastName
         });
       }
-    } else if (normalizedType === 'LadyPartner') {
+    } else if (normalizedType === 'ladypartner') {
       const masonOwner = attendees.find(m => m.attendeeId === attendee.partnerOf);
       const masonOwnerLabel = masonOwner ? getMasonOrderLabel(masonOwner, masons) + "'s" : "Associated Mason's";
       descriptiveLabel = `${masonOwnerLabel} Lady/Partner`;
-    } else if (normalizedType === 'GuestPartner') {
+    } else if (normalizedType === 'guestpartner') {
       const guestOwner = attendees.find(g => g.attendeeId === attendee.partnerOf);
       const guestOwnerLabel = guestOwner ? getGuestOrderLabel(guestOwner, guests) + "'s" : "Associated Guest's";
       descriptiveLabel = `${guestOwnerLabel} Partner`;
-    } else if (normalizedType === 'Guest') {
+    } else if (normalizedType === 'guest') {
       descriptiveLabel = getGuestOrderLabel(attendee, guests);
     } else {
       // Fallback for unexpected cases or if a guest is somehow a partner without a partnerType
@@ -171,7 +171,7 @@ const validateAttendeeData = (attendees: ReturnType<typeof selectAttendees>): st
     if (!isNonEmpty(attendee.lastName)) errors.push(`${descriptiveLabel}: Last Name is required.`);
 
     // Mason specific
-    if (normalizedType === 'Mason') {
+    if (normalizedType === 'mason') {
       if (!isNonEmpty(attendee.rank)) errors.push(`${descriptiveLabel}: Rank is required.`);
       
       // Debug grand lodge validation
@@ -193,7 +193,7 @@ const validateAttendeeData = (attendees: ReturnType<typeof selectAttendees>): st
           errors.push("Partner Email or Phone is required if contacting directly.");
       }
       // Do not validate these fields for other contact preference options
-    } else if (normalizedType === 'Guest') {
+    } else if (normalizedType === 'guest') {
       // Guest specific validation
       // Only validate email/phone if contact preference is explicitly set to "Directly"
       if (attendee.contactPreference === 'directly' && !attendee.primaryEmail && !attendee.primaryPhone) {
@@ -203,7 +203,7 @@ const validateAttendeeData = (attendees: ReturnType<typeof selectAttendees>): st
     }
 
     // Contact Info for relevant types
-    if (normalizedType === 'Mason' || normalizedType === 'Guest') {
+    if (normalizedType === 'mason' || normalizedType === 'guest') {
       // Debug output for contact preference validation - commented out for performance
       // console.log(`CONTACT DEBUG for ${descriptiveLabel}:`, {
       //   type: normalizedType,

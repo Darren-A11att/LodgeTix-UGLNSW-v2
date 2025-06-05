@@ -24,7 +24,7 @@
         </div>
         
         {/* The actual form component based on attendee type */}
-        {editingAttendee.attendeeType === 'Mason' ? (
+        {editingAttendee.attendeeType === 'mason' ? (
           <MasonForm
             attendeeId={editingAttendee.attendeeId}
             attendeeNumber={1}
