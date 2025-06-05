@@ -776,6 +776,8 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ function
         ? '/api/registrations/individuals'
         : storeState.registrationType === 'lodge'
         ? '/api/registrations/lodge'
+        : storeState.registrationType === 'delegation'
+        ? '/api/registrations/delegation'
         : '/api/registrations'; // Fallback for other types
       
       const response = await fetch(endpoint, {

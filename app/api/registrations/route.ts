@@ -225,6 +225,16 @@ export async function POST(request: Request) {
       );
     }
     
+    // For delegation registration, redirect to dedicated endpoint
+    if (finalRegistrationType === 'delegation') {
+      console.log("Delegation registration should use /api/registrations/delegation endpoint");
+      console.groupEnd();
+      return NextResponse.json(
+        { error: "Please use /api/registrations/delegation endpoint for delegation registrations" },
+        { status: 400 }
+      );
+    }
+    
     // For non-individuals registrations, continue with existing logic
     // Always generate a proper UUID for registration_id on the server
     const newRegistrationId = uuidv4();
