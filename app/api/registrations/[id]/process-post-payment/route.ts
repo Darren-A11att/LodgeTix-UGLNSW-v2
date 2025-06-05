@@ -32,14 +32,10 @@ export async function POST(
       );
     }
     
-    const body = await request.json();
-    const { sendEmail = true } = body;
-    
     const postPaymentService = getPostPaymentService();
     const result = await postPaymentService.processPostPayment({
       registrationId,
       confirmationNumber: registration.confirmation_number || `REG-${registrationId.substring(0, 8).toUpperCase()}`,
-      sendEmail,
     });
     
     if (!result.success) {
@@ -51,7 +47,6 @@ export async function POST(
           partial: {
             qrCodesGenerated: result.qrCodesGenerated,
             pdfsGenerated: result.pdfsGenerated,
-            emailsSent: result.emailsSent,
           }
         },
         { status: 500 }
@@ -63,7 +58,6 @@ export async function POST(
       registrationId,
       qrCodesGenerated: result.qrCodesGenerated,
       pdfsGenerated: result.pdfsGenerated,
-      emailsSent: result.emailsSent,
       message: 'Post-payment processing completed successfully',
     });
   } catch (error) {

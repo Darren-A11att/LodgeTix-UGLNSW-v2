@@ -89,34 +89,14 @@ SELECT
     -- Count of attendees
     COUNT(DISTINCT a.attendee_id) AS total_attendees,
     
-    -- Tickets array with full event details
+    -- Tickets array (simplified without event_tickets join)
     COALESCE(
         jsonb_agg(
             DISTINCT jsonb_build_object(
                 'ticketId', t.ticket_id,
                 'attendeeId', t.attendee_id,
                 'ticketStatus', t.ticket_status,
-                'ticketPrice', t.ticket_price,
-                'ticketType', et.ticket_name,
-                'ticketDescription', et.description,
-                -- Event details
-                'eventId', et_event.event_id,
-                'eventTitle', et_event.title,
-                'eventSubtitle', et_event.subtitle,
-                'eventDescription', et_event.description,
-                'eventType', et_event.type,
-                'eventStart', et_event.event_start,
-                'eventEnd', et_event.event_end,
-                'eventSlug', et_event.slug,
-                'eventLocationId', et_event.location_id,
-                'eventImageUrl', et_event.image_url,
-                'eventRegalia', et_event.regalia,
-                'eventRegaliaDescription', et_event.regalia_description,
-                'eventDressCode', et_event.dress_code,
-                'eventDegreeType', et_event.degree_type,
-                'eventMaxAttendees', et_event.max_attendees,
-                'eventSoldCount', et_event.sold_count,
-                'eventReservedCount', et_event.reserved_count
+                'ticketPrice', t.ticket_price
             )
         ) FILTER (WHERE t.ticket_id IS NOT NULL),
         '[]'::jsonb
@@ -128,8 +108,6 @@ SELECT
 FROM registration_confirmation_base_view b
 LEFT JOIN attendees a ON b.registration_id = a.registration_id
 LEFT JOIN tickets t ON b.registration_id = t.registration_id
-LEFT JOIN event_tickets et ON t.event_ticket_id = et.event_ticket_id
-LEFT JOIN events et_event ON et.event_id = et_event.event_id
 
 WHERE b.registration_type = 'individuals'
 
@@ -204,7 +182,7 @@ SELECT
                 'primaryEmail', a.email,
                 'primaryPhone', a.phone
             )
-            ORDER BY a.is_primary DESC, a.created_at ASC
+            -- ORDER BY removed (not allowed with DISTINCT in aggregates)
         ) FILTER (WHERE a.attendee_id IS NOT NULL),
         '[]'::jsonb
     ) AS lodge_members,
@@ -240,7 +218,7 @@ SELECT
             DISTINCT jsonb_build_object(
                 'packageId', p.package_id,
                 'packageName', p.name,
-                'packagePrice', p.price,
+                'packagePrice', p.package_price,
                 'packageDescription', p.description,
                 'memberCount', package_counts.member_count
             )
@@ -335,7 +313,7 @@ SELECT
                 'primaryEmail', a.email,
                 'primaryPhone', a.phone
             )
-            ORDER BY a.is_primary DESC, a.created_at ASC
+            -- ORDER BY removed (not allowed with DISTINCT in aggregates)
         ) FILTER (WHERE a.attendee_id IS NOT NULL),
         '[]'::jsonb
     ) AS delegates,
@@ -343,34 +321,14 @@ SELECT
     -- Count of delegates
     COUNT(DISTINCT a.attendee_id) AS total_delegates,
     
-    -- Tickets array with full event details
+    -- Tickets array (simplified without event_tickets join)
     COALESCE(
         jsonb_agg(
             DISTINCT jsonb_build_object(
                 'ticketId', t.ticket_id,
                 'attendeeId', t.attendee_id,
                 'ticketStatus', t.ticket_status,
-                'ticketPrice', t.ticket_price,
-                'ticketType', et.ticket_name,
-                'ticketDescription', et.description,
-                -- Event details
-                'eventId', et_event.event_id,
-                'eventTitle', et_event.title,
-                'eventSubtitle', et_event.subtitle,
-                'eventDescription', et_event.description,
-                'eventType', et_event.type,
-                'eventStart', et_event.event_start,
-                'eventEnd', et_event.event_end,
-                'eventSlug', et_event.slug,
-                'eventLocationId', et_event.location_id,
-                'eventImageUrl', et_event.image_url,
-                'eventRegalia', et_event.regalia,
-                'eventRegaliaDescription', et_event.regalia_description,
-                'eventDressCode', et_event.dress_code,
-                'eventDegreeType', et_event.degree_type,
-                'eventMaxAttendees', et_event.max_attendees,
-                'eventSoldCount', et_event.sold_count,
-                'eventReservedCount', et_event.reserved_count
+                'ticketPrice', t.ticket_price
             )
         ) FILTER (WHERE t.ticket_id IS NOT NULL),
         '[]'::jsonb
@@ -382,8 +340,6 @@ SELECT
 FROM registration_confirmation_base_view b
 LEFT JOIN attendees a ON b.registration_id = a.registration_id
 LEFT JOIN tickets t ON b.registration_id = t.registration_id
-LEFT JOIN event_tickets et ON t.event_ticket_id = et.event_ticket_id
-LEFT JOIN events et_event ON et.event_id = et_event.event_id
 
 WHERE b.registration_type = 'delegation'
 

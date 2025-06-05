@@ -10,7 +10,10 @@ export interface PostPaymentData {
 
 /**
  * Service that handles all post-payment processing
- * Including QR code generation, PDF creation, and email sending
+ * Including QR code generation and PDF creation
+ * 
+ * Note: Email sending is now handled automatically by database triggers
+ * when the registration is marked as completed.
  */
 export class PostPaymentService {
   /**
@@ -20,13 +23,11 @@ export class PostPaymentService {
     success: boolean;
     qrCodesGenerated: number;
     pdfsGenerated: number;
-    emailsSent: number;
     errors: string[];
   }> {
     const errors: string[] = [];
     let qrCodesGenerated = 0;
     let pdfsGenerated = 0;
-    let emailsSent = 0;
     
     try {
       const supabase = await createClient();
@@ -261,91 +262,13 @@ export class PostPaymentService {
         console.error('Error generating confirmation PDF:', error);
       }
       
-      // 4. Send confirmation emails (if requested)
-      if (data.sendEmail) {
-        try {
-          // Send confirmation email based on registration type
-          const emailType = registration.registration_type === 'lodge' ? 
-            'LODGE_CONFIRMATION' : 'INDIVIDUAL_CONFIRMATION';
-          
-          // Call edge function for confirmation email
-          const { data: confirmationResult, error: confirmationError } = await supabase.functions.invoke(
-            'send-confirmation-email',
-            {
-              body: {
-                type: emailType,
-                registrationId: data.registrationId
-              }
-            }
-          );
-          
-          if (confirmationError) {
-            errors.push('Failed to send confirmation email');
-            console.error('Confirmation email error:', confirmationError);
-          } else if (confirmationResult?.success) {
-            emailsSent++;
-          }
-          
-          // Check for attendees with direct contact preference
-          const directContactAttendees = registration.attendees.filter(
-            (a: any) => a.contact_preference === 'direct' && a.email
-          );
-          
-          if (directContactAttendees.length > 0) {
-            // Send direct ticket emails
-            const { data: directResult, error: directError } = await supabase.functions.invoke(
-              'send-confirmation-email',
-              {
-                body: {
-                  type: 'ATTENDEE_DIRECT_TICKET',
-                  registrationId: data.registrationId
-                }
-              }
-            );
-            
-            if (directError) {
-              errors.push('Failed to send direct attendee emails');
-              console.error('Direct email error:', directError);
-            } else if (directResult?.success) {
-              emailsSent += directContactAttendees.length;
-            }
-          }
-          
-          // Check for attendees with primary contact preference
-          const primaryContactAttendees = registration.attendees.filter(
-            (a: any) => a.contact_preference === 'primary'
-          );
-          
-          if (primaryContactAttendees.length > 0) {
-            // Send primary contact summary email
-            const { data: primaryResult, error: primaryError } = await supabase.functions.invoke(
-              'send-confirmation-email',
-              {
-                body: {
-                  type: 'PRIMARY_CONTACT_TICKET',
-                  registrationId: data.registrationId
-                }
-              }
-            );
-            
-            if (primaryError) {
-              errors.push('Failed to send primary contact email');
-              console.error('Primary contact email error:', primaryError);
-            } else if (primaryResult?.success) {
-              emailsSent++;
-            }
-          }
-        } catch (error) {
-          errors.push('Failed to send confirmation emails');
-          console.error('Error sending emails:', error);
-        }
-      }
+      // Note: Email sending removed - now handled automatically by database triggers
+      // when the registration status is updated to 'completed'
       
       return {
         success: errors.length === 0,
         qrCodesGenerated,
         pdfsGenerated,
-        emailsSent,
         errors,
       };
     } catch (error) {
@@ -355,7 +278,6 @@ export class PostPaymentService {
         success: false,
         qrCodesGenerated,
         pdfsGenerated,
-        emailsSent,
         errors,
       };
     }

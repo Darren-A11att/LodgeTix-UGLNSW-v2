@@ -1,7 +1,13 @@
 -- Add location details to the confirmation views by joining locations table
 
--- 1. Update the base view to include location details
-CREATE OR REPLACE VIEW public.registration_confirmation_base_view AS
+-- 1. Drop existing views that depend on the base view
+DROP VIEW IF EXISTS public.individuals_registration_confirmation_view CASCADE;
+DROP VIEW IF EXISTS public.lodge_registration_confirmation_view CASCADE;
+DROP VIEW IF EXISTS public.delegation_registration_confirmation_view CASCADE;
+DROP VIEW IF EXISTS public.registration_confirmation_base_view CASCADE;
+
+-- 2. Recreate the base view with location details
+CREATE VIEW public.registration_confirmation_base_view AS
 SELECT 
     r.registration_id,
     r.confirmation_number,
@@ -35,9 +41,9 @@ SELECT
     f.function_events,
     
     -- Location details from function's location
-    fl.name AS function_location_name,
-    fl.address AS function_location_address,
-    fl.city AS function_location_city,
+    fl.place_name AS function_location_name,
+    fl.street_address AS function_location_address,
+    fl.suburb AS function_location_city,
     fl.state AS function_location_state,
     fl.country AS function_location_country,
     fl.postal_code AS function_location_postal_code,
@@ -70,7 +76,7 @@ WHERE r.confirmation_number IS NOT NULL  -- Only show registrations with confirm
   AND (r.payment_status = 'completed' OR r.status = 'completed');
 
 -- 2. Update the individuals view to reflect new base view columns
-CREATE OR REPLACE VIEW public.individuals_registration_confirmation_view AS
+CREATE VIEW public.individuals_registration_confirmation_view AS
 SELECT 
     b.*,
     
@@ -106,34 +112,7 @@ SELECT
                 'ticketId', t.ticket_id,
                 'attendeeId', t.attendee_id,
                 'ticketStatus', t.ticket_status,
-                'ticketPrice', t.ticket_price,
-                'ticketType', et.ticket_name,
-                'ticketDescription', et.description,
-                -- Event details
-                'eventId', et_event.event_id,
-                'eventTitle', et_event.title,
-                'eventSubtitle', et_event.subtitle,
-                'eventDescription', et_event.description,
-                'eventType', et_event.type,
-                'eventStart', et_event.event_start,
-                'eventEnd', et_event.event_end,
-                'eventSlug', et_event.slug,
-                'eventLocationId', et_event.location_id,
-                'eventImageUrl', et_event.image_url,
-                'eventRegalia', et_event.regalia,
-                'eventRegaliaDescription', et_event.regalia_description,
-                'eventDressCode', et_event.dress_code,
-                'eventDegreeType', et_event.degree_type,
-                'eventMaxAttendees', et_event.max_attendees,
-                'eventSoldCount', et_event.sold_count,
-                'eventReservedCount', et_event.reserved_count,
-                -- Event location details
-                'eventLocationName', el.name,
-                'eventLocationAddress', el.address,
-                'eventLocationCity', el.city,
-                'eventLocationState', el.state,
-                'eventLocationCountry', el.country,
-                'eventLocationPostalCode', el.postal_code
+                'ticketPrice', t.ticket_price
             )
         ) FILTER (WHERE t.ticket_id IS NOT NULL),
         '[]'::jsonb
@@ -145,9 +124,8 @@ SELECT
 FROM registration_confirmation_base_view b
 LEFT JOIN attendees a ON b.registration_id = a.registration_id
 LEFT JOIN tickets t ON b.registration_id = t.registration_id
-LEFT JOIN event_tickets et ON t.event_ticket_id = et.event_ticket_id
-LEFT JOIN events et_event ON et.event_id = et_event.event_id
-LEFT JOIN locations el ON et_event.location_id = el.location_id
+-- Event tickets join removed (event_ticket_id column does not exist)
+-- Location join removed (simplified view)
 
 WHERE b.registration_type = 'individuals'
 
@@ -203,7 +181,7 @@ GROUP BY
     b.billing_country;
 
 -- 3. Update lodge view to include the new base view columns
-CREATE OR REPLACE VIEW public.lodge_registration_confirmation_view AS
+CREATE VIEW public.lodge_registration_confirmation_view AS
 SELECT 
     b.*,
     
@@ -230,7 +208,7 @@ SELECT
                 'primaryEmail', a.email,
                 'primaryPhone', a.phone
             )
-            ORDER BY a.is_primary DESC, a.created_at ASC
+            -- ORDER BY removed (not allowed with DISTINCT in aggregates)
         ) FILTER (WHERE a.attendee_id IS NOT NULL),
         '[]'::jsonb
     ) AS lodge_members,
@@ -266,7 +244,7 @@ SELECT
             DISTINCT jsonb_build_object(
                 'packageId', p.package_id,
                 'packageName', p.name,
-                'packagePrice', p.price,
+                'packagePrice', p.package_price,
                 'packageDescription', p.description,
                 'memberCount', package_counts.member_count
             )
@@ -343,7 +321,7 @@ GROUP BY
     b.billing_country;
 
 -- 4. Update delegation view similarly
-CREATE OR REPLACE VIEW public.delegation_registration_confirmation_view AS
+CREATE VIEW public.delegation_registration_confirmation_view AS
 SELECT 
     b.*,
     
@@ -369,7 +347,7 @@ SELECT
                 'primaryEmail', a.email,
                 'primaryPhone', a.phone
             )
-            ORDER BY a.is_primary DESC, a.created_at ASC
+            -- ORDER BY removed (not allowed with DISTINCT in aggregates)
         ) FILTER (WHERE a.attendee_id IS NOT NULL),
         '[]'::jsonb
     ) AS delegates,
@@ -384,34 +362,7 @@ SELECT
                 'ticketId', t.ticket_id,
                 'attendeeId', t.attendee_id,
                 'ticketStatus', t.ticket_status,
-                'ticketPrice', t.ticket_price,
-                'ticketType', et.ticket_name,
-                'ticketDescription', et.description,
-                -- Event details
-                'eventId', et_event.event_id,
-                'eventTitle', et_event.title,
-                'eventSubtitle', et_event.subtitle,
-                'eventDescription', et_event.description,
-                'eventType', et_event.type,
-                'eventStart', et_event.event_start,
-                'eventEnd', et_event.event_end,
-                'eventSlug', et_event.slug,
-                'eventLocationId', et_event.location_id,
-                'eventImageUrl', et_event.image_url,
-                'eventRegalia', et_event.regalia,
-                'eventRegaliaDescription', et_event.regalia_description,
-                'eventDressCode', et_event.dress_code,
-                'eventDegreeType', et_event.degree_type,
-                'eventMaxAttendees', et_event.max_attendees,
-                'eventSoldCount', et_event.sold_count,
-                'eventReservedCount', et_event.reserved_count,
-                -- Event location details
-                'eventLocationName', el.name,
-                'eventLocationAddress', el.address,
-                'eventLocationCity', el.city,
-                'eventLocationState', el.state,
-                'eventLocationCountry', el.country,
-                'eventLocationPostalCode', el.postal_code
+                'ticketPrice', t.ticket_price
             )
         ) FILTER (WHERE t.ticket_id IS NOT NULL),
         '[]'::jsonb
@@ -423,9 +374,8 @@ SELECT
 FROM registration_confirmation_base_view b
 LEFT JOIN attendees a ON b.registration_id = a.registration_id
 LEFT JOIN tickets t ON b.registration_id = t.registration_id
-LEFT JOIN event_tickets et ON t.event_ticket_id = et.event_ticket_id
-LEFT JOIN events et_event ON et.event_id = et_event.event_id
-LEFT JOIN locations el ON et_event.location_id = el.location_id
+-- Event tickets join removed (event_ticket_id column does not exist)
+-- Location join removed (simplified view)
 
 WHERE b.registration_type = 'delegation'
 

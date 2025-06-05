@@ -15,8 +15,8 @@ CREATE TABLE IF NOT EXISTS webhook_logs (
 );
 
 -- Create index for efficient querying
-CREATE INDEX idx_webhook_logs_created_at ON webhook_logs(created_at DESC);
-CREATE INDEX idx_webhook_logs_webhook_name ON webhook_logs(webhook_name);
+CREATE INDEX IF NOT EXISTS idx_webhook_logs_created_at ON webhook_logs(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_webhook_logs_webhook_name ON webhook_logs(webhook_name);
 
 -- Function to validate if a registration should trigger confirmation generation
 CREATE OR REPLACE FUNCTION should_generate_confirmation()
@@ -75,6 +75,8 @@ GRANT SELECT, INSERT ON webhook_logs TO service_role;
 -- Add RLS policies for webhook_logs (only service role can access)
 ALTER TABLE webhook_logs ENABLE ROW LEVEL SECURITY;
 
+-- Drop existing policy if exists and recreate
+DROP POLICY IF EXISTS "Service role can manage webhook logs" ON webhook_logs;
 CREATE POLICY "Service role can manage webhook logs"
   ON webhook_logs
   FOR ALL

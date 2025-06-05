@@ -1,0 +1,24 @@
+-- Create sequence for registration confirmation numbers
+BEGIN;
+
+-- Create sequence for registration confirmation numbers if it doesn't exist
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_sequences 
+        WHERE schemaname = 'public' 
+        AND sequencename = 'registration_confirmation_seq'
+    ) THEN
+        CREATE SEQUENCE registration_confirmation_seq
+        START WITH 1
+        INCREMENT BY 1
+        NO MAXVALUE
+        NO CYCLE;
+    END IF;
+END $$;
+
+-- Add comment
+COMMENT ON SEQUENCE registration_confirmation_seq IS 
+'Sequence for generating unique confirmation numbers in format: [TYPE]-YYMMDD-XXXX';
+
+COMMIT;

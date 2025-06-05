@@ -30,7 +30,7 @@ export default async function RegistrationWizardPage({ params, searchParams }: R
     .select(`
       registration_id,
       function_id,
-      contact_id,
+      customer_id,
       status,
       functions!inner (
         function_id,
@@ -69,7 +69,7 @@ export default async function RegistrationWizardPage({ params, searchParams }: R
     const mockRegistration = {
       registration_id: registrationId,
       function_id: functionData.function_id,
-      contact_id: null,
+      customer_id: null,
       status: 'draft' as const,
       functions: {
         function_id: functionData.function_id,
@@ -106,16 +106,16 @@ export default async function RegistrationWizardPage({ params, searchParams }: R
   const { data: { user } } = await supabase.auth.getUser();
   
   // For existing registrations, check if the user has access
-  // Lodge registrations may use anonymous auth, so we need to check the contact's auth_user_id
-  if (registration.contact_id) {
-    const { data: contact } = await supabase
-      .from('contacts')
+  // Lodge registrations may use anonymous auth, so we need to check the customer's auth_user_id
+  if (registration.customer_id) {
+    const { data: customer } = await supabase
+      .from('customers')
       .select('auth_user_id')
-      .eq('contact_id', registration.contact_id)
+      .eq('customer_id', registration.customer_id)
       .single();
     
-    // Only enforce auth check if the contact has an auth_user_id
-    if (contact?.auth_user_id && (!user || user.id !== contact.auth_user_id)) {
+    // Only enforce auth check if the customer has an auth_user_id
+    if (customer?.auth_user_id && (!user || user.id !== customer.auth_user_id)) {
       console.error('User not authorized for registration');
       redirect('/login');
     }
