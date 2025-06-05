@@ -308,7 +308,7 @@ export async function PUT(
     
     // Always use direct update approach (RPC function update_payment_status_and_complete not available)
     const updateData = {
-      status: requiresAction ? "pending_payment" : "completed",
+      status: requiresAction ? "pending" : "completed",
       payment_status: requiresAction ? "pending" : "completed",
       total_amount_paid: totalAmount,
       subtotal: subtotal || null,
@@ -405,7 +405,7 @@ export async function PUT(
         .update({ 
           status: 'sold',
           ticket_status: 'sold',
-          payment_status: 'paid',
+          payment_status: 'completed',
           purchased_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         })

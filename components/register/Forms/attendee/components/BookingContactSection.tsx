@@ -90,7 +90,7 @@ export const BookingContactSection: React.FC<BookingContactSectionProps> = React
       phone: customer.phone || '',
       dietaryRequirements: customer.dietaryRequirements || '',
       additionalInfo: customer.additionalInfo || '',
-      contactPreference: 'Directly' as const,
+      contactPreference: 'directly' as const,
       isPrimary: true,
       isPartner: null,
       partner: null,

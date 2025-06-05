@@ -65,17 +65,17 @@ export const shouldShowOtherGrandOfficerInput = (
 export const shouldShowContactFields = (
   attendee: Partial<AttendeeData>
 ): boolean => {
-  // Show contact fields only for primary attendees or when contact preference is 'Directly'
-  // Hide for 'PrimaryAttendee' or 'ProvideLater' contact preferences
-  return attendee.isPrimary || attendee.contactPreference === 'Directly';
+  // Show contact fields only for primary attendees or when contact preference is 'directly'
+  // Hide for 'primaryattendee' or 'providelater' contact preferences
+  return attendee.isPrimary || attendee.contactPreference === 'directly';
 };
 
 export const shouldShowConfirmationMessage = (
   attendee: Partial<AttendeeData>
 ): boolean => {
   return !attendee.isPrimary && 
-         (attendee.contactPreference === 'PrimaryAttendee' || 
-          attendee.contactPreference === 'ProvideLater');
+         (attendee.contactPreference === 'primaryattendee' || 
+          attendee.contactPreference === 'providelater');
 };
 
 export const shouldShowUseSameLodge = (
@@ -162,7 +162,7 @@ export const getRequiredFields = (attendee: Partial<AttendeeData>): string[] => 
   }
   
   // Only require email and phone if contact fields should be shown
-  // This happens for primary attendees or when contactPreference is 'Directly'
+  // This happens for primary attendees or when contactPreference is 'directly'
   if (shouldShowContactFields(attendee)) {
     required.push('primaryEmail', 'primaryPhone');
   }
@@ -179,10 +179,10 @@ export const getConfirmationMessage = (
   preference: string, 
   primaryName: string
 ): string => {
-  if (preference === 'PrimaryAttendee') {
+  if (preference === 'primaryattendee') {
     return `I confirm that ${primaryName} will be responsible for all communication with this attendee.`;
   }
-  if (preference === 'ProvideLater') {
+  if (preference === 'providelater') {
     return `I confirm that ${primaryName} will be responsible for all communication with this attendee until their contact details have been updated.`;
   }
   return '';
@@ -201,9 +201,9 @@ export const mapFieldNameToStore = (fieldName: string): string => {
 
 export const mapContactPreferenceToStore = (value: string): string => {
   const mappings: Record<string, string> = {
-    'Primary Attendee': 'PrimaryAttendee',
-    'Provide Later': 'ProvideLater',
-    'Directly': 'Directly'
+    'Primary Attendee': 'primaryattendee',
+    'Provide Later': 'providelater',
+    'Directly': 'directly'
   };
   return mappings[value] || value;
 };

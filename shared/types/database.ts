@@ -2800,7 +2800,6 @@ export type Database = {
         | "partially_refunded"
         | "cancelled"
         | "expired"
-        | "Unpaid"
         | "unpaid"
       price_type: "one_time" | "recurring"
       quote_status: "draft" | "open" | "accepted" | "canceled" | "expired"
@@ -2981,7 +2980,6 @@ export const Constants = {
         "partially_refunded",
         "cancelled",
         "expired",
-        "Unpaid",
         "unpaid",
       ],
       price_type: ["one_time", "recurring"],

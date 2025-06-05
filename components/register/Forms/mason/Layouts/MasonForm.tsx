@@ -70,13 +70,13 @@ export const MasonForm: React.FC<MasonFormProps> = ({ attendeeId, attendeeNumber
     
   // Keep local state for immediate UI response
   const [localContactPreference, setLocalContactPreference] = useState<string>(
-    attendee?.contactPreference || 'PrimaryAttendee'
+    attendee?.contactPreference || 'primaryattendee'
   );
   
   // Contacts fields logic - use local state for immediate UI response
-  const showContactFields = isPrimary || localContactPreference === 'Directly';
+  const showContactFields = isPrimary || localContactPreference === 'directly';
   const showConfirmation = !isPrimary && 
-    (localContactPreference === 'PrimaryAttendee' || localContactPreference === 'ProvideLater');
+    (localContactPreference === 'primaryattendee' || localContactPreference === 'providelater');
   
   // Callbacks for complex field updates
   const handleLodgeChange = useCallback((lodgeId: string, lodgeNameNumber?: string, organisationId?: string) => {
@@ -104,7 +104,7 @@ export const MasonForm: React.FC<MasonFormProps> = ({ attendeeId, attendeeNumber
     updateFieldImmediate('contactPreference', value);
     
     // Clear contact fields if not needed
-    if (value !== 'Directly') {
+    if (value !== 'directly') {
       updateFieldImmediate('primaryEmail', '');
       updateFieldImmediate('primaryPhone', '');
     }

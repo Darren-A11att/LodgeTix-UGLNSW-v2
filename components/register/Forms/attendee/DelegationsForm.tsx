@@ -127,7 +127,7 @@ export const DelegationsForm: React.FC<DelegationsFormProps> = ({
     if (delegationDetails.grand_lodge_id) {
       updateAttendee(newDelegateId, {
         grand_lodge_id: delegationDetails.grand_lodge_id,
-        contactPreference: 'PrimaryAttendee',
+        contactPreference: 'primaryattendee',
       });
     }
   }, [addMasonAttendee, addGuestAttendee, updateAttendee, delegationDetails, delegateAttendees.length, maxDelegates]);
@@ -152,7 +152,7 @@ export const DelegationsForm: React.FC<DelegationsFormProps> = ({
     // Simple validation - check required fields for all attendees
     return attendees.every(attendee => {
       const hasBasicInfo = attendee.firstName && attendee.lastName && attendee.title;
-      if (attendee.isPrimary || attendee.contactPreference === 'Directly') {
+      if (attendee.isPrimary || attendee.contactPreference === 'directly') {
         return hasBasicInfo && attendee.primaryEmail && attendee.primaryPhone;
       }
       return hasBasicInfo;
@@ -208,7 +208,7 @@ export const DelegationsForm: React.FC<DelegationsFormProps> = ({
     if (delegationDetails.grand_lodge_id) {
       updateAttendee(newDelegateId, {
         grand_lodge_id: delegationDetails.grand_lodge_id,
-        contactPreference: 'PrimaryAttendee',
+        contactPreference: 'primaryattendee',
       });
     }
     

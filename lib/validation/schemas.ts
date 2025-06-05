@@ -13,7 +13,7 @@ export const ContactPreferenceSchema = z.enum(['directly', 'primaryattendee', 'm
 export const ContactTypeSchema = z.enum(['individual', 'organisation']);
 export const CustomerTypeSchema = z.enum(['booking_contact', 'sponsor', 'donor']);
 export const OrganisationTypeSchema = z.enum(['lodge', 'grandlodge', 'masonicorder', 'company', 'other']);
-export const PaymentStatusSchema = z.enum(['pending', 'completed', 'failed', 'refunded', 'partially_refunded', 'cancelled', 'expired']);
+export const PaymentStatusSchema = z.enum(['pending', 'completed', 'failed', 'refunded', 'partially_refunded', 'cancelled', 'expired', 'unpaid']);
 export const RegistrationTypeSchema = z.enum(['individuals', 'groups', 'officials', 'lodge', 'delegation']);
 
 /**

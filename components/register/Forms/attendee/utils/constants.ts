@@ -35,9 +35,9 @@ export const PARTNER_RELATIONSHIPS = [
 
 // Contact Preferences
 export const CONTACT_PREFERENCES = [
-  { value: "Directly", label: "Contact me directly" },
-  { value: "PrimaryAttendee", label: "Via primary attendee" },
-  { value: "ProvideLater", label: "Provide details later" }
+  { value: "directly", label: "Contact me directly" },
+  { value: "primaryattendee", label: "Via primary attendee" },
+  { value: "providelater", label: "Provide details later" }
 ] as const;
 
 // Grand Titles (for rank logic)

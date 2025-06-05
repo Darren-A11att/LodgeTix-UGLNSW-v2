@@ -161,7 +161,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         );
       }
       
-      paymentStatus = 'paid';
+      paymentStatus = 'completed';
     }
 
     // Call the upsert RPC

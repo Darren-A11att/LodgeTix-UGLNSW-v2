@@ -147,9 +147,9 @@ export const formatAttendeeSummary = (attendee: AttendeeData): string => {
 // Contact preference formatter
 export const formatContactPreference = (preference: string): string => {
   const mappings: Record<string, string> = {
-    'Directly': 'Contact directly',
-    'PrimaryAttendee': 'Via primary attendee',
-    'ProvideLater': 'Provide details later'
+    'directly': 'Contact directly',
+    'primaryattendee': 'Via primary attendee',
+    'providelater': 'Provide details later'
   };
   return mappings[preference] || preference;
 };

@@ -13,7 +13,7 @@ export interface AttendeeData {
   suffix?: string;
   
   // Contact
-  contactPreference: 'Directly' | 'PrimaryAttendee' | 'ProvideLater';
+  contactPreference: 'directly' | 'primaryattendee' | 'providelater';
   primaryPhone: string;
   primaryEmail: string;
   

@@ -62,7 +62,7 @@ describe('Business Logic', () => {
     it('should show for attendees with Direct contact preference', () => {
       const attendee = createMockAttendee({ 
         isPrimary: false,
-        contactPreference: 'Directly'
+        contactPreference: 'directly'
       });
       expect(shouldShowContactFields(attendee)).toBe(true);
     });
@@ -70,7 +70,7 @@ describe('Business Logic', () => {
     it('should not show for non-primary attendees with other preferences', () => {
       const attendee = createMockAttendee({ 
         isPrimary: false,
-        contactPreference: 'PrimaryAttendee'
+        contactPreference: 'primaryattendee'
       });
       expect(shouldShowContactFields(attendee)).toBe(false);
     });
@@ -117,7 +117,7 @@ describe('Business Logic', () => {
     it('should not include contact fields for non-primary with indirect contact', () => {
       const attendee = createMockAttendee({ 
         isPrimary: false,
-        contactPreference: 'PrimaryAttendee'
+        contactPreference: 'primaryattendee'
       });
       const required = getRequiredFields(attendee);
       

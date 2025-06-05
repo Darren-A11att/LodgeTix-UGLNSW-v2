@@ -100,13 +100,13 @@ describe('Validation Utils', () => {
     it('should validate preferences for non-primary attendees', () => {
       const attendee = createMockAttendee({ isPrimary: false });
       
-      attendee.contactPreference = 'Directly';
+      attendee.contactPreference = 'directly';
       expect(validateContactPreference(attendee)).toBe(true);
       
-      attendee.contactPreference = 'PrimaryAttendee';
+      attendee.contactPreference = 'primaryattendee';
       expect(validateContactPreference(attendee)).toBe(true);
       
-      attendee.contactPreference = 'ProvideLater';
+      attendee.contactPreference = 'providelater';
       expect(validateContactPreference(attendee)).toBe(true);
       
       attendee.contactPreference = 'Invalid';
@@ -143,7 +143,7 @@ describe('Validation Utils', () => {
 
     it('should validate Guest attendee', () => {
       const guest = createMockGuest({
-        contactPreference: 'Directly',
+        contactPreference: 'directly',
       });
 
       const result = validateAttendee(guest);

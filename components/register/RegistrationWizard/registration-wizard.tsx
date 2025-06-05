@@ -189,14 +189,14 @@ const validateAttendeeData = (attendees: ReturnType<typeof selectAttendees>): st
       // Partner specific validation (treat as Guest generally, plus relationship)
       if (!attendee.relationship) errors.push("Partner relationship is required.");
       // Only validate email/phone if contact preference is explicitly set to "Directly"
-      if (attendee.contactPreference === 'Directly' && !attendee.primaryEmail && !attendee.primaryPhone) {
+      if (attendee.contactPreference === 'directly' && !attendee.primaryEmail && !attendee.primaryPhone) {
           errors.push("Partner Email or Phone is required if contacting directly.");
       }
       // Do not validate these fields for other contact preference options
     } else if (normalizedType === 'Guest') {
       // Guest specific validation
       // Only validate email/phone if contact preference is explicitly set to "Directly"
-      if (attendee.contactPreference === 'Directly' && !attendee.primaryEmail && !attendee.primaryPhone) {
+      if (attendee.contactPreference === 'directly' && !attendee.primaryEmail && !attendee.primaryPhone) {
           errors.push("Guest Email or Phone is required if contacting directly.");
       }
       // Do not validate these fields for "Via Primary Attendee" or "Provide Later"
@@ -240,14 +240,14 @@ const validateAttendeeData = (attendees: ReturnType<typeof selectAttendees>): st
         // If there's no contact preference, push a validation error
         errors.push(`${descriptiveLabel}: Please select a contact preference.`);
       }
-      // 3. If "Directly" is selected, validate contact fields
-      else if (attendee.contactPreference === 'Directly') {
-        // Only when "Directly" is selected do we validate email/phone
+      // 3. If "directly" is selected, validate contact fields
+      else if (attendee.contactPreference === 'directly') {
+        // Only when "directly" is selected do we validate email/phone
         if (!isValidEmail(attendee.primaryEmail)) {
-          errors.push(`${descriptiveLabel}: A valid Email is required when contact preference is 'Directly'.`);
+          errors.push(`${descriptiveLabel}: A valid Email is required when contact preference is 'directly'.`);
         }
         if (!isNonEmpty(attendee.primaryPhone)) {
-          errors.push(`${descriptiveLabel}: Phone Number is required when contact preference is 'Directly'.`);
+          errors.push(`${descriptiveLabel}: Phone Number is required when contact preference is 'directly'.`);
         }
       }
       // 4. Other contact preferences (PrimaryAttendee, ProvideLater) don't need contact fields validated

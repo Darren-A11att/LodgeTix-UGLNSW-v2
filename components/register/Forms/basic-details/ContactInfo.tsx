@@ -32,13 +32,13 @@ export const ContactInfo: React.FC<ContactInfoProps> = React.memo(({
   );
 
   // Determine if contact fields should be shown based on current preference value
-  // Only show contact fields for primary attendees or if "Directly" is explicitly selected
+  // Only show contact fields for primary attendees or if "directly" is explicitly selected
   // Hide them for any other contact preference or if none is selected yet
-  const showContactFields = isPrimary || contactPreference === 'Directly';
+  const showContactFields = isPrimary || contactPreference === 'directly';
   
   // Show confirmation message when a non-direct preference is selected
   const showConfirmation = !isPrimary && 
-    (contactPreference === 'PrimaryAttendee' || contactPreference === 'ProvideLater');
+    (contactPreference === 'primaryattendee' || contactPreference === 'providelater');
 
   // Simplified handler with no defaults or special handling - just direct updates
   const handleContactPreferenceChange = useCallback((value: string) => {
@@ -51,9 +51,9 @@ export const ContactInfo: React.FC<ContactInfoProps> = React.memo(({
       onChange('contactPreference', value);
     }
     
-    // Immediately clear contact fields if switching away from "Directly" option
+    // Immediately clear contact fields if switching away from "directly" option
     // This makes sense since those fields won't be used
-    if (value !== 'Directly') {
+    if (value !== 'directly') {
       // Use immediate update to ensure fields are cleared right away
       if (onChangeImmediate) {
         onChangeImmediate('primaryEmail', '');
@@ -118,8 +118,8 @@ export const ContactInfo: React.FC<ContactInfoProps> = React.memo(({
         </div>
       )}
       
-      {/* Show contact fields for non-primary attendees who selected "Directly" */}
-      {!isPrimary && contactPreference === 'Directly' && (
+      {/* Show contact fields for non-primary attendees who selected "directly" */}
+      {!isPrimary && contactPreference === 'directly' && (
         <div className="grid grid-cols-12 gap-4 mt-4">
           <div className="col-span-6">
             <EmailField

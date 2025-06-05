@@ -1,128 +1,76 @@
-# Individual Registration Field Mapping Audit
+# Field Mapping Audit Report
 
-## Summary
-This document outlines the field mapping issues found between the frontend registration data and the database schema expectations.
+This document tracks all field-to-column mapping issues found during the comprehensive audit of the registration system.
 
-## Key Issues Found
+## Individual Registration Issues
 
-### 1. Email Field Mapping
-- **Frontend sends**: `billingDetails.emailAddress`
-- **Database expects**: `email` (in contacts table)
-- **Fix**: Map `emailAddress` → `email` in RPC function
+### 1. Attendees Table Column Mismatches
+- **Frontend sends**: `primaryEmail` → **Database expects**: `email`
+- **Frontend sends**: `primaryPhone` → **Database expects**: `phone`
+- **Frontend sends**: `suffix1`, `suffix2`, `suffix3` → **Database has**: only `suffix` (single column)
+- **RPC tries to insert**: `primary_email`, `primary_phone` → **Fixed**: Migration created to add these columns
+- **RPC tries to insert**: `suffix_1`, `suffix_2`, `suffix_3` → **Fixed**: Migration created to add these columns
+- **RPC tries to insert**: `attendee_data` → **Fixed**: Migration created to add this column
 
-### 2. Phone Field Mapping
-- **Frontend sends**: `billingDetails.mobileNumber`
-- **Database expects**: `mobile_number` (in contacts table)
-- **Fix**: Map `mobileNumber` → `mobile_number`
+### 2. Payment Status Issues
+- **API used**: `'paid'` → **Fixed**: Changed to `'completed'`
+- **API used**: `'processing'` → **Fixed**: Changed to `'pending'`
+- **API used**: `'requires_action'` → **Fixed**: Changed to `'pending'`
+- **Zod schema missing**: `'unpaid'` → **Fixed**: Added to PaymentStatusSchema
 
-### 3. Contact Type Field
-- **Frontend sends**: No explicit type field
-- **Database expects**: `type` (required enum: 'customer', 'attendee', etc.)
-- **Fix**: Set appropriate type based on context
+### 3. Contact Preference Enum
+- **Frontend sends**: `"Directly"` (capitalized) → **Database expects**: `"directly"` (lowercase)
 
-## Frontend Data Structure
+## Lodge Registration Issues
 
-```javascript
-{
-  registrationType: "individuals",
-  functionId: "uuid",
-  primaryAttendee: {
-    firstName: "string",
-    lastName: "string",
-    attendeeType: "mason" | "guest",
-    primaryEmail: "string",
-    primaryPhone: "string",
-    mobileNumber: "string",  // Also used
-    contactPreference: "Directly" | "Through Lodge",
-    // ... other fields
-  },
-  billingDetails: {
-    firstName: "string",
-    lastName: "string",
-    emailAddress: "string",  // Note: not 'email'
-    mobileNumber: "string",  // Note: not 'mobile_number'
-    billingAddress: {
-      addressLine1: "string",
-      city: "string",
-      state: "string",
-      postcode: "string",
-      country: "string"
-    }
-  },
-  tickets: [...],
-  totalAmount: number,
-  subtotal: number,
-  stripeFee: number
-}
-```
+### 1. Missing Lodge Number
+- **Issue**: Frontend form doesn't collect `lodgeNumber` but RPC expects it
+- **Location**: `LodgesForm.tsx` missing field, RPC expects `p_lodge_details->>'lodgeNumber'`
 
-## Database Schema (contacts table)
+### 2. Billing Details Field Names
+- **Frontend sends**: `emailAddress`, `mobileNumber`
+- **Backend maps to**: `email`, `mobile`
 
-```sql
-contacts (
-  contact_id: uuid PRIMARY KEY,
-  type: contact_type NOT NULL,  -- enum: 'customer', 'attendee'
-  first_name: text NOT NULL,
-  last_name: text NOT NULL,
-  email: text NOT NULL,
-  mobile_number: text,  -- Note: not 'mobileNumber'
-  auth_user_id: uuid,
-  billing_email: text,
-  billing_phone: text,
-  billing_street_address: text,
-  billing_city: text,
-  billing_state: text,
-  billing_postal_code: text,
-  billing_country: text,
-  -- ... other fields
-)
-```
+### 3. Missing Address Collection
+- Lodge registration form doesn't collect full address details
+- API uses hardcoded defaults (lodge name as addressLine1, 'NSW' as state, etc.)
 
-## Field Mapping Rules
+### 4. Lodge Details Structure Mismatch
+- **Frontend sends**: `{ lodgeName, lodgeId, organisation_id }`
+- **Backend expects**: `{ lodgeName, lodgeNumber, lodge_id }`
 
-### Billing Contact (booking_contact_id)
-- `type` = 'customer'
-- `email` = `billingDetails.emailAddress` || `billingDetails.email` || `primaryAttendee.primaryEmail`
-- `mobile_number` = `billingDetails.mobileNumber` || `billingDetails.phone` || `primaryAttendee.primaryPhone`
-- `first_name` = `billingDetails.firstName`
-- `last_name` = `billingDetails.lastName`
+### 5. Phone Field Mapping
+- **Form field**: `primaryPhone` → **Store field**: `mobile`
 
-### Attendee Contact (if contactPreference = 'Directly')
-- `type` = 'attendee'
-- `email` = `attendee.primaryEmail` || `attendee.email`
-- `mobile_number` = `attendee.primaryPhone` || `attendee.mobileNumber`
-- `first_name` = `attendee.firstName`
-- `last_name` = `attendee.lastName`
+## Common Issues Across All Registration Types
 
-## Implementations
+### 1. Inconsistent Field Naming
+- Email fields: `email`, `emailAddress`, `primaryEmail`
+- Phone fields: `phone`, `mobile`, `mobileNumber`, `primaryPhone`
+- Organisation ID: `organisation_id`, `organisationId`
 
-### Migration Files Created
-1. `20250607_007_fix_individual_registration_email_field.sql` - Initial fix attempt
-2. `20250607_008_create_raw_registrations_table.sql` - For debugging payloads
-3. `20250607_009_fix_individual_registration_contacts_schema.sql` - Comprehensive fix
+### 2. Missing Columns (Fixed via Migrations)
+- `attendees.masonic_status` - Added
+- `attendees.attendee_data` - Added
+- `registrations.event_id` - Added
+- `registrations.booking_contact_id` - Added
 
-### API Updates
-- Added raw payload logging to `/api/registrations/individuals/route.ts`
-- Raw payloads now logged to `raw_registrations` table for debugging
+### 3. Enum Value Case Sensitivity
+- Contact preferences use mixed case in frontend but lowercase in database
+- Some enums expect specific casing that doesn't match frontend
 
-## Testing Recommendations
+## Action Items
 
-1. Test individual registration flow end-to-end
-2. Verify all fields are properly mapped in the database
-3. Check that emails are sent correctly with proper contact details
-4. Validate that the raw_registrations table captures all payloads
+1. **Standardize field names** across frontend and backend
+2. **Add missing form fields** (lodge number, full address for lodge registration)
+3. **Fix enum value casing** to be consistent
+4. **Create field mapping utilities** to handle transformations
+5. **Update RPC functions** to handle both old and new field names for backward compatibility
+6. **Add validation** at API level to catch field mapping issues early
 
-## Next Steps
+## Migration Status
 
-1. Apply the migrations in order:
-   ```bash
-   supabase migration up
-   ```
-
-2. Test the registration flow with different scenarios:
-   - Guest registration
-   - Mason registration
-   - Multiple attendees
-   - Different contact preferences
-
-3. Monitor the `raw_registrations` table to verify field mapping
+- ✅ `20250608000020_add_missing_columns.sql` - Adds missing registration columns
+- ✅ `20250608000021_fix_attendees_table_columns.sql` - Adds missing attendee columns
+- ⏳ Need migration for enum value standardization
+- ⏳ Need to update frontend forms to collect missing fields

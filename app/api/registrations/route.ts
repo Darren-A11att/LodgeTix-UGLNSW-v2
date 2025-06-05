@@ -653,7 +653,7 @@ export async function POST(request: Request) {
           ticket_price: ticket.price || 0, 
           price_paid: ticket.price || 0, // Required field - using ticket_price value
           status: statusForDb, // Use 'status' not 'ticket_status'
-          payment_status: 'Unpaid', // This is a separate column
+          payment_status: 'unpaid', // This is a separate column
           registration_id: newRegistrationId,
           // Always use the actual ticket type ID (packages are already expanded)
           ticket_type_id: ticket.ticketTypeId || ticket.eventTicketId || ticket.event_ticket_id,

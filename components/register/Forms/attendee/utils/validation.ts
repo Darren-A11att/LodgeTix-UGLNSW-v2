@@ -65,7 +65,7 @@ export const validateGrandOfficerFields = (attendee: Partial<AttendeeData>): boo
 export const validateContactPreference = (attendee: Partial<AttendeeData>): boolean => {
   if (attendee.isPrimary) return true;
   
-  const validPreferences = ['Directly', 'PrimaryAttendee', 'ProvideLater'];
+  const validPreferences = ['directly', 'primaryattendee', 'providelater'];
   return validPreferences.includes(attendee.contactPreference || '');
 };
 
@@ -85,7 +85,7 @@ export const validateAttendee = (attendee: AttendeeData): ValidationResult => {
   }
 
   // Contact validation based on preference
-  if (attendee.isPrimary || attendee.contactPreference === 'Directly') {
+  if (attendee.isPrimary || attendee.contactPreference === 'directly') {
     if (!validateEmail(attendee.primaryEmail)) {
       errors.push({ field: 'primaryEmail', message: 'Valid email is required' });
     }

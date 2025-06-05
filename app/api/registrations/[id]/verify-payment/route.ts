@@ -178,9 +178,9 @@ export async function GET(
     } else if (paymentIntent.status === 'requires_payment_method') {
       updateData.payment_status = 'failed';
     } else if (paymentIntent.status === 'processing') {
-      updateData.payment_status = 'processing';
+      updateData.payment_status = 'pending';
     } else if (paymentIntent.status === 'requires_action') {
-      updateData.payment_status = 'requires_action';
+      updateData.payment_status = 'pending';
     }
     
     // Update registration

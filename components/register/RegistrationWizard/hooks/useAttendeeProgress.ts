@@ -10,7 +10,7 @@ const getRequiredFields = (attendee: AttendeeData): string[] => {
     const masonFields = [...baseFields, 'rank', 'grandLodgeId', 'lodgeId'];
     
     // Add contact fields for primary or direct contact
-    if (attendee.isPrimary || attendee.contactPreference === 'Directly') {
+    if (attendee.isPrimary || attendee.contactPreference === 'directly') {
       masonFields.push('primaryEmail', 'primaryPhone');
     }
     
@@ -29,7 +29,7 @@ const getRequiredFields = (attendee: AttendeeData): string[] => {
   const guestFields = [...baseFields];
   
   // Add contact fields for direct contact
-  if (attendee.contactPreference === 'Directly') {
+  if (attendee.contactPreference === 'directly') {
     guestFields.push('primaryEmail', 'primaryPhone');
   }
   

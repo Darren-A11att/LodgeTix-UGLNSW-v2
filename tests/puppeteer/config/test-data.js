@@ -90,7 +90,7 @@ const testData = {
   masonRanks: ['MM', 'FC', 'EA', 'GL'],
   
   // Contact preferences
-  contactPreferences: ['PrimaryAttendee', 'Directly', 'ProvideLater'],
+  contactPreferences: ['primaryattendee', 'directly', 'providelater'],
   
   // Grand Officer offices
   grandOfficerOffices: [
