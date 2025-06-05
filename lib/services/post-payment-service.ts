@@ -5,7 +5,7 @@ import { createClient } from '@/utils/supabase/server';
 export interface PostPaymentData {
   registrationId: string;
   confirmationNumber: string;
-  sendEmail?: boolean;
+  // Email sending is now handled automatically by database triggers
 }
 
 /**
@@ -264,35 +264,76 @@ export class PostPaymentService {
       // 4. Send confirmation emails (if requested)
       if (data.sendEmail) {
         try {
-          // Call email API endpoint
-          const response = await fetch('/api/send-confirmation-email', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              batch: true,
-              attendees: registration.attendees,
-              event: registration.events,
-              function: registration.functions,
-              selectedEvents: selectedEvents,
-              registrationId: data.registrationId,
-              primaryEmail: registration.contact_email,
-              subtotal: registration.subtotal,
-              bookingFee: registration.booking_fee,
-              total: registration.total_amount,
-              ticketAssignments: Object.fromEntries(
-                registration.tickets.map((t: any) => {
-                  const ticketInfo = ticketTypeMap.get(t.event_ticket_id);
-                  return [t.attendee.attendee.attendee.attendee.attendee.attendee_id, ticketInfo?.title || 'General'];
-                })
-              ),
-            }),
-          });
+          // Send confirmation email based on registration type
+          const emailType = registration.registration_type === 'lodge' ? 
+            'LODGE_CONFIRMATION' : 'INDIVIDUAL_CONFIRMATION';
           
-          if (response.ok) {
-            emailsSent = registration.attendees.filter((a: any) => a.email || a.primary_email).length;
-            if (registration.contact_email) emailsSent++; // Primary contact email
-          } else {
-            errors.push('Failed to send confirmation emails');
+          // Call edge function for confirmation email
+          const { data: confirmationResult, error: confirmationError } = await supabase.functions.invoke(
+            'send-confirmation-email',
+            {
+              body: {
+                type: emailType,
+                registrationId: data.registrationId
+              }
+            }
+          );
+          
+          if (confirmationError) {
+            errors.push('Failed to send confirmation email');
+            console.error('Confirmation email error:', confirmationError);
+          } else if (confirmationResult?.success) {
+            emailsSent++;
+          }
+          
+          // Check for attendees with direct contact preference
+          const directContactAttendees = registration.attendees.filter(
+            (a: any) => a.contact_preference === 'direct' && a.email
+          );
+          
+          if (directContactAttendees.length > 0) {
+            // Send direct ticket emails
+            const { data: directResult, error: directError } = await supabase.functions.invoke(
+              'send-confirmation-email',
+              {
+                body: {
+                  type: 'ATTENDEE_DIRECT_TICKET',
+                  registrationId: data.registrationId
+                }
+              }
+            );
+            
+            if (directError) {
+              errors.push('Failed to send direct attendee emails');
+              console.error('Direct email error:', directError);
+            } else if (directResult?.success) {
+              emailsSent += directContactAttendees.length;
+            }
+          }
+          
+          // Check for attendees with primary contact preference
+          const primaryContactAttendees = registration.attendees.filter(
+            (a: any) => a.contact_preference === 'primary'
+          );
+          
+          if (primaryContactAttendees.length > 0) {
+            // Send primary contact summary email
+            const { data: primaryResult, error: primaryError } = await supabase.functions.invoke(
+              'send-confirmation-email',
+              {
+                body: {
+                  type: 'PRIMARY_CONTACT_TICKET',
+                  registrationId: data.registrationId
+                }
+              }
+            );
+            
+            if (primaryError) {
+              errors.push('Failed to send primary contact email');
+              console.error('Primary contact email error:', primaryError);
+            } else if (primaryResult?.success) {
+              emailsSent++;
+            }
           }
         } catch (error) {
           errors.push('Failed to send confirmation emails');

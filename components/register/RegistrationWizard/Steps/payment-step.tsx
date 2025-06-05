@@ -32,6 +32,8 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
+import { getPaymentCompletionService } from '@/lib/services/payment-completion-service';
+import { useRouter } from 'next/navigation';
 
 interface PaymentStepProps {
   functionId?: string;
@@ -44,6 +46,7 @@ interface PaymentStepProps {
 
 function PaymentStep(props: PaymentStepProps) {
   const { onNextStep, onPrevStep, functionId } = props;
+  const router = useRouter();
   
   // Get navigation functions from store as fallback
   const storeGoToNextStep = useRegistrationStore((state) => state.goToNextStep);
@@ -655,17 +658,44 @@ function PaymentStep(props: PaymentStepProps) {
       setProcessingSteps(prev => {
         const newSteps = [...prev];
         newSteps[1] = { ...newSteps[1], status: 'complete' };
-        newSteps[2] = { ...newSteps[2], status: 'complete' };
+        newSteps[2] = { ...newSteps[2], status: 'current' };
         return newSteps;
       });
       
-      // Set confirmation number and proceed
-      setStoreConfirmationNumber(result.confirmationNumber || registrationId);
+      // Wait for confirmation number from Edge Function
+      console.log("⏳ Waiting for confirmation number...");
+      const paymentCompletionService = getPaymentCompletionService();
+      const confirmationResult = await paymentCompletionService.waitForConfirmationNumber(registrationId);
       
-      // Navigate to confirmation after a short delay
-      setTimeout(() => {
-        goToNextStep();
-      }, 1500);
+      if (confirmationResult.success && confirmationResult.confirmationNumber) {
+        console.log("✅ Confirmation number received:", confirmationResult.confirmationNumber);
+        console.log("📋 Registration type:", confirmationResult.registrationType);
+        
+        // Update final step
+        setProcessingSteps(prev => {
+          const newSteps = [...prev];
+          newSteps[2] = { ...newSteps[2], status: 'complete' };
+          return newSteps;
+        });
+        
+        // Set confirmation number in store
+        setStoreConfirmationNumber(confirmationResult.confirmationNumber);
+        
+        // Get the function slug from the current URL or props
+        const pathSegments = window.location.pathname.split('/');
+        const functionSlugIndex = pathSegments.indexOf('functions') + 1;
+        const functionSlug = pathSegments[functionSlugIndex] || '';
+        
+        // Determine the registration type for routing
+        const confirmationType = confirmationResult.registrationType || registrationType || 'individuals';
+        
+        // Navigate to type-specific confirmation page
+        setTimeout(() => {
+          router.push(`/functions/${functionSlug}/register/confirmation/${confirmationType}/${confirmationResult.confirmationNumber}`);
+        }, 1500);
+      } else {
+        throw new Error(confirmationResult.error || "Failed to generate confirmation number");
+      }
       
     } catch (error: any) {
       console.error("❌ Payment error:", error);

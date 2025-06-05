@@ -37,6 +37,21 @@ export interface RegistrationWizardProps {
   registrationId?: string; // Registration ID from URL
   isNewRegistration?: boolean; // Whether this is a new registration
   initialStep?: number; // Optional initial step to display
+  confirmationNumber?: string; // Confirmation number for displaying confirmation
+  confirmationData?: { // Pre-loaded confirmation data
+    confirmationNumber: string;
+    registrationId: string;
+    functionName: string;
+    eventTitle?: string;
+    eventDate?: string;
+    totalAmount: number;
+    attendees: any[];
+    tickets: any[];
+    billingName: string;
+    billingEmail: string;
+    customerName: string;
+    customerEmail: string;
+  };
 }
 
 // Helper to check for non-empty value
@@ -904,7 +919,10 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ function
       case 6:
         return (
           <Suspense fallback={<StepLoadingFallback />}>
-            <ConfirmationStep />
+            <ConfirmationStep 
+              confirmationNumber={props.confirmationNumber}
+              confirmationData={props.confirmationData}
+            />
           </Suspense>
         )
       default:

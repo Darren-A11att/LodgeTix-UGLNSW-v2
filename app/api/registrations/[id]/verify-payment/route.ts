@@ -11,10 +11,63 @@ export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  // This is now primarily used as a redirect handler after 3D Secure
+  // Convert to GET for redirect handling
+  return GET(request, { params });
+}
+
+export async function GET(
+  request: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
   try {
     const { id: registrationId } = await params;
-    console.group("🔍 Verify Registration Payment with Stripe FDW");
+    console.group("🔍 Verify Registration Payment");
     console.log("Registration ID:", registrationId);
+    
+    // Check if this is a redirect from 3D Secure
+    const url = new URL(request.url);
+    const isRedirect = url.searchParams.has('payment_intent') || url.searchParams.has('redirect_status');
+    
+    if (isRedirect) {
+      console.log("3D Secure redirect detected");
+      
+      // Import redirect function
+      const { redirect } = await import('next/navigation');
+      
+      // Import payment completion service
+      const { getPaymentCompletionService } = await import('@/lib/services/payment-completion-service');
+      const paymentCompletionService = getPaymentCompletionService();
+      
+      // Wait for confirmation number
+      const result = await paymentCompletionService.waitForConfirmationNumber(registrationId);
+      
+      if (result.success && result.confirmationNumber) {
+        // Get function data to build redirect URL
+        const supabase = await createClient();
+        const { data: registration } = await supabase
+          .from('registrations')
+          .select('function_id, registration_type, functions!inner(slug)')
+          .eq('registration_id', registrationId)
+          .single();
+        
+        const functionSlug = registration?.functions?.slug || 'functions';
+        const registrationType = result.registrationType || registration?.registration_type || 'individuals';
+        
+        // Redirect to type-specific confirmation page
+        console.log(`Redirecting to confirmation page: /functions/${functionSlug}/register/confirmation/${registrationType}/${result.confirmationNumber}`);
+        console.groupEnd();
+        redirect(`/functions/${functionSlug}/register/confirmation/${registrationType}/${result.confirmationNumber}`);
+      } else {
+        // Redirect to error page if confirmation number generation failed
+        console.error("Failed to get confirmation number:", result.error);
+        console.groupEnd();
+        redirect(`/functions?error=confirmation_failed`);
+      }
+    }
+    
+    // Otherwise, continue with the original API behavior
+    console.log("API request mode - checking payment status");
     
     // Validate registration ID format
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -57,7 +110,7 @@ export async function POST(
     // Import Stripe dynamically
     const Stripe = (await import('stripe')).default;
     const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-      apiVersion: '2025-04-30.basil',
+      apiVersion: '2024-11-20.acacia',
     });
     
     // Retrieve payment intent from Stripe
@@ -168,10 +221,11 @@ export async function POST(
 }
 
 /**
- * GET endpoint to check a registration's payment status from the Stripe FDW
- * This is read-only and won't update the registration
+ * GET endpoint handles both:
+ * 1. 3D Secure redirect from Stripe - redirects to confirmation page
+ * 2. API calls to check payment status
  */
-export async function GET(
+async function originalGET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {

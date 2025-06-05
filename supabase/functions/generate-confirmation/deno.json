@@ -1,0 +1,10 @@
+{
+  "imports": {
+    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@2.39.0",
+    "date-fns": "https://esm.sh/date-fns@3.3.1"
+  },
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "jsxImportSource": "https://esm.sh/react@18.2.0"
+  }
+}

@@ -243,10 +243,8 @@ export async function POST(request: Request) {
     return NextResponse.json({
       success: true,
       registrationId: rpcResult.registrationId,
-      confirmationNumber: rpcResult.confirmationNumber,
       registrationData: {
         registration_id: rpcResult.registrationId,
-        confirmation_number: rpcResult.confirmationNumber,
         customer_id: rpcResult.customerId,
         booking_contact_id: rpcResult.bookingContactId,
         primary_attendee_id: rpcResult.primaryAttendeeId
@@ -344,8 +342,7 @@ export async function PUT(request: Request) {
     
     return NextResponse.json({
       success: true,
-      registrationId,
-      confirmationNumber: existingRegistration.confirmation_number
+      registrationId
     });
     
   } catch (error: any) {

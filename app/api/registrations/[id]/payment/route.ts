@@ -274,8 +274,9 @@ export async function PUT(
       console.log("Payment intent status:", paymentIntent.status);
       
       // Now confirm the payment intent with return URL for 3D Secure
+      // Use temporary return URL - will redirect to confirmation number URL after payment
       const confirmOptions: any = {
-        return_url: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/events/${paymentData.event.slug || existingRegistration.event_id}/register/${registrationId}/confirmation`,
+        return_url: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/registrations/${registrationId}/verify-payment`,
       };
       
       // When using transfer_data, the payment intent is on the platform account

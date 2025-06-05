@@ -1,0 +1,16 @@
+{
+  "imports": {
+    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@2.39.0",
+    "@react-email/components": "https://esm.sh/@react-email/components@0.0.16",
+    "@react-email/render": "https://esm.sh/@react-email/render@0.0.12",
+    "resend": "https://esm.sh/resend@3.2.0",
+    "react": "https://esm.sh/react@18.2.0",
+    "react-dom": "https://esm.sh/react-dom@18.2.0",
+    "date-fns": "https://esm.sh/date-fns@3.3.1",
+    "qr-code-styling": "https://esm.sh/qr-code-styling@1.6.0-rc.1"
+  },
+  "compilerOptions": {
+    "jsx": "react-jsx",
+    "jsxImportSource": "https://esm.sh/react@18.2.0"
+  }
+}

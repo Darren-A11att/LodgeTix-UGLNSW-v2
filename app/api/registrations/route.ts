@@ -683,7 +683,6 @@ export async function POST(request: Request) {
     const response: any = {
       success: true,
       registrationId: newRegistrationId,
-      confirmationNumber: `REG-${newRegistrationId.substring(0, 8).toUpperCase()}`,
       registrationData: savedRegistration,
     };
     
