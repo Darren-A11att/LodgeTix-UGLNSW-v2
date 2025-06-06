@@ -108,7 +108,7 @@ export const BookingContactSection: React.FC<BookingContactSectionProps> = React
           {/* Use the existing BasicInfo component for Mason details */}
           <BasicInfo 
             data={customerData}
-            type="Mason"
+            type="mason"
             isPrimary={true}
             onChange={handleChange}
           />
@@ -147,7 +147,7 @@ export const BookingContactSection: React.FC<BookingContactSectionProps> = React
         {/* Use the existing BasicInfo component for Mason details */}
         <BasicInfo 
           data={attendee!}
-          type="Mason"
+          type="mason"
           isPrimary={true}
           onChange={handleChange}
         />

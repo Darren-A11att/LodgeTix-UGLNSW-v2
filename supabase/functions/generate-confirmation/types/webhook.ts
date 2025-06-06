@@ -15,11 +15,6 @@ export interface RegistrationRecord {
   registration_type: 'individual' | 'lodge' | 'delegation' | 'individuals' // Support both formats
   function_id: string
   customer_id: string
-  total_amount: number
-  stripe_payment_intent_id: string
-  booking_contact_email?: string
-  booking_contact_first_name?: string
-  booking_contact_last_name?: string
   created_at: string
   updated_at: string
 }
@@ -27,6 +22,7 @@ export interface RegistrationRecord {
 export interface GenerateConfirmationResponse {
   success: boolean
   confirmationNumber?: string
+  message?: string
   emailsSent?: {
     confirmation: boolean
     directTickets: number
