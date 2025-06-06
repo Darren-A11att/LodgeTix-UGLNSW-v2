@@ -69,9 +69,6 @@ function ConfirmationStep({ confirmationNumber: propsConfirmationNumber, confirm
   const allStoreAttendees = store.attendees;
   const draftId = store.draftId;
 
-  // Use props confirmation number if available
-  const confirmationNumber = propsConfirmationNumber || storeConfirmationNumber;
-
   // Use props confirmation data if available
   useEffect(() => {
     if (confirmationData) {
@@ -314,16 +311,22 @@ function ConfirmationStep({ confirmationNumber: propsConfirmationNumber, confirm
     return result;
   }, [primaryAttendee, additionalAttendees]);
 
-  // Use confirmation number from Supabase if available, otherwise from store
+  // Use confirmation number from props, Supabase, or store in that order
   const confirmationNumber = useMemo(() => {
+    // First priority: props confirmation number
+    if (propsConfirmationNumber) {
+      return propsConfirmationNumber;
+    }
+    // Second priority: data from Supabase
     if (registrationData?.registration) {
       // Use confirmation_number if available, otherwise generate from registration ID
       return registrationData.registration.confirmation_number || 
              registrationData.registration.confirmationNumber ||
              `REG-${(registrationData.registration.registration_id || registrationData.registration.registrationId).substring(0, 8).toUpperCase()}`;
     }
+    // Last resort: store confirmation number
     return storeConfirmationNumber;
-  }, [registrationData, storeConfirmationNumber]);
+  }, [propsConfirmationNumber, registrationData, storeConfirmationNumber]);
 
   // Format date for display
   const formatDate = (date: Date) => {
