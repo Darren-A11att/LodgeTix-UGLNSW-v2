@@ -192,6 +192,58 @@ export async function POST(request: Request) {
     
     console.log("Calling upsert_delegation_registration RPC with data:", JSON.stringify(rpcData, null, 2));
     
+    // Log the COMPLETE, ENRICHED delegation registration data
+    try {
+      const comprehensiveDelegationData = {
+        source: 'complete_delegation_server_processed_data',
+        timestamp: new Date().toISOString(),
+        
+        // Original form submission from frontend
+        original_form_data: data,
+        
+        // Complete processed registration data sent to RPC
+        processed_registration_data: rpcData,
+        
+        // Delegation-specific context
+        delegation_context: {
+          delegation_details: delegationDetails,
+          delegates_count: delegates?.length || 0,
+          total_amount: totalAmount,
+          subtotal: subtotal,
+          stripe_fee: stripeFee,
+          representative_count: delegationDetails?.representativeCount
+        },
+        
+        // Processing metadata
+        processing_context: {
+          function_id: functionId,
+          event_id: eventId,
+          event_title: eventTitle,
+          registration_type: 'delegation',
+          auth_user_id: user.id,
+          validation_passed: true,
+          processing_completed_at: new Date().toISOString()
+        }
+      };
+
+      const { error: comprehensiveError } = await supabaseForLogging
+        .from('raw_registrations')
+        .insert({
+          raw_data: comprehensiveDelegationData,
+          registration_id: data.registrationId || null,
+          registration_type: 'delegation_complete',
+          created_at: new Date().toISOString()
+        });
+      
+      if (comprehensiveError) {
+        console.error('Error logging comprehensive delegation data:', comprehensiveError);
+      } else {
+        console.log('✅ Comprehensive delegation registration data logged');
+      }
+    } catch (logError) {
+      console.error('Failed to log comprehensive delegation data:', logError);
+    }
+    
     // Call the RPC function
     const { data: rpcResult, error: rpcError } = await supabase
       .rpc('upsert_delegation_registration', {

@@ -12,24 +12,29 @@ export async function POST(request: Request) {
     // Create a client to log raw payload
     const supabaseForLogging = await createClient();
     
-    // Log the raw payload to raw_registrations table for debugging
+    // Log the initial form data to raw_registrations table for debugging (frontend submission)
     try {
       const { error: rawError } = await supabaseForLogging
         .from('raw_registrations')
         .insert({
-          raw_data: data,
-          registration_id: data.registrationId || null, // Include registration_id if provided
-          registration_type: 'individuals',
+          raw_data: {
+            source: 'frontend_form_submission',
+            timestamp: new Date().toISOString(),
+            form_data: data,
+            note: 'Initial form data before server-side processing and enrichment'
+          },
+          registration_id: data.registrationId || null,
+          registration_type: 'individuals_frontend',
           created_at: new Date().toISOString()
         });
       
       if (rawError) {
-        console.error('Error logging raw payload:', rawError);
+        console.error('Error logging frontend form data:', rawError);
       } else {
-        console.log('Raw payload logged to raw_registrations table with registration_id:', data.registrationId);
+        console.log('Frontend form data logged to raw_registrations table');
       }
     } catch (logError) {
-      console.error('Failed to log raw payload:', logError);
+      console.error('Failed to log frontend form data:', logError);
     }
     
     // Extract the auth token from headers
@@ -196,6 +201,62 @@ export async function POST(request: Request) {
     
     console.log("Calling upsert_individual_registration RPC with data:", JSON.stringify(rpcData, null, 2));
     
+    // Log the COMPLETE, ENRICHED registration data (this is what we really want for debugging)
+    try {
+      const comprehensiveRegistrationData = {
+        source: 'complete_server_processed_data',
+        timestamp: new Date().toISOString(),
+        
+        // Original form submission from frontend
+        original_form_data: data,
+        
+        // Complete processed registration data sent to RPC
+        processed_registration_data: rpcData,
+        
+        // Additional context and metadata
+        processing_context: {
+          auth_user_id: user.id,
+          is_anonymous_user: user.is_anonymous || false,
+          user_email: user.email,
+          function_context: {
+            function_id: functionId,
+            event_id: finalEventId,
+            event_title: eventTitle
+          },
+          validation_passed: true,
+          processing_completed_at: new Date().toISOString()
+        },
+        
+        // Data comparison for gap analysis
+        data_gaps_analysis: {
+          frontend_fields_count: data ? Object.keys(data).length : 0,
+          processed_fields_count: rpcData ? Object.keys(rpcData).length : 0,
+          ticket_count: rpcData.tickets?.length || 0,
+          attendee_count: (rpcData.primaryAttendee ? 1 : 0) + (rpcData.additionalAttendees?.length || 0),
+          has_pricing_data: (rpcData.totalAmount > 0 || rpcData.subtotal > 0),
+          has_fee_calculation: rpcData.stripeFee > 0,
+          note: 'This record contains both original form data and complete processed data for comprehensive analysis'
+        }
+      };
+
+      const { error: comprehensiveError } = await supabaseForLogging
+        .from('raw_registrations')
+        .insert({
+          raw_data: comprehensiveRegistrationData,
+          registration_id: data.registrationId || null,
+          registration_type: 'individuals_complete',
+          created_at: new Date().toISOString()
+        });
+      
+      if (comprehensiveError) {
+        console.error('Error logging comprehensive registration data:', comprehensiveError);
+      } else {
+        console.log('✅ Comprehensive registration data logged with pricing, fees, and complete attendee details');
+      }
+    } catch (logError) {
+      console.error('Failed to log comprehensive registration data:', logError);
+    }
+    
     // Call the RPC function
     const { data: rpcResult, error: rpcError } = await supabase
       .rpc('upsert_individual_registration', {
@@ -224,6 +285,73 @@ export async function POST(request: Request) {
     
     const finalRegistrationId = rpcResult?.registrationId || rpcResult?.registration_id;
     let confirmationNumber = rpcResult?.confirmationNumber || rpcResult?.confirmation_number;
+    
+    // Log the FINAL RESULT data with all generated IDs and confirmation details
+    try {
+      // Get customer record to capture complete customer data
+      let customerRecord = null;
+      try {
+        const { data: customer, error: customerError } = await supabase
+          .from('customers')
+          .select('*')
+          .eq('customer_id', user.id)
+          .single();
+          
+        if (!customerError && customer) {
+          customerRecord = customer;
+        }
+      } catch (error) {
+        console.log('Could not fetch customer record for logging');
+      }
+
+      const finalResultData = {
+        source: 'final_registration_result',
+        timestamp: new Date().toISOString(),
+        
+        // Complete RPC result
+        rpc_result: rpcResult,
+        
+        // Generated IDs and confirmation data
+        generated_data: {
+          final_registration_id: finalRegistrationId,
+          confirmation_number: confirmationNumber,
+          customer_id: user.id,
+          function_id: functionId,
+          event_id: finalEventId
+        },
+        
+        // Complete customer record (what actually gets stored in database)
+        customer_record: customerRecord,
+        
+        // Success metrics
+        processing_summary: {
+          registration_successful: !!rpcResult?.success,
+          confirmation_generated: !!confirmationNumber,
+          registration_id_generated: !!finalRegistrationId,
+          customer_authenticated: !!user.id,
+          total_amount_processed: rpcData.totalAmount,
+          tickets_processed: rpcData.tickets?.length || 0,
+          attendees_processed: (rpcData.primaryAttendee ? 1 : 0) + (rpcData.additionalAttendees?.length || 0)
+        }
+      };
+
+      const { error: finalError } = await supabaseForLogging
+        .from('raw_registrations')
+        .insert({
+          raw_data: finalResultData,
+          registration_id: finalRegistrationId,
+          registration_type: 'individuals_final_result',
+          created_at: new Date().toISOString()
+        });
+      
+      if (finalError) {
+        console.error('Error logging final result data:', finalError);
+      } else {
+        console.log('✅ Final registration result logged with all generated IDs and customer data');
+      }
+    } catch (logError) {
+      console.error('Failed to log final result data:', logError);
+    }
     
     // Update raw_registrations with the final registration_id if it wasn't provided initially
     if (!registrationId && finalRegistrationId) {
