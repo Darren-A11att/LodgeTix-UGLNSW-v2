@@ -18,13 +18,15 @@ export async function POST(request: Request) {
         .from('raw_registrations')
         .insert({
           raw_data: data,
+          registration_id: data.registrationId || null, // Include registration_id if provided
+          registration_type: 'individuals',
           created_at: new Date().toISOString()
         });
       
       if (rawError) {
         console.error('Error logging raw payload:', rawError);
       } else {
-        console.log('Raw payload logged to raw_registrations table');
+        console.log('Raw payload logged to raw_registrations table with registration_id:', data.registrationId);
       }
     } catch (logError) {
       console.error('Failed to log raw payload:', logError);
@@ -222,6 +224,27 @@ export async function POST(request: Request) {
     
     const finalRegistrationId = rpcResult?.registrationId || rpcResult?.registration_id;
     let confirmationNumber = rpcResult?.confirmationNumber || rpcResult?.confirmation_number;
+    
+    // Update raw_registrations with the final registration_id if it wasn't provided initially
+    if (!registrationId && finalRegistrationId) {
+      try {
+        const { error: updateError } = await supabaseForLogging
+          .from('raw_registrations')
+          .update({ registration_id: finalRegistrationId })
+          .eq('raw_data->customerId', customerId)
+          .is('registration_id', null)
+          .order('created_at', { ascending: false })
+          .limit(1);
+          
+        if (updateError) {
+          console.error('Error updating raw_registrations with registration_id:', updateError);
+        } else {
+          console.log('Updated raw_registrations with final registration_id:', finalRegistrationId);
+        }
+      } catch (error) {
+        console.error('Failed to update raw_registrations:', error);
+      }
+    }
     
     // Poll for confirmation number if payment was provided
     if (paymentIntentId && !confirmationNumber) {
