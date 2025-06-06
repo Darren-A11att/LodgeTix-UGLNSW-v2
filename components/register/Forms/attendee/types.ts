@@ -52,7 +52,7 @@ export interface FormProps {
 // Props for section components - now accepts either AttendeeData or UnifiedAttendeeData
 export interface SectionProps<T = AttendeeData | UnifiedAttendeeData> {
   data: T;
-  type?: 'Mason' | 'Guest';
+  type?: 'mason' | 'guest';
   isPrimary?: boolean;
   onChange: (field: string, value: any) => void;
 }
