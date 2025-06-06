@@ -50,12 +50,10 @@ const TABLE_SIZE = 10;
 const TABLE_PRICE = 1950; // $195 per ticket x 10 = $1950 per table
 
 interface GrandLodgesFormProps {
-  functionId: string;
   minTables?: number;
   maxTables?: number;
   onComplete?: () => void;
   className?: string;
-  fieldErrors?: Record<string, Record<string, string>>;
 }
 
 interface TableOrder {
@@ -79,12 +77,10 @@ interface DelegationMember {
 }
 
 export const GrandLodgesForm: React.FC<GrandLodgesFormProps> = ({
-  functionId,
   minTables = 1,
   maxTables = 10,
   onComplete,
   className,
-  fieldErrors,
 }) => {
   const { 
     attendees, 
