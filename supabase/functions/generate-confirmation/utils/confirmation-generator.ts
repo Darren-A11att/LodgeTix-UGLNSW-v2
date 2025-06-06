@@ -8,32 +8,33 @@ const TYPE_PREFIXES = {
 
 /**
  * Generates a unique confirmation number
- * Format: [TYPE][YEAR][MONTH][RANDOM]
- * Example: IND20240385AC
+ * Format: [TYPE][6 DIGITS][2 LETTERS]
+ * Example: IND123456AB
+ * Constraint: ^(IND|LDG|DEL)[0-9]{6}[A-Z]{2}$
  */
 export function generateConfirmationNumber(
   registrationType: 'individual' | 'lodge' | 'delegation'
 ): string {
   const prefix = TYPE_PREFIXES[registrationType]
-  const year = format(new Date(), 'yyyy')
-  const month = format(new Date(), 'MM')
   
-  // Generate random suffix (2 letters + 2 numbers)
+  // Generate 6 random digits
+  const randomDigits = Math.floor(Math.random() * 1000000).toString().padStart(6, '0')
+  
+  // Generate 2 random uppercase letters
   const letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
   const randomLetters = Array.from({ length: 2 }, () => 
     letters[Math.floor(Math.random() * letters.length)]
   ).join('')
   
-  const randomNumbers = Math.floor(Math.random() * 100).toString().padStart(2, '0')
-  
-  return `${prefix}${year}${month}${randomNumbers}${randomLetters}`
+  return `${prefix}${randomDigits}${randomLetters}`
 }
 
 /**
  * Validates confirmation number format
+ * Must match database constraint: ^(IND|LDG|DEL)[0-9]{6}[A-Z]{2}$
  */
 export function isValidConfirmationNumber(confirmationNumber: string): boolean {
-  const pattern = /^(IND|LDG|DEL)\d{6}[A-Z]{2}$/
+  const pattern = /^(IND|LDG|DEL)[0-9]{6}[A-Z]{2}$/
   return pattern.test(confirmationNumber)
 }
 
