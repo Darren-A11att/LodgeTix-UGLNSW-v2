@@ -274,7 +274,7 @@ export async function POST(request: Request) {
     const { data: registrationView, error: viewError } = await supabase
       .from('individuals_registration_complete_view')
       .select('*')
-      .eq('registration_id', registrationId)
+      .eq('registration_id', finalRegistrationId)
       .single();
     
     if (viewError) {
