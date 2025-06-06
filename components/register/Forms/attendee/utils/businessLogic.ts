@@ -99,7 +99,7 @@ export const getPartnerDefaults = (
   parentAttendee: AttendeeData
 ): Partial<AttendeeData> => {
   return {
-    attendeeType: 'Guest',
+    attendeeType: 'guest',
     isPrimary: false,
     isPartner: parentAttendee.attendeeId,
     contactPreference: '', // Empty string - must be selected by user

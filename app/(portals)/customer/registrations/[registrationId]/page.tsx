@@ -181,7 +181,7 @@ export default async function RegistrationOverviewPage({
                     {attendee.title} {attendee.firstName} {attendee.lastName}
                   </h4>
                   <p className="text-sm text-gray-600">
-                    {attendee.attendeetype === 'mason' ? 'Mason' : 'Guest'}
+                    {attendee.attendeetype === 'mason' ? 'mason' : 'guest'}
                     {attendee.dietaryrequirements && ' • Special dietary requirements'}
                   </p>
                 </div>

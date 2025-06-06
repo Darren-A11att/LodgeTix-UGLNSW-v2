@@ -19,7 +19,7 @@ export interface TicketData {
   
   // Attendee details
   attendeeName: string;
-  attendeeType: 'Mason' | 'Guest';
+  attendeeType: 'mason' | 'guest';
   attendeeTitle?: string;
   
   // Registration details

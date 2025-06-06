@@ -65,7 +65,7 @@ export function getAttendeeSummaryData({
     
     // Build attendee type label
     const typeLabel = [];
-    typeLabel.push(attendee.attendeeType || 'Guest');
+    typeLabel.push(attendee.attendeeType || 'guest');
     if (attendee.isPrimary) typeLabel.push('Primary');
     if (attendee.isPartner) typeLabel.push('Partner');
     

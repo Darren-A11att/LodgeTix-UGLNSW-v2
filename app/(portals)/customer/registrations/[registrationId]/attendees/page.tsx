@@ -84,7 +84,7 @@ export default async function AttendeesListPage({
                     </CardTitle>
                     <div className="flex items-center gap-2 mt-2">
                       <Badge variant={isMason ? 'default' : 'secondary'}>
-                        {isMason ? 'Mason' : 'Guest'}
+                        {isMason ? 'mason' : 'guest'}
                       </Badge>
                       {ticketCount > 0 && (
                         <Badge variant="outline">

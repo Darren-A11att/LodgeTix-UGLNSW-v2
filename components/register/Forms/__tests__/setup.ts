@@ -30,7 +30,7 @@ export const createMockAttendee = (overrides = {}) => ({
 
 export const createMockGuest = (overrides = {}) => ({
   ...createMockAttendee({
-    attendeeType: 'Guest',
+    attendeeType: 'guest',
     title: 'Mr',
     ...overrides,
   }),

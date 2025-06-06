@@ -48,7 +48,7 @@ describe('Business Logic', () => {
     });
 
     it('should not show for Guest', () => {
-      const guest = createMockAttendee({ attendeeType: 'Guest' });
+      const guest = createMockAttendee({ attendeeType: 'guest' });
       expect(shouldShowGrandOfficerFields(guest)).toBe(false);
     });
   });

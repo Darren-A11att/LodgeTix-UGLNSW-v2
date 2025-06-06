@@ -48,6 +48,32 @@ export async function POST(
     // Create Supabase client
     const supabase = await createClient();
 
+    // Log raw payload as first operation
+    console.log('[Lodge Registration API] Logging raw payload');
+    try {
+      const { error: rawPayloadError } = await supabase
+        .from('raw_payloads')
+        .insert({
+          raw_data: {
+            endpoint: `/api/functions/${functionId}/packages/${packageId}/lodge-registration`,
+            method: 'POST',
+            timestamp: new Date().toISOString(),
+            payload: body
+          },
+          created_at: new Date().toISOString()
+        });
+
+      if (rawPayloadError) {
+        console.error('[Lodge Registration API] Error logging raw payload:', rawPayloadError);
+        // Don't fail the request, just log the error
+      } else {
+        console.log('[Lodge Registration API] Raw payload logged successfully');
+      }
+    } catch (logError) {
+      console.error('[Lodge Registration API] Failed to log raw payload:', logError);
+      // Don't fail the request, just log the error
+    }
+
     // Get or create anonymous session
     const { data: { session }, error: sessionError } = await supabase.auth.getSession();
     
@@ -218,14 +244,64 @@ export async function POST(
       );
     }
 
+    // Poll for confirmation number if payment was successful
+    let confirmationNumber = registrationResult?.confirmationNumber || registrationResult?.confirmation_number;
+    const finalRegistrationId = registrationResult?.registrationId || registrationResult?.registration_id || registrationId;
+    
+    if (paymentStatus === 'completed' && !confirmationNumber) {
+      console.log('[Lodge Registration API] Polling for confirmation number...');
+      
+      const maxPolls = 5;
+      const pollInterval = 3000; // 3 seconds
+      
+      for (let i = 0; i < maxPolls; i++) {
+        // Wait for poll interval (except on first iteration)
+        if (i > 0) {
+          await new Promise(resolve => setTimeout(resolve, pollInterval));
+        }
+        
+        console.log(`[Lodge Registration API] Poll attempt ${i + 1}/${maxPolls}`);
+        
+        // Query the confirmation view
+        const { data: confirmationData, error: confirmationError } = await supabase
+          .from('lodge_registration_confirmation_view')
+          .select('confirmation_number')
+          .eq('registration_id', finalRegistrationId)
+          .single();
+        
+        if (confirmationData?.confirmation_number) {
+          confirmationNumber = confirmationData.confirmation_number;
+          console.log('[Lodge Registration API] Confirmation number found:', confirmationNumber);
+          break;
+        }
+        
+        if (confirmationError && confirmationError.code !== 'PGRST116') {
+          console.error('[Lodge Registration API] Error polling for confirmation:', confirmationError);
+        }
+      }
+      
+      // If no confirmation number after polling, return error
+      if (!confirmationNumber) {
+        console.error('[Lodge Registration API] Confirmation number generation timeout');
+        return NextResponse.json(
+          { 
+            success: false, 
+            error: 'Confirmation number generation timeout. Registration was successful but confirmation is pending.',
+            registrationId: finalRegistrationId
+          },
+          { status: 500 }
+        );
+      }
+    }
+
     return NextResponse.json({
       success: true,
-      registrationId: registrationResult.registration_id,
-      confirmationNumber: registrationResult.confirmation_number,
-      customerId: registrationResult.customer_id,
+      registrationId: finalRegistrationId,
+      confirmationNumber: confirmationNumber,
+      customerId: registrationResult?.customerId || registrationResult?.customer_id,
       paymentIntentId: paymentIntent?.id,
-      totalTickets: registrationResult.total_tickets,
-      createdTickets: registrationResult.created_tickets,
+      totalTickets: registrationResult?.totalAttendees || registrationResult?.total_attendees || (tableCount * 10),
+      createdTickets: registrationResult?.createdTickets || registrationResult?.created_tickets || 0,
     });
 
   } catch (error: any) {

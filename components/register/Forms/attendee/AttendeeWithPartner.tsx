@@ -40,18 +40,39 @@ export const AttendeeWithPartner: React.FC<AttendeeWithPartnerProps> = ({
   const AttendeeFormComponent = useMemo(() => {
     if (!attendee) return null;
     
-    switch (attendee.attendeeType) {
-      case 'Mason':
+    // Handle deprecated partner types by mapping to base types
+    let attendeeType = attendee.attendeeType;
+    if (attendeeType === 'ladypartner') {
+      attendeeType = 'mason'; // ladypartner was a mason's partner
+    } else if (attendeeType === 'guestpartner') {
+      attendeeType = 'guest'; // guestpartner was a guest's partner
+    }
+    
+    // Match database enum values (lowercase)
+    switch (attendeeType) {
+      case 'mason':
         return MasonForm;
-      case 'Guest':
+      case 'guest':
         return GuestForm;
       default:
-        throw new Error(`Unknown attendee type: ${attendee.attendeeType}`);
+        return null; // Will show "add attendee" prompt
     }
   }, [attendee?.attendeeType]);
 
-  if (!attendee || !AttendeeFormComponent) {
+  if (!attendee) {
     return null;
+  }
+
+  // Show prompt to add attendee if type is unknown
+  if (!AttendeeFormComponent) {
+    return (
+      <div className={cn("space-y-4 p-6 bg-gray-50 rounded-lg border border-gray-200", className)}>
+        <div className="text-center">
+          <p className="text-gray-600 mb-2">Please add an attendee</p>
+          <p className="text-sm text-gray-500">Select either Mason or Guest</p>
+        </div>
+      </div>
+    );
   }
 
   return (

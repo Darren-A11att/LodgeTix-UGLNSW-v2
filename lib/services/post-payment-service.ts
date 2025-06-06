@@ -191,7 +191,7 @@ export class PostPaymentService {
               eventVenue: registration.events.location,
               eventAddress: registration.events.address || '',
               attendeeName: `${attendee.first_name} ${attendee.last_name}`,
-              attendeeType: attendee.attendee_type as 'Mason' | 'Guest',
+              attendeeType: attendee.attendee_type as 'mason' | 'guest',
               attendeeTitle: attendee.title,
               confirmationNumber: data.confirmationNumber,
               purchaseDate: new Date().toLocaleDateString('en-AU'),

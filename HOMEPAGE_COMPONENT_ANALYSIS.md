@@ -1,289 +1,316 @@
-# Homepage Component Analysis
+# Comprehensive Homepage Component Analysis
 
-## 1. Layout With Footer Component (`/components/ui/layout-with-footer.tsx`)
+## 1. Navigation/Header Component Analysis
 
-### Text Content
-- **Static Text:**
-  - "LodgeTix" (brand name in header)
+### LayoutWithFooter Component
+**Location**: `/components/ui/layout-with-footer.tsx`
+**Type**: Client Component
 
-### Images
-- **Icons:**
-  - TicketIcon from lucide-react (header logo)
+#### Header Element (Non-Homepage Pages)
+```tsx
+<header className="sticky top-0 w-full flex-shrink-0 z-40 flex h-14 items-center justify-between border-b bg-white px-4 md:px-6">
+```
 
-### Buttons/Links
-- **Links:**
-  - Logo link to "/" (home)
-  - Embedded MainNav component (navigation links)
+**Tailwind Classes & CSS Values**:
+- `sticky` → position: sticky
+- `top-0` → top: 0
+- `w-full` → width: 100%
+- `flex-shrink-0` → flex-shrink: 0
+- `z-40` → z-index: 40
+- `flex` → display: flex
+- `h-14` → height: 3.5rem (56px)
+- `items-center` → align-items: center
+- `justify-between` → justify-content: space-between
+- `border-b` → border-bottom-width: 1px
+- `bg-white` → background-color: rgb(255 255 255)
+- `px-4` → padding-left: 1rem; padding-right: 1rem (16px)
+- `md:px-6` → @media (min-width: 768px) { padding-left: 1.5rem; padding-right: 1.5rem (24px) }
 
-### Dynamic Data Sources
-- None directly - passes `eventSlug` to Footer component
+#### Logo Link
+```tsx
+<Link href="/" className="flex items-center">
+  <TicketIcon className="mr-2 h-5 w-5 text-masonic-navy" />
+  <span className="font-bold">LodgeTix</span>
+</Link>
+```
 
-### CSS/Tailwind Classes
-- **Header:** `sticky top-0 w-full flex-shrink-0 z-40 flex h-14 items-center justify-between border-b bg-white px-4 md:px-6`
-- **Logo:** `flex items-center`, `mr-2 h-5 w-5 text-masonic-navy`
-- **Brand text:** `font-bold`
+**Icon Component**:
+- Component: `TicketIcon` from `lucide-react`
+- Classes: `mr-2 h-5 w-5 text-masonic-navy`
+- CSS: margin-right: 0.5rem; height: 1.25rem; width: 1.25rem; color: masonic-navy
 
-### Conditional Rendering Logic
-- Shows header only if NOT on homepage, registration wizard, or organiser pages
-- Shows footer if NOT on registration wizard
-- Extracts `eventSlug` from URL pattern `/events/[slug]`
+**Text Content**:
+- Static text: "LodgeTix"
+- Classes: `font-bold` → font-weight: 700
 
----
+#### Conditional Rendering Logic
+- `shouldShowHeader`: Shows on all pages EXCEPT:
+  - Homepage (`pathname === '/'`)
+  - Registration wizard pages (contains `/register/`)
+  - Organiser pages (starts with `/organiser`)
 
-## 2. Hero Angled Design Component (`/components/hero-angled-design.tsx`)
+### MainNav Component
+**Location**: `/components/navigation/main-nav.tsx`
+**Type**: Client Component
 
-### Text Content
-- **Static Text:**
-  - "LodgeTix" (brand name)
-  - "United Grand Lodge of NSW & ACT official ticketing platform."
-  - "Learn more →"
-  - "Welcome to LodgeTix" (fallback title)
-  - "Your premier destination for Masonic events and ticketing. Join us for memorable occasions and timeless traditions." (fallback description)
-  - "Explore Events" (button)
-  - "Log in" (navigation)
-  - Navigation items: 'Events', 'About', 'Contact', 'Help'
+#### Navigation Links
+```tsx
+<nav className="flex items-center space-x-6">
+```
 
-- **Dynamic Text (from database):**
-  - Event title
-  - Event description
-  - Event date and time
-  - Event location (with 📍 emoji)
-  - Organiser name
-  - "Get Tickets" (when specific event is featured)
+**CSS**: 
+- `flex` → display: flex
+- `items-center` → align-items: center
+- `space-x-6` → margin-left: 1.5rem (except first child)
 
-### Images
-- **Static:**
-  - MasonicLogo component (imported)
-  - SVG polygon for angled design effect
-  - Fallback image: `/placeholder.svg?height=800&width=800`
-  
-- **Dynamic:**
-  - Event imageUrl from database
+**Links** (All Static):
+1. **Home**
+   - href: "/"
+   - Classes: `text-sm font-medium hover:underline hover:underline-offset-4`
+   
+2. **Functions**
+   - href: "/functions"
+   - Same classes as above
+   
+3. **About**
+   - href: "/about"
+   - Same classes as above
+   
+4. **Contact**
+   - href: "/contact"
+   - Same classes as above
 
-### Buttons/Links
-- **Navigation Links:**
-  - "/" (home/logo)
-  - "/functions" (Events)
-  - "/about" (About)
-  - "/contact" (Contact)
-  - "/help" (Help)
-  - "/login" (Log in)
+**Link CSS**:
+- `text-sm` → font-size: 0.875rem; line-height: 1.25rem
+- `font-medium` → font-weight: 500
+- `hover:underline` → text-decoration-line: underline (on hover)
+- `hover:underline-offset-4` → text-underline-offset: 4px (on hover)
 
-- **Action Buttons:**
-  - "Explore Events" → `/functions`
-  - "Learn more" → `/about`
-  - "Get Tickets" → `/functions/[slug]/register` or `/functions`
+## 2. Footer Component Analysis
 
-### Dynamic Data Sources
-- **Service:** `getHeroFunction()` from `@/lib/services/homepage-service`
-- **Data fetched:**
-  - title
-  - description
-  - date
-  - time
-  - location
-  - imageUrl
-  - slug
-  - organiser
+**Location**: `/components/ui/footer.tsx`
+**Type**: Server Component
 
-### CSS/Tailwind Classes
-- **Container:** `bg-masonic-navy`
-- **Header:** `absolute inset-x-0 top-0 z-50`
-- **Text colors:** `text-white`, `text-masonic-gold`, `text-gray-300`
-- **Buttons:** `bg-masonic-gold hover:bg-masonic-lightgold text-masonic-navy`, `border-masonic-gold bg-masonic-navy text-masonic-gold hover:bg-masonic-navy/80`
-- **Image overlay:** `bg-masonic-blue/30`
+### Main Footer Container
+```tsx
+<footer className="bg-masonic-navy py-12 text-gray-300">
+```
 
-### Conditional Rendering Logic
-- Shows generic content if no `heroFunction` data
-- Shows dynamic content with event details if data available
-- Date/time shown only if both values exist
+**CSS**:
+- `bg-masonic-navy` → custom color (likely dark blue)
+- `py-12` → padding-top: 3rem; padding-bottom: 3rem (48px)
+- `text-gray-300` → color: rgb(209 213 219)
 
----
+### Grid Layout
+```tsx
+<div className="grid gap-8 md:grid-cols-4">
+```
 
-## 3. Sponsors Section Component (`/components/sponsors-section.tsx`)
+**CSS**:
+- `grid` → display: grid
+- `gap-8` → gap: 2rem (32px)
+- `md:grid-cols-4` → @media (min-width: 768px) { grid-template-columns: repeat(4, minmax(0, 1fr)) }
 
-### Text Content
-- **Static Text:**
-  - "Proudly supported by Masonic organizations across NSW & ACT"
-  - Sponsor names (in alt text):
-    - "United Grand Lodge of NSW & ACT"
-    - "Masonic Care NSW"
-    - "Freemasons Foundation"
-    - "Royal Arch Chapter"
-    - "Mark Master Masons"
+### Footer Sections
 
-### Images
-- **All placeholder images:**
-  - `/placeholder.svg?height=48&width=158&text=UGL`
-  - `/placeholder.svg?height=48&width=158&text=Care`
-  - `/placeholder.svg?height=48&width=158&text=Foundation`
-  - `/placeholder.svg?height=48&width=158&text=Royal+Arch`
-  - `/placeholder.svg?height=48&width=158&text=Mark`
+#### Section 1: Brand
+**Content**:
+- Title: "LodgeTix" (static)
+- Description: "Official ticketing platform for the Grand Installation." (static)
+- External Link: "Visit masons.au" → https://www.masons.au
+- Icon: `ExternalLink` from `lucide-react`
 
-### Buttons/Links
-- None
+#### Section 2: Event Information
+**Dynamic Content** (uses `eventSlug` parameter):
+- Default slug: 'grand-proclamation-2025'
+- Links use dynamic slug: `/functions/${slug}`
 
-### Dynamic Data Sources
-- None - all data is hardcoded
+#### Section 3: For Attendees
+**Mixed Content**:
+- Dynamic: Purchase Tickets link uses slug
+- Static: My Tickets → "/customer/tickets"
+- Dynamic: FAQs link uses slug
+- Static: Contact Us → "/contact"
 
-### CSS/Tailwind Classes
-- **Container:** `bg-gray-100 py-24 sm:py-32`
-- **Heading:** `text-center text-lg/8 font-semibold text-masonic-navy`
-- **Grid:** `grid max-w-lg grid-cols-4 items-center gap-x-8 gap-y-10 sm:max-w-xl sm:grid-cols-6 sm:gap-x-10 lg:mx-0 lg:max-w-none lg:grid-cols-5`
-- **Images:** `h-12 w-full object-contain filter brightness-0 opacity-60 hover:opacity-80 transition-opacity`
+#### Section 4: Legal
+**All Static Links**:
+- Terms & Conditions → "/terms"
+- Privacy Policy → "/privacy"
+- Refund Policy → "/refund-policy"
 
-### Conditional Rendering Logic
-- None
+### Copyright
+```tsx
+<p>&copy; {new Date().getFullYear()} United Grand Lodge of NSW & ACT. All rights reserved.</p>
+```
+**Dynamic**: Current year via `new Date().getFullYear()`
 
----
+## 3. Meta Tags and SEO Elements
 
-## 4. Featured Events Redesigned Component (`/components/featured-events-redesigned.tsx`)
+### From Root Layout (`/app/layout.tsx`)
+```tsx
+export const metadata: Metadata = {
+  title: 'Grand Proclamation 2025 | United Grand Lodge of NSW & ACT',
+  description: 'Created with v0',
+  generator: ';)',
+}
+```
 
-### Text Content
-- **Static Text:**
-  - "Featured Events"
-  - "Experience the finest in Masonic tradition and fellowship. Join us for these carefully curated events that celebrate our heritage and strengthen our community bonds."
-  - "View All Events →"
-  - "View pricing" (price placeholder)
-  - "Location TBA" (location fallback)
-  - Fallback event titles and descriptions (hardcoded)
+**SEO Elements**:
+- Title: Static (should be dynamic)
+- Description: Placeholder (needs update)
+- Language: `<html lang="en">`
 
-- **Dynamic Text:**
-  - Event titles
-  - Event descriptions
-  - Event dates (formatted)
-  - Event locations (formatted as "place_name, suburb, state")
+### External Scripts
+```html
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit"></script>
+```
+**Purpose**: Cloudflare Turnstile CAPTCHA integration
 
-### Images
-- **Dynamic:**
-  - Event image URLs from database
-  - Fallback: `/placeholder.svg?height=400&width=1000`
+## 4. Mobile Menu Variations
 
-### Buttons/Links
-- **Links:**
-  - "View All Events" → `/functions`
-  - Individual event links use function slug
+### MobileAppLayout Component
+**Location**: `/components/ui/mobile-app-layout.tsx`
+**Type**: Client Component
 
-### Dynamic Data Sources
-- **API Endpoint:** Direct Supabase REST API call
-- **Query:** `events?function_id=eq.${FEATURED_FUNCTION_ID}&is_published=eq.true&order=event_start.asc&limit=2`
-- **Joined data:** `locations(place_name,suburb,state)`
-- **Environment variables:** 
-  - `FEATURED_FUNCTION_ID`
-  - `NEXT_PUBLIC_SUPABASE_URL`
-  - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+#### Mobile Header
+```tsx
+<header className="flex h-14 flex-shrink-0 items-center justify-between border-b bg-white px-4 shadow-sm">
+```
 
-### CSS/Tailwind Classes
-- **Container:** `bg-white`
-- **Heading:** `text-4xl font-semibold tracking-tight text-masonic-navy sm:text-5xl`
-- **Description:** `text-lg text-gray-600`
-- **Event layout:** Alternating left/right using grid system
-- **Button:** `inline-flex items-center justify-center rounded-md bg-masonic-navy px-6 py-3 text-base font-medium text-white hover:bg-masonic-blue transition-colors`
+**Additional Classes vs Desktop**:
+- `shadow-sm` → box-shadow: 0 1px 2px 0 rgb(0 0 0 / 0.05)
 
-### Conditional Rendering Logic
-- Falls back to `FeaturedEventsRedesignedFallback` component if:
-  - API call fails
-  - No events returned
-- Alternates event layout (left/right) based on index (even/odd)
-- Shows location only if available
+#### Mobile Menu Button
+```tsx
+<Button
+  variant="ghost"
+  size="icon"
+  onClick={handleMenuToggle}
+  aria-label="Toggle navigation menu"
+>
+  <Menu className="h-6 w-6" />
+</Button>
+```
 
----
+**Icon**: `Menu` from `lucide-react`
+**Accessibility**: `aria-label="Toggle navigation menu"`
 
-## 5. Location Info Section Component (`/components/location-info-section.tsx`)
+#### Mobile-Specific Layout
+- Scrollable main content: `flex-grow overflow-y-auto p-4`
+- Optional fixed footer for actions
+- Full height: `h-screen`
 
-### Text Content
-- **Static Text:**
-  - "Experience Excellence" (section label)
-  - "Premium Venues, Perfect Experiences" (heading)
-  - "Our events are hosted at carefully selected venues throughout NSW & ACT, ensuring every occasion meets the highest standards of quality, accessibility, and Masonic tradition." (description)
-  - Feature names and descriptions:
-    - "Prime Locations" - "Our events are held at prestigious venues across NSW & ACT, offering convenient access and parking for all attendees."
-    - "Convenient Timing" - "Events are scheduled to accommodate working schedules, with both evening and weekend options available."
-    - "Community Focused" - "Join a welcoming community of Masons and guests from across the region, building lasting friendships and connections."
+## 5. Error States and Fallback Content
 
-### Images
-- **Static:**
-  - SVG icons (MapPinIcon, ClockIcon, UserGroupIcon) - inline components
-  - Placeholder image: `/placeholder.svg?height=600&width=800&text=Lodge+Hall`
+### Global Error (`/app/global-error.tsx`)
+**Type**: Client Component
 
-### Buttons/Links
-- None
+**UI Structure**:
+```tsx
+<div className="min-h-screen flex flex-col items-center justify-center p-4 bg-gray-50">
+  <div className="bg-white shadow-lg rounded-lg max-w-lg w-full p-8 text-center">
+```
 
-### Dynamic Data Sources
-- None - all content is static
+**Content**:
+- Title: "Something went wrong" (static)
+- Message: "We apologize for the inconvenience. Please try again or contact support if the issue persists." (static)
+- Button: "Try again" with error reset functionality
 
-### CSS/Tailwind Classes
-- **Container:** `overflow-hidden bg-masonic-navy py-24 sm:py-32`
-- **Section label:** `text-base/7 font-semibold text-masonic-gold`
-- **Heading:** `text-4xl font-semibold tracking-tight text-pretty text-white sm:text-5xl`
-- **Description:** `text-lg/8 text-gray-300`
-- **Feature list:** `space-y-8 text-base/7 text-gray-300`
-- **Icons:** `size-5 text-masonic-gold`
-- **Image:** `w-[48rem] max-w-none rounded-xl shadow-xl ring-1 ring-white/10`
+**Error Handling**:
+- Captures errors with Sentry
+- Logs to console
+- Provides reset mechanism with fallback to page reload
 
-### Conditional Rendering Logic
-- None
+### 404 Not Found (`/app/not-found.tsx`)
+**Type**: Server Component
 
----
+**Content**:
+- Title: "404" (static)
+- Subtitle: "Page Not Found" (static)
+- Message: "The page you're looking for doesn't exist or has been moved." (static)
+- Button: "Return Home" → links to "/"
 
-## 6. CTA Section Component (`/components/cta-section.tsx`)
+## 6. Loading States
 
-### Text Content
-- **Static Text:**
-  - "Join Our Community" (heading)
-  - "Become part of a tradition that spans centuries. Experience the brotherhood, ceremony, and fellowship that makes Freemasonry a cornerstone of community life." (main description)
-  - "From intimate lodge meetings to grand installations, our events offer opportunities to connect with like-minded individuals, participate in meaningful ceremonies, and contribute to charitable causes that make a difference in our communities." (secondary description)
-  - "Explore Events →" (button text)
+### Global Loading (`/app/loading.tsx`)
+```tsx
+export default function Loading() {
+  return null
+}
+```
+**Note**: Returns null - no visible loading state
 
-### Images
-- **All placeholder images:**
-  - `/placeholder.svg?height=400&width=592&text=Ceremony`
-  - `/placeholder.svg?height=604&width=768&text=Lodge+Meeting`
-  - `/placeholder.svg?height=842&width=1152&text=Charity+Work`
-  - `/placeholder.svg?height=604&width=768&text=Historic+Lodge`
+### Skeleton Component (`/components/ui/skeleton.tsx`)
+```tsx
+<div className={cn("animate-pulse rounded-md bg-muted", className)} />
+```
 
-### Buttons/Links
-- **Links:**
-  - "Explore Events" button → `/functions`
+**CSS**:
+- `animate-pulse` → CSS animation for pulsing effect
+- `rounded-md` → border-radius: 0.375rem
+- `bg-muted` → background from theme
 
-### Dynamic Data Sources
-- None - all content is static
+## 7. Analytics and Tracking
 
-### CSS/Tailwind Classes
-- **Container:** `overflow-hidden bg-gray-100 py-32`
-- **Heading:** `text-4xl font-semibold tracking-tight text-masonic-navy sm:text-5xl`
-- **Descriptions:** `text-xl/8 text-gray-700`, `text-base/7 text-gray-600`
-- **Button:** `bg-masonic-navy hover:bg-masonic-blue text-white`
-- **Images:** Various aspect ratios with `rounded-2xl bg-gray-50 object-cover`
+### Sentry Error Tracking
+**Client Configuration** (`/instrumentation-client.ts`):
+- DSN: Production Sentry endpoint
+- Integrations: Replay integration
+- Sample Rates:
+  - Traces: 5% (dev) / 10% (prod)
+  - Replay Sessions: 1% (dev) / 2% (prod)
+  - Error Replays: 100%
 
-### Conditional Rendering Logic
-- One image hidden on mobile: `hidden sm:block`
+### Cloudflare Turnstile
+- Script loaded in root layout
+- Used for bot protection/CAPTCHA
 
----
+## 8. Icon Components Inventory
 
-## Summary of Key Findings
+### From lucide-react:
+1. **TicketIcon** - Header logo (layout-with-footer.tsx)
+2. **Menu** - Mobile menu toggle (mobile-app-layout.tsx)
+3. **ExternalLink** - Footer external link indicator
+4. **Square** - Masonic logo component
+5. **Compass** - Masonic logo component
 
-### Color Palette Used
-- `masonic-navy`
-- `masonic-gold`
-- `masonic-lightgold`
-- `masonic-blue`
-- `masonic-lightblue`
-- White, gray variations
+### Custom Components:
+1. **MasonicLogo** (`/components/masonic-logo.tsx`)
+   - Sizes: sm (32px), md (48px), lg (64px)
+   - Combines Square + Compass + "G" letter
+   - Colors: blue-700, blue-800, blue-900
 
-### Common Patterns
-1. All images currently use placeholder SVGs
-2. Consistent button styling with masonic color scheme
-3. Responsive design with mobile-first approach
-4. Heavy use of Tailwind utility classes
-5. Limited dynamic data fetching (only in hero and featured events)
+## 9. Responsive Breakpoints
 
-### Data Dependencies
-1. **Hero Section:** Depends on `getHeroFunction()` service
-2. **Featured Events:** Direct Supabase API call for events with location joins
-3. All other sections use static content
+### Breakpoints Used:
+- `md:` → 768px and up
+  - Header padding changes from px-4 to px-6
+  - Footer grid changes from 1 column to 4 columns
 
-### Navigation Structure
-- Main navigation: Events, About, Contact, Help
-- Login link in header
-- Primary CTA buttons lead to `/functions` page
+## 10. Dynamic vs Static Content Summary
+
+### Dynamic Elements:
+1. Footer copyright year
+2. Footer event slug (with fallback)
+3. Page visibility logic (header/footer conditionals)
+4. Error handling and reset functions
+
+### Static Elements:
+1. All navigation links and text
+2. Error messages
+3. Brand name "LodgeTix"
+4. Legal links
+5. Meta tags (should be dynamic)
+
+### Database Sources:
+- Event slug could come from `functions.slug`
+- No other database connections in these layout components
+
+## 11. Key Findings & Recommendations
+
+1. **SEO**: Meta tags are static and need to be made dynamic
+2. **Loading State**: No visible loading indicator
+3. **Mobile Navigation**: Uses sidebar/sheet pattern (not visible in analyzed code)
+4. **Accessibility**: Good aria-label usage on mobile menu
+5. **Error Handling**: Comprehensive with Sentry integration
+6. **Color Scheme**: Uses custom `masonic-navy` and `masonic-gold` colors

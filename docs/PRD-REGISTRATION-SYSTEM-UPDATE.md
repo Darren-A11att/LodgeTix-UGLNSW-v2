@@ -13,15 +13,18 @@ Update the registration system to properly handle organisation_id mapping, add r
 ## Requirements
 
 ### 1. Organisation ID Mapping
-- **Individual Registrations**: The organisation_id in the registrations table should be the lodge's organisation_id of the primary attendee (if they are a Mason)
+- **Individual Registrations**: The organisation_id in the registrations table should be the lodge's organisation_id of the primary attendee (always a Mason)
 - **Lodge Registrations**: The organisation_id should be the organisation_id of the selected lodge from the LodgesForm
+- **Delegation Registrations**: The organisation_id should be the grand lodge's organisation_id OR a newly created organisation
 
 ### 2. Lodge and Grand Lodge Data Enhancement
 - When looking up lodges and grand lodges, fetch:
   - lodge_id (existing)
-  - organisation_id (new requirement)
+  - organisation_id (REQUIRED)
   - grand_lodge_id (existing)
   - For grand lodges: also fetch their organisation_id
+- Lodge/Grand Lodge selection is mandatory - registration cannot proceed without valid selection
+- Selected lodge/grand lodge data must include organisation_id in payload
 
 ### 3. Raw Payloads Logging
 - Add raw_payloads logging to the new active route (`/api/functions/[functionId]/packages/[packageId]/lodge-registration`)
@@ -31,36 +34,58 @@ Update the registration system to properly handle organisation_id mapping, add r
 - Lodge registrations must create tickets even though they don't create individual attendee records
 - Tickets should be created based on the table_count * 10 (attendees per table)
 - Tickets need to be linked to the registration_id
+- attendee_id should be NULL for lodge tickets
+- event_id comes from package's included_items array (event_ticket_id → event_id lookup)
+- Create tickets for all events in the package's included_items
 
 ### 5. Confirmation Number Handling
 - API and RPC must NOT create or update confirmation numbers directly
 - Confirmation numbers should only be read from views after edge function generation
-- Include confirmation number in response if available from views
+- Include confirmation number in response - REQUIRED
+- Poll for confirmation number: 5 attempts, 3 seconds apart (15 seconds total)
+- Return error if confirmation number not available after polling
 
 ### 6. Payment Flow Update
-- Step 1: Create registration with status='pending' and payment_status='pending'
-- Step 2: Process Stripe payment
-- Step 3: If payment successful, update registration with status='completed' and payment_status='completed'
-- Step 4: Wait for edge function to generate confirmation number
-- Step 5: Return response with confirmation number (if available from view)
+- Step 1: Log full payload to raw_payloads table
+- Step 2: Create registration with status='pending' and payment_status='pending'
+- Step 3: Process Stripe payment
+- Step 4: If payment successful, update registration with status='completed' and payment_status='completed'
+- Step 5: Poll for confirmation number (5 times, 3 seconds apart)
+- Step 6: Return response with confirmation number or error
 
 ## Technical Specifications
 
 ### Database Schema Considerations
 - registrations.organisation_id: UUID reference to organisations table
 - lodges table has organisation_id column linking to organisations
-- grand_lodges table should have organisation_id column
-- tickets table needs registration_id column for lodge bulk tickets
+- grand_lodges table has organisation_id column
+- tickets table: attendee_id NULL for lodge tickets, registration_id required
+- Views required:
+  - individuals_registration_confirmation_view
+  - lodge_registration_confirmation_view
+  - delegation_registration_confirmation_view
 
 ### API Response Format
-- Include confirmation_number only if available from views
-- Do not attempt to generate or update confirmation numbers in API/RPC
+- Confirmation number is REQUIRED in response
+- Poll for confirmation number if not immediately available
+- Return error if confirmation not available after 15 seconds
 
 ### Edge Function Trigger Conditions
 - Monitors registrations table for new/updated records
 - Triggers when BOTH:
   - status = 'completed'
   - payment_status = 'completed'
+
+### Raw Payloads Logging
+- Log every request as first operation
+- Separate entries for API request and RPC calls
+- Retention: 7 days post function date
+- Log even if request fails
+
+### Status Field Semantics
+- `status`: Overall registration status (can be 'completed' before payment)
+- `payment_status`: Specific to payment ('pending', 'completed', etc.)
+- Both must be 'completed' to trigger confirmation generation
 
 ## Success Criteria
 1. Organisation IDs correctly mapped for both registration types

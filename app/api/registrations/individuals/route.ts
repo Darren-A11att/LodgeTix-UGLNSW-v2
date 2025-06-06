@@ -220,11 +220,61 @@ export async function POST(request: Request) {
     
     console.log("Individual registration created successfully:", rpcResult);
     
+    const finalRegistrationId = rpcResult?.registrationId || rpcResult?.registration_id;
+    let confirmationNumber = rpcResult?.confirmationNumber || rpcResult?.confirmation_number;
+    
+    // Poll for confirmation number if payment was provided
+    if (paymentIntentId && !confirmationNumber) {
+      console.log("Polling for confirmation number...");
+      
+      const maxPolls = 5;
+      const pollInterval = 3000; // 3 seconds
+      
+      for (let i = 0; i < maxPolls; i++) {
+        // Wait for poll interval (except on first iteration)
+        if (i > 0) {
+          await new Promise(resolve => setTimeout(resolve, pollInterval));
+        }
+        
+        console.log(`Poll attempt ${i + 1}/${maxPolls}`);
+        
+        // Query the confirmation view
+        const { data: confirmationData, error: confirmationError } = await supabase
+          .from('individuals_registration_confirmation_view')
+          .select('confirmation_number')
+          .eq('registration_id', finalRegistrationId)
+          .single();
+        
+        if (confirmationData?.confirmation_number) {
+          confirmationNumber = confirmationData.confirmation_number;
+          console.log('Confirmation number found:', confirmationNumber);
+          break;
+        }
+        
+        if (confirmationError && confirmationError.code !== 'PGRST116') {
+          console.error('Error polling for confirmation:', confirmationError);
+        }
+      }
+      
+      // If no confirmation number after polling, return error
+      if (!confirmationNumber) {
+        console.error('Confirmation number generation timeout');
+        console.groupEnd();
+        return NextResponse.json(
+          { 
+            error: 'Confirmation number generation timeout. Registration was successful but confirmation is pending.',
+            registrationId: finalRegistrationId
+          },
+          { status: 500 }
+        );
+      }
+    }
+    
     // Fetch the complete registration data from the view
     const { data: registrationView, error: viewError } = await supabase
       .from('individuals_registration_complete_view')
       .select('*')
-      .eq('registration_id', rpcResult.registrationId)
+      .eq('registration_id', registrationId)
       .single();
     
     if (viewError) {
@@ -242,12 +292,13 @@ export async function POST(request: Request) {
     
     return NextResponse.json({
       success: true,
-      registrationId: rpcResult.registrationId,
+      registrationId: finalRegistrationId,
+      confirmationNumber: confirmationNumber,
       registrationData: {
-        registration_id: rpcResult.registrationId,
-        customer_id: rpcResult.customerId,
-        booking_contact_id: rpcResult.bookingContactId,
-        primary_attendee_id: rpcResult.primaryAttendeeId
+        registration_id: finalRegistrationId,
+        customer_id: rpcResult?.customerId || rpcResult?.customer_id,
+        booking_contact_id: rpcResult?.bookingContactId || rpcResult?.booking_contact_id,
+        primary_attendee_id: rpcResult?.primaryAttendeeId || rpcResult?.primary_attendee_id
       }
     });
     
@@ -314,6 +365,8 @@ export async function PUT(request: Request) {
       totalAmountPaid,
       paymentIntentId,
       paymentCompleted: true,
+      paymentStatus: 'completed', // Set payment_status to completed
+      status: 'completed', // Set overall status to completed to trigger edge function
       confirmationNumber: existingRegistration.confirmation_number,
       subtotal: existingRegistration.subtotal,
       stripeFee: existingRegistration.stripe_fee,

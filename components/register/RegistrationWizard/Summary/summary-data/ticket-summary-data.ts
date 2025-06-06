@@ -41,7 +41,7 @@ export function getTicketSummaryData({
     // Show attendees who need tickets
     const attendeeItems = attendees.map(attendee => {
       const name = `${attendee.firstName || ''} ${attendee.lastName || ''}`.trim() || 'Unnamed Attendee';
-      const type = attendee.attendeeType || 'Guest';
+      const type = attendee.attendeeType || 'guest';
       return {
         label: name,
         value: `${type} - No tickets selected`

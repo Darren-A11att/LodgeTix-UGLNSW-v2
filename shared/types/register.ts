@@ -217,7 +217,7 @@ export interface AttendeeDataBase {
 // --- Specific Attendee Types (Extending Base) ---
 
 export interface MasonData extends AttendeeDataBase {
-  attendeeType: AttendeeType.MASON;
+  attendeeType: 'mason';
   memberNumber?: string;
   rank?: string; 
   grandRank?: string;
@@ -233,19 +233,19 @@ export interface MasonData extends AttendeeDataBase {
 }
 
 export interface LadyPartnerData extends AttendeeDataBase {
-  attendeeType: AttendeeType.LADY_PARTNER;
+  attendeeType: 'ladypartner';
   relationship?: string;
   masonId: string; // Link back to the Mason
 }
 
 export interface GuestData extends AttendeeDataBase {
-  attendeeType: AttendeeType.GUEST;
+  attendeeType: 'guest';
   relationship?: string;
   hasGuestPartner?: boolean;
 }
 
 export interface GuestPartnerData extends AttendeeDataBase {
-  attendeeType: AttendeeType.GUEST_PARTNER;
+  attendeeType: 'guestpartner';
   relationship?: string;
   guestId: string; // Link back to the Guest
 }

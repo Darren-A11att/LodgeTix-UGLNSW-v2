@@ -72,7 +72,7 @@ export async function GET(request: NextRequest) {
         eventVenue: 'Test Venue',
         eventAddress: '123 Test St',
         attendeeName: 'Test User',
-        attendeeType: 'Guest' as const,
+        attendeeType: 'guest' as const,
         confirmationNumber: 'TEST-123',
         purchaseDate: new Date().toLocaleDateString(),
       };

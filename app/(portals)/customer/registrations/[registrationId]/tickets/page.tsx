@@ -177,7 +177,7 @@ export default async function TicketsListPage({
                             {attendee.title} {attendee.firstName} {attendee.lastName}
                           </span>
                           <Badge variant="outline" className="text-xs">
-                            {attendee.attendeetype === 'mason' ? 'Mason' : 'Guest'}
+                            {attendee.attendeetype === 'mason' ? 'mason' : 'guest'}
                           </Badge>
                         </div>
                       )}

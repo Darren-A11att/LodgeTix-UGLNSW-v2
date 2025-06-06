@@ -887,7 +887,7 @@ const TicketSelectionStep: React.FC = () => {
                                 {attendee.title} {attendee.firstName} {attendee.lastName}
                               </div>
                               <div className="text-sm text-gray-500">
-                                {attendee.attendeeType === "Mason" || attendee.attendeeType?.toLowerCase() === "mason" 
+                                {attendee.attendeeType === 'mason' || attendee.attendeeType?.toLowerCase() === "mason" 
                                   ? (attendee.grandRank || attendee.rank || 'Mason')
                                   : attendee.isPartner 
                                     ? `Partner of ${attendee.partnerFirstName || 'Attendee'}` 
@@ -1062,7 +1062,7 @@ const TicketSelectionStep: React.FC = () => {
                       <td className="w-[10%]">
                         <div className="flex justify-end">
                           <Badge variant="outline" className="bg-white">
-                            {attendee.attendeeType === "Mason" || attendee.attendeeType?.toLowerCase() === "mason" 
+                            {attendee.attendeeType === 'mason' || attendee.attendeeType?.toLowerCase() === "mason" 
                               ? "Mason" 
                               : attendee.isPartner 
                                 ? "Partner" 

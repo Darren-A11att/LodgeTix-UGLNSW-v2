@@ -14,9 +14,9 @@ export const useAttendeeTypeRenderer = () => {
     };
 
     switch (attendee.attendeeType) {
-      case 'Mason':
+      case 'mason':
         return <MasonForm {...formProps} />;
-      case 'Guest':
+      case 'guest':
         return <GuestForm {...formProps} />;
       default:
         throw new Error(`Unknown attendee type: ${attendee.attendeeType}`);
@@ -25,9 +25,9 @@ export const useAttendeeTypeRenderer = () => {
 
   const getFormComponent = (attendeeType: AttendeeData['attendeeType']) => {
     switch (attendeeType) {
-      case 'Mason':
+      case 'mason':
         return MasonForm;
-      case 'Guest':
+      case 'guest':
         return GuestForm;
       default:
         throw new Error(`Unknown attendee type: ${attendeeType}`);
