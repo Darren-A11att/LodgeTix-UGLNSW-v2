@@ -4,7 +4,7 @@ import { useRegistrationStore } from '@/lib/registrationStore';
 import { useLodgeRegistrationStore } from '@/lib/lodgeRegistrationStore';
 import { IndividualsForm } from '../../Forms/attendee/IndividualsForm';
 import { LodgesForm } from '../../Forms/attendee/LodgesForm';
-import { DelegationsForm } from '../../Forms/attendee/DelegationsForm';
+import { LodgesForm as GrandLodgesForm } from '../../Forms/attendee/GrandLodgesForm';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import TermsAndConditions from '../../Functions/TermsAndConditions';
@@ -144,9 +144,9 @@ const AttendeeDetails: React.FC<AttendeeDetailsProps> = ({
         );
       
       case 'delegation':
-        // Official Delegation uses DelegationsForm
+        // Official Delegation uses GrandLodgesForm
         return (
-          <DelegationsForm
+          <GrandLodgesForm
             functionId={FEATURED_FUNCTION_ID}
             onComplete={handleContinue}
             fieldErrors={showErrors ? fieldErrorsByAttendee : {}}

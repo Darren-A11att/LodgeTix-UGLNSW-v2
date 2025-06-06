@@ -31,10 +31,12 @@ const DEBOUNCE_DELAY = 500; // Increased from 300ms to reduce re-renders
 // Package and event data will be fetched dynamically from database
 
 interface LodgesFormProps {
+  functionId: string;
   minTables?: number;
   maxTables?: number;
   onComplete?: () => void;
   className?: string;
+  fieldErrors?: Record<string, Record<string, string>>;
 }
 
 interface TableOrder {
@@ -44,10 +46,12 @@ interface TableOrder {
 }
 
 export const LodgesForm: React.FC<LodgesFormProps> = ({
+  functionId,
   minTables = 1,
   maxTables = 10,
   onComplete,
   className,
+  fieldErrors,
 }) => {
   const { 
     attendees, 
@@ -102,11 +106,8 @@ export const LodgesForm: React.FC<LodgesFormProps> = ({
         setIsLoadingData(true);
         setDataError(null);
         
-        const config = getEnvironmentConfig();
-        const functionId = config.functionId || config.featuredFunctionId;
-        
         if (!functionId) {
-          throw new Error('No function ID found in environment configuration');
+          throw new Error('No function ID provided');
         }
         
         const ticketsService = getFunctionTicketsService();
@@ -123,7 +124,7 @@ export const LodgesForm: React.FC<LodgesFormProps> = ({
     };
     
     fetchFunctionData();
-  }, []);
+  }, [functionId]);
   
   // Update table order when count or package data changes
   useEffect(() => {

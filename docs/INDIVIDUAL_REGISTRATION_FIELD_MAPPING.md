@@ -206,18 +206,22 @@ ALTER TABLE raw_registrations RENAME COLUMN raw_id TO id;
 
 ## Migration Status
 
-### Created Migrations
-1. **20250607_010_fix_raw_registrations_id_column.sql**
-   - Renames `raw_id` to `id` in raw_registrations table
-   - Fixes the immediate error preventing registration logging
+### Applied Migrations
+1. **20250608000026_fix_raw_registrations_id_column.sql** (existing)
+   - Updates upsert_individual_registration to use `raw_id` column
+   - Addresses the "column 'id' does not exist" error
 
-2. **20250607_011_fix_field_mapping_issues.sql**
-   - Updates upsert_individual_registration RPC function with:
-     - Fixed raw_registrations insert to use `id` column
+2. **20250608000028_fix_field_mapping_issues.sql** (newly applied)
+   - Comprehensive update to upsert_individual_registration RPC function:
+     - Uses correct column names for all tables (raw_id, registration_id, etc.)
      - Multiple fallbacks for email field mapping (emailAddress → email → primaryEmail)
      - Multiple fallbacks for phone field mapping (mobileNumber → phone → primaryPhone)
      - Automatic case conversion for contact preference enum
      - Populates both legacy and new email/phone columns for compatibility
+     - Removes references to non-existent columns (contact_id, payment_completed)
+     - Uses payment_status enum instead of payment_completed boolean
+     - Stores mason-specific fields in attendee_data JSON column
+     - Correctly maps ticket fields to existing columns
 
 ## Testing Checklist
 
