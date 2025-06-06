@@ -8,10 +8,11 @@ export interface WebhookPayload {
 
 export interface RegistrationRecord {
   id: string
+  registration_id?: string // Support both id and registration_id for compatibility
   status: 'pending' | 'completed' | 'cancelled'
   payment_status: 'pending' | 'completed' | 'failed'
   confirmation_number: string | null
-  registration_type: 'individual' | 'lodge' | 'delegation'
+  registration_type: 'individual' | 'lodge' | 'delegation' | 'individuals' // Support both formats
   function_id: string
   customer_id: string
   total_amount: number

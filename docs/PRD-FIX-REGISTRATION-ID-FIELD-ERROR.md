@@ -43,6 +43,22 @@ The `should_generate_confirmation()` trigger function uses `NEW.id` instead of `
 - [x] Search for RLS policies on registrations table  
 - [x] Search for functions that reference registrations table
 - [x] Identify exact location of NEW.id reference
-- [ ] Create migration script to fix the issue
-- [ ] Test payment update flow after fix
-- [ ] Verify no regression in other registration operations
+- [x] Create migration script to fix the issue
+- [x] Test payment update flow after fix
+- [x] Verify no regression in other registration operations
+
+## Solution Summary
+Created migration `20250607_020_force_fix_all_triggers.sql` that:
+1. Drops all existing triggers on registrations table
+2. Recreates the webhook function with correct field names
+3. Uses `NEW.registration_id` instead of `NEW.id`
+4. Uses `event_type` column instead of non-existent `operation` column
+5. Creates a single, properly functioning trigger
+
+Disabled conflicting migrations:
+- `20250607_015_fix_registration_id_references.sql`
+- `20250607_017_final_registration_trigger_fix.sql`
+- `20250607_019_patch_webhook_function.sql`
+- `20250608000002_create_database_webhook.sql`
+- `20250608000100_fix_webhook_trigger_column_references.sql`
+- `20250608000101_hotfix_webhook_logs_operation.sql`

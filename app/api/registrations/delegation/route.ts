@@ -9,6 +9,29 @@ export async function POST(request: Request) {
     const data = await request.json();
     console.log("Received delegation registration data:", JSON.stringify(data, null, 2));
     
+    // Create a client to log raw payload
+    const supabaseForLogging = await createClient();
+    
+    // Log the raw payload to raw_registrations table for debugging
+    try {
+      const { error: rawError } = await supabaseForLogging
+        .from('raw_registrations')
+        .insert({
+          raw_data: data,
+          registration_id: data.registrationId || null, // Include registration_id if provided
+          registration_type: 'delegation',
+          created_at: new Date().toISOString()
+        });
+      
+      if (rawError) {
+        console.error('Error logging raw payload:', rawError);
+      } else {
+        console.log('Raw payload logged to raw_registrations table with registration_id:', data.registrationId);
+      }
+    } catch (logError) {
+      console.error('Failed to log raw payload:', logError);
+    }
+    
     // Extract the auth token from headers
     const authHeader = request.headers.get('authorization');
     console.log("Auth header present:", !!authHeader);

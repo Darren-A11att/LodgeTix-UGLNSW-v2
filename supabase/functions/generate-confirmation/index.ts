@@ -36,11 +36,16 @@ serve(async (req) => {
     }
 
     // Parse webhook payload
-    const payload: WebhookPayload = await req.json()
-    console.log('Webhook received:', {
+    const rawPayload = await req.json()
+    console.log('Raw webhook payload received:', rawPayload)
+    
+    // Handle both database trigger format and standard webhook format
+    const payload: WebhookPayload = normalizeWebhookPayload(rawPayload)
+    
+    console.log('Normalized webhook payload:', {
       type: payload.type,
       table: payload.table,
-      registrationId: payload.record?.id
+      registrationId: payload.record?.id || payload.record?.registration_id
     })
 
     // Validate this is a registration completion
@@ -58,10 +63,24 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!
     const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
+    // Map database registration type to confirmation generator type
+    const mapRegistrationType = (dbType: string): 'individual' | 'lodge' | 'delegation' => {
+      switch (dbType) {
+        case 'individuals':
+          return 'individual'
+        case 'lodge':
+          return 'lodge'
+        case 'delegation':
+          return 'delegation'
+        default:
+          return 'individual' // fallback
+      }
+    }
+
     // Generate confirmation number
     const confirmationNumber = await generateUniqueConfirmationNumber(
       supabase,
-      payload.record.registration_type
+      mapRegistrationType(payload.record.registration_type)
     )
 
     // Update registration with confirmation number
@@ -71,7 +90,7 @@ serve(async (req) => {
         confirmation_number: confirmationNumber,
         confirmation_generated_at: new Date().toISOString()
       })
-      .eq('id', payload.record.id)
+      .eq('registration_id', payload.record.registration_id || payload.record.id)
 
     if (updateError) {
       response.errors?.push(`Failed to update confirmation number: ${updateError.message}`)
@@ -87,8 +106,8 @@ serve(async (req) => {
     // Orchestrate email sending
     const emailOrchestrator = new EmailOrchestrator(supabase)
     const emailResults = await emailOrchestrator.orchestrateEmails(
-      payload.record.id,
-      payload.record.registration_type
+      payload.record.registration_id || payload.record.id,
+      mapRegistrationType(payload.record.registration_type)
     )
 
     response.emailsSent = {
@@ -106,7 +125,7 @@ serve(async (req) => {
 
     const duration = Date.now() - startTime
     console.log(`Confirmation generation completed in ${duration}ms`, {
-      registrationId: payload.record.id,
+      registrationId: payload.record.registration_id || payload.record.id,
       confirmationNumber,
       emailsSent: response.emailsSent,
       errors: response.errors
@@ -201,4 +220,60 @@ async function validateWebhookSignature(req: Request, signature: string): Promis
   // Implementation depends on your webhook provider's signature method
   
   return true // Placeholder
+}
+
+/**
+ * Normalizes webhook payload to handle both database trigger format and standard Supabase webhook format
+ */
+function normalizeWebhookPayload(rawPayload: any): WebhookPayload {
+  // Check if this is already in standard Supabase webhook format
+  if (rawPayload.type && rawPayload.table && rawPayload.record) {
+    return rawPayload as WebhookPayload
+  }
+  
+  // Handle database trigger format (flat object with registration data)
+  if (rawPayload.registration_id && rawPayload.registration_type) {
+    return {
+      type: 'UPDATE',
+      table: 'registrations',
+      schema: 'public',
+      record: {
+        id: rawPayload.registration_id,
+        registration_id: rawPayload.registration_id,
+        status: rawPayload.status,
+        payment_status: rawPayload.payment_status,
+        confirmation_number: null,
+        registration_type: rawPayload.registration_type,
+        function_id: rawPayload.function_id,
+        customer_id: rawPayload.customer_id || '',
+        total_amount: rawPayload.total_amount || 0,
+        stripe_payment_intent_id: rawPayload.stripe_payment_intent_id || '',
+        booking_contact_email: rawPayload.booking_contact_email,
+        booking_contact_first_name: rawPayload.booking_contact_first_name,
+        booking_contact_last_name: rawPayload.booking_contact_last_name,
+        created_at: rawPayload.created_at || new Date().toISOString(),
+        updated_at: rawPayload.updated_at || new Date().toISOString()
+      },
+      old_record: rawPayload.old_status ? {
+        id: rawPayload.registration_id,
+        registration_id: rawPayload.registration_id,
+        status: rawPayload.old_status,
+        payment_status: rawPayload.old_payment_status,
+        confirmation_number: null,
+        registration_type: rawPayload.registration_type,
+        function_id: rawPayload.function_id,
+        customer_id: rawPayload.customer_id || '',
+        total_amount: rawPayload.total_amount || 0,
+        stripe_payment_intent_id: rawPayload.stripe_payment_intent_id || '',
+        booking_contact_email: rawPayload.booking_contact_email,
+        booking_contact_first_name: rawPayload.booking_contact_first_name,
+        booking_contact_last_name: rawPayload.booking_contact_last_name,
+        created_at: rawPayload.created_at || new Date().toISOString(),
+        updated_at: rawPayload.updated_at || new Date().toISOString()
+      } : undefined
+    }
+  }
+  
+  // Fallback: throw error for unrecognized format
+  throw new Error(`Unrecognized webhook payload format: ${JSON.stringify(rawPayload)}`)
 }

@@ -9,13 +9,8 @@ export async function POST(request: Request) {
     const data = await request.json();
     console.log("Received lodge registration data:", JSON.stringify(data, null, 2));
     
-    // Store the raw payload data for tracking
-    const rawPayloadData = {
-      endpoint: '/api/registrations/lodge',
-      method: 'POST',
-      timestamp: new Date().toISOString(),
-      payload: data
-    };
+    // Create a client to log raw payload
+    const supabaseForLogging = await createClient();
     
     // Extract the auth token from headers
     const authHeader = request.headers.get('authorization');
@@ -133,22 +128,24 @@ export async function POST(request: Request) {
       );
     }
     
-    // Save raw payload to raw_payloads table
-    console.log("Saving raw payload to tracking table");
-    const { error: payloadError } = await supabase
-      .from('raw_payloads')
-      .insert([
-        { 
-          raw_data: rawPayloadData,
+    // Log the raw payload to raw_registrations table for debugging (consistent with other registration types)
+    try {
+      const { error: rawError } = await supabaseForLogging
+        .from('raw_registrations')
+        .insert({
+          raw_data: data,
+          registration_id: data.registrationId || null, // Include registration_id if provided
+          registration_type: 'lodge',
           created_at: new Date().toISOString()
-        }
-      ]);
-    
-    if (payloadError) {
-      console.error('Error inserting raw payload data:', payloadError);
-      // Don't fail the request, just log the error
-    } else {
-      console.log('Raw payload data saved successfully');
+        });
+      
+      if (rawError) {
+        console.error('Error logging raw payload:', rawError);
+      } else {
+        console.log('Raw payload logged to raw_registrations table with registration_id:', data.registrationId);
+      }
+    } catch (logError) {
+      console.error('Failed to log raw payload:', logError);
     }
     
     // Prepare booking contact data
@@ -190,25 +187,6 @@ export async function POST(request: Request) {
     };
     
     console.log("Calling upsert_lodge_registration RPC with data:", rpcPayload);
-    
-    // Save RPC payload to raw_payloads table
-    const { error: rpcPayloadError } = await supabase
-      .from('raw_payloads')
-      .insert([
-        { 
-          raw_data: {
-            endpoint: '/api/registrations/lodge',
-            method: 'RPC:upsert_lodge_registration',
-            timestamp: new Date().toISOString(),
-            payload: rpcPayload
-          },
-          created_at: new Date().toISOString()
-        }
-      ]);
-    
-    if (rpcPayloadError) {
-      console.error('Error inserting RPC payload data:', rpcPayloadError);
-    }
     
     // Call the RPC function
     const { data: rpcResult, error: rpcError } = await supabase
@@ -265,13 +243,7 @@ export async function PUT(request: Request) {
     const data = await request.json();
     const { registrationId, paymentIntentId, totalAmountPaid } = data;
     
-    // Store the raw payload data for tracking
-    const rawPayloadData = {
-      endpoint: '/api/registrations/lodge',
-      method: 'PUT',
-      timestamp: new Date().toISOString(),
-      payload: data
-    };
+    // Note: Raw data logging for PUT requests (payment updates) is optional since initial registration is already logged
     
     if (!registrationId) {
       console.error("Missing registration ID");
@@ -294,23 +266,6 @@ export async function PUT(request: Request) {
     }
     
     const supabase = await createClient();
-    
-    // Save raw payload to raw_payloads table
-    console.log("Saving raw payload to tracking table");
-    const { error: payloadError } = await supabase
-      .from('raw_payloads')
-      .insert([
-        { 
-          raw_data: rawPayloadData,
-          created_at: new Date().toISOString()
-        }
-      ]);
-    
-    if (payloadError) {
-      console.error('Error inserting raw payload data:', payloadError);
-    } else {
-      console.log('Raw payload data saved successfully');
-    }
     
     // Fetch existing registration
     const { data: existingRegistration, error: fetchError } = await supabase
@@ -345,25 +300,6 @@ export async function PUT(request: Request) {
       p_stripe_fee: existingRegistration.stripe_fee,
       p_metadata: null
     };
-    
-    // Save RPC payload to raw_payloads table
-    const { error: rpcPayloadError } = await supabase
-      .from('raw_payloads')
-      .insert([
-        { 
-          raw_data: {
-            endpoint: '/api/registrations/lodge',
-            method: 'RPC:upsert_lodge_registration_update',
-            timestamp: new Date().toISOString(),
-            payload: rpcUpdatePayload
-          },
-          created_at: new Date().toISOString()
-        }
-      ]);
-    
-    if (rpcPayloadError) {
-      console.error('Error inserting RPC update payload data:', rpcPayloadError);
-    }
     
     // Call RPC to update payment status
     const { data: rpcResult, error: rpcError } = await supabase

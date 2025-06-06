@@ -1,0 +1,13 @@
+-- Hotfix: Add operation column to webhook_logs if it doesn't exist
+-- This fixes the error: column "operation" of relation "webhook_logs" does not exist
+
+ALTER TABLE webhook_logs 
+ADD COLUMN IF NOT EXISTS operation text;
+
+-- Update existing rows to have a default operation value
+UPDATE webhook_logs 
+SET operation = 'UPDATE'
+WHERE operation IS NULL;
+
+-- Comment documenting the column
+COMMENT ON COLUMN webhook_logs.operation IS 'The database operation that triggered the webhook (INSERT, UPDATE, DELETE)';

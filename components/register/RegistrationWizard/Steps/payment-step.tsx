@@ -504,25 +504,72 @@ function PaymentStep(props: PaymentStepProps) {
             ticketPackages
           );
           
-          // Transform attendees data for the new API
+          // Transform attendees data for the new API - PRESERVE ALL FIELDS for raw_registrations
           const transformedAttendees = [primaryAttendee, ...otherAttendees].map(attendee => ({
+            // Core Identity Fields
             attendeeId: attendee.attendeeId,
-            attendeeType: attendee.attendeeType,
-            title: attendee.title,
+            id: attendee.id,
             firstName: attendee.firstName,
             lastName: attendee.lastName,
+            attendeeType: attendee.attendeeType,
+            type: attendee.type,
+            title: attendee.title,
+            masonicTitle: attendee.masonicTitle,
             suffix: attendee.suffix,
-            email: attendee.primaryEmail,
-            phone: attendee.primaryPhone,
+            
+            // Contact Information
+            mobile: attendee.mobile,
+            email: attendee.email,
+            primaryPhone: attendee.primaryPhone,
+            primaryEmail: attendee.primaryEmail,
+            contactPreference: attendee.contactPreference,
+            contactConfirmed: attendee.contactConfirmed,
+            
+            // Personal Details
             dietaryRequirements: attendee.dietaryRequirements,
             specialNeeds: attendee.specialNeeds,
-            contactPreference: attendee.contactPreference,
-            isPrimary: attendee.isPrimary,
+            
+            // Relationship Fields
             hasPartner: attendee.hasPartner,
+            partner: attendee.partner,
+            isPartner: attendee.isPartner,
+            guestOfId: attendee.guestOfId,
+            isPrimary: attendee.isPrimary,
             relationship: attendee.relationship,
+            partnerOf: attendee.partnerOf,
+            parentId: attendee.parentId,
+            
+            // Mason-specific Fields
             grand_lodge_id: attendee.grand_lodge_id,
+            grandLodgeOrganisationId: attendee.grandLodgeOrganisationId,
             lodge_id: attendee.lodge_id,
+            lodgeOrganisationId: attendee.lodgeOrganisationId,
+            lodgeNameNumber: attendee.lodgeNameNumber,
             rank: attendee.rank,
+            postNominals: attendee.postNominals,
+            grandOfficerStatus: attendee.grandOfficerStatus,
+            presentGrandOfficerRole: attendee.presentGrandOfficerRole,
+            otherGrandOfficerRole: attendee.otherGrandOfficerRole,
+            grandOfficerDetails: attendee.grandOfficerDetails,
+            useSameLodge: attendee.useSameLodge,
+            
+            // Administrative Fields
+            orderId: attendee.orderId,
+            eventId: attendee.eventId,
+            firstTime: attendee.firstTime,
+            tableAssignment: attendee.tableAssignment,
+            notes: attendee.notes,
+            paymentStatus: attendee.paymentStatus,
+            isCheckedIn: attendee.isCheckedIn,
+            
+            // Derived/Backend Fields
+            grandLodgeName: attendee.grandLodgeName,
+            lodgeName: attendee.lodgeName,
+            createdAt: attendee.createdAt,
+            updatedAt: attendee.updatedAt,
+            
+            // Backward compatibility - keep old field names for API compatibility
+            phone: attendee.primaryPhone,
             isGrandOfficer: attendee.grandOfficerStatus === 'Present' || attendee.grandOfficerStatus === 'Past',
             grandOfficerRole: attendee.presentGrandOfficerRole || attendee.otherGrandOfficerRole
           }));
