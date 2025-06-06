@@ -16,6 +16,52 @@ export class PaymentCompletionService {
   private pollingInterval = 1000; // 1 second
 
   /**
+   * Invoke the edge function to generate confirmation number
+   */
+  private async invokeConfirmationEdgeFunction(
+    registrationId: string,
+    registrationType: string,
+    status: string,
+    paymentStatus: string
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      console.log('🚀 Invoking generate-confirmation edge function...');
+      const supabase = createClient();
+      
+      // Invoke the edge function with the proper payload format
+      const { data, error } = await supabase.functions.invoke('generate-confirmation', {
+        body: {
+          type: 'UPDATE',
+          table: 'registrations',
+          schema: 'public',
+          record: {
+            id: registrationId,
+            registration_id: registrationId,
+            registration_type: registrationType,
+            status: status,
+            payment_status: paymentStatus
+          },
+          old_record: {
+            status: 'pending',
+            payment_status: 'pending'
+          }
+        }
+      });
+
+      if (error) {
+        console.error('❌ Edge function error:', error);
+        return { success: false, error: error.message };
+      }
+
+      console.log('✅ Edge function response:', data);
+      return { success: true };
+    } catch (error) {
+      console.error('❌ Failed to invoke edge function:', error);
+      return { success: false, error: 'Failed to invoke confirmation generation' };
+    }
+  }
+
+  /**
    * Wait for confirmation number after successful payment
    */
   async waitForConfirmationNumber(
@@ -24,6 +70,36 @@ export class PaymentCompletionService {
     console.log('⏳ Waiting for confirmation number generation...');
     
     const supabase = createClient();
+    
+    // First, get the registration details to invoke the edge function
+    const { data: registration, error: fetchError } = await supabase
+      .from('registrations')
+      .select('registration_type, status, payment_status')
+      .eq('registration_id', registrationId)
+      .single();
+
+    if (fetchError || !registration) {
+      console.error('Error fetching registration:', fetchError);
+      return {
+        success: false,
+        error: `Failed to fetch registration: ${fetchError?.message || 'Not found'}`
+      };
+    }
+
+    // Invoke the edge function if payment is completed
+    if (registration.status === 'completed' && registration.payment_status === 'completed') {
+      const edgeResult = await this.invokeConfirmationEdgeFunction(
+        registrationId,
+        registration.registration_type,
+        registration.status,
+        registration.payment_status
+      );
+
+      if (!edgeResult.success) {
+        console.error('Edge function invocation failed:', edgeResult.error);
+        // Continue with polling anyway as the webhook might still trigger
+      }
+    }
     let attempts = 0;
 
     while (attempts < this.maxAttempts) {

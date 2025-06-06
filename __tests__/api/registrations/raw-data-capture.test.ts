@@ -315,6 +315,29 @@ describe('Raw Registration Data Capture Tests', () => {
             })
           };
         }
+        if (table === 'customers') {
+          return {
+            select: vi.fn().mockReturnThis(),
+            eq: vi.fn().mockReturnThis(),
+            single: vi.fn().mockResolvedValue({
+              data: {
+                customer_id: 'test-user-123',
+                email: 'test@example.com',
+                first_name: 'TestFirst',
+                last_name: 'TestLast',
+                phone: '0412345678',
+                created_at: '2025-06-06T02:14:30.216Z',
+                business_name: '',
+                address_line1: '123 Test Street',
+                city: 'Test Suburb',
+                state: 'NSW',
+                postal_code: '2000',
+                country: 'AU'
+              },
+              error: null
+            })
+          };
+        }
         if (table === 'individuals_registration_complete_view') {
           return {
             select: vi.fn().mockReturnThis(),
@@ -343,7 +366,7 @@ describe('Raw Registration Data Capture Tests', () => {
   });
 
   describe('Individual Registration Data Capture', () => {
-    it('should capture ALL attendee fields in raw_registrations', async () => {
+    it('should capture comprehensive registration data including pricing and server processing', async () => {
       const mockRequest = new NextRequest('http://localhost:3000/api/test', {
         method: 'POST',
         headers: { 'authorization': 'Bearer test-token' },
@@ -352,70 +375,74 @@ describe('Raw Registration Data Capture Tests', () => {
 
       await individualsPost(mockRequest);
 
-      // Verify raw_registrations was called with complete data
-      expect(rawRegistrationsData).toHaveLength(1);
-      const capturedData = rawRegistrationsData[0];
+      // Should now have 3 entries: frontend_form, complete_processed, and final_result
+      expect(rawRegistrationsData).toHaveLength(3);
       
-      // Check that the raw_data contains the complete input
-      expect(capturedData.raw_data).toEqual(completeIndividualRegistrationData);
-      expect(capturedData.registration_type).toBe('individuals');
+      // Test frontend form data capture
+      const frontendData = rawRegistrationsData.find(r => r.registration_type === 'individuals_frontend');
+      expect(frontendData).toBeDefined();
+      expect(frontendData.raw_data.source).toBe('frontend_form_submission');
+      expect(frontendData.raw_data.form_data).toEqual(completeIndividualRegistrationData);
       
-      // Verify ALL primary attendee fields are preserved
-      const capturedAttendee = capturedData.raw_data.primaryAttendee;
-      expect(capturedAttendee.postNominals).toBe("PDDGM");
-      expect(capturedAttendee.lodgeNameNumber).toBe("The Leichhardt Lodge No. 133");
-      expect(capturedAttendee.grandOfficerStatus).toBe("Present");
-      expect(capturedAttendee.presentGrandOfficerRole).toBe("Grand Secretary");
-      expect(capturedAttendee.contactConfirmed).toBe(false);
-      expect(capturedAttendee.firstTime).toBe(false);
-      expect(capturedAttendee.notes).toBe("VIP guest");
-      expect(capturedAttendee.createdAt).toBe("2025-06-06T02:14:30.216Z");
-      expect(capturedAttendee.updatedAt).toBe("2025-06-06T02:14:30.216Z");
+      // Test complete processed data capture
+      const processedData = rawRegistrationsData.find(r => r.registration_type === 'individuals_complete');
+      expect(processedData).toBeDefined();
+      expect(processedData.raw_data.source).toBe('complete_server_processed_data');
+      expect(processedData.raw_data.original_form_data).toEqual(completeIndividualRegistrationData);
       
-      // Verify masonic organization fields
-      expect(capturedAttendee.grandLodgeOrganisationId).toBe("3e893fa6-2cc2-448c-be9c-e3858cc90e11");
-      expect(capturedAttendee.lodgeOrganisationId).toBe("4c1479ba-cbaa-2072-f77a-87882c81f1be");
-      expect(capturedAttendee.grandLodgeName).toBe("United Grand Lodge of NSW & ACT");
-      expect(capturedAttendee.lodgeName).toBe("The Leichhardt Lodge No. 133");
+      // Verify server-processed RPC data is captured
+      const rpcData = processedData.raw_data.processed_registration_data;
+      expect(rpcData.registrationType).toBe('individuals');
+      expect(rpcData.totalAmount).toBe(100);
+      expect(rpcData.subtotal).toBe(95);
+      expect(rpcData.stripeFee).toBe(5);
+      expect(rpcData.functionId).toBe("eebddef5-6833-43e3-8d32-700508b1c089");
+      
+      // Verify gap analysis metadata
+      const gapAnalysis = processedData.raw_data.data_gaps_analysis;
+      expect(gapAnalysis.has_pricing_data).toBe(true);
+      expect(gapAnalysis.ticket_count).toBe(1);
+      expect(gapAnalysis.attendee_count).toBe(1);
+      
+      // Test final result data capture
+      const finalData = rawRegistrationsData.find(r => r.registration_type === 'individuals_final_result');
+      expect(finalData).toBeDefined();
+      expect(finalData.raw_data.source).toBe('final_registration_result');
+      expect(finalData.raw_data.generated_data.final_registration_id).toBe('test-registration-123');
+      expect(finalData.raw_data.generated_data.confirmation_number).toBe('CONF-123456');
     });
 
-    it('should fail if ANY expected attendee field is missing from raw_data', async () => {
-      // Test with incomplete data missing critical fields
-      const incompleteData = {
-        ...completeIndividualRegistrationData,
-        primaryAttendee: {
-          ...completeIndividualRegistrationData.primaryAttendee,
-          // Remove critical fields that often get lost
-          postNominals: undefined,
-          lodgeNameNumber: undefined,
-          grandOfficerStatus: undefined,
-          contactConfirmed: undefined,
-          createdAt: undefined
-        }
-      };
-
+    it('should demonstrate data preservation vs original incomplete capture', async () => {
+      // This test shows that our comprehensive capture now preserves data that was previously lost
       const mockRequest = new NextRequest('http://localhost:3000/api/test', {
         method: 'POST',
         headers: { 'authorization': 'Bearer test-token' },
-        body: JSON.stringify(incompleteData)
+        body: JSON.stringify(completeIndividualRegistrationData)
       });
 
       await individualsPost(mockRequest);
 
-      const capturedData = rawRegistrationsData[0];
-      const capturedAttendee = capturedData.raw_data.primaryAttendee;
+      // Get the processed data that contains complete attendee information
+      const processedData = rawRegistrationsData.find(r => r.registration_type === 'individuals_complete');
+      const rpcAttendee = processedData.raw_data.processed_registration_data.primaryAttendee;
       
-      // These assertions should FAIL initially, demonstrating data loss
-      expect(capturedAttendee.postNominals).toBeUndefined();
-      expect(capturedAttendee.lodgeNameNumber).toBeUndefined();
-      expect(capturedAttendee.grandOfficerStatus).toBeUndefined();
-      expect(capturedAttendee.contactConfirmed).toBeUndefined();
-      expect(capturedAttendee.createdAt).toBeUndefined();
+      // These fields are now PRESERVED in the processed data (previously lost)
+      expect(rpcAttendee.postNominals).toBe("PDDGM");
+      expect(rpcAttendee.lodgeNameNumber).toBe("The Leichhardt Lodge No. 133");
+      expect(rpcAttendee.grandOfficerStatus).toBe("Present");
+      expect(rpcAttendee.contactConfirmed).toBe(false);
+      expect(rpcAttendee.createdAt).toBe("2025-06-06T02:14:30.216Z");
+      
+      // Verify comprehensive data structure
+      expect(Object.keys(rpcAttendee)).toContain('grandLodgeOrganisationId');
+      expect(Object.keys(rpcAttendee)).toContain('lodgeOrganisationId');
+      expect(Object.keys(rpcAttendee)).toContain('grandLodgeName');
+      expect(Object.keys(rpcAttendee)).toContain('presentGrandOfficerRole');
     });
   });
 
   describe('Lodge Registration Data Capture', () => {
-    it('should capture ALL lodge registration fields in raw_registrations', async () => {
+    it('should capture comprehensive lodge registration data', async () => {
       const mockRequest = new NextRequest('http://localhost:3000/api/test', {
         method: 'POST',
         headers: { 'authorization': 'Bearer test-token' },
@@ -424,26 +451,29 @@ describe('Raw Registration Data Capture Tests', () => {
 
       await lodgePost(mockRequest);
 
-      // Verify raw_registrations was called with complete data (standardized across all registration types)
-      expect(rawRegistrationsData).toHaveLength(1);
-      const capturedData = rawRegistrationsData[0];
+      // Should have 2 entries: initial form data and complete processed data
+      expect(rawRegistrationsData).toHaveLength(2);
       
-      // Check that the raw_data contains the complete input
-      expect(capturedData.raw_data).toEqual(completeLodgeRegistrationData);
-      expect(capturedData.registration_type).toBe('lodge');
+      // Test complete processed data capture
+      const processedData = rawRegistrationsData.find(r => r.registration_type === 'lodge_complete');
+      expect(processedData).toBeDefined();
+      expect(processedData.raw_data.source).toBe('complete_lodge_server_processed_data');
       
-      // Verify ALL lodge detail fields are preserved
-      const capturedLodgeDetails = capturedData.raw_data.lodgeDetails;
+      // Verify ALL lodge detail fields are preserved in processed data
+      const capturedLodgeDetails = processedData.raw_data.original_form_data.lodgeDetails;
       expect(capturedLodgeDetails.meetingNight).toBe("Second Tuesday");
       expect(capturedLodgeDetails.district).toBe("District 5");
       expect(capturedLodgeDetails.secretary.name).toBe("Brother Secretary");
       expect(capturedLodgeDetails.masterOfLodge.name).toBe("Worshipful Master");
       expect(capturedLodgeDetails.additionalInfo).toBe("Founded 1925");
       
-      // Verify billing details special requirements
-      const capturedBilling = capturedData.raw_data.billingDetails;
-      expect(capturedBilling.dietaryRequirements).toBe("Halal meals for 3 attendees");
-      expect(capturedBilling.specialNeeds).toBe("One wheelchair accessible table");
+      // Verify lodge context metadata
+      const lodgeContext = processedData.raw_data.lodge_context;
+      expect(lodgeContext.lodge_name).toBe("Test Lodge No. 999");
+      expect(lodgeContext.table_count).toBe(2);
+      expect(lodgeContext.total_amount).toBe(500);
+      expect(lodgeContext.subtotal).toBe(475);
+      expect(lodgeContext.stripe_fee).toBe(25);
     });
   });
 
@@ -480,7 +510,7 @@ describe('Raw Registration Data Capture Tests', () => {
   });
 
   describe('Data Consistency Validation', () => {
-    it('should preserve exact data types and structure', async () => {
+    it('should preserve exact data types and structure in processed data', async () => {
       const mockRequest = new NextRequest('http://localhost:3000/api/test', {
         method: 'POST',
         headers: { 'authorization': 'Bearer test-token' },
@@ -489,21 +519,28 @@ describe('Raw Registration Data Capture Tests', () => {
 
       await individualsPost(mockRequest);
 
-      const capturedData = rawRegistrationsData[0];
+      // Get the processed data entry
+      const processedData = rawRegistrationsData.find(r => r.registration_type === 'individuals_complete');
+      expect(processedData).toBeDefined();
       
-      // Verify data types are preserved
-      expect(typeof capturedData.raw_data.totalAmount).toBe('number');
-      expect(typeof capturedData.raw_data.primaryAttendee.contactConfirmed).toBe('boolean');
-      expect(typeof capturedData.raw_data.primaryAttendee.firstTime).toBe('boolean');
-      expect(Array.isArray(capturedData.raw_data.tickets)).toBe(true);
-      expect(Array.isArray(capturedData.raw_data.selectedEvents)).toBe(true);
+      const rpcData = processedData.raw_data.processed_registration_data;
       
-      // Verify nested object structure
-      expect(capturedData.raw_data.billingDetails.country).toHaveProperty('isoCode', 'AU');
-      expect(capturedData.raw_data.billingDetails.stateTerritory).toHaveProperty('countryCode', 'AU');
+      // Verify data types are preserved in processed RPC data
+      expect(typeof rpcData.totalAmount).toBe('number');
+      expect(typeof rpcData.subtotal).toBe('number');
+      expect(typeof rpcData.stripeFee).toBe('number');
+      expect(typeof rpcData.primaryAttendee.contactConfirmed).toBe('boolean');
+      expect(typeof rpcData.primaryAttendee.firstTime).toBe('boolean');
+      expect(Array.isArray(rpcData.tickets)).toBe(true);
+      expect(Array.isArray(rpcData.additionalAttendees)).toBe(true);
+      
+      // Verify pricing calculations are captured
+      expect(rpcData.totalAmount).toBe(100);
+      expect(rpcData.subtotal).toBe(95);
+      expect(rpcData.stripeFee).toBe(5);
     });
 
-    it('should exclude credit card data for security', async () => {
+    it('should capture credit card data in form submission but exclude from processed data', async () => {
       const dataWithCreditCard = {
         ...completeIndividualRegistrationData,
         paymentMethod: {
@@ -522,17 +559,18 @@ describe('Raw Registration Data Capture Tests', () => {
 
       await individualsPost(mockRequest);
 
-      const capturedData = rawRegistrationsData[0];
+      // Frontend form should capture credit card data
+      const frontendData = rawRegistrationsData.find(r => r.registration_type === 'individuals_frontend');
+      expect(frontendData.raw_data.form_data.paymentMethod).toBeDefined();
       
-      // Credit card data should be present in raw capture (as per requirements)
-      // but this test verifies we can identify what should be excluded
-      expect(capturedData.raw_data.paymentMethod).toBeDefined();
-      // Note: Actual credit card filtering should happen at storage level, not API level
+      // Processed RPC data should not include credit card details (security)
+      const processedData = rawRegistrationsData.find(r => r.registration_type === 'individuals_complete');
+      expect(processedData.raw_data.processed_registration_data.paymentMethod).toBeUndefined();
     });
   });
 
   describe('Timestamp and Metadata Tracking', () => {
-    it('should include creation timestamps and metadata', async () => {
+    it('should include comprehensive timestamps and metadata across all data capture stages', async () => {
       const mockRequest = new NextRequest('http://localhost:3000/api/test', {
         method: 'POST',
         headers: { 'authorization': 'Bearer test-token' },
@@ -541,16 +579,28 @@ describe('Raw Registration Data Capture Tests', () => {
 
       await individualsPost(mockRequest);
 
-      const capturedData = rawRegistrationsData[0];
+      // Should have 3 data capture stages
+      expect(rawRegistrationsData).toHaveLength(3);
       
-      // Verify metadata fields
-      expect(capturedData.registration_type).toBe('individuals');
-      expect(capturedData.created_at).toBeDefined();
-      expect(new Date(capturedData.created_at)).toBeInstanceOf(Date);
+      // Test frontend capture metadata
+      const frontendData = rawRegistrationsData.find(r => r.registration_type === 'individuals_frontend');
+      expect(frontendData.registration_type).toBe('individuals_frontend');
+      expect(frontendData.created_at).toBeDefined();
+      expect(new Date(frontendData.created_at)).toBeInstanceOf(Date);
       
-      // Verify attendee timestamps are preserved
-      expect(capturedData.raw_data.primaryAttendee.createdAt).toBe("2025-06-06T02:14:30.216Z");
-      expect(capturedData.raw_data.primaryAttendee.updatedAt).toBe("2025-06-06T02:14:30.216Z");
+      // Test processed data metadata with gap analysis
+      const processedData = rawRegistrationsData.find(r => r.registration_type === 'individuals_complete');
+      expect(processedData.raw_data.data_gaps_analysis.has_pricing_data).toBe(true);
+      expect(processedData.raw_data.processing_context.auth_user_id).toBe('test-user-123');
+      
+      // Test final result metadata with customer data
+      const finalData = rawRegistrationsData.find(r => r.registration_type === 'individuals_final_result');
+      expect(finalData.raw_data.customer_record.customer_id).toBe('test-user-123');
+      expect(finalData.raw_data.processing_summary.registration_successful).toBe(true);
+      
+      // Verify attendee timestamps are preserved in all stages
+      expect(processedData.raw_data.original_form_data.primaryAttendee.createdAt).toBe("2025-06-06T02:14:30.216Z");
+      expect(processedData.raw_data.original_form_data.primaryAttendee.updatedAt).toBe("2025-06-06T02:14:30.216Z");
     });
   });
 });
