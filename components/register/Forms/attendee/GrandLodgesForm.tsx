@@ -45,7 +45,7 @@ interface TableOrder {
   totalPrice: number;
 }
 
-export const LodgesForm: React.FC<LodgesFormProps> = ({
+export const GrandLodgesForm: React.FC<LodgesFormProps> = ({
   functionId,
   minTables = 1,
   maxTables = 10,
@@ -556,7 +556,7 @@ export const LodgesForm: React.FC<LodgesFormProps> = ({
 };
 
 // Summary view for lodge table orders
-export const LodgeFormSummary: React.FC = () => {
+export const GrandLodgeFormSummary: React.FC = () => {
   const { attendees, lodgeTicketOrder } = useRegistrationStore();
   
   const primaryAttendee = attendees.find(a => a.isPrimary);
