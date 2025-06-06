@@ -278,7 +278,7 @@ const validateAttendeeData = (attendees: ReturnType<typeof selectAttendees>): st
   return errors;
 };
 
-export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ functionSlug, functionId: providedFunctionId, registrationId, isNewRegistration, initialStep }) => {
+export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ functionSlug, functionId: providedFunctionId, registrationId, isNewRegistration, initialStep, confirmationNumber: propsConfirmationNumber, confirmationData }) => {
   const currentStep = useRegistrationStore(selectCurrentStep)
   const registrationType = useRegistrationStore(selectRegistrationType)
   const confirmationNumber = useRegistrationStore(selectConfirmationNumber)
@@ -922,8 +922,8 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ function
         return (
           <Suspense fallback={<StepLoadingFallback />}>
             <ConfirmationStep 
-              confirmationNumber={props.confirmationNumber}
-              confirmationData={props.confirmationData}
+              confirmationNumber={propsConfirmationNumber || confirmationNumber}
+              confirmationData={confirmationData}
             />
           </Suspense>
         )
