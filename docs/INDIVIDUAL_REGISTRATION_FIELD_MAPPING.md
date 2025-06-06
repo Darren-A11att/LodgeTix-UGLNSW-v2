@@ -1,110 +1,231 @@
-# Individual Registration Field Mapping
+# Individual Registration Field Mapping Analysis
 
-## Registration Data Fields
+## Overview
+This document provides a comprehensive field mapping for the individual registration flow, tracking data from the frontend forms through the API to the database.
 
-| Frontend Field | API Sends | RPC Expects | Database Column | Table | Notes |
-|----------------|-----------|-------------|-----------------|-------|-------|
-| **Registration Level** |
-| registrationId | registrationId | p_registration_data->>'registrationId' | registration_id | registrations | UUID |
-| customerId | customerId | p_registration_data->>'authUserId' | customer_id, auth_user_id | registrations | From auth.uid() |
-| functionId | functionId | p_registration_data->>'functionId' | function_id | registrations | UUID |
-| eventId | eventId | p_registration_data->>'eventId' | event_id | registrations | UUID |
-| totalAmount | totalAmount | p_registration_data->>'totalAmount' | total_amount | registrations | Decimal |
-| subtotal | subtotal | p_registration_data->>'subtotal' | subtotal | registrations | Decimal |
-| stripeFee | stripeFee | p_registration_data->>'stripeFee' | stripe_fee | registrations | Decimal |
-| paymentIntentId | paymentIntentId | p_registration_data->>'paymentIntentId' | stripe_payment_intent_id | registrations | String |
-| agreeToTerms | agreeToTerms | p_registration_data->>'agreeToTerms' | registration_data->'agreeToTerms' | registrations | Boolean in JSONB |
-| billToPrimaryAttendee | billToPrimaryAttendee | p_registration_data->>'billToPrimaryAttendee' | registration_data->'billToPrimaryAttendee' | registrations | Boolean in JSONB |
-| - | - | - | registration_type | registrations | Always 'individuals' |
-| - | - | - | payment_status | registrations | Enum: pending/completed/failed |
-| - | - | - | confirmation_number | registrations | Generated |
-| - | - | - | booking_contact_id | registrations | Generated UUID |
+## Key Issues Identified
 
-## Billing Details Fields
+### 1. Raw Registrations Table ID Mismatch
+- **Frontend/API expects**: `id` column
+- **Database has**: `raw_id` column
+- **Impact**: Raw registration logging fails
 
-| Frontend Field | API Sends | RPC Expects | Database Column | Table | Notes |
-|----------------|-----------|-------------|-----------------|-------|-------|
-| billingDetails.firstName | billingDetails.firstName | p_registration_data->'billingDetails'->>'firstName' | first_name | customers, contacts | |
-| billingDetails.lastName | billingDetails.lastName | p_registration_data->'billingDetails'->>'lastName' | last_name | customers, contacts | |
-| billingDetails.emailAddress | billingDetails.emailAddress | p_registration_data->'billingDetails'->>'emailAddress' | email | customers, contacts | |
-| billingDetails.mobileNumber | billingDetails.mobileNumber | p_registration_data->'billingDetails'->>'mobileNumber' | phone (customers), mobile_number (contacts) | customers, contacts | Field name mismatch |
-| billingDetails.billingAddress.addressLine1 | billingDetails.billingAddress.addressLine1 | p_registration_data->'billingDetails'->'billingAddress'->>'addressLine1' | billing_street_address | contacts | |
-| billingDetails.billingAddress.city | billingDetails.billingAddress.city | p_registration_data->'billingDetails'->'billingAddress'->>'city' | billing_city | contacts | |
-| billingDetails.billingAddress.state | billingDetails.billingAddress.state | p_registration_data->'billingDetails'->'billingAddress'->>'state' | billing_state | contacts | |
-| billingDetails.billingAddress.postcode | billingDetails.billingAddress.postcode | p_registration_data->'billingDetails'->'billingAddress'->>'postcode' | billing_postal_code | contacts | |
-| billingDetails.billingAddress.country | billingDetails.billingAddress.country | p_registration_data->'billingDetails'->'billingAddress'->>'country' | billing_country | contacts | |
+### 2. Email Field Inconsistencies
+- **Frontend sends**: `email` and `mobileNumber`
+- **API/RPC expects**: `primaryEmail` and `primaryPhone`
+- **Database attendees table has**: Both `email`/`phone` AND `primary_email`/`primary_phone` columns
 
-## Primary Attendee Fields
+### 3. Contact Preference Enum Mismatch
+- **Frontend sends**: `"directly"`, `"primaryattendee"`, `"providelater"`
+- **Database enum**: Expects capitalized `"Directly"`, `"PrimaryAttendee"`, `"ProvideLater"`
 
-| Frontend Field | API Sends | RPC Expects | Database Column | Table | Notes |
-|----------------|-----------|-------------|-----------------|-------|-------|
-| primaryAttendee.attendeeId | primaryAttendee.attendeeId | - | attendee_id | attendees | Generated in RPC |
-| primaryAttendee.attendeeType | primaryAttendee.attendeeType | p_registration_data->'primaryAttendee'->>'attendeeType' | attendee_type | attendees | Enum: 'mason'/'guest', needs lowercase |
-| primaryAttendee.firstName | primaryAttendee.firstName | p_registration_data->'primaryAttendee'->>'firstName' | first_name | attendees | |
-| primaryAttendee.lastName | primaryAttendee.lastName | p_registration_data->'primaryAttendee'->>'lastName' | last_name | attendees | |
-| primaryAttendee.title | primaryAttendee.title | p_registration_data->'primaryAttendee'->>'title' | title | attendees | |
-| primaryAttendee.suffix1 | primaryAttendee.suffix1 | p_registration_data->'primaryAttendee'->>'suffix1' | suffix_1 | attendees | |
-| primaryAttendee.suffix2 | primaryAttendee.suffix2 | p_registration_data->'primaryAttendee'->>'suffix2' | suffix_2 | attendees | |
-| primaryAttendee.suffix3 | primaryAttendee.suffix3 | p_registration_data->'primaryAttendee'->>'suffix3' | suffix_3 | attendees | |
-| primaryAttendee.dietaryRequirements | primaryAttendee.dietaryRequirements | p_registration_data->'primaryAttendee'->>'dietaryRequirements' | dietary_requirements | attendees | |
-| primaryAttendee.specialNeeds | primaryAttendee.specialNeeds | p_registration_data->'primaryAttendee'->>'specialNeeds' | special_needs | attendees | |
-| primaryAttendee.contactPreference | primaryAttendee.contactPreference | p_registration_data->'primaryAttendee'->>'contactPreference' | contact_preference | attendees | Enum: needs lowercase |
-| primaryAttendee.email OR primaryAttendee.primaryEmail | Varies | Multiple fallbacks | primary_email | attendees | |
-| primaryAttendee.mobileNumber OR primaryAttendee.phone OR primaryAttendee.primaryPhone | Varies | Multiple fallbacks | primary_phone | attendees | |
-| - | primaryAttendee (full object) | p_registration_data->'primaryAttendee' | attendee_data | attendees | JSONB |
-| - | - | - | is_primary | attendees | Always true for primary |
-| - | - | - | registration_id | attendees | From v_registration_id |
-| - | - | - | related_attendee_id | attendees | NULL for primary |
+## Data Flow Mapping
 
-## Additional Attendees Fields
+### 1. Frontend Form Structure
 
-| Frontend Field | API Sends | RPC Expects | Database Column | Table | Notes |
-|----------------|-----------|-------------|-----------------|-------|-------|
-| additionalAttendees[].attendeeType | Same as primary | Same as primary | attendee_type | attendees | Enum: needs lowercase |
-| additionalAttendees[].partnerOf | partnerOf | p_registration_data->'additionalAttendees'->>'partnerOf' | related_attendee_id | attendees | UUID reference |
-| additionalAttendees[].guestOfId | guestOfId | p_registration_data->'additionalAttendees'->>'guestOfId' | related_attendee_id | attendees | UUID reference |
-| (All other fields same as primary attendee) |
+#### Primary Attendee (IndividualsForm.tsx)
+```typescript
+{
+  attendeeId: string,
+  attendeeType: 'mason' | 'guest',
+  title: string,
+  firstName: string,
+  lastName: string,
+  suffix?: string,
+  contactPreference: 'directly' | 'primaryattendee' | 'providelater',
+  primaryPhone: string,    // Note: Frontend uses 'primaryPhone'
+  primaryEmail: string,    // Note: Frontend uses 'primaryEmail'
+  dietaryRequirements: string,
+  specialNeeds: string,
+  // Mason-specific fields
+  masonicTitle?: string,
+  rank?: string,
+  grandOfficerStatus?: 'Present' | 'Past',
+  presentGrandOfficerRole?: string,
+  grand_lodge_id?: string,
+  lodge_id?: string,
+  lodgeNameNumber?: string,
+  // Partner fields
+  hasPartner?: boolean,
+  partner?: string,
+  isPartner?: string | null,
+  relationship?: string
+}
+```
 
-## Tickets Fields
+#### Billing Details (from ContactInfo.tsx)
+```typescript
+{
+  firstName: string,
+  lastName: string,
+  emailAddress: string,    // Note: Different field name
+  mobileNumber: string,    // Note: Different field name
+  billingAddress: {
+    addressLine1: string,
+    addressLine2?: string,
+    city: string,
+    state: string,
+    postcode: string,
+    country: string
+  }
+}
+```
 
-| Frontend Field | API Sends | RPC Expects | Database Column | Table | Notes |
-|----------------|-----------|-------------|-----------------|-------|-------|
-| tickets[].attendeeId | tickets[].attendeeId | p_registration_data->'tickets'->>'attendeeId' | attendee_id | tickets | UUID |
-| tickets[].eventId | tickets[].eventId | p_registration_data->'tickets'->>'eventId' | event_id | tickets | UUID |
-| tickets[].ticketDefinitionId | tickets[].ticketDefinitionId | p_registration_data->'tickets'->>'ticketDefinitionId' | event_ticket_id | tickets | UUID - field name mismatch |
-| tickets[].price | tickets[].price | p_registration_data->'tickets'->>'price' | price_paid | tickets | Decimal |
-| - | - | - | registration_id | tickets | From v_registration_id |
-| - | - | - | status | tickets | Always 'pending' |
-| - | - | - | ticket_number | tickets | Generated |
+### 2. API Route Transformation (/api/registrations/individuals/route.ts)
 
-## Contact Records (Created for attendees with contactPreference='directly')
+The API route receives data and packages it for the RPC function:
 
-| Frontend Field | API Sends | RPC Expects | Database Column | Table | Notes |
-|----------------|-----------|-------------|-----------------|-------|-------|
-| - | - | - | contact_id | contacts | Generated UUID |
-| - | - | - | type | contacts | 'individual' or 'customer' |
-| Same fields as attendee | - | From attendee data | first_name, last_name, email, mobile_number, etc. | contacts | |
-| - | - | - | source_id | contacts | attendee_id |
-| - | - | - | source_type | contacts | 'attendee' |
+```typescript
+const rpcData = {
+  registrationId: registrationId || undefined,
+  functionId,
+  eventId,
+  eventTitle,
+  registrationType: 'individuals',
+  primaryAttendee,              // Passed as-is from frontend
+  additionalAttendees,          // Array of attendee objects
+  tickets,                      // Array of ticket objects
+  totalAmount,
+  subtotal,
+  stripeFee,
+  paymentIntentId,
+  billingDetails,              // Passed as-is from frontend
+  agreeToTerms,
+  billToPrimaryAttendee,
+  authUserId: user.id,
+  paymentCompleted: false
+}
+```
 
-## Raw Registrations Debug Table
+### 3. RPC Function Mapping (upsert_individual_registration)
 
-| Frontend Field | API Sends | RPC Expects | Database Column | Table | Notes |
-|----------------|-----------|-------------|-----------------|-------|-------|
-| - | All data | p_registration_data | raw_data | raw_registrations | JSONB |
-| - | - | - | raw_id | raw_registrations | Primary key - NOT 'id' |
-| - | - | - | registration_id | raw_registrations | UUID |
-| - | - | - | registration_type | raw_registrations | 'individuals' |
-| - | - | - | processed | raw_registrations | Boolean |
-| - | - | - | error_message | raw_registrations | Text |
+The RPC function processes the data and inserts into multiple tables:
 
-## Known Issues
+#### Raw Registrations Insert
+```sql
+INSERT INTO raw_registrations (
+  registration_id,      -- Note: Function expects 'id' but table has 'raw_id'
+  registration_type,
+  raw_data,
+  processed
+)
+```
 
-1. **Column "id" does not exist** - The raw_registrations table uses `raw_id` as primary key, not `id`. The RPC function line 36 needs to be fixed.
-2. **attendee_type enum** - Must be lowercase ('mason', 'guest'), but frontend may send capitalized
-3. **contact_preference enum** - Must be lowercase ('directly', 'primaryattendee', etc.)
-4. **Field name mismatches**:
-   - ticketDefinitionId → event_ticket_id
-   - price → price_paid
-   - phone → mobile_number (in contacts table)
-5. **Multiple fallback fields** for email and phone make debugging complex
+#### Contacts Table Mapping
+```sql
+INSERT INTO contacts (
+  -- Field mappings with fallbacks
+  email,           -- Maps from: billingDetails.emailAddress → billingDetails.email → primaryAttendee.email
+  mobile_number,   -- Maps from: billingDetails.mobileNumber → billingDetails.phone → primaryAttendee.mobileNumber
+  billing_email,   -- Maps from: billingDetails.emailAddress
+  billing_phone,   -- Maps from: billingDetails.mobileNumber
+  -- Address fields
+  billing_street_address,  -- Maps from: billingDetails.billingAddress.addressLine1
+  billing_city,           -- Maps from: billingDetails.billingAddress.city
+  billing_state,          -- Maps from: billingDetails.billingAddress.state
+  billing_postal_code,    -- Maps from: billingDetails.billingAddress.postcode
+  billing_country         -- Maps from: billingDetails.billingAddress.country
+)
+```
+
+#### Attendees Table Mapping
+```sql
+INSERT INTO attendees (
+  -- Contact fields with complex mapping
+  primary_email,    -- Maps from: attendee.email → attendee.primaryEmail → billingDetails.emailAddress
+  primary_phone,    -- Maps from: attendee.mobileNumber → attendee.phone → attendee.primaryPhone → billingDetails.mobileNumber
+  contact_preference,  -- Needs case conversion: 'directly' → 'Directly'
+  
+  -- New columns added by migration
+  suffix_1,         -- Maps from: attendee.suffix1
+  suffix_2,         -- Maps from: attendee.suffix2
+  suffix_3,         -- Maps from: attendee.suffix3
+  attendee_data,    -- Stores complete attendee JSON
+  
+  -- Legacy columns (still exist)
+  email,            -- Duplicate of primary_email
+  phone             -- Duplicate of primary_phone
+)
+```
+
+### 4. Database Schema
+
+#### raw_registrations table
+```sql
+CREATE TABLE raw_registrations (
+  raw_id uuid PRIMARY KEY,     -- Issue: Should be 'id'
+  raw_data jsonb NOT NULL,
+  created_at timestamp,
+  -- Added by migration:
+  registration_id uuid,
+  registration_type text,
+  processed boolean,
+  error_message text
+)
+```
+
+#### attendees table
+```sql
+CREATE TABLE attendees (
+  attendee_id uuid PRIMARY KEY,
+  -- Contact fields (duplicated)
+  email text,                  -- Legacy field
+  phone text,                  -- Legacy field
+  primary_email text,          -- New field (migration)
+  primary_phone text,          -- New field (migration)
+  contact_preference attendee_contact_preference,  -- Enum type
+  -- Suffix fields (added by migration)
+  suffix_1 text,
+  suffix_2 text,
+  suffix_3 text,
+  -- JSON storage
+  attendee_data jsonb,
+  -- Other fields...
+)
+```
+
+## Recommended Fixes
+
+### 1. Fix Raw Registrations Table
+```sql
+ALTER TABLE raw_registrations RENAME COLUMN raw_id TO id;
+```
+
+### 2. Standardize Email/Phone Field Names
+- Option A: Update frontend to use `primaryEmail` and `primaryPhone`
+- Option B: Update RPC function to handle both field names
+- Option C: Add view or computed columns for compatibility
+
+### 3. Fix Contact Preference Enum Handling
+- Update RPC function to convert lowercase values to proper case
+- Or update frontend to send properly cased values
+
+### 4. Remove Duplicate Columns
+- Deprecate `email` and `phone` columns in attendees table
+- Use only `primary_email` and `primary_phone`
+
+## Migration Status
+
+### Created Migrations
+1. **20250607_010_fix_raw_registrations_id_column.sql**
+   - Renames `raw_id` to `id` in raw_registrations table
+   - Fixes the immediate error preventing registration logging
+
+2. **20250607_011_fix_field_mapping_issues.sql**
+   - Updates upsert_individual_registration RPC function with:
+     - Fixed raw_registrations insert to use `id` column
+     - Multiple fallbacks for email field mapping (emailAddress → email → primaryEmail)
+     - Multiple fallbacks for phone field mapping (mobileNumber → phone → primaryPhone)
+     - Automatic case conversion for contact preference enum
+     - Populates both legacy and new email/phone columns for compatibility
+
+## Testing Checklist
+
+- [ ] Raw registration logging works correctly
+- [ ] Email fields map correctly from frontend to database
+- [ ] Phone fields map correctly from frontend to database
+- [ ] Contact preference enum values are handled correctly
+- [ ] Billing address fields map correctly
+- [ ] Suffix fields are saved properly
+- [ ] Partner relationships are maintained
+- [ ] Payment completion updates work correctly
