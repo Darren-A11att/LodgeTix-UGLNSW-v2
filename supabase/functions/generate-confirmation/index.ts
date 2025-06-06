@@ -1,5 +1,5 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts"
-import { Pool } from "https://deno.land/x/postgres@v0.17.0/mod.ts"
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { 
   WebhookPayload, 
   GenerateConfirmationResponse 
@@ -10,10 +10,6 @@ const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
-
-// Create a database pool
-const databaseUrl = Deno.env.get('SUPABASE_DB_URL')!
-const pool = new Pool(databaseUrl, 3, true)
 
 serve(async (req) => {
   // Handle CORS preflight
@@ -27,25 +23,7 @@ serve(async (req) => {
     errors: []
   }
 
-  let client;
-
   try {
-    // Get authorization header
-    const authHeader = req.headers.get('authorization')
-    
-    // Validate that request is authenticated (either via JWT or webhook signature)
-    const signature = req.headers.get('x-webhook-signature')
-    const isWebhookCall = !!signature
-    const isClientCall = !!authHeader && authHeader.startsWith('Bearer ')
-    
-    if (!isWebhookCall && !isClientCall) {
-      response.errors?.push('Unauthorized: Missing authentication')
-      return new Response(JSON.stringify(response), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 401
-      })
-    }
-
     // Parse request body
     const rawPayload = await req.json()
     console.log('Raw webhook payload received:', JSON.stringify(rawPayload, null, 2))
@@ -75,20 +53,40 @@ serve(async (req) => {
       throw new Error('Missing registration ID in payload')
     }
 
-    // Get a client from the pool
-    client = await pool.connect()
+    // Initialize Supabase client with service role key
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+    
+    if (!supabaseUrl || !supabaseServiceKey) {
+      throw new Error('Missing required environment variables')
+    }
+    
+    const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false
+      }
+    })
 
     // Check if confirmation number already exists
-    const checkResult = await client.queryObject`
-      SELECT confirmation_number 
-      FROM registrations 
-      WHERE registration_id = ${registrationId}
-    `
+    const { data: existingReg, error: checkError } = await supabase
+      .from('registrations')
+      .select('confirmation_number')
+      .eq('registration_id', registrationId)
+      .single()
 
-    if (checkResult.rows.length > 0 && checkResult.rows[0].confirmation_number) {
-      console.log('Confirmation number already exists:', checkResult.rows[0].confirmation_number)
+    if (checkError && checkError.code !== 'PGRST116') {
+      throw new Error(`Failed to check registration: ${checkError.message}`)
+    }
+
+    if (!existingReg) {
+      throw new Error('Registration not found')
+    }
+
+    if (existingReg.confirmation_number) {
+      console.log('Confirmation number already exists:', existingReg.confirmation_number)
       response.success = true
-      response.confirmationNumber = checkResult.rows[0].confirmation_number
+      response.confirmationNumber = existingReg.confirmation_number
       response.message = 'Confirmation number already generated'
       
       return new Response(JSON.stringify(response), {
@@ -112,7 +110,7 @@ serve(async (req) => {
     }
 
     // Generate unique confirmation number with collision detection
-    let confirmationNumber: string
+    let confirmationNumber: string = ''
     let attempts = 0
     const maxAttempts = 10
 
@@ -122,13 +120,18 @@ serve(async (req) => {
       )
       
       // Check if this number already exists
-      const existingResult = await client.queryObject`
-        SELECT registration_id 
-        FROM registrations 
-        WHERE confirmation_number = ${confirmationNumber}
-      `
+      const { data: existing, error: existError } = await supabase
+        .from('registrations')
+        .select('registration_id')
+        .eq('confirmation_number', confirmationNumber)
+        .single()
       
-      if (existingResult.rows.length === 0) {
+      if (existError && existError.code === 'PGRST116') {
+        // No matching row found, this number is unique
+        break
+      }
+      
+      if (!existing) {
         break // Found unique number
       }
       
@@ -141,23 +144,27 @@ serve(async (req) => {
     }
 
     // Update registration with confirmation number
-    const updateResult = await client.queryObject`
-      UPDATE registrations 
-      SET 
-        confirmation_number = ${confirmationNumber!},
-        confirmation_generated_at = NOW()
-      WHERE 
-        registration_id = ${registrationId}
-        AND confirmation_number IS NULL
-      RETURNING confirmation_number
-    `
+    const { data: updateData, error: updateError } = await supabase
+      .from('registrations')
+      .update({ 
+        confirmation_number: confirmationNumber,
+        confirmation_generated_at: new Date().toISOString()
+      })
+      .eq('registration_id', registrationId)
+      .is('confirmation_number', null)
+      .select()
 
-    if (updateResult.rows.length === 0) {
+    if (updateError) {
+      console.error('Database update error:', updateError)
+      throw new Error(`Failed to update confirmation number: ${updateError.message}`)
+    }
+
+    if (!updateData || updateData.length === 0) {
       throw new Error('Failed to update registration - it may have been updated by another process')
     }
 
-    console.log(`Generated confirmation number: ${confirmationNumber!} for registration: ${registrationId}`)
-    response.confirmationNumber = confirmationNumber!
+    console.log(`Generated confirmation number: ${confirmationNumber} for registration: ${registrationId}`)
+    response.confirmationNumber = confirmationNumber
     response.success = true
     response.message = 'Confirmation number generated successfully'
 
@@ -182,11 +189,6 @@ serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 500
     })
-  } finally {
-    // Always release the client back to the pool
-    if (client) {
-      client.release()
-    }
   }
 })
 
