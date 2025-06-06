@@ -297,6 +297,7 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ function
   const clearRegistration = useRegistrationStore(state => state.clearRegistration)
   const setDraftRecoveryHandled = useRegistrationStore(state => state.setDraftRecoveryHandled)
   const setAnonymousSessionEstablished = useRegistrationStore(state => state.setAnonymousSessionEstablished)
+  const setRegistrationType = useRegistrationStore(state => state.setRegistrationType) // For setting registration type
   
   // State for Draft Recovery Modal
   const [showDraftRecoveryModal, setShowDraftRecoveryModal] = useState(false)
@@ -364,6 +365,10 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ function
             clearRegistration();
           } else if (initialStep === 6) {
             console.log('Showing confirmation step for completed registration');
+            // If we have confirmation data, set the registration type from it
+            if (confirmationData?.registrationType) {
+              setRegistrationType(confirmationData.registrationType);
+            }
           }
           
           // Always go to registration type selection first
@@ -388,7 +393,7 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ function
       
       loadFunction();
     }
-  }, [functionSlug, providedFunctionId, setFunctionSlug, setFunctionId, setCurrentStep, clearRegistration]);
+  }, [functionSlug, providedFunctionId, setFunctionSlug, setFunctionId, setCurrentStep, clearRegistration, initialStep, confirmationData, setRegistrationType]);
   
   // Handler for continuing existing draft
   const handleContinueDraft = () => {

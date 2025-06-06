@@ -48,7 +48,12 @@ const ticketPackagesMinimal = [
   { id: "social", name: "Social Package", price: 180, includes: ["banquet", "brunch", "tour"] },
 ];
 
-function ConfirmationStep() {
+interface ConfirmationStepProps {
+  confirmationNumber?: string;
+  confirmationData?: any;
+}
+
+function ConfirmationStep({ confirmationNumber: propsConfirmationNumber, confirmationData }: ConfirmationStepProps) {
   const store = useRegistrationStore()
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -64,8 +69,36 @@ function ConfirmationStep() {
   const allStoreAttendees = store.attendees;
   const draftId = store.draftId;
 
-  // Fetch registration data from Supabase
+  // Use props confirmation number if available
+  const confirmationNumber = propsConfirmationNumber || storeConfirmationNumber;
+
+  // Use props confirmation data if available
   useEffect(() => {
+    if (confirmationData) {
+      // Transform confirmationData to match expected format
+      setRegistrationData({
+        registration: {
+          registrationId: confirmationData.registrationId,
+          confirmationNumber: confirmationData.confirmationNumber,
+          totalAmount: confirmationData.totalAmount,
+          functionName: confirmationData.functionName,
+          eventTitle: confirmationData.eventTitle,
+          eventDate: confirmationData.eventDate,
+          billingName: confirmationData.billingName,
+          billingEmail: confirmationData.billingEmail,
+          customerName: confirmationData.customerName,
+          customerEmail: confirmationData.customerEmail,
+          status: 'completed',
+          paymentStatus: 'completed'
+        },
+        attendees: confirmationData.attendees || [],
+        tickets: confirmationData.tickets || []
+      });
+      setIsLoading(false);
+      return;
+    }
+
+    // Fetch registration data from Supabase
     const fetchRegistrationData = async () => {
       if (!draftId) {
         setIsLoading(false);
@@ -117,7 +150,7 @@ function ConfirmationStep() {
     };
     
     fetchRegistrationData();
-  }, [draftId]);
+  }, [draftId, confirmationData]);
 
   // Use Supabase data if available, otherwise fall back to store data
   const primaryAttendee = useMemo(() => {
