@@ -290,10 +290,6 @@ const TicketSelectionStep: React.FC = () => {
     variant: "default" as "default" | "destructive" | "success" | "warning"
   })
   
-  // Validation modal state
-  const [showValidationModal, setShowValidationModal] = useState(false)
-  const [validationErrors, setValidationErrors] = useState<{ field: string; message: string }[]>([])
-
   const [expandedAttendee, setExpandedAttendee] = useState<string | null>(null)
   const [activeTab, setActiveTab] = useState<string>('same-for-all')
 
