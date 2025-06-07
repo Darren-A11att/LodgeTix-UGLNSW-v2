@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useRegistrationStore } from '@/lib/registrationStore';
-import { useLodgeRegistrationStore } from '@/lib/lodgeRegistrationStore';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
@@ -56,18 +55,16 @@ export const LodgesForm: React.FC<LodgesFormProps> = ({
 }) => {
   const { 
     setLodgeTicketOrder,
-  } = useRegistrationStore();
-  
-  const {
-    customer,
+    // Lodge-specific state from unified store
+    lodgeCustomer,
     lodgeDetails,
-    tableOrder,
-    updateCustomer,
+    lodgeTableOrder,
+    updateLodgeCustomer,
     updateLodgeDetails,
-    updateTableOrder,
-    isValid,
-    getValidationErrors,
-  } = useLodgeRegistrationStore();
+    updateLodgeTableOrder,
+    isLodgeFormValid,
+    getLodgeValidationErrors,
+  } = useRegistrationStore();
   
   // Get field errors for customer fields
   const customerFieldErrors = fieldErrors['customer'] || {};
@@ -301,10 +298,10 @@ export const LodgesForm: React.FC<LodgesFormProps> = ({
             <div className="grid md:grid-cols-2 gap-6">
               <div className="space-y-2">
                 <GrandLodgeSelection 
-                  value={lodgeDetails.grand_lodge_id}
+                  value={lodgeDetails?.grand_lodge_id || ''}
                   onChange={handleGrandLodgeChange}
                 />
-                {!lodgeDetails.grand_lodge_id && (
+                {!lodgeDetails?.grand_lodge_id && (
                   <p className="text-amber-600 text-xs mt-1 flex items-center gap-1">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
                       <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a.75.75 0 000 1.5h.253a.25.25 0 01.244.304l-.459 2.066A1.75 1.75 0 0010.747 15H11a.75.75 0 000-1.5h-.253a.25.25 0 01-.244-.304l.459-2.066A1.75 1.75 0 009.253 9H9z" clipRule="evenodd" />
@@ -316,12 +313,12 @@ export const LodgesForm: React.FC<LodgesFormProps> = ({
               
               <div className="space-y-2">
                 <LodgeSelection 
-                  grand_lodge_id={lodgeDetails.grand_lodge_id}
-                  value={lodgeDetails.lodge_id}
+                  grand_lodge_id={lodgeDetails?.grand_lodge_id || ''}
+                  value={lodgeDetails?.lodge_id || ''}
                   onChange={(lodgeId, lodgeName) => handleLodgeChange(lodgeId, lodgeName ?? '')}
-                  disabled={!lodgeDetails.grand_lodge_id}
+                  disabled={!lodgeDetails?.grand_lodge_id}
                 />
-                {lodgeDetails.grand_lodge_id && !lodgeDetails.lodge_id && (
+                {lodgeDetails?.grand_lodge_id && !lodgeDetails?.lodge_id && (
                   <p className="text-amber-600 text-xs mt-1 flex items-center gap-1">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
                       <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a.75.75 0 000 1.5h.253a.25.25 0 01.244.304l-.459 2.066A1.75 1.75 0 0010.747 15H11a.75.75 0 000-1.5h-.253a.25.25 0 01-.244-.304l.459-2.066A1.75 1.75 0 009.253 9H9z" clipRule="evenodd" />
@@ -341,7 +338,7 @@ export const LodgesForm: React.FC<LodgesFormProps> = ({
       {/* Package Order Section */}
       <Card className={cn(
         "border-2 border-primary/20 transition-opacity duration-300",
-        !lodgeDetails.lodge_id && "opacity-70"
+        !lodgeDetails?.lodge_id && "opacity-70"
       )}>
         <CardHeader className="py-4 px-6 border-b border-gray-200">
           <div className="flex items-center justify-between">
@@ -439,7 +436,7 @@ export const LodgesForm: React.FC<LodgesFormProps> = ({
                   min={minPackages}
                   max={maxPackages}
                   onChange={handlePackageCountChange}
-                  disabled={!lodgeDetails.lodge_id}
+                  disabled={!lodgeDetails?.lodge_id}
                 />
                 <p className="text-sm text-gray-600 mt-2">
                   {packageCount} {packageCount === 1 ? 'package' : 'packages'} = {packageCount * baseQuantity} tickets
