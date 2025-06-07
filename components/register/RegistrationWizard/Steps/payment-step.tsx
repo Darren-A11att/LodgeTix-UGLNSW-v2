@@ -432,8 +432,8 @@ function PaymentStep(props: PaymentStepProps) {
     return total;
   }, [currentTicketsForSummary]);
 
-  // We'll calculate fees after form is defined - default to Australia
-  const [billingCountry, setBillingCountry] = useState<{ isoCode: string; name: string } | null>({ isoCode: 'AU', name: 'Australia' });
+  // We'll calculate fees after form is defined - no default, will be set based on form value or geolocation
+  const [billingCountry, setBillingCountry] = useState<{ isoCode: string; name: string } | null>(null);
 
   // Setup form
   const form = useForm<FormBillingDetailsSchema>({
@@ -451,9 +451,17 @@ function PaymentStep(props: PaymentStepProps) {
       suburb: registrationType === 'lodge' ? lodgeCustomer.city : (storeBillingDetails?.city || ''),
       postcode: registrationType === 'lodge' ? lodgeCustomer.postcode : (storeBillingDetails?.postalCode || ''),
       stateTerritory: registrationType === 'lodge' && lodgeCustomer.state ? { name: lodgeCustomer.state } : (storeBillingDetails?.stateProvince ? { name: storeBillingDetails.stateProvince } : null),
-      country: registrationType === 'lodge' && lodgeCustomer.country ? { isoCode: 'AU', name: lodgeCustomer.country } : (storeBillingDetails?.country ? { isoCode: 'AU', name: 'Australia' } : { isoCode: 'AU', name: 'Australia' }),
+      country: registrationType === 'lodge' && lodgeCustomer.country ? { isoCode: 'AU', name: lodgeCustomer.country } : undefined,
     }
   });
+
+  // Initialize billing country from form if it exists
+  useEffect(() => {
+    const currentCountry = form.getValues('country');
+    if (currentCountry && !billingCountry) {
+      setBillingCountry(currentCountry);
+    }
+  }, [form, billingCountry]);
 
   // Watch form changes to update store and billing country
   useEffect(() => {

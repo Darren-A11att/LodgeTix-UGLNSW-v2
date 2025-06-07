@@ -1,5 +1,6 @@
 "use client"
 
+import React from 'react'
 import { useRegistrationStore } from '../../../../lib/registrationStore'
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
@@ -26,7 +27,6 @@ import { Separator } from "@/components/ui/separator"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { TwoColumnStepLayout } from "../Layouts/TwoColumnStepLayout"
 import { getConfirmationSummaryData } from '../Summary/summary-data/confirmation-summary-data';
 import { SummaryRenderer } from '../Summary/SummaryRenderer';
@@ -34,6 +34,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { calculateStripeFees, getFeeModeFromEnv, getFeeDisclaimer } from '@/lib/utils/stripe-fee-calculator'
 import { Info } from "lucide-react"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+import Image from "next/image"
 
 // Placeholder ticket definitions (should be imported from a shared source eventually)
 const ticketTypesMinimal = [
@@ -63,7 +64,7 @@ function ConfirmationStep({ confirmationNumber: propsConfirmationNumber, confirm
     tickets: any[];
   } | null>(null);
 
-  const registrationType = store.registrationType;
+  const registrationType = confirmationData?.registrationType || store.registrationType;
   const clearRegistration = store.clearRegistration;
   const storeConfirmationNumber = store.confirmationNumber;
   const allStoreAttendees = store.attendees;
@@ -107,9 +108,14 @@ function ConfirmationStep({ confirmationNumber: propsConfirmationNumber, confirm
         setError(null);
         
         // Use the appropriate endpoint based on registration type
-        const endpoint = registrationType === 'individuals' 
-          ? `/api/registrations/individuals?registrationId=${draftId}`
-          : `/api/registrations/${draftId}`;
+        let endpoint;
+        if (registrationType === 'individuals') {
+          endpoint = `/api/registrations/individuals?registrationId=${draftId}`;
+        } else if (registrationType === 'lodge') {
+          endpoint = `/api/registrations/lodge?registrationId=${draftId}`;
+        } else {
+          endpoint = `/api/registrations/${draftId}`;
+        }
           
         const response = await fetch(endpoint);
         
@@ -133,6 +139,25 @@ function ConfirmationStep({ confirmationNumber: propsConfirmationNumber, confirm
               first_name: data.registration.customer_first_name,
               last_name: data.registration.customer_last_name
             }
+          });
+        } else if (registrationType === 'lodge' && data.success) {
+          // Lodge registration format
+          setRegistrationData({
+            registration: {
+              ...data.registration,
+              registration_id: data.registration.registration_id,
+              confirmation_number: data.registration.confirmation_number,
+              organisation_name: data.registration.organisation_name,
+              registration_type: 'lodge',
+              payment_status: data.registration.payment_status,
+              status: data.registration.status,
+              total_amount_paid: data.registration.total_amount_paid,
+              created_at: data.registration.created_at,
+              registration_data: data.registration.registration_data
+            },
+            attendees: [], // Lodge registrations don't have individual attendees
+            tickets: [], // Will be fetched separately if needed
+            customer: data.registration.customers || {}
           });
         } else {
           // Legacy format
@@ -207,6 +232,7 @@ function ConfirmationStep({ confirmationNumber: propsConfirmationNumber, confirm
                 attendeeId: attendee.attendee_id,
                 isPackage: !!ticket.package_id,
                 description: ticket.event_title || "Event ticket",
+                qr_code_url: ticket.qr_code_url,
               });
             });
           }
@@ -222,6 +248,7 @@ function ConfirmationStep({ confirmationNumber: propsConfirmationNumber, confirm
         attendeeId: ticket.attendeeid,
         isPackage: !!ticket.packageId,
         description: ticket.description || "Event ticket",
+        qr_code_url: ticket.qr_code_url,
       })) || [];
     }
     
@@ -424,14 +451,7 @@ function ConfirmationStep({ confirmationNumber: propsConfirmationNumber, confirm
           Start New Registration
         </Button>
 
-        <Tabs defaultValue="confirmation" className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="confirmation">Confirmation</TabsTrigger>
-            <TabsTrigger value="tickets">Tickets</TabsTrigger>
-            <TabsTrigger value="details">Event Details</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="confirmation" className="mt-4 space-y-4">
+        <div className="space-y-6">
             <Card className={cn(
               "rounded-lg border bg-card text-card-foreground shadow-sm border-masonic-navy"
             )}>
@@ -550,37 +570,78 @@ function ConfirmationStep({ confirmationNumber: propsConfirmationNumber, confirm
                 </div>
               </CardFooter>
             </Card>
-          </TabsContent>
 
-          <TabsContent value="tickets" className="mt-4 space-y-4">
+            {/* Tickets/Attendees Section */}
             <div className="space-y-4">
               {registrationType === 'lodge' ? (
-                // Lodge registration - show bulk ticket information
-                <Card className="overflow-hidden border-masonic-lightgold">
-                  <CardHeader className="bg-masonic-navy text-white">
-                    <CardTitle className="text-lg">
-                      {registrationData?.registration?.registration_data?.lodge_details?.lodgeName || 'Lodge Registration'}
-                    </CardTitle>
-                    <CardDescription className="text-gray-200">
-                      {registrationData?.registration?.registration_data?.table_count || 0} Tables ({(registrationData?.registration?.registration_data?.table_count || 0) * 10} seats)
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="p-6">
-                    <h4 className="font-semibold mb-3">Package Details:</h4>
-                    {registrationData && (
-                      <div className="space-y-2">
-                        <p className="text-sm">
-                          <span className="font-medium">Total Tickets:</span> {currentTickets.length}
-                        </p>
-                        <p className="text-sm">
-                          <span className="font-medium">Package Price:</span> ${totalAmount.toFixed(2)}
-                        </p>
+                // Lodge registration - show tickets with QR codes
+                <>
+                  <Card className="overflow-hidden border-masonic-lightgold">
+                    <CardHeader className="bg-masonic-navy text-white">
+                      <CardTitle className="text-lg">
+                        {registrationData?.registration?.registration_data?.lodge_details?.lodgeName || 'Lodge Registration'}
+                      </CardTitle>
+                      <CardDescription className="text-gray-200">
+                        {registrationData?.registration?.registration_data?.table_count || 0} Tables ({(registrationData?.registration?.registration_data?.table_count || 0) * 10} seats)
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="p-6">
+                      <h4 className="font-semibold mb-4">Tickets:</h4>
+                      <div className="space-y-4">
+                        {currentTickets.map((ticket, index) => (
+                          <div key={ticket.ticket_id || ticket.id || index} className="flex items-center gap-6 p-4 border rounded-lg">
+                            {/* QR Code */}
+                            <div className="flex-shrink-0">
+                              {ticket.qr_code_url ? (
+                                <div className="relative w-20 h-20">
+                                  <Image
+                                    src={ticket.qr_code_url}
+                                    alt={`QR Code for ${ticket.name}`}
+                                    fill
+                                    className="object-contain"
+                                  />
+                                </div>
+                              ) : (
+                                <div className="w-20 h-20 bg-gray-100 border-2 border-dashed border-gray-300 rounded-lg flex items-center justify-center">
+                                  <QrCode className="h-10 w-10 text-gray-400" />
+                                </div>
+                              )}
+                            </div>
+                            
+                            {/* Ticket Details */}
+                            <div className="flex-1">
+                              <div className="flex items-start justify-between">
+                                <div>
+                                  <h5 className="font-medium text-lg">{ticket.name}</h5>
+                                  {ticket.isPackage && <Badge variant="secondary" className="mt-1 text-xs">Package</Badge>}
+                                  <div className="text-sm text-gray-600 mt-2">
+                                    <div className="flex items-center gap-4">
+                                      <span className="flex items-center gap-1">
+                                        <Calendar className="h-3 w-3" />
+                                        {formatDate(eventDate)}
+                                      </span>
+                                      <span className="flex items-center gap-1">
+                                        <Clock className="h-3 w-3" />
+                                        10:00 AM
+                                      </span>
+                                      <span className="flex items-center gap-1">
+                                        <MapPin className="h-3 w-3" />
+                                        Sydney Masonic Centre
+                                      </span>
+                                    </div>
+                                  </div>
+                                </div>
+                                <span className="font-bold text-lg">${ticket.price.toFixed(2)}</span>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
                       </div>
-                    )}
-                  </CardContent>
-                </Card>
+                    </CardContent>
+                  </Card>
+                </>
               ) : (
-                // Individual registration - show attendee tickets
+                // Individual registration - show attendees with QR codes and tickets underneath
                 allAttendees.map((attendee) => {
                 const attendeeId = attendee.attendee_id || attendee.attendeeId;
                 const attendeeTickets = currentTickets.filter(t => t.attendeeId === attendeeId);
@@ -592,6 +653,7 @@ function ConfirmationStep({ confirmationNumber: propsConfirmationNumber, confirm
                 const attendeeType = attendee.attendee_type || attendee.attendeeType;
                 const rank = attendee.suffix || attendee.rank;
                 const title = attendee.title;
+                const qrCodeUrl = attendee.qr_code_url;
                 
                 const isRankMason = attendeeType === 'mason' && rank;
                 const titleDisplay = `${title || ''} ${firstName} ${lastName}`.trim();
@@ -600,57 +662,73 @@ function ConfirmationStep({ confirmationNumber: propsConfirmationNumber, confirm
                 return (
                   <Card key={attendeeId} className="overflow-hidden border-masonic-lightgold">
                     <CardHeader className="bg-masonic-navy text-white">
-                      <CardTitle className="text-lg">{titleDisplay}</CardTitle>
-                      {subtitleDisplay && (
-                        <CardDescription className="text-gray-200">{subtitleDisplay}</CardDescription>
-                      )}
-                    </CardHeader>
-                    <CardContent className="p-0">
-                      <div className="grid grid-cols-5">
-                        {/* QR Code Column - 20% width */}
-                        <div className="col-span-1 flex items-center justify-center bg-gray-50 p-6">
-                          <QrCode className="h-20 w-20 text-masonic-navy" />
-                        </div>
-                        
-                        {/* Ticket Details Column - 80% width */}
-                        <div className="col-span-4 p-6">
-                          <h4 className="font-semibold mb-3">Tickets:</h4>
-                          <ul className="space-y-2">
-                            {attendeeTickets.map((ticket) => (
-                              <li key={ticket.ticket_id || ticket.id} className="flex items-start">
-                                <span className="mr-2">•</span>
-                                <div className="flex-1">
-                                  <span className="font-medium">{ticket.name}</span>
-                                  {ticket.isPackage && <Badge variant="secondary" className="ml-2 text-xs">Package</Badge>}
-                                  <div className="text-sm text-gray-600 mt-1">
-                                    <span className="mr-4">{formatDate(eventDate)}</span>
-                                    <span className="mr-4">10:00 AM</span>
-                                    <span>Sydney Masonic Centre</span>
-                                  </div>
-                                </div>
-                                <span className="font-medium">${ticket.price.toFixed(2)}</span>
-                              </li>
-                            ))}
-                          </ul>
-                          
-                          {/* Attendee Information */}
-                          {((attendee.dietary_requirements || attendee.dietaryRequirements) || 
-                            (attendee.special_needs || attendee.specialNeeds)) && (
-                            <div className="mt-4 pt-4 border-t border-gray-200">
-                              {(attendee.dietary_requirements || attendee.dietaryRequirements) && (
-                                <p className="text-sm text-gray-600">
-                                  <span className="font-medium">Dietary:</span> {attendee.dietary_requirements || attendee.dietaryRequirements}
-                                </p>
-                              )}
-                              {(attendee.special_needs || attendee.specialNeeds) && (
-                                <p className="text-sm text-gray-600 mt-1">
-                                  <span className="font-medium">Assistance:</span> {attendee.special_needs || attendee.specialNeeds}
-                                </p>
-                              )}
+                      <div className="flex items-center gap-4">
+                        {/* Attendee QR Code */}
+                        <div className="flex-shrink-0">
+                          {qrCodeUrl ? (
+                            <div className="relative w-16 h-16">
+                              <Image
+                                src={qrCodeUrl}
+                                alt={`QR Code for ${titleDisplay}`}
+                                fill
+                                className="object-contain rounded"
+                              />
+                            </div>
+                          ) : (
+                            <div className="w-16 h-16 bg-white/20 border-2 border-dashed border-white/40 rounded flex items-center justify-center">
+                              <QrCode className="h-8 w-8 text-white/60" />
                             </div>
                           )}
                         </div>
+                        
+                        <div className="flex-1">
+                          <CardTitle className="text-lg">{titleDisplay}</CardTitle>
+                          {subtitleDisplay && (
+                            <CardDescription className="text-gray-200">{subtitleDisplay}</CardDescription>
+                          )}
+                        </div>
                       </div>
+                    </CardHeader>
+                    <CardContent className="p-6">
+                      <h4 className="font-semibold mb-3">Tickets:</h4>
+                      <div className="space-y-3">
+                        {attendeeTickets.map((ticket) => (
+                          <div key={ticket.ticket_id || ticket.id} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                            <div className="flex items-start">
+                              <TicketIcon className="h-4 w-4 mt-1 mr-3 text-masonic-navy" />
+                              <div>
+                                <span className="font-medium">{ticket.name}</span>
+                                {ticket.isPackage && <Badge variant="secondary" className="ml-2 text-xs">Package</Badge>}
+                                <div className="text-sm text-gray-600 mt-1">
+                                  <div className="flex items-center gap-4">
+                                    <span>{formatDate(eventDate)}</span>
+                                    <span>10:00 AM</span>
+                                    <span>Sydney Masonic Centre</span>
+                                  </div>
+                                </div>
+                              </div>
+                            </div>
+                            <span className="font-medium">${ticket.price.toFixed(2)}</span>
+                          </div>
+                        ))}
+                      </div>
+                      
+                      {/* Attendee Information */}
+                      {((attendee.dietary_requirements || attendee.dietaryRequirements) || 
+                        (attendee.special_needs || attendee.specialNeeds)) && (
+                        <div className="mt-4 pt-4 border-t border-gray-200">
+                          {(attendee.dietary_requirements || attendee.dietaryRequirements) && (
+                            <p className="text-sm text-gray-600">
+                              <span className="font-medium">Dietary:</span> {attendee.dietary_requirements || attendee.dietaryRequirements}
+                            </p>
+                          )}
+                          {(attendee.special_needs || attendee.specialNeeds) && (
+                            <p className="text-sm text-gray-600 mt-1">
+                              <span className="font-medium">Assistance:</span> {attendee.special_needs || attendee.specialNeeds}
+                            </p>
+                          )}
+                        </div>
+                      )}
                     </CardContent>
                   </Card>
                 );
@@ -705,10 +783,8 @@ function ConfirmationStep({ confirmationNumber: propsConfirmationNumber, confirm
                   </div>
                 </CardContent>
               </Card>
-            </div>
-          </TabsContent>
 
-          <TabsContent value="details" className="mt-4 space-y-4">
+            {/* Event Details Section */}
             <Card>
               <CardHeader>
                 <CardTitle>Grand Installation Event Details</CardTitle>
@@ -787,8 +863,9 @@ function ConfirmationStep({ confirmationNumber: propsConfirmationNumber, confirm
                 </Button>
               </CardFooter>
             </Card>
-          </TabsContent>
-        </Tabs>
+            </div>
+
+        </div>
 
         <div className="text-center">
           <h2 className="mb-4 text-xl font-bold text-masonic-navy">What's Next?</h2>

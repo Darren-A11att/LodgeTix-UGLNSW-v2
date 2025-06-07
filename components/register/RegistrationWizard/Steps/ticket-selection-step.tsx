@@ -94,6 +94,7 @@ const TicketSelectionStep: React.FC = () => {
   const [ticketPackages, setTicketPackages] = useState<FunctionPackage[]>([])
   const [isLoadingTickets, setIsLoadingTickets] = useState(true)
   const [ticketsError, setTicketsError] = useState<string | null>(null)
+  const [retryCount, setRetryCount] = useState(0)
   const [isPersisting, setIsPersisting] = useState(false)
   const [validationErrors, setValidationErrors] = useState<Array<{field: string, message: string}>>([])
   const [showValidationModal, setShowValidationModal] = useState(false)
@@ -133,20 +134,28 @@ const TicketSelectionStep: React.FC = () => {
     return ticket.is_active !== false && (ticket.available_count === null || ticket.available_count > 0);
   }
 
-  // Fetch tickets and packages on component mount
+  // Retry function for manual retries
+  const retryFetchTickets = () => {
+    setRetryCount(prev => prev + 1)
+    setTicketsError(null)
+  }
+
+  // Fetch tickets and packages when functionId becomes available
   useEffect(() => {
     async function fetchTicketsAndPackages() {
       try {
         setIsLoadingTickets(true)
         setTicketsError(null)
         
-        // Always use the functionId from the store - it should be set from the route
+        // Wait for functionId to be available - don't proceed if it's not set yet
         if (!functionId) {
-          throw new Error('Function ID is required for ticket selection')
+          api.debug('Function ID not yet available, waiting...')
+          setIsLoadingTickets(false) // Don't show loading if we're waiting for functionId
+          return
         }
-        const targetFunctionId = functionId
         
-        api.debug(`Fetching tickets for function: ${targetFunctionId}`)
+        const targetFunctionId = functionId
+        api.debug(`Fetching tickets for function: ${targetFunctionId} (attempt ${retryCount + 1})`)
         
         // Use the FunctionTicketsService to fetch tickets and packages
         const ticketsService = getFunctionTicketsService()
@@ -170,34 +179,54 @@ const TicketSelectionStep: React.FC = () => {
           available: t.available_count
         })))
         
-        api.debug(`Loaded ${tickets.length} tickets and ${packages.length} packages`)
+        api.debug(`Successfully loaded ${tickets.length} tickets and ${packages.length} packages`)
+        
+        // Reset retry count on success
+        setRetryCount(0)
       } catch (error) {
         console.error('Full error details:', error)
         api.error('Error fetching tickets and packages:', {
           message: error instanceof Error ? error.message : 'Unknown error',
           stack: error instanceof Error ? error.stack : undefined,
-          error: JSON.stringify(error, null, 2)
+          error: JSON.stringify(error, null, 2),
+          attempt: retryCount + 1
         })
-        setTicketsError('Failed to load ticket options. Please try again.')
+        
+        // More helpful error messages based on error type
+        let errorMessage = 'Failed to load ticket options.'
+        if (error instanceof Error) {
+          if (error.message.includes('Function ID is required')) {
+            errorMessage = 'Function information is not available. Please refresh the page.'
+          } else if (error.message.includes('not valid JSON') || error.message.includes('Unexpected token')) {
+            errorMessage = 'Server response error. This usually resolves automatically - please try again.'
+          } else if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+            errorMessage = 'Network error. Please check your connection and try again.'
+          } else if (error.message.includes('404') || error.message.includes('Not Found')) {
+            errorMessage = 'Ticket information not found. Please refresh the page.'
+          }
+        }
+        
+        setTicketsError(errorMessage)
       } finally {
         setIsLoadingTickets(false)
       }
     }
     
     fetchTicketsAndPackages()
-  }, [functionId])
+  }, [functionId, registrationType, retryCount])
 
 
   const primaryAttendee = allStoreAttendees.find(a => a.isPrimary) as unknown as MasonAttendee | GuestAttendee | undefined;
   const additionalAttendees = allStoreAttendees.filter(a => !a.isPrimary) as unknown as (MasonAttendee | GuestAttendee | PartnerAttendee)[];
 
-  // --- Derive currentTickets for UI display from store state ---
+  // --- Derive currentTickets for UI display from store state (MUTUALLY EXCLUSIVE) ---
   const derivedCurrentTickets: Ticket[] = (() => {
     // For lodge bulk orders, create tickets based on bulk selection
     if (registrationType === 'lodge' && lodgeTicketOrder && packages['lodge-bulk']) {
       const bulkSelection = packages['lodge-bulk'];
       const tickets: Ticket[] = [];
       
+      // MUTUAL EXCLUSIVITY: Check packages first, then individual tickets
       if (bulkSelection.ticketDefinitionId) {
         const packageInfo = ticketPackages.find(p => p.id === bulkSelection.ticketDefinitionId);
         if (packageInfo) {
@@ -213,7 +242,7 @@ const TicketSelectionStep: React.FC = () => {
           });
         }
       } else if (bulkSelection.selectedEvents && bulkSelection.selectedEvents.length > 0) {
-        // Create bulk tickets for individual selections
+        // Create bulk tickets for individual selections (only if no package selected)
         bulkSelection.selectedEvents.forEach(eventId => {
           const ticketTypeInfo = ticketTypes.find(t => t.id === eventId);
           if (ticketTypeInfo) {
@@ -232,47 +261,53 @@ const TicketSelectionStep: React.FC = () => {
       return tickets;
     }
     
-    // Original logic for individual attendees
+    // For individual attendees - MUTUAL EXCLUSIVITY: packages OR individual tickets, not both
     return allStoreAttendees.flatMap((attendee) => {
-    const attendeeIdentifier = (attendee as any).attendeeId;
-    if (!attendeeIdentifier) return [];
+      const attendeeIdentifier = (attendee as any).attendeeId;
+      if (!attendeeIdentifier) return [];
 
-    const selection = packages[attendeeIdentifier];
+      const legacySelection = packages[attendeeIdentifier];
 
-    if (selection?.ticketDefinitionId) { 
-      const packageInfo = ticketPackages.find(p => p.id === selection.ticketDefinitionId);
-      if (packageInfo) {
-        // For UI display, show the package as a single item
-        const derivedPackageTicket = {
-          id: packageInfo.id, 
-          name: packageInfo.name,
-          price: packageInfo.price,
-          description: packageInfo.description || "",
-          attendeeId: attendeeIdentifier,
-          isPackage: true,
-          includedTicketTypes: packageInfo.includes,
-        };
-        return [derivedPackageTicket];
-      }
-    } else if (selection?.selectedEvents && selection.selectedEvents.length > 0) { 
-      const individualTickets = selection.selectedEvents.map((eventId: string) => {
-        const ticketTypeInfo = ticketTypes.find(t => t.id === eventId);
-        if (ticketTypeInfo) {
-          const derivedIndividualTicket = {
-            id: `${attendeeIdentifier}-${ticketTypeInfo.id}`, 
-            name: ticketTypeInfo.name,
-            price: ticketTypeInfo.price,
-            description: ticketTypeInfo.description || "",
+      // PRIORITY 1: Check if package is selected (both structures should be in sync)
+      if (legacySelection?.ticketDefinitionId) { 
+        const packageInfo = ticketPackages.find(p => p.id === legacySelection.ticketDefinitionId);
+        if (packageInfo) {
+          // Show only the package - individual tickets are ignored
+          const derivedPackageTicket = {
+            id: packageInfo.id, 
+            name: packageInfo.name,
+            price: packageInfo.price,
+            description: packageInfo.description || "",
             attendeeId: attendeeIdentifier,
-            isPackage: false,
+            isPackage: true,
+            includedTicketTypes: packageInfo.includes,
           };
-          return derivedIndividualTicket;
+          return [derivedPackageTicket];
         }
-        return null;
-      }).filter(Boolean) as Ticket[];
-      return individualTickets;
-    }
-    return [];
+      }
+      
+      // PRIORITY 2: If no package selected, show individual tickets (only if no package)
+      if (!legacySelection?.ticketDefinitionId && legacySelection?.selectedEvents && legacySelection.selectedEvents.length > 0) { 
+        const individualTickets = legacySelection.selectedEvents.map((eventId: string) => {
+          const ticketTypeInfo = ticketTypes.find(t => t.id === eventId);
+          if (ticketTypeInfo) {
+            const derivedIndividualTicket = {
+              id: `${attendeeIdentifier}-${ticketTypeInfo.id}`, 
+              name: ticketTypeInfo.name,
+              price: ticketTypeInfo.price,
+              description: ticketTypeInfo.description || "",
+              attendeeId: attendeeIdentifier,
+              isPackage: false,
+            };
+            return derivedIndividualTicket;
+          }
+          return null;
+        }).filter(Boolean) as Ticket[];
+        return individualTickets;
+      }
+      
+      // No tickets selected for this attendee
+      return [];
     });
   })();
 
@@ -584,22 +619,30 @@ const TicketSelectionStep: React.FC = () => {
     const isCurrentlySelected = packages[attendeeIdentifier]?.ticketDefinitionId === packageId;
 
     if (isCurrentlySelected) {
-      // Deselect package - update both structures
+      // Deselect package - clear everything
       updatePackageSelection(attendeeIdentifier, { 
         ticketDefinitionId: null, 
         selectedEvents: [] 
       });
       
-      // Clear from enhanced structure
-      removePackageSelection(attendeeIdentifier, packageId);
+      // Clear all selections from enhanced structure
+      clearAttendeeTicketSelections(attendeeIdentifier);
     } else {
-      // Select package - update both structures
+      // Select package - clear individual tickets first, then add package
+      
+      // 1. Clear any existing individual ticket selections (both structures)
+      clearAttendeeTicketSelections(attendeeIdentifier);
+      updatePackageSelection(attendeeIdentifier, { 
+        ticketDefinitionId: null, 
+        selectedEvents: [] 
+      });
+      
+      // 2. Add the package to both structures
       updatePackageSelection(attendeeIdentifier, { 
         ticketDefinitionId: packageId, 
         selectedEvents: selectedPackageInfo.includes // Store included events for clarity/consistency
       });
       
-      // Add to enhanced structure
       const packageTickets = selectedPackageInfo.includes.map(ticketId => ({
         ticketId,
         quantity: 1 // Default quantity
@@ -610,14 +653,6 @@ const TicketSelectionStep: React.FC = () => {
         quantity: 1,
         tickets: packageTickets
       });
-      
-      // Clear any individual ticket selections when selecting a package
-      const currentSelections = ticketSelections[attendeeIdentifier];
-      if (currentSelections?.individualTickets.length > 0) {
-        currentSelections.individualTickets.forEach(ticket => {
-          removeIndividualTicket(attendeeIdentifier, ticket.ticketId);
-        });
-      }
     }
   };
 
@@ -631,45 +666,48 @@ const TicketSelectionStep: React.FC = () => {
     const currentSelection = packages[attendeeIdentifier] || { ticketDefinitionId: null, selectedEvents: [] };
     const currentEnhancedSelection = ticketSelections[attendeeIdentifier];
     
-    // If the attendee currently has a package selected, we need to start with an empty selection
-    // Otherwise, copy the current individual selections
-    let newSelectedEvents = currentSelection.ticketDefinitionId 
-      ? [] // Start fresh with no selected events if switching from package to individual
-      : [...currentSelection.selectedEvents];
-
-    const isCurrentlySelected = !currentSelection.ticketDefinitionId && newSelectedEvents.includes(ticketTypeId);
+    const isCurrentlySelected = !currentSelection.ticketDefinitionId && 
+      currentSelection.selectedEvents.includes(ticketTypeId);
 
     if (isCurrentlySelected) {
-      // Deselect individual ticket - update both structures
-      newSelectedEvents = newSelectedEvents.filter(id => id !== ticketTypeId);
+      // Deselect individual ticket
+      const newSelectedEvents = currentSelection.selectedEvents.filter(id => id !== ticketTypeId);
+      
+      // Update both structures
+      updatePackageSelection(attendeeIdentifier, { 
+        ticketDefinitionId: null, 
+        selectedEvents: newSelectedEvents 
+      });
       removeIndividualTicket(attendeeIdentifier, ticketTypeId);
     } else {
-      // If switching from package to individual, select only this ticket
-      // Otherwise, add this ticket to existing selections
-      if (currentSelection.ticketDefinitionId) {
-        // Switching from package to individual - clear all packages first
-        if (currentEnhancedSelection?.packages.length > 0) {
-          currentEnhancedSelection.packages.forEach(pkg => {
-            removePackageSelection(attendeeIdentifier, pkg.packageId);
-          });
-        }
-        newSelectedEvents = [ticketTypeId]; // Only this ticket when switching from package
-      } else if (!newSelectedEvents.includes(ticketTypeId)) {
-        newSelectedEvents.push(ticketTypeId); // Add to existing individual selections
+      // Select individual ticket - clear any packages first
+      
+      // 1. Clear any existing package selections (both structures)
+      if (currentSelection.ticketDefinitionId || currentEnhancedSelection?.packages.length > 0) {
+        // Clear packages from both structures
+        clearAttendeeTicketSelections(attendeeIdentifier);
+        updatePackageSelection(attendeeIdentifier, { 
+          ticketDefinitionId: null, 
+          selectedEvents: [] 
+        });
       }
       
-      // Add to enhanced structure
+      // 2. Add the individual ticket
+      const newSelectedEvents = currentSelection.ticketDefinitionId 
+        ? [ticketTypeId] // Start fresh when switching from package
+        : [...currentSelection.selectedEvents.filter(id => id !== ticketTypeId), ticketTypeId]; // Add to existing
+      
+      // Update both structures
+      updatePackageSelection(attendeeIdentifier, { 
+        ticketDefinitionId: null, 
+        selectedEvents: newSelectedEvents 
+      });
+      
       addIndividualTicket(attendeeIdentifier, {
         ticketId: ticketTypeId,
         quantity: 1
       });
     }
-    
-    // Update legacy structure - selecting an individual ticket always clears any package
-    updatePackageSelection(attendeeIdentifier, { 
-      ticketDefinitionId: null, 
-      selectedEvents: newSelectedEvents 
-    });
   };
 
   const isPackageSelectedForAttendee = (attendeeIdentifier: string, packageName: string) => {
@@ -739,6 +777,26 @@ const TicketSelectionStep: React.FC = () => {
     return <SummaryRenderer {...summaryData} />;
   };
 
+  // Show waiting state when functionId is not available yet
+  if (!functionId) {
+    return (
+      <TwoColumnStepLayout
+        summaryContent={<div className="animate-pulse">Waiting for function information...</div>}
+        summaryTitle="Step Summary"
+        currentStep={3}
+        totalSteps={6}
+        stepName="Ticket Selection"
+      >
+        <div className="flex items-center justify-center h-64">
+          <div className="text-center">
+            <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-masonic-navy" />
+            <p className="text-gray-600">Preparing ticket selection...</p>
+          </div>
+        </div>
+      </TwoColumnStepLayout>
+    );
+  }
+
   // Show loading state
   if (isLoadingTickets) {
     return (
@@ -775,10 +833,18 @@ const TicketSelectionStep: React.FC = () => {
             <p className="text-red-600 mb-4">{ticketsError}</p>
             <Button 
               variant="outline" 
-              onClick={() => window.location.reload()}
+              onClick={retryFetchTickets}
               className="border-masonic-navy text-masonic-navy"
+              disabled={isLoadingTickets}
             >
-              Try Again
+              {isLoadingTickets ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Retrying...
+                </>
+              ) : (
+                'Try Again'
+              )}
             </Button>
           </div>
         </div>

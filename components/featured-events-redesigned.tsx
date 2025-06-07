@@ -60,7 +60,7 @@ export async function FeaturedEventsRedesigned() {
                   src={event.imageUrl}
                   width={1000}
                   height={400}
-                  className="aspect-5/2 w-full rounded-lg bg-gray-100 object-cover"
+                  className="aspect-[5/2] w-full h-full rounded-lg bg-gray-100 object-cover object-center"
                 />
               </div>
             </div>

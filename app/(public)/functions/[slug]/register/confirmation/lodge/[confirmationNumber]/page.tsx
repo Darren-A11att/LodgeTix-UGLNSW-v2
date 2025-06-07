@@ -1,6 +1,6 @@
 import { createClient } from '@/utils/supabase/server';
 import { redirect } from 'next/navigation';
-import { RegistrationWizard } from '@/components/register/RegistrationWizard/registration-wizard';
+import { ConfirmationPage } from '@/components/register/confirmation-page';
 
 interface LodgeConfirmationPageProps {
   params: Promise<{
@@ -52,40 +52,5 @@ export default async function LodgeConfirmationPage({ params }: LodgeConfirmatio
     ticketCount: registration.total_tickets
   });
   
-  // Render the registration wizard at the confirmation step with lodge-specific data
-  return (
-    <RegistrationWizard 
-      functionSlug={slug}
-      functionId={registration.function_id}
-      registrationId={registration.registration_id}
-      isNewRegistration={false}
-      initialStep={6} // Confirmation step
-      confirmationNumber={confirmationNumber}
-      confirmationData={{
-        confirmationNumber,
-        registrationId: registration.registration_id,
-        registrationType: 'lodge',
-        functionName: registration.function_name,
-        totalAmount: registration.total_amount_paid,
-        // Lodge-specific data
-        lodgeName: registration.lodge_name,
-        lodgeNumber: registration.lodge_number,
-        lodgeId: registration.lodge_id,
-        grandLodgeId: registration.grand_lodge_id,
-        // Members instead of attendees
-        lodgeMembers: registration.lodge_members,
-        memberTickets: registration.member_tickets,
-        packages: registration.packages_summary,
-        totalMembers: registration.total_members,
-        tickets: registration.tickets,
-        // Billing information
-        billingName: `${registration.billing_first_name} ${registration.billing_last_name}`,
-        billingEmail: registration.billing_email,
-        // Lodge secretary (customer) information
-        customerName: `${registration.customer_first_name} ${registration.customer_last_name}`,
-        customerEmail: registration.customer_email,
-        customerPhone: registration.customer_phone
-      }}
-    />
-  );
+  return <ConfirmationPage confirmationNumber={confirmationNumber} />;
 }

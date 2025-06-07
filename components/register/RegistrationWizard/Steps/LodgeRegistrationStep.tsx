@@ -53,6 +53,14 @@ export const LodgeRegistrationStep: React.FC<LodgeRegistrationStepProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [isFormComplete, setIsFormComplete] = useState(false);
   
+  // Processing steps state (same as payment step)
+  const [showProcessingSteps, setShowProcessingSteps] = useState(false);
+  const [processingSteps, setProcessingSteps] = useState([
+    { id: 'save', label: 'Saving registration...', status: 'pending' as const },
+    { id: 'payment', label: 'Processing payment...', status: 'pending' as const },
+    { id: 'confirm', label: 'Generating confirmation...', status: 'pending' as const },
+  ]);
+  
   // Dynamic pricing state
   const [functionPackages, setFunctionPackages] = useState<FunctionPackage[]>([]);
   const [isLoadingPricing, setIsLoadingPricing] = useState(true);
@@ -135,6 +143,18 @@ export const LodgeRegistrationStep: React.FC<LodgeRegistrationStepProps> = ({
       return;
     }
     
+    // Show processing steps UI (same as payment step)
+    setError(null);
+    setShowProcessingSteps(true);
+    setIsProcessing(true);
+    
+    // Update steps to show registration saving
+    setProcessingSteps(prev => {
+      const newSteps = [...prev];
+      newSteps[0] = { ...newSteps[0], status: 'current' };
+      return newSteps;
+    });
+    
     // Check if packages are loaded
     if (isLoadingPricing) {
       console.error('Packages are still loading');
@@ -152,9 +172,18 @@ export const LodgeRegistrationStep: React.FC<LodgeRegistrationStepProps> = ({
     }
     
     try {
+      // Step 1: Complete - Registration validation
+      setProcessingSteps(prev => {
+        const newSteps = [...prev];
+        newSteps[0] = { ...newSteps[0], status: 'completed' };
+        newSteps[1] = { ...newSteps[1], status: 'current' };
+        return newSteps;
+      });
+
       // Get package ID from the selected package
       console.log('[LodgeRegistrationStep] Selected package:', selectedPackage);
-      const packageId = selectedPackage.id; // Use 'id' not 'package_id' based on FunctionPackage interface
+      // Use package_id from the database, fallback to id if needed
+      const packageId = selectedPackage.package_id || selectedPackage.id;
       
       if (!packageId) {
         console.error('[LodgeRegistrationStep] Package structure:', selectedPackage);
@@ -199,23 +228,44 @@ export const LodgeRegistrationStep: React.FC<LodgeRegistrationStepProps> = ({
       }
 
       if (result.success && result.registrationId) {
+        // Step 2: Complete - Payment processed
+        setProcessingSteps(prev => {
+          const newSteps = [...prev];
+          newSteps[1] = { ...newSteps[1], status: 'completed' };
+          newSteps[2] = { ...newSteps[2], status: 'current' };
+          return newSteps;
+        });
+
         console.log('[LodgeRegistrationStep] Registration successful:', {
           registrationId: result.registrationId,
-          redirectUrl: `/functions/${functionSlug}/register/${result.registrationId}?showConfirmation=true`
+          confirmationNumber: result.confirmationNumber
         });
         
-        // Store registration data in the registration store
-        const store = useRegistrationStore.getState();
-        // Don't store confirmation number yet - it will be generated after payment
-        store.setCurrentStep(6); // Go to confirmation step
-        store._updateStatus('completed'); // Mark as completed
-        
-        // Navigate after the current render cycle to avoid React hooks error
-        setTimeout(() => {
-          const redirectUrl = `/functions/${functionSlug}/register/${result.registrationId}?showConfirmation=true`;
-          console.log('[LodgeRegistrationStep] Redirecting to:', redirectUrl);
-          router.push(redirectUrl);
-        }, 0);
+        // Step 3: Complete - Confirmation ready
+        setProcessingSteps(prev => {
+          const newSteps = [...prev];
+          newSteps[2] = { ...newSteps[2], status: 'completed' };
+          return newSteps;
+        });
+
+        // Check if we got a confirmation number
+        if (result.confirmationNumber) {
+          // Redirect to confirmation page with confirmation number
+          setTimeout(() => {
+            console.log('[LodgeRegistrationStep] Redirecting to confirmation page:', result.confirmationNumber);
+            router.push(`/functions/${functionSlug}/register/confirmation/lodge/${result.confirmationNumber}`);
+          }, 1500); // Small delay to show completion
+        } else {
+          // Fallback: Store registration data and go to confirmation step
+          const store = useRegistrationStore.getState();
+          useRegistrationStore.setState({ draftId: result.registrationId });
+          
+          setTimeout(() => {
+            console.log('[LodgeRegistrationStep] No confirmation number, moving to confirmation step with registrationId:', result.registrationId);
+            store.setCurrentStep(6); // Go to confirmation step
+            store._updateStatus('completed'); // Mark as completed
+          }, 1500);
+        }
       } else {
         throw new Error('Registration failed');
       }
@@ -326,6 +376,46 @@ export const LodgeRegistrationStep: React.FC<LodgeRegistrationStepProps> = ({
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>{error}</AlertDescription>
             </Alert>
+          )}
+
+          {/* Processing Steps UI (same as payment step) */}
+          {showProcessingSteps && (
+            <Card className="border-2 border-primary/20 bg-primary/5">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2 text-primary">
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  Processing Registration
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {processingSteps.map((step, index) => (
+                  <div key={step.id} className="flex items-center gap-3">
+                    <div className={`
+                      w-6 h-6 rounded-full flex items-center justify-center text-sm font-medium
+                      ${step.status === 'completed' ? 'bg-green-500 text-white' : 
+                        step.status === 'current' ? 'bg-primary text-white animate-pulse' : 
+                        'bg-gray-200 text-gray-500'}
+                    `}>
+                      {step.status === 'completed' ? (
+                        <Check className="w-3 h-3" />
+                      ) : (
+                        index + 1
+                      )}
+                    </div>
+                    <span className={`
+                      ${step.status === 'completed' ? 'text-green-600 line-through' : 
+                        step.status === 'current' ? 'text-primary font-medium' : 
+                        'text-gray-500'}
+                    `}>
+                      {step.label}
+                    </span>
+                    {step.status === 'current' && (
+                      <Loader2 className="w-4 h-4 animate-spin text-primary ml-auto" />
+                    )}
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
           )}
 
           {/* Navigation - Only Back Button */}

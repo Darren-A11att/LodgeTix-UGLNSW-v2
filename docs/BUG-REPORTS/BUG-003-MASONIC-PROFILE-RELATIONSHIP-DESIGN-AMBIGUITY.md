@@ -192,7 +192,8 @@ Registration APIs need defined:
 1. **Explicit answers** to all 5 decision points above
 2. **Business justification** for bidirectional relationships
 3. **Data consistency specification** with constraint rules
-4. **Access pattern documentation** with performance requirements
+4. **Access pattern documentati
+on** with performance requirements
 5. **Creation rule specification** with triggering conditions
 
 ### 🎯 **Format for Decisions**

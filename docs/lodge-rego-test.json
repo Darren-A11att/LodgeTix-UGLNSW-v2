@@ -1,0 +1,84 @@
+{
+  "logEntries": [
+    {
+      "type": "request_received",
+      "message": "Lodge Registration API - Received request",
+      "data": {
+        "functionId": "eebddef5-6833-43e3-8d32-700508b1c089",
+        "packageId": "794841e4-5f04-4899-96e2-c0afece4d5f2"
+      }
+    },
+    {
+      "type": "request_body",
+      "message": "Lodge Registration API - Request body",
+      "data": {
+        "tableCount": 1,
+        "bookingContact": {
+          "firstName": "Test",
+          "lastName": "Test",
+          "email": "darren@allatt.me",
+          "mobile": "0438 871 124",
+          "addressLine1": "",
+          "city": "",
+          "state": "",
+          "postcode": "",
+          "country": "Australia",
+          "title": "Bro",
+          "rank": "EAF"
+        },
+        "lodgeDetails": {
+          "lodgeName": "The Leichhardt Lodge No. 133",
+          "lodgeId": "4c1479ba-cbaa-2072-f77a-87882c81f1be"
+        },
+        "paymentMethodId": "pm_1RXLzGKBASow5NsWm1BAtDGW",
+        "amount": 117019,
+        "subtotal": 115000,
+        "stripeFee": 2019.0000000000002,
+        "billingDetails": {
+          "title": "",
+          "firstName": "Test",
+          "lastName": "Test",
+          "emailAddress": "darren@allatt.me",
+          "mobileNumber": "0438 871 124",
+          "phone": "0438 871 124",
+          "addressLine1": "The Leichhardt Lodge No. 133",
+          "suburb": "Sydney",
+          "stateTerritory": {
+            "name": "NSW"
+          },
+          "postcode": "2000",
+          "country": {
+            "isoCode": "AU"
+          },
+          "businessName": "The Leichhardt Lodge No. 133"
+        }
+      }
+    },
+    {
+      "type": "error",
+      "message": "Lodge Registration API - Registration error",
+      "data": {
+        "rpcResult": {
+          "data": null,
+          "error": {
+            "code": "P0001",
+            "details": null,
+            "hint": null,
+            "message": "Error in upsert_lodge_registration: invalid input value for enum contact_type: \"customer\""
+          }
+        }
+      }
+    },
+    {
+      "type": "response",
+      "message": "HTTP Response",
+      "data": {
+        "method": "POST",
+        "endpoint": "/api/functions/eebddef5-6833-43e3-8d32-700508b1c089/packages/794841e4-5f04-4899-96e2-c0afece4d5f2/lodge-registration",
+        "statusCode": 500,
+        "responseTime": "5782ms"
+      }
+    }
+  ],
+  "baseUrl": "http://localhost:3001"
+}

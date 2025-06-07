@@ -835,7 +835,11 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ function
         // NEW: Enhanced ticket selections structure
         ticketSelections: buildTicketSelectionsPayload(),
         totalAmount: 0, // Will be calculated server-side
-        billingDetails: storeState.billingDetails,
+        billingDetails: storeState.billingDetails ? {
+          ...storeState.billingDetails,
+          emailAddress: storeState.billingDetails.email,
+          mobileNumber: storeState.billingDetails.phone
+        } : null,
         customerId: user.id // Include the authenticated user ID
       }
       

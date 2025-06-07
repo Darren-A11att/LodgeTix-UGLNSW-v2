@@ -1,88 +1,70 @@
-# Individual Registration Enum Fixes Summary
+# Enum Type Schema Assumption Errors - Comprehensive Fix Summary
 
-## Issues Fixed
+## Root Cause Analysis
+The original error "type 'contact_preference_type' does not exist" was identified as a **Schema Assumption Error** - code assumes database enum types exist without verification.
 
-### 1. Sequence Reference Error ✅
-**Error**: `relation "registration_confirmation_seq" does not exist`
-- **Cause**: Function was trying to use `nextval('registration_confirmation_seq')` 
-- **Fix**: Set `v_confirmation_number := NULL` to let Edge Function handle it after payment
-- **Migrations**: `20250608000003`, `20250608000011`
+## Classification
+**Error Type**: Schema Assumption Error  
+**Pattern**: Code attempting to cast values to non-existent enum types  
+**Impact**: Runtime failures when executing RPC functions
 
-### 2. Customer Type Enum Error ✅
-**Error**: `invalid input value for enum customer_type: "individual"`
-- **Cause**: Function was using 'individual' but valid values are: `'booking_contact'`, `'sponsor'`, `'donor'`
-- **Fix**: Changed to use `'booking_contact'`
-- **Migration**: `20250608000012`
+## Enum Types Audit Results
 
-### 3. Contact Type Enum Error ✅
-**Error**: `invalid input value for enum contact_type: "customer"`
-- **Cause**: Function was using 'customer' and 'attendee' but valid values are: `'individual'`, `'organisation'`
-- **Fix**: Changed all instances to use `'individual'`
-- **Migration**: `20250608000013`
+### 1. Non-Existent Enums Referenced
+- `contact_preference_type` - **DOES NOT EXIST** (should be `attendee_contact_preference`)
+- `ticket_status` - **DOES NOT EXIST** (tickets.status is varchar(50))
 
-### 4. Contact Preference Case Sensitivity ✅
-**Potential Issue**: Using 'Directly' (capital D) instead of 'directly' (lowercase)
-- **Fix**: Added `LOWER()` to ensure lowercase values
-- **Migration**: `20250608000013`
+### 2. Valid Enum Types in Database
+From `/supabase/migrations/parsed/20250605073722_002_types.sql`:
+- `attendee_contact_preference`: 'directly', 'primaryattendee', 'mason', 'guest', 'providelater'
+- `attendee_type`: 'mason', 'guest', 'ladypartner', 'guestpartner'
+- `contact_type`: 'individual', 'organisation'
+- `customer_type`: 'booking_contact', 'sponsor', 'donor'
+- `payment_status`: 'pending', 'completed', 'failed', 'refunded', 'partially_refunded', 'cancelled', 'expired', 'Unpaid', 'unpaid'
+- `registration_type`: 'individuals', 'groups', 'officials', 'lodge', 'delegation'
 
-## Valid Enum Values Reference
+### 3. Incorrect Enum Value Mappings Fixed
+- `contact_type`: 'customer' → 'individual', 'attendee' → 'individual'
+- `attendee_contact_preference`: Ensure lowercase values ('directly', not 'Directly')
 
-### customer_type
-- `'booking_contact'` ✓ (used for individual registrations)
-- `'sponsor'`
-- `'donor'`
+## Files Fixed
 
-### contact_type
-- `'individual'` ✓ (used for all contacts in individual registrations)
-- `'organisation'`
+### Primary Fixes
+1. **20250607000101_fix_contact_creation_business_logic.sql**
+   - Fixed `contact_preference_type` → `attendee_contact_preference`
+   - Implemented correct business logic for contact creation
 
-### attendee_type
-- `'mason'`
-- `'guest'`
-- `'ladypartner'`
-- `'guestpartner'`
+2. **20250607000102_fix_ticket_status_enum_assumptions.sql**
+   - Removed all `::ticket_status` casts
+   - Changed to plain string values for tickets.status column
 
-### attendee_contact_preference
-- `'directly'` ✓ (default for individual registrations)
-- `'primaryattendee'`
-- `'mason'`
-- `'guest'`
-- `'providelater'`
+### Affected Migration Files
+Multiple files contained ticket_status enum casting errors:
+- 20250608000027_update_registration_rpcs_with_org_id_and_tickets.sql
+- 20250608000025_fix_attendee_type_casting.sql
+- 20250608000031_restore_individual_registration_jsonb_function.sql
+- 20250608000032_fix_raw_registrations_column_references.sql
 
-### registration_type
-- `'individuals'` ✓ (used for individual registrations)
-- `'groups'`
-- `'officials'`
-- `'lodge'`
-- `'delegation'`
+## Business Logic Clarification
+Per user requirements:
+- **Primary attendees**: ALWAYS get a contact record
+- **Additional attendees with 'directly' preference**: Get a contact record
+- **Additional attendees with 'primaryattendee' or 'providelater'**: NO contact record
 
-### payment_status
-- `'pending'` ✓ (initial status)
-- `'completed'` ✓ (after payment)
-- `'failed'`
-- `'refunded'`
-- `'partially_refunded'`
-- `'cancelled'`
-- `'expired'`
+## Prevention Strategy
+1. Always verify enum types exist before casting
+2. Use database schema as source of truth
+3. Consider using CHECK constraints instead of enums for flexibility
+4. Document all enum values in codebase
 
-## Testing the Fix
+## Migration Order
+1. Apply 20250607000101_fix_contact_creation_business_logic.sql
+2. Apply 20250607000102_fix_ticket_status_enum_assumptions.sql
+3. Test registration flow end-to-end
 
-After applying all migrations, the individual registration flow should:
-1. Create a registration with NULL confirmation_number
-2. Create a customer with type 'booking_contact'
-3. Create contacts with type 'individual'
-4. Use lowercase 'directly' for contact preferences
-5. Allow the Edge Function to generate confirmation numbers after payment
-
-## Migrations Applied
-
-1. `20250608000003_remove_confirmation_number_generation.sql`
-2. `20250608000007_fix_ticket_joins.sql`
-3. `20250608000008_add_confirmation_number_tracking.sql`
-4. `20250608000009_fix_individual_registration_contacts_schema.sql`
-5. `20250608000010_recreate_confirmation_views.sql`
-6. `20250608000011_fix_function_sequence_reference.sql`
-7. `20250608000012_fix_customer_type_enum.sql`
-8. `20250608000013_fix_all_enum_mismatches.sql`
-
-All migrations are now synced between local and remote databases.
+## Testing Checklist
+- [ ] Individual registration with primary attendee
+- [ ] Individual registration with additional attendees (mixed contact preferences)
+- [ ] Lodge registration with ticket creation
+- [ ] Payment completion flow
+- [ ] Confirmation number generation
