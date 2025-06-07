@@ -410,6 +410,53 @@ export async function PUT(request: Request) {
     }
     
     console.log("Payment updated successfully:", rpcResult);
+    
+    // Generate confirmation number after successful payment
+    try {
+      console.log("Triggering confirmation number generation after delegation payment completion...");
+      
+      // Invoke the confirmation generation edge function
+      const { data: edgeFunctionData, error: edgeFunctionError } = await supabase.functions.invoke('generate-confirmation', {
+        body: {
+          type: 'UPDATE',
+          table: 'registrations',
+          schema: 'public',
+          record: {
+            id: registrationId,
+            registration_id: registrationId,
+            status: 'completed',
+            payment_status: 'completed',
+            confirmation_number: null,
+            registration_type: 'delegation',
+            function_id: existingRegistration.function_id,
+            customer_id: existingRegistration.auth_user_id || '',
+            created_at: existingRegistration.created_at || new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          },
+          old_record: {
+            id: registrationId,
+            registration_id: registrationId,
+            status: 'pending',
+            payment_status: 'pending',
+            confirmation_number: null,
+            registration_type: 'delegation',
+            function_id: existingRegistration.function_id,
+            customer_id: existingRegistration.auth_user_id || '',
+            created_at: existingRegistration.created_at || new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          }
+        },
+      });
+
+      if (edgeFunctionError) {
+        console.error('Edge function error:', edgeFunctionError);
+      } else {
+        console.log('Edge function invoked successfully after delegation payment:', edgeFunctionData);
+      }
+    } catch (edgeError) {
+      console.error('Failed to invoke edge function after delegation payment:', edgeError);
+    }
+    
     console.groupEnd();
     
     return NextResponse.json({

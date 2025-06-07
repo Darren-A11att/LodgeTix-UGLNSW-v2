@@ -244,11 +244,57 @@ export async function POST(
       );
     }
 
-    // Poll for confirmation number if payment was successful
+    // Generate confirmation number if payment was successful
     let confirmationNumber = registrationResult?.confirmationNumber || registrationResult?.confirmation_number;
     const finalRegistrationId = registrationResult?.registrationId || registrationResult?.registration_id || registrationId;
     
     if (paymentStatus === 'completed' && !confirmationNumber) {
+      console.log('[Lodge Registration API] Triggering confirmation number generation...');
+      
+      try {
+        // Invoke the confirmation generation edge function
+        const { data: edgeFunctionData, error: edgeFunctionError } = await supabase.functions.invoke('generate-confirmation', {
+          body: {
+            type: 'UPDATE',
+            table: 'registrations',
+            schema: 'public',
+            record: {
+              id: finalRegistrationId,
+              registration_id: finalRegistrationId,
+              status: 'completed',
+              payment_status: 'completed',
+              confirmation_number: null,
+              registration_type: 'lodge',
+              function_id: functionId,
+              customer_id: '',
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            },
+            old_record: {
+              id: finalRegistrationId,
+              registration_id: finalRegistrationId,
+              status: 'pending',
+              payment_status: 'pending',
+              confirmation_number: null,
+              registration_type: 'lodge',
+              function_id: functionId,
+              customer_id: '',
+              created_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            }
+          },
+        });
+
+        if (edgeFunctionError) {
+          console.error('[Lodge Registration API] Edge function error:', edgeFunctionError);
+        } else {
+          console.log('[Lodge Registration API] Edge function invoked successfully:', edgeFunctionData);
+        }
+      } catch (edgeError) {
+        console.error('[Lodge Registration API] Failed to invoke edge function:', edgeError);
+      }
+      
+      // Poll for confirmation number after triggering edge function
       console.log('[Lodge Registration API] Polling for confirmation number...');
       
       const maxPolls = 5;

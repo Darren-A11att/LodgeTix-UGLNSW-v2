@@ -178,7 +178,7 @@ export const LodgeRegistrationStep: React.FC<LodgeRegistrationStepProps> = ({
         },
         body: JSON.stringify({
           tableCount: lodgeTicketOrder?.tableCount || 0,
-          bookingContact: customer,
+          bookingContact: lodgeCustomer,
           lodgeDetails: {
             lodgeName: lodgeDetails.lodgeName,
             lodgeId: lodgeDetails.lodge_id,

@@ -221,22 +221,22 @@ export function RegistrationTypeStep() {
       (attendee.primaryEmail && attendee.primaryEmail.trim()) || 
       (attendee.lodgeNameNumber && attendee.lodgeNameNumber.trim()));
     
-    // Check lodge registration store for existing data
-    const lodgeState = useLodgeRegistrationStore.getState();
+    // Check unified store for existing lodge data
+    const storeState = useRegistrationStore.getState();
     const hasLodgeData = currentDraftType === 'lodge' && (
-      (lodgeState.customer.firstName && lodgeState.customer.firstName.trim()) ||
-      (lodgeState.customer.lastName && lodgeState.customer.lastName.trim()) ||
-      (lodgeState.customer.email && lodgeState.customer.email.trim()) ||
-      (lodgeState.lodgeDetails.lodge_id && lodgeState.lodgeDetails.lodge_id.trim()) ||
-      (lodgeState.lodgeDetails.grand_lodge_id && lodgeState.lodgeDetails.grand_lodge_id.trim()) ||
-      lodgeState.tableOrder > 0
+      (storeState.lodgeCustomer.firstName && storeState.lodgeCustomer.firstName.trim()) ||
+      (storeState.lodgeCustomer.lastName && storeState.lodgeCustomer.lastName.trim()) ||
+      (storeState.lodgeCustomer.email && storeState.lodgeCustomer.email.trim()) ||
+      (storeState.lodgeDetails.lodge_id && storeState.lodgeDetails.lodge_id.trim()) ||
+      (storeState.lodgeDetails.grand_lodge_id && storeState.lodgeDetails.grand_lodge_id.trim()) ||
+      storeState.lodgeTableOrder.tableCount > 0
     );
     
     // Check if we're already on the selected type with existing data
     const isSelectingCurrentType = currentDraftType === type;
     
     // Check if the registration is completed
-    const isRegistrationCompleted = confirmationNumber !== null || currentState.status === 'completed';
+    const isRegistrationCompleted = confirmationNumber !== null || storeState.status === 'completed';
     
     // If registration is completed, always start new - never show draft modal
     if (isRegistrationCompleted) {
@@ -316,13 +316,12 @@ export function RegistrationTypeStep() {
     const registrationType = currentState.registrationType;
     const hasAttendees = currentState.attendees && currentState.attendees.length > 0;
     
-    // Check lodge store data
-    const lodgeState = useLodgeRegistrationStore.getState();
+    // Check lodge store data from unified store
     const hasLodgeData = registrationType === 'lodge' && (
-      lodgeState.customer.firstName || 
-      lodgeState.customer.email || 
-      lodgeState.lodgeDetails.lodge_id ||
-      lodgeState.tableOrder > 0
+      currentState.lodgeCustomer.firstName || 
+      currentState.lodgeCustomer.email || 
+      currentState.lodgeDetails.lodge_id ||
+      currentState.lodgeTableOrder.tableCount > 0
     );
     
     console.log("Continuing with existing draft - detailed info:", {
@@ -331,9 +330,9 @@ export function RegistrationTypeStep() {
       attendees: currentState.attendees,
       hasLodgeData,
       lodgeData: registrationType === 'lodge' ? {
-        customer: lodgeState.customer,
-        lodgeDetails: lodgeState.lodgeDetails,
-        tableOrder: lodgeState.tableOrder
+        customer: currentState.lodgeCustomer,
+        lodgeDetails: currentState.lodgeDetails,
+        tableOrder: currentState.lodgeTableOrder
       } : null
     });
     
