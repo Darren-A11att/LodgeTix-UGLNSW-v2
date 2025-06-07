@@ -78,12 +78,25 @@ const TicketSelectionStep: React.FC = () => {
   const functionId = useRegistrationStore((s) => s.functionId);
   const registrationType = useRegistrationStore((s) => s.registrationType);
   const lodgeTicketOrder = useRegistrationStore((s) => s.lodgeTicketOrder);
+  
+  // Enhanced ticket selection store actions
+  const ticketSelections = useRegistrationStore((s) => s.ticketSelections);
+  const updateTicketSelections = useRegistrationStore((s) => s.updateTicketSelections);
+  const addPackageSelection = useRegistrationStore((s) => s.addPackageSelection);
+  const removePackageSelection = useRegistrationStore((s) => s.removePackageSelection);
+  const addIndividualTicket = useRegistrationStore((s) => s.addIndividualTicket);
+  const removeIndividualTicket = useRegistrationStore((s) => s.removeIndividualTicket);
+  const clearAttendeeTicketSelections = useRegistrationStore((s) => s.clearAttendeeTicketSelections);
+  const goToNextStep = useRegistrationStore((s) => s.goToNextStep);
 
   // State for dynamic ticket and package data
   const [ticketTypes, setTicketTypes] = useState<FunctionTicketDefinition[]>([])
   const [ticketPackages, setTicketPackages] = useState<FunctionPackage[]>([])
   const [isLoadingTickets, setIsLoadingTickets] = useState(true)
   const [ticketsError, setTicketsError] = useState<string | null>(null)
+  const [isPersisting, setIsPersisting] = useState(false)
+  const [validationErrors, setValidationErrors] = useState<Array<{field: string, message: string}>>([])
+  const [showValidationModal, setShowValidationModal] = useState(false)
   const { toast } = useToast()
   
   // Real-time ticket availability - DISABLED until we can pass correct event IDs
@@ -267,7 +280,6 @@ const TicketSelectionStep: React.FC = () => {
 
   const currentTickets = derivedCurrentTickets;
 
-  const goToNextStep = useRegistrationStore((s) => s.goToNextStep);
   const goToPrevStep = useRegistrationStore((s) => s.goToPrevStep);
 
   // Alert modal state
@@ -354,7 +366,148 @@ const TicketSelectionStep: React.FC = () => {
     return eligibleAttendees.every(attendee => getAttendeeTickets((attendee as any).attendeeId).length > 0);
   };
 
-  const handleContinue = () => {
+  // Enhanced validation that works with both legacy and new structures
+  const ensureAllAttendeesHaveTicketsEnhanced = (): boolean => {
+    if (eligibleAttendees.length === 0) {
+      return false; 
+    }
+    
+    return eligibleAttendees.every(attendee => {
+      const attendeeId = (attendee as any).attendeeId;
+      
+      // Check legacy structure
+      const legacyTickets = getAttendeeTickets(attendeeId);
+      if (legacyTickets.length > 0) return true;
+      
+      // Check enhanced structure
+      const enhancedSelections = ticketSelections[attendeeId];
+      if (enhancedSelections) {
+        const hasPackages = enhancedSelections.packages.length > 0;
+        const hasIndividualTickets = enhancedSelections.individualTickets.length > 0;
+        return hasPackages || hasIndividualTickets;
+      }
+      
+      return false;
+    });
+  };
+
+  // Function to persist ticket selections to database
+  const persistTicketSelections = async (): Promise<void> => {
+    if (!functionId) {
+      throw new Error('Function ID is required for ticket persistence');
+    }
+
+    // Get the current draft ID from the store
+    const draftId = useRegistrationStore.getState().draftId;
+    if (!draftId) {
+      console.warn('No draft ID available, skipping persistence');
+      return;
+    }
+
+    setIsPersisting(true);
+    try {
+      // Build payload from enhanced ticket selections
+      const ticketSelectionsPayload: Record<string, any> = {};
+      
+      allStoreAttendees.forEach(attendee => {
+        const attendeeId = attendee.attendeeId;
+        const selections = ticketSelections[attendeeId];
+        
+        if (selections) {
+          ticketSelectionsPayload[attendeeId] = selections;
+        } else {
+          // Fallback: Check legacy packages for backward compatibility
+          const legacyPackage = packages[attendeeId];
+          if (legacyPackage) {
+            if (legacyPackage.ticketDefinitionId) {
+              // Convert package selection to new format
+              ticketSelectionsPayload[attendeeId] = {
+                packages: [{
+                  packageId: legacyPackage.ticketDefinitionId,
+                  quantity: 1,
+                  tickets: legacyPackage.selectedEvents.map(eventId => ({
+                    ticketId: eventId,
+                    quantity: 1
+                  }))
+                }],
+                individualTickets: []
+              };
+            } else if (legacyPackage.selectedEvents.length > 0) {
+              // Convert individual selections to new format
+              ticketSelectionsPayload[attendeeId] = {
+                packages: [],
+                individualTickets: legacyPackage.selectedEvents.map(eventId => ({
+                  ticketId: eventId,
+                  quantity: 1
+                }))
+              };
+            } else {
+              // Empty selection
+              ticketSelectionsPayload[attendeeId] = {
+                packages: [],
+                individualTickets: []
+              };
+            }
+          } else {
+            // No selection at all
+            ticketSelectionsPayload[attendeeId] = {
+              packages: [],
+              individualTickets: []
+            };
+          }
+        }
+      });
+
+      console.log('💾 Persisting ticket selections to draft:', {
+        draftId,
+        functionId,
+        attendeeCount: Object.keys(ticketSelectionsPayload).length
+      });
+      
+      // Call the draft persistence API
+      const response = await fetch(`/api/registrations/drafts/${draftId}/tickets`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          functionId,
+          ticketSelections: ticketSelectionsPayload
+        })
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to persist ticket selections');
+      }
+      
+      const result = await response.json();
+      console.log('✅ Ticket selections persisted successfully:', result);
+      
+      // Optional: Show success message to user
+      // toast({
+      //   title: "Selections Saved",
+      //   description: "Your ticket selections have been saved.",
+      //   variant: "success"
+      // });
+      
+    } catch (error) {
+      console.error('❌ Failed to persist ticket selections:', error);
+      
+      // Show error to user but don't block progression
+      toast({
+        title: "Warning",
+        description: "Failed to save ticket selections, but you can continue. Your selections will be saved when you complete registration.",
+        variant: "destructive"
+      });
+      
+      // Don't re-throw the error - allow progression to continue
+    } finally {
+      setIsPersisting(false);
+    }
+  };
+
+  const handleContinue = async () => {
     // For lodge registrations with bulk orders, skip individual ticket validation
     if (registrationType === 'lodge' && lodgeTicketOrder) {
       // Check if any tickets are selected
@@ -362,6 +515,7 @@ const TicketSelectionStep: React.FC = () => {
         (packages['lodge-bulk']?.selectedEvents && packages['lodge-bulk'].selectedEvents.length > 0);
       
       if (hasSelection) {
+        await persistTicketSelections();
         goToNextStep();
       } else {
         // Show validation modal for lodge bulk orders
@@ -373,12 +527,32 @@ const TicketSelectionStep: React.FC = () => {
       return;
     }
     
-    if (ensureAllAttendeesHaveTickets()) {
-      goToNextStep();
+    // Use enhanced validation
+    if (ensureAllAttendeesHaveTicketsEnhanced()) {
+      try {
+        // Persist ticket selections before moving to next step
+        await persistTicketSelections();
+        goToNextStep();
+      } catch (error) {
+        console.error('Failed to persist tickets, but continuing:', error);
+        // Continue even if persistence fails
+        goToNextStep();
+      }
     } else {
       // Build list of attendees without tickets
       const attendeesWithoutTickets = eligibleAttendees
-        .filter(attendee => getAttendeeTickets((attendee as any).attendeeId).length === 0)
+        .filter(attendee => {
+          const attendeeId = (attendee as any).attendeeId;
+          const legacyTickets = getAttendeeTickets(attendeeId);
+          const enhancedSelections = ticketSelections[attendeeId];
+          
+          // Check both structures
+          const hasLegacyTickets = legacyTickets.length > 0;
+          const hasEnhancedSelections = enhancedSelections && 
+            (enhancedSelections.packages.length > 0 || enhancedSelections.individualTickets.length > 0);
+            
+          return !hasLegacyTickets && !hasEnhancedSelections;
+        })
         .map(attendee => ({
           field: `${attendee.firstName} ${attendee.lastName}`,
           message: "Requires at least one ticket or package selection"
@@ -414,17 +588,40 @@ const TicketSelectionStep: React.FC = () => {
     const isCurrentlySelected = packages[attendeeIdentifier]?.ticketDefinitionId === packageId;
 
     if (isCurrentlySelected) {
-      // Deselect package
+      // Deselect package - update both structures
       updatePackageSelection(attendeeIdentifier, { 
         ticketDefinitionId: null, 
         selectedEvents: [] 
       });
+      
+      // Clear from enhanced structure
+      removePackageSelection(attendeeIdentifier, packageId);
     } else {
-      // Select package
+      // Select package - update both structures
       updatePackageSelection(attendeeIdentifier, { 
         ticketDefinitionId: packageId, 
         selectedEvents: selectedPackageInfo.includes // Store included events for clarity/consistency
       });
+      
+      // Add to enhanced structure
+      const packageTickets = selectedPackageInfo.includes.map(ticketId => ({
+        ticketId,
+        quantity: 1 // Default quantity
+      }));
+      
+      addPackageSelection(attendeeIdentifier, {
+        packageId,
+        quantity: 1,
+        tickets: packageTickets
+      });
+      
+      // Clear any individual ticket selections when selecting a package
+      const currentSelections = ticketSelections[attendeeIdentifier];
+      if (currentSelections?.individualTickets.length > 0) {
+        currentSelections.individualTickets.forEach(ticket => {
+          removeIndividualTicket(attendeeIdentifier, ticket.ticketId);
+        });
+      }
     }
   };
 
@@ -436,6 +633,7 @@ const TicketSelectionStep: React.FC = () => {
     if (!attendee) return;
 
     const currentSelection = packages[attendeeIdentifier] || { ticketDefinitionId: null, selectedEvents: [] };
+    const currentEnhancedSelection = ticketSelections[attendeeIdentifier];
     
     // If the attendee currently has a package selected, we need to start with an empty selection
     // Otherwise, copy the current individual selections
@@ -446,19 +644,32 @@ const TicketSelectionStep: React.FC = () => {
     const isCurrentlySelected = !currentSelection.ticketDefinitionId && newSelectedEvents.includes(ticketTypeId);
 
     if (isCurrentlySelected) {
-      // Deselect individual ticket
+      // Deselect individual ticket - update both structures
       newSelectedEvents = newSelectedEvents.filter(id => id !== ticketTypeId);
+      removeIndividualTicket(attendeeIdentifier, ticketTypeId);
     } else {
       // If switching from package to individual, select only this ticket
       // Otherwise, add this ticket to existing selections
       if (currentSelection.ticketDefinitionId) {
+        // Switching from package to individual - clear all packages first
+        if (currentEnhancedSelection?.packages.length > 0) {
+          currentEnhancedSelection.packages.forEach(pkg => {
+            removePackageSelection(attendeeIdentifier, pkg.packageId);
+          });
+        }
         newSelectedEvents = [ticketTypeId]; // Only this ticket when switching from package
       } else if (!newSelectedEvents.includes(ticketTypeId)) {
         newSelectedEvents.push(ticketTypeId); // Add to existing individual selections
       }
+      
+      // Add to enhanced structure
+      addIndividualTicket(attendeeIdentifier, {
+        ticketId: ticketTypeId,
+        quantity: 1
+      });
     }
     
-    // Selecting an individual ticket always clears any package
+    // Update legacy structure - selecting an individual ticket always clears any package
     updatePackageSelection(attendeeIdentifier, { 
       ticketDefinitionId: null, 
       selectedEvents: newSelectedEvents 
@@ -986,23 +1197,33 @@ const TicketSelectionStep: React.FC = () => {
             </Button>
             <Button
               onClick={handleContinue}
+              disabled={isPersisting}
               variant={
                 registrationType === 'lodge' && lodgeTicketOrder
                   ? (packages['lodge-bulk']?.ticketDefinitionId || (packages['lodge-bulk']?.selectedEvents && packages['lodge-bulk'].selectedEvents.length > 0)) ? "default" : "outline"
-                  : (ensureAllAttendeesHaveTickets() && currentTickets.length > 0) ? "default" : "outline"
+                  : (ensureAllAttendeesHaveTicketsEnhanced() && currentTickets.length > 0) ? "default" : "outline"
               }
               className={`gap-2 ${
                 registrationType === 'lodge' && lodgeTicketOrder
                   ? (packages['lodge-bulk']?.ticketDefinitionId || (packages['lodge-bulk']?.selectedEvents && packages['lodge-bulk'].selectedEvents.length > 0))
                     ? "bg-masonic-navy hover:bg-masonic-blue text-white"
                     : "border-masonic-navy text-masonic-navy hover:bg-masonic-lightblue"
-                  : (ensureAllAttendeesHaveTickets() && currentTickets.length > 0)
+                  : (ensureAllAttendeesHaveTicketsEnhanced() && currentTickets.length > 0)
                     ? "bg-masonic-navy hover:bg-masonic-blue text-white"
                     : "border-masonic-navy text-masonic-navy hover:bg-masonic-lightblue"
               }`}
             >
-              Continue
-              <ChevronRight className="w-4 h-4" />
+              {isPersisting ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  Continue
+                  <ChevronRight className="w-4 h-4" />
+                </>
+              )}
             </Button>
           </div>
 
@@ -1412,15 +1633,25 @@ const TicketSelectionStep: React.FC = () => {
           </Button>
           <Button
             onClick={handleContinue}
-            variant={(ensureAllAttendeesHaveTickets() && currentTickets.length > 0) ? "default" : "outline"}
+            disabled={isPersisting}
+            variant={(ensureAllAttendeesHaveTicketsEnhanced() && currentTickets.length > 0) ? "default" : "outline"}
             className={`gap-2 ${
-              (ensureAllAttendeesHaveTickets() && currentTickets.length > 0)
+              (ensureAllAttendeesHaveTicketsEnhanced() && currentTickets.length > 0)
                 ? "bg-masonic-navy hover:bg-masonic-blue text-white"
                 : "border-masonic-navy text-masonic-navy hover:bg-masonic-lightblue"
             }`}
           >
-            Continue
-            <ChevronRight className="w-4 h-4" />
+            {isPersisting ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Saving...
+              </>
+            ) : (
+              <>
+                Continue
+                <ChevronRight className="w-4 h-4" />
+              </>
+            )}
           </Button>
         </div>
 

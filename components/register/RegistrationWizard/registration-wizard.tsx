@@ -742,6 +742,63 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ function
         attendeeType: normalizeAttendeeType(attendee.attendeeType || 'guest')
       });
       
+      // Build enhanced ticket selections payload from the new store structure
+      const buildTicketSelectionsPayload = () => {
+        const ticketSelectionsPayload: Record<string, any> = {};
+        
+        storeState.attendees.forEach(attendee => {
+          const attendeeId = attendee.attendeeId;
+          const enhancedSelections = storeState.ticketSelections?.[attendeeId];
+          
+          if (enhancedSelections) {
+            // Use enhanced ticket selections
+            ticketSelectionsPayload[attendeeId] = enhancedSelections;
+          } else {
+            // Fallback: Convert legacy package selections to enhanced format
+            const legacyPackage = storeState.packages[attendeeId];
+            if (legacyPackage) {
+              if (legacyPackage.ticketDefinitionId) {
+                // Package selection
+                ticketSelectionsPayload[attendeeId] = {
+                  packages: [{
+                    packageId: legacyPackage.ticketDefinitionId,
+                    quantity: 1,
+                    tickets: legacyPackage.selectedEvents.map(eventId => ({
+                      ticketId: eventId,
+                      quantity: 1
+                    }))
+                  }],
+                  individualTickets: []
+                };
+              } else if (legacyPackage.selectedEvents.length > 0) {
+                // Individual ticket selections
+                ticketSelectionsPayload[attendeeId] = {
+                  packages: [],
+                  individualTickets: legacyPackage.selectedEvents.map(eventId => ({
+                    ticketId: eventId,
+                    quantity: 1
+                  }))
+                };
+              } else {
+                // Empty selection
+                ticketSelectionsPayload[attendeeId] = {
+                  packages: [],
+                  individualTickets: []
+                };
+              }
+            } else {
+              // No selection at all
+              ticketSelectionsPayload[attendeeId] = {
+                packages: [],
+                individualTickets: []
+              };
+            }
+          }
+        });
+        
+        return ticketSelectionsPayload;
+      };
+
       const registrationData = {
         registrationType: storeState.registrationType,
         functionId: functionData?.id || resolvedFunctionId || providedFunctionId,
@@ -750,6 +807,7 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ function
         eventId: eventIdForRegistration, // Use the event_id from the selected ticket
         primaryAttendee: normalizeAttendeeForAPI(storeState.attendees.find(att => att.isPrimary)),
         additionalAttendees: storeState.attendees.filter(att => !att.isPrimary).map(normalizeAttendeeForAPI),
+        // Legacy tickets array (keep for RPC compatibility)
         tickets: storeState.attendees.flatMap(attendee => {
           const attendeePackage = storeState.packages[attendee.attendeeId];
           if (!attendeePackage) return []
@@ -774,12 +832,16 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ function
           }
           return []
         }),
+        // NEW: Enhanced ticket selections structure
+        ticketSelections: buildTicketSelectionsPayload(),
         totalAmount: 0, // Will be calculated server-side
         billingDetails: storeState.billingDetails,
         customerId: user.id // Include the authenticated user ID
       }
       
       console.log("📤 Sending registration data with customerId:", registrationData.customerId)
+      console.log("🎫 Enhanced ticket selections:", registrationData.ticketSelections)
+      console.log("🎫 Legacy tickets array:", registrationData.tickets)
       console.log("🍪 Document cookies:", document.cookie)
       
       // Use the session we already have from above
