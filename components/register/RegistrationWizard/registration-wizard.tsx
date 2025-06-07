@@ -86,13 +86,23 @@ const isValidEmail = (email: string | undefined | null): boolean => {
 
 // Helper function to normalize attendee type
 const normalizeAttendeeType = (type: string): string => {
+  if (!type) return 'guest'; // Default to guest if no type provided
+  
+  // Map common variations to correct enum values
   const typeMap: Record<string, string> = {
+    'mason': 'mason',
+    'guest': 'guest', 
+    'ladypartner': 'ladypartner',
+    'guestpartner': 'guestpartner',
+    // Handle capitalized versions
     'Mason': 'mason',
-    'Guest': 'guest', 
+    'Guest': 'guest',
     'LadyPartner': 'ladypartner',
     'GuestPartner': 'guestpartner'
   };
-  return typeMap[type.toLowerCase()] || type;
+  
+  // First try exact match, then lowercase match
+  return typeMap[type] || typeMap[type.toLowerCase()] || 'guest';
 };
 
 // Function to validate attendee data
@@ -726,14 +736,20 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ function
         }
       }
 
+      // Normalize attendee types before sending to API
+      const normalizeAttendeeForAPI = (attendee: any) => ({
+        ...attendee,
+        attendeeType: normalizeAttendeeType(attendee.attendeeType || 'guest')
+      });
+      
       const registrationData = {
         registrationType: storeState.registrationType,
         functionId: functionData?.id || resolvedFunctionId || providedFunctionId,
         functionSlug: storeState.functionSlug,
         selectedEvents: storeState.selectedEvents || selectedEvents,
         eventId: eventIdForRegistration, // Use the event_id from the selected ticket
-        primaryAttendee: storeState.attendees.find(att => att.isPrimary),
-        additionalAttendees: storeState.attendees.filter(att => !att.isPrimary),
+        primaryAttendee: normalizeAttendeeForAPI(storeState.attendees.find(att => att.isPrimary)),
+        additionalAttendees: storeState.attendees.filter(att => !att.isPrimary).map(normalizeAttendeeForAPI),
         tickets: storeState.attendees.flatMap(attendee => {
           const attendeePackage = storeState.packages[attendee.attendeeId];
           if (!attendeePackage) return []
