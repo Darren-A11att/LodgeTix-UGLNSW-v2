@@ -70,6 +70,10 @@ export function EventCard(props: EventCardProps) {
             src={imageUrl}
             alt={title}
             className="h-full w-full object-cover object-center group-hover:opacity-95 transition-opacity duration-200"
+            style={{
+              clipPath: 'inset(0 0 0 0)',
+              maskImage: 'none'
+            }}
           />
         </div>
         

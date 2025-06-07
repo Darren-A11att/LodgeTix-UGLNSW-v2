@@ -55,13 +55,19 @@ export async function FeaturedEventsRedesigned() {
                   'flex-auto lg:col-span-5 lg:row-start-1 xl:col-span-6',
                 )}
               >
-                <Image
-                  alt={event.title}
-                  src={event.imageUrl}
-                  width={1000}
-                  height={400}
-                  className="aspect-[5/2] w-full h-full rounded-lg bg-gray-100 object-cover object-center"
-                />
+                <div className="aspect-[4/3] w-full h-full rounded-lg bg-gray-100 overflow-hidden">
+                  <Image
+                    alt={event.title}
+                    src={event.imageUrl}
+                    width={1000}
+                    height={400}
+                    className="w-full h-full object-cover object-center"
+                    style={{
+                      clipPath: 'inset(0 0 0 0)',
+                      maskImage: 'none'
+                    }}
+                  />
+                </div>
               </div>
             </div>
           ))}
