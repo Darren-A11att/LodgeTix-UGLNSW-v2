@@ -11,7 +11,6 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2, CreditCard, ShieldCheck, AlertCircle, ArrowLeft } from 'lucide-react';
-import { useLodgeRegistrationStore } from '@/lib/lodgeRegistrationStore';
 import { useRegistrationStore } from '@/lib/registrationStore';
 import { StripeBillingDetailsForClient } from '../payment/types';
 import { getFunctionTicketsService, FunctionPackage } from '@/lib/services/function-tickets-service';
@@ -36,15 +35,15 @@ export const LodgeRegistrationStep: React.FC<LodgeRegistrationStepProps> = ({
   const router = useRouter();
   const checkoutFormRef = useRef<CheckoutFormHandle>(null);
   
-  // Store hooks
+  // Store hooks from unified store
   const { 
-    customer, 
+    lodgeCustomer, 
     lodgeDetails, 
-    isValid: isFormValid,
-    getValidationErrors 
-  } = useLodgeRegistrationStore();
-  
-  const { lodgeTicketOrder, goToPrevStep: storeGoToPrevStep } = useRegistrationStore();
+    lodgeTicketOrder,
+    isLodgeFormValid,
+    getLodgeValidationErrors,
+    goToPrevStep: storeGoToPrevStep
+  } = useRegistrationStore();
   
   // Use prop if provided, otherwise use store function
   const goToPrevStep = onPrevStep || storeGoToPrevStep;
@@ -108,12 +107,12 @@ export const LodgeRegistrationStep: React.FC<LodgeRegistrationStepProps> = ({
   // Convert customer data to billing details format
   const getBillingDetails = useCallback((): any => {
     return {
-      title: customer.title,
-      firstName: customer.firstName,
-      lastName: customer.lastName,
-      emailAddress: customer.email,
-      mobileNumber: customer.mobile,
-      phone: customer.phone,
+      title: '', // lodgeCustomer doesn't have title
+      firstName: lodgeCustomer.firstName,
+      lastName: lodgeCustomer.lastName,
+      emailAddress: lodgeCustomer.email,
+      mobileNumber: lodgeCustomer.mobile,
+      phone: lodgeCustomer.mobile, // Use mobile as phone
       addressLine1: lodgeDetails.lodgeName || '',
       suburb: 'Sydney', // Default for lodge registrations
       stateTerritory: { name: 'NSW' },
@@ -121,15 +120,15 @@ export const LodgeRegistrationStep: React.FC<LodgeRegistrationStepProps> = ({
       country: { isoCode: 'AU' },
       businessName: lodgeDetails.lodgeName,
     };
-  }, [customer, lodgeDetails]);
+  }, [lodgeCustomer, lodgeDetails]);
 
   // Handle payment success
   const handlePaymentSuccess = async (paymentMethodId: string, billingDetails: StripeBillingDetailsForClient) => {
     console.log('💳 Payment method created:', paymentMethodId);
     
     // Debug: Check validation state
-    if (!isFormValid()) {
-      const errors = getValidationErrors();
+    if (!isLodgeFormValid()) {
+      const errors = getLodgeValidationErrors();
       console.error('Validation failed:', errors);
       setError(`Please complete all required fields: ${errors.join(', ')}`);
       setIsProcessing(false);
@@ -237,8 +236,8 @@ export const LodgeRegistrationStep: React.FC<LodgeRegistrationStepProps> = ({
   // Handle form submission
   const handleSubmit = async () => {
     // Validate form
-    if (!isFormValid()) {
-      const errors = getValidationErrors();
+    if (!isLodgeFormValid()) {
+      const errors = getLodgeValidationErrors();
       setError(errors.join(', '));
       return;
     }

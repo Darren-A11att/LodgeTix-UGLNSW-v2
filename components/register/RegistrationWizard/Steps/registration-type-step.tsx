@@ -2,7 +2,7 @@
 
 import React, { useState, useCallback, useEffect } from 'react';
 import { useRegistrationStore } from '@/lib/registrationStore';
-import { useLodgeRegistrationStore } from '@/lib/lodgeRegistrationStore';
+// Lodge registration store is now part of the unified store
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
@@ -361,15 +361,8 @@ export function RegistrationTypeStep() {
     console.log("Starting new registration - clearing existing data");
     storeClearRegistration();
     
-    // Clear lodge registration store if it was a lodge registration
-    const currentRegistrationType = useRegistrationStore.getState().registrationType;
-    if (currentRegistrationType === 'lodge') {
-      const lodgeStore = require('@/lib/lodgeRegistrationStore').useLodgeRegistrationStore.getState();
-      if (lodgeStore.reset) {
-        console.log("Clearing lodge registration store");
-        lodgeStore.reset();
-      }
-    }
+    // Lodge registration data is now part of the unified store and will be cleared by storeClearRegistration()
+    console.log("Lodge registration data cleared as part of unified store");
     
     if (pendingRegistrationType) {
       console.log("Setting new registration type:", pendingRegistrationType);

@@ -220,8 +220,8 @@ export const LodgesForm: React.FC<LodgesFormProps> = ({
 
   // Validate and complete
   const handleComplete = useCallback(() => {
-    if (!isValid()) {
-      const errors = getValidationErrors();
+    if (!isLodgeFormValid()) {
+      const errors = getLodgeValidationErrors();
       alert('Please complete all required fields:\n' + errors.join('\n'));
       return;
     }
@@ -247,7 +247,7 @@ export const LodgesForm: React.FC<LodgesFormProps> = ({
     if (onComplete) {
       onComplete();
     }
-  }, [isValid, getValidationErrors, packageCount, minPackages, onComplete, setLodgeTicketOrder, baseQuantity, functionTickets]);
+  }, [isLodgeFormValid, getLodgeValidationErrors, packageCount, minPackages, onComplete, setLodgeTicketOrder, baseQuantity, functionTickets]);
 
   // Show loading state
   if (isLoadingData) {

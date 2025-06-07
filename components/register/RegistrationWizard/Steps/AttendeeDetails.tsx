@@ -1,7 +1,7 @@
 import React, { useState, useCallback, useMemo } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useRegistrationStore } from '@/lib/registrationStore';
-import { useLodgeRegistrationStore } from '@/lib/lodgeRegistrationStore';
+// Lodge registration store is now part of the unified store
 import { IndividualsForm } from '../../Forms/attendee/IndividualsForm';
 import { LodgesForm } from '../../Forms/attendee/LodgesForm';
 import { GrandLodgesForm } from '../../Forms/attendee/GrandLodgesForm';
@@ -31,8 +31,16 @@ const AttendeeDetails: React.FC<AttendeeDetailsProps> = ({
   prevStep,
   validationErrors,
 }) => {
-  const { registrationType, goToNextStep, goToPrevStep, attendees, delegationType, functionId } = useRegistrationStore();
-  const { isValid: isLodgeFormValid, getValidationErrors: getLodgeValidationErrors } = useLodgeRegistrationStore();
+  const { 
+    registrationType, 
+    goToNextStep, 
+    goToPrevStep, 
+    attendees, 
+    delegationType, 
+    functionId,
+    isLodgeFormValid,
+    getLodgeValidationErrors
+  } = useRegistrationStore();
   const [showErrors, setShowErrors] = useState(false);
   const [showValidationModal, setShowValidationModal] = useState(false);
   const [attemptedSubmit, setAttemptedSubmit] = useState(false);

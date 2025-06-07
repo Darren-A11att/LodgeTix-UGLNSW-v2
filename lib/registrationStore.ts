@@ -68,6 +68,30 @@ export interface BillingDetailsType {
 // Alias for clarity - will transition to BookingContactType
 export type BookingContactType = BillingDetailsType;
 
+// Lodge-specific interfaces (from lodge registration store)
+export interface LodgeCustomer {
+  firstName: string;
+  lastName: string;
+  email: string;
+  mobile: string;
+  addressLine1: string;
+  city: string;
+  state: string;
+  postcode: string;
+  country: string;
+}
+
+export interface LodgeDetails {
+  grand_lodge_id: string;
+  lodge_id: string;
+  lodgeName: string;
+}
+
+export interface LodgeTableOrder {
+  tableCount: number;
+  totalPrice: number;
+}
+
 // --- State Interface ---
 export interface RegistrationState {
   draftId: string | null;
@@ -92,6 +116,11 @@ export interface RegistrationState {
   draftRecoveryHandled: boolean; // Flag to track if draft recovery has been handled in current session
   anonymousSessionEstablished: boolean; // Track if Turnstile verification and anonymous session is complete
   lodgeTicketOrder: LodgeTicketOrder | null; // Lodge bulk ticket order details
+  
+  // Lodge-specific state
+  lodgeCustomer: LodgeCustomer;
+  lodgeDetails: LodgeDetails;
+  lodgeTableOrder: LodgeTableOrder;
 
   // --- Actions ---
   startNewRegistration: (type: RegistrationType) => string; // Returns new draftId
@@ -140,10 +169,17 @@ export interface RegistrationState {
   
   // Delegation type methods
   setDelegationType: (type: 'lodge' | 'grandLodge' | 'masonicOrder' | null) => void; // Set delegation sub-type
+  
+  // Lodge-specific methods
+  updateLodgeCustomer: (customer: Partial<LodgeCustomer>) => void;
+  updateLodgeDetails: (details: Partial<LodgeDetails>) => void;
+  updateLodgeTableOrder: (order: Partial<LodgeTableOrder>) => void;
+  isLodgeFormValid: () => boolean;
+  getLodgeValidationErrors: () => string[];
 }
 
 // --- Initial State ---
-const initialRegistrationState: Omit<RegistrationState, 'startNewRegistration' | 'addPrimaryAttendee' | 'loadDraft' | 'clearRegistration' | 'clearAllAttendees' | 'setRegistrationType' | 'addAttendee' | 'addMasonAttendee' | 'addGuestAttendee' | 'addPartnerAttendee' | 'updateAttendee' | 'removeAttendee' | 'updateTicketSelections' | 'addPackageSelection' | 'removePackageSelection' | 'addIndividualTicket' | 'removeIndividualTicket' | 'clearAttendeeTicketSelections' | 'updatePackageSelection' | 'updateBillingDetails' | 'setAgreeToTerms' | '_updateStatus' | 'setCurrentStep' | 'goToNextStep' | 'goToPrevStep' | 'setConfirmationNumber' | 'setFunctionId' | 'setFunctionSlug' | 'setSelectedEvents' | 'setDraftRecoveryHandled' | 'setAnonymousSessionEstablished' | 'setLodgeTicketOrder' | 'setDelegationType'> = {
+const initialRegistrationState: Omit<RegistrationState, 'startNewRegistration' | 'addPrimaryAttendee' | 'loadDraft' | 'clearRegistration' | 'clearAllAttendees' | 'setRegistrationType' | 'addAttendee' | 'addMasonAttendee' | 'addGuestAttendee' | 'addPartnerAttendee' | 'updateAttendee' | 'removeAttendee' | 'updateTicketSelections' | 'addPackageSelection' | 'removePackageSelection' | 'addIndividualTicket' | 'removeIndividualTicket' | 'clearAttendeeTicketSelections' | 'updatePackageSelection' | 'updateBillingDetails' | 'setAgreeToTerms' | '_updateStatus' | 'setCurrentStep' | 'goToNextStep' | 'goToPrevStep' | 'setConfirmationNumber' | 'setFunctionId' | 'setFunctionSlug' | 'setSelectedEvents' | 'setDraftRecoveryHandled' | 'setAnonymousSessionEstablished' | 'setLodgeTicketOrder' | 'setDelegationType' | 'updateLodgeCustomer' | 'updateLodgeDetails' | 'updateLodgeTableOrder' | 'isLodgeFormValid' | 'getLodgeValidationErrors'> = {
     draftId: null,
     functionId: null, // Initialize functionId as null
     functionSlug: null, // Initialize functionSlug as null
@@ -164,6 +200,28 @@ const initialRegistrationState: Omit<RegistrationState, 'startNewRegistration' |
     draftRecoveryHandled: false, // Initialize draft recovery flag
     anonymousSessionEstablished: false, // Initialize anonymous session flag
     lodgeTicketOrder: null, // Initialize lodge ticket order
+    
+    // Lodge-specific initial state
+    lodgeCustomer: {
+      firstName: '',
+      lastName: '',
+      email: '',
+      mobile: '',
+      addressLine1: '',
+      city: '',
+      state: '',
+      postcode: '',
+      country: 'Australia',
+    },
+    lodgeDetails: {
+      grand_lodge_id: '',
+      lodge_id: '',
+      lodgeName: '',
+    },
+    lodgeTableOrder: {
+      tableCount: 1,
+      totalPrice: 0,
+    },
 };
 
 type RegistrationStateCreator = StateCreator<RegistrationState>;
@@ -703,7 +761,50 @@ export const useRegistrationStore = create<RegistrationState>(
       setLodgeTicketOrder: (order) => set({ lodgeTicketOrder: order }),
       
       // Delegation type actions
-      setDelegationType: (type) => set({ delegationType: type })
+      setDelegationType: (type) => set({ delegationType: type }),
+      
+      // Lodge-specific actions
+      updateLodgeCustomer: (customer) => set(state => ({
+        lodgeCustomer: { ...state.lodgeCustomer, ...customer }
+      })),
+      
+      updateLodgeDetails: (details) => set(state => ({
+        lodgeDetails: { ...state.lodgeDetails, ...details }
+      })),
+      
+      updateLodgeTableOrder: (order) => set(state => ({
+        lodgeTableOrder: { ...state.lodgeTableOrder, ...order }
+      })),
+      
+      isLodgeFormValid: () => {
+        const state = get();
+        const { lodgeCustomer, lodgeDetails } = state;
+        
+        // Check required fields
+        return !!(
+          lodgeCustomer.firstName &&
+          lodgeCustomer.lastName &&
+          lodgeCustomer.email &&
+          lodgeCustomer.mobile &&
+          lodgeDetails.grand_lodge_id &&
+          lodgeDetails.lodge_id
+        );
+      },
+      
+      getLodgeValidationErrors: () => {
+        const state = get();
+        const { lodgeCustomer, lodgeDetails } = state;
+        const errors: string[] = [];
+        
+        if (!lodgeCustomer.firstName) errors.push('First name is required');
+        if (!lodgeCustomer.lastName) errors.push('Last name is required');
+        if (!lodgeCustomer.email) errors.push('Email is required');
+        if (!lodgeCustomer.mobile) errors.push('Mobile number is required');
+        if (!lodgeDetails.grand_lodge_id) errors.push('Grand Lodge selection is required');
+        if (!lodgeDetails.lodge_id) errors.push('Lodge selection is required');
+        
+        return errors;
+      }
 
     }),
     {
@@ -725,6 +826,10 @@ export const useRegistrationStore = create<RegistrationState>(
         // Don't persist draftRecoveryHandled - it should reset on each session
         anonymousSessionEstablished: state.anonymousSessionEstablished, // Persist anonymous session state
         lodgeTicketOrder: state.lodgeTicketOrder, // Persist lodge ticket order
+        // Lodge-specific persistence
+        lodgeCustomer: state.lodgeCustomer,
+        lodgeDetails: state.lodgeDetails,
+        lodgeTableOrder: state.lodgeTableOrder,
         lastSaved: Date.now(),
       }),
       onRehydrateStorage: () => {

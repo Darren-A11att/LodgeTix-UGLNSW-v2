@@ -2,8 +2,7 @@ import React from 'react';
 import { BasicInfo } from '../../basic-details/BasicInfo';
 import { ContactInfo } from '../../basic-details/ContactInfo';
 import { GrandOfficerFields } from '../../mason/utils/GrandOfficerFields';
-import { UnifiedAttendeeData } from '@/lib/registrationStore';
-import { useLodgeRegistrationStore } from '@/lib/lodgeRegistrationStore';
+import { UnifiedAttendeeData, useRegistrationStore } from '@/lib/registrationStore';
 import { FieldWrapper } from '../../shared/FieldComponents';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
@@ -33,7 +32,7 @@ export const BookingContactSection: React.FC<BookingContactSectionProps> = React
   fieldErrors = {}
 }) => {
   // For customer mode, use lodge registration store
-  const { customer, updateCustomer } = useLodgeRegistrationStore();
+  const { lodgeCustomer, updateLodgeCustomer } = useRegistrationStore();
   
   // For attendee mode, require attendee prop
   if (mode === 'attendee' && !attendee) return null;
@@ -48,7 +47,7 @@ export const BookingContactSection: React.FC<BookingContactSectionProps> = React
       };
       
       const mappedField = fieldMapping[field] || field;
-      updateCustomer({ [mappedField]: value });
+      updateLodgeCustomer({ [mappedField]: value });
     } else {
       // Original attendee mode logic
       const immediateFields = [
@@ -69,7 +68,7 @@ export const BookingContactSection: React.FC<BookingContactSectionProps> = React
         onFieldChange(field, value);
       }
     }
-  }, [mode, onFieldChange, onFieldChangeImmediate, updateCustomer]);
+  }, [mode, onFieldChange, onFieldChangeImmediate, updateLodgeCustomer]);
 
   if (mode === 'customer') {
     // Customer mode - use same form fields as attendee but store in lodge registration store
@@ -77,19 +76,19 @@ export const BookingContactSection: React.FC<BookingContactSectionProps> = React
       // Map customer data to UnifiedAttendeeData format for the form components
       attendeeId: 'lodge-booking-contact',
       attendeeType: 'mason' as const,
-      title: customer.title || '',
-      firstName: customer.firstName || '',
-      lastName: customer.lastName || '',
-      suffix: customer.suffix || '',
-      rank: customer.rank || '',
-      grandOfficerStatus: customer.grandOfficerStatus,
-      presentGrandOfficerRole: customer.presentGrandOfficerRole,
-      otherGrandOfficerRole: customer.otherGrandOfficerRole,
-      primaryEmail: customer.email || '',
-      primaryPhone: customer.mobile || '',
-      phone: customer.phone || '',
-      dietaryRequirements: customer.dietaryRequirements || '',
-      additionalInfo: customer.additionalInfo || '',
+      title: '', // lodgeCustomer doesn't have title
+      firstName: lodgeCustomer.firstName || '',
+      lastName: lodgeCustomer.lastName || '',
+      suffix: '', // lodgeCustomer doesn't have suffix
+      rank: '', // lodgeCustomer doesn't have rank
+      grandOfficerStatus: undefined, // lodgeCustomer doesn't have grand officer fields
+      presentGrandOfficerRole: '', // lodgeCustomer doesn't have grand officer fields
+      otherGrandOfficerRole: '', // lodgeCustomer doesn't have grand officer fields
+      primaryEmail: lodgeCustomer.email || '',
+      primaryPhone: lodgeCustomer.mobile || '',
+      phone: lodgeCustomer.mobile || '', // Use mobile as phone fallback
+      dietaryRequirements: '', // lodgeCustomer doesn't have dietary requirements
+      additionalInfo: '', // lodgeCustomer doesn't have additional info
       contactPreference: 'directly' as const,
       isPrimary: true,
       isPartner: null,
@@ -114,7 +113,7 @@ export const BookingContactSection: React.FC<BookingContactSectionProps> = React
           />
           
           {/* Show Grand Officer fields when rank is GL */}
-          {customer.rank === 'GL' && (
+          {lodgeCustomer.rank === 'GL' && (
             <GrandOfficerFields 
               data={customerData}
               onChange={handleChange}

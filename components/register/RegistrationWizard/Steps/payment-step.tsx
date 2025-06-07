@@ -4,7 +4,6 @@ import React, { useState, useEffect, useMemo, useRef } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useRegistrationStore, UnifiedAttendeeData, BillingDetailsType, selectAnonymousSessionEstablished } from '../../../../lib/registrationStore';
-import { useLodgeRegistrationStore } from '@/lib/lodgeRegistrationStore';
 import { 
   billingDetailsSchema, 
   type BillingDetails as FormBillingDetailsSchema,
@@ -71,8 +70,8 @@ function PaymentStep(props: PaymentStepProps) {
   
   const anonymousSessionEstablished = useRegistrationStore(selectAnonymousSessionEstablished);
   
-  // Get lodge registration data if applicable
-  const { customer: lodgeCustomer, lodgeDetails } = useLodgeRegistrationStore();
+  // Get lodge registration data if applicable from unified store
+  const { lodgeCustomer, lodgeDetails } = useRegistrationStore();
 
   // State for ticket data
   const [ticketTypes, setTicketTypes] = useState<FunctionTicketDefinition[]>([]);
