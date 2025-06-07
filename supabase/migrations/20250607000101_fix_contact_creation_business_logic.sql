@@ -1,4 +1,4 @@
--- Comprehensive individual registration function that normalizes ALL data
+-- Fix contact creation business logic and enum type error
 CREATE OR REPLACE FUNCTION public.upsert_individual_registration(
     p_registration_data jsonb
 ) RETURNS jsonb AS $$
@@ -21,6 +21,7 @@ DECLARE
     v_confirmation_number text;
     v_state_name text;
     v_country_name text;
+    v_contact_preference text;
 BEGIN
     -- Extract core IDs
     v_registration_id := COALESCE((p_registration_data->>'registrationId')::uuid, gen_random_uuid());
@@ -56,7 +57,6 @@ BEGIN
     );
 
     -- 1. CREATE BOOKING CONTACT CUSTOMER RECORD
-    -- This is the person who is paying for the registration
     v_booking_contact_id := gen_random_uuid();
     
     INSERT INTO customers (
@@ -211,7 +211,7 @@ BEGIN
         v_attendee_record := p_registration_data->'primaryAttendee';
         v_attendee_id := COALESCE((v_attendee_record->>'attendeeId')::uuid, gen_random_uuid());
         
-        -- Create contact for primary attendee
+        -- Primary attendees ALWAYS get a contact record
         v_contact_id := gen_random_uuid();
         INSERT INTO contacts (
             contact_id,
@@ -336,41 +336,49 @@ BEGIN
         LOOP
             v_attendee_id := COALESCE((v_attendee_record->>'attendeeId')::uuid, gen_random_uuid());
             
-            -- Create contact for additional attendee
-            v_contact_id := gen_random_uuid();
-            INSERT INTO contacts (
-                contact_id,
-                type,
-                first_name,
-                last_name,
-                title,
-                email,
-                mobile_number,
-                contact_preference,
-                dietary_requirements,
-                special_needs,
-                is_partner,
-                auth_user_id,
-                created_at,
-                updated_at
-            ) VALUES (
-                v_contact_id,
-                'individual'::contact_type,
-                v_attendee_record->>'firstName',
-                v_attendee_record->>'lastName',
-                v_attendee_record->>'title',
-                v_attendee_record->>'primaryEmail',
-                v_attendee_record->>'primaryPhone',
-                LOWER(v_attendee_record->>'contactPreference'),
-                v_attendee_record->>'dietaryRequirements',
-                v_attendee_record->>'specialNeeds',
-                COALESCE((v_attendee_record->>'isPartner')::boolean, false),
-                v_customer_id,
-                CURRENT_TIMESTAMP,
-                CURRENT_TIMESTAMP
-            );
+            -- Get contact preference
+            v_contact_preference := LOWER(v_attendee_record->>'contactPreference');
+            
+            -- Only create contact if preference is 'directly'
+            IF v_contact_preference = 'directly' THEN
+                v_contact_id := gen_random_uuid();
+                INSERT INTO contacts (
+                    contact_id,
+                    type,
+                    first_name,
+                    last_name,
+                    title,
+                    email,
+                    mobile_number,
+                    contact_preference,
+                    dietary_requirements,
+                    special_needs,
+                    is_partner,
+                    auth_user_id,
+                    created_at,
+                    updated_at
+                ) VALUES (
+                    v_contact_id,
+                    'individual'::contact_type,
+                    v_attendee_record->>'firstName',
+                    v_attendee_record->>'lastName',
+                    v_attendee_record->>'title',
+                    v_attendee_record->>'primaryEmail',
+                    v_attendee_record->>'primaryPhone',
+                    v_contact_preference,
+                    v_attendee_record->>'dietaryRequirements',
+                    v_attendee_record->>'specialNeeds',
+                    COALESCE((v_attendee_record->>'isPartner')::boolean, false),
+                    v_customer_id,
+                    CURRENT_TIMESTAMP,
+                    CURRENT_TIMESTAMP
+                );
+            ELSE
+                -- No contact record for 'primaryattendee' or 'providelater'
+                v_contact_id := NULL;
+            END IF;
 
-            -- Create attendee record
+            -- Create attendee record (always created, regardless of contact preference)
             INSERT INTO attendees (
                 attendee_id,
                 registration_id,
@@ -398,9 +406,9 @@ BEGIN
                 v_registration_id,
                 LOWER(v_attendee_record->>'attendeeType')::attendee_type,
                 CASE 
-                    WHEN LOWER(v_attendee_record->>'contactPreference') = 'directly' THEN 'directly'
-                    WHEN LOWER(v_attendee_record->>'contactPreference') = 'primaryattendee' THEN 'primaryattendee'
-                    WHEN LOWER(v_attendee_record->>'contactPreference') = 'providelater' THEN 'providelater'
+                    WHEN v_contact_preference = 'directly' THEN 'directly'
+                    WHEN v_contact_preference = 'primaryattendee' THEN 'primaryattendee'
+                    WHEN v_contact_preference = 'providelater' THEN 'providelater'
                     ELSE 'primaryattendee'
                 END::attendee_contact_preference,
                 v_attendee_record->>'title',
@@ -414,7 +422,7 @@ BEGIN
                 v_attendee_record->>'relationship',
                 v_attendee_record->>'dietaryRequirements',
                 v_attendee_record->>'specialNeeds',
-                v_contact_id,
+                v_contact_id, -- Will be NULL if preference is not 'directly'
                 v_customer_id,
                 CASE 
                     WHEN LOWER(v_attendee_record->>'attendeeType') = 'mason' THEN
@@ -433,8 +441,8 @@ BEGIN
                 CURRENT_TIMESTAMP
             );
 
-            -- Create masonic profile if additional attendee is a mason
-            IF LOWER(v_attendee_record->>'attendeeType') = 'mason' THEN
+            -- Create masonic profile if additional attendee is a mason AND has contact record
+            IF LOWER(v_attendee_record->>'attendeeType') = 'mason' AND v_contact_id IS NOT NULL THEN
                 INSERT INTO masonic_profiles (
                     masonic_profile_id,
                     contact_id,
