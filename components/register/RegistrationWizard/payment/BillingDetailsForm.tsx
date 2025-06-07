@@ -110,13 +110,15 @@ export const BillingDetailsForm: React.FC<BillingDetailsFormProps> = ({
         // Get all current form values
         const currentValues = form.getValues();
         
-        // Update Zustand store with billing details
+        // Update Zustand store with billing details - include ALL form fields
         const billingDataForStore = {
+          title: currentValues.title || '',
           firstName: currentValues.firstName || '',
           lastName: currentValues.lastName || '',
           email: currentValues.emailAddress || '',
           phone: currentValues.mobileNumber || '',
           addressLine1: currentValues.addressLine1 || '',
+          addressLine2: currentValues.addressLine2 || '',
           city: currentValues.suburb || '', 
           stateProvince: currentValues.stateTerritory?.name || '',
           postalCode: currentValues.postcode || '',
@@ -223,13 +225,15 @@ export const BillingDetailsForm: React.FC<BillingDetailsFormProps> = ({
       });
       form.setValue('emailAddress', detailsToSet.emailAddress || '');
       
-      // Also update the store with these values
+      // Also update the store with these values - include ALL form fields
       const billingDataForStore = {
+        title: detailsToSet.title || '',
         firstName: detailsToSet.firstName || '',
         lastName: detailsToSet.lastName || '',
         email: detailsToSet.emailAddress || '',
         phone: detailsToSet.mobileNumber || '',
         addressLine1: detailsToSet.addressLine1 || '',
+        addressLine2: detailsToSet.addressLine2 || '',
         city: detailsToSet.suburb || '', 
         stateProvince: detailsToSet.stateTerritory?.name || '',
         postalCode: detailsToSet.postcode || '',
@@ -249,6 +253,26 @@ export const BillingDetailsForm: React.FC<BillingDetailsFormProps> = ({
       // Reset flag after a short delay to allow all setValue calls to complete
       setTimeout(() => {
         isUpdatingFromBillToPrimary.current = false;
+        
+        // Force a final store update with all current form values to ensure everything is persisted
+        const finalFormValues = form.getValues();
+        const finalBillingDataForStore = {
+          title: finalFormValues.title || '',
+          firstName: finalFormValues.firstName || '',
+          lastName: finalFormValues.lastName || '',
+          email: finalFormValues.emailAddress || '',
+          phone: finalFormValues.mobileNumber || '',
+          addressLine1: finalFormValues.addressLine1 || '',
+          addressLine2: finalFormValues.addressLine2 || '',
+          city: finalFormValues.suburb || '', 
+          stateProvince: finalFormValues.stateTerritory?.name || '',
+          postalCode: finalFormValues.postcode || '',
+          country: finalFormValues.country?.isoCode || '',
+          businessName: finalFormValues.businessName || '',
+          businessNumber: finalFormValues.businessNumber || '',
+        };
+        
+        updateStoreBillingDetails(finalBillingDataForStore);
       }, 100);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps

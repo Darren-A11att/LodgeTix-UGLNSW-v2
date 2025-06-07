@@ -429,8 +429,29 @@ function PaymentStep(props: PaymentStepProps) {
 
   // Watch form changes to update store and billing country
   useEffect(() => {
-    const subscription = form.watch((value) => {
-      updateStoreBillingDetails(value as FormBillingDetailsSchema);
+    const subscription = form.watch((value, { name, type }) => {
+      // Only update store when values actually change (not on first render)
+      if (type === 'change') {
+        // Map form schema to store billing details format
+        const billingDataForStore = {
+          title: value.title || '',
+          firstName: value.firstName || '',
+          lastName: value.lastName || '',
+          email: value.emailAddress || '',
+          phone: value.mobileNumber || '',
+          addressLine1: value.addressLine1 || '',
+          addressLine2: value.addressLine2 || '',
+          city: value.suburb || '',
+          stateProvince: value.stateTerritory?.name || '',
+          postalCode: value.postcode || '',
+          country: value.country?.isoCode || '',
+          businessName: value.businessName || '',
+          businessNumber: value.businessNumber || '',
+        };
+        
+        updateStoreBillingDetails(billingDataForStore);
+      }
+      
       // Update billing country for fee calculation
       if (value.country) {
         setBillingCountry(value.country);
