@@ -189,7 +189,7 @@ export const LodgeRegistrationStep: React.FC<LodgeRegistrationStepProps> = ({
           amount: totalAmount * 100, // Convert to cents (includes fees)
           subtotal: subtotal * 100, // Convert to cents (before fees)
           stripeFee: feeCalculation.stripeFee * 100, // Convert to cents
-          billingDetails,
+          billingDetails: getBillingDetails(),
         }),
       });
 
