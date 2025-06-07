@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from '@/utils/supabase/server';
 import { createClientWithToken } from '@/utils/supabase/server-with-token';
+import { captureCompleteDelegationStoreState, storeZustandCaptureInRawRegistrations } from '@/lib/utils/zustand-store-capture';
 
 export async function POST(request: Request) {
   try {
@@ -31,6 +32,44 @@ export async function POST(request: Request) {
     } catch (logError) {
       console.error('Failed to log raw payload:', logError);
     }
+    
+    // ====== CAPTURE COMPLETE DELEGATION ZUSTAND STORE STATE ======
+    try {
+      const { 
+        completeDelegationZustandStoreState,
+        calculatedPricing 
+      } = data;
+      
+      if (completeDelegationZustandStoreState) {
+        console.log('🏪 Capturing complete Delegation Zustand store state...');
+        
+        const delegationStoreCapture = await captureCompleteDelegationStoreState(
+          data,
+          calculatedPricing || {
+            totalAmount: data.totalAmount || 0,
+            subtotal: data.subtotal || 0,
+            stripeFee: data.stripeFee || 0
+          }
+        );
+        
+        const captureResult = await storeZustandCaptureInRawRegistrations(
+          supabaseForLogging,
+          delegationStoreCapture,
+          data.registrationId
+        );
+        
+        if (captureResult.success) {
+          console.log(`✅ Complete Delegation Zustand store captured: ${delegationStoreCapture.metadata.field_count} fields`);
+        } else {
+          console.error('❌ Failed to capture Delegation Zustand store:', captureResult.error);
+        }
+      } else {
+        console.warn('⚠️ No complete Delegation Zustand store state provided - capturing only API payload');
+      }
+    } catch (storeError) {
+      console.error('Failed to capture Delegation Zustand store state:', storeError);
+    }
+    // ====== END DELEGATION ZUSTAND STORE CAPTURE ======
     
     // Extract the auth token from headers
     const authHeader = request.headers.get('authorization');
@@ -208,7 +247,7 @@ export async function POST(request: Request) {
         delegation_context: {
           delegation_details: delegationDetails,
           delegates_count: delegates?.length || 0,
-          total_amount: totalAmount,
+          total_amount_paid: totalAmount,
           subtotal: subtotal,
           stripe_fee: stripeFee,
           representative_count: delegationDetails?.representativeCount

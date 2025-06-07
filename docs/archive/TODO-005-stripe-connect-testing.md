@@ -160,7 +160,7 @@ it('should include all required metadata', async () => {
     'organisation_id',
     'organisation_name',
     'total_attendees',
-    'total_amount',
+    'total_amount_paid',
     'platform_fee',
     'tickets_count',
     'created_at',
@@ -174,7 +174,7 @@ it('should include all required metadata', async () => {
   
   // Validate data formats
   expect(parseInt(paymentIntent.metadata.total_attendees)).toBeGreaterThan(0);
-  expect(parseFloat(paymentIntent.metadata.total_amount)).toBeGreaterThan(0);
+  expect(parseFloat(paymentIntent.metadata.total_amount_paid)).toBeGreaterThan(0);
   expect(new Date(paymentIntent.metadata.created_at)).toBeInstanceOf(Date);
 });
 ```

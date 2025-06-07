@@ -66,7 +66,7 @@ export default async function LodgeConfirmationPage({ params }: LodgeConfirmatio
         registrationId: registration.registration_id,
         registrationType: 'lodge',
         functionName: registration.function_name,
-        totalAmount: registration.total_amount,
+        totalAmount: registration.total_amount_paid,
         // Lodge-specific data
         lodgeName: registration.lodge_name,
         lodgeNumber: registration.lodge_number,

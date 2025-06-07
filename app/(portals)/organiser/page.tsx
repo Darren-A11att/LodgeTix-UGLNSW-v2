@@ -50,7 +50,7 @@ export default async function OrganiserDashboard() {
   const totalEvents = functions?.reduce((acc, func) => acc + (func.events?.length || 0), 0) || 0
   const totalRegistrations = functions?.reduce((acc, func) => acc + (func.registrations?.length || 0), 0) || 0
   const totalRevenue = functions?.reduce((acc, func) => {
-    return acc + (func.registrations?.reduce((sum, reg) => sum + (reg.total_amount || 0), 0) || 0)
+    return acc + (func.registrations?.reduce((sum, reg) => sum + (reg.total_amount_paid || 0), 0) || 0)
   }, 0) || 0
 
   // Get upcoming events
@@ -149,7 +149,7 @@ export default async function OrganiserDashboard() {
                 </div>
                 <div className="text-right">
                   <p className="text-sm font-medium">
-                    {formatCurrency(registration.total_amount || 0)}
+                    {formatCurrency(registration.total_amount_paid || 0)}
                   </p>
                   <p className="text-xs text-muted-foreground">
                     {new Date(registration.created_at).toLocaleDateString()}

@@ -94,7 +94,7 @@ export default async function FunctionDetailPage({ params }: FunctionDetailPageP
     0
   ) || 0
   const totalRevenue = functionData.registrations?.reduce(
-    (sum, reg) => sum + (reg.total_amount || 0), 
+    (sum, reg) => sum + (reg.total_amount_paid || 0), 
     0
   ) || 0
 

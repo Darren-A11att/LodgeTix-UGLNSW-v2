@@ -25,6 +25,7 @@ import { PaymentProcessing } from "../payment/PaymentProcessing";
 import { OneColumnStepLayout } from "../Layouts/OneColumnStepLayout";
 import { getFunctionTicketsService, type FunctionTicketDefinition, type FunctionPackage } from '@/lib/services/function-tickets-service';
 import { calculateStripeFees, formatFeeBreakdown, getFeeDisclaimer, getFeeModeFromEnv, getPlatformFeePercentage, isDomesticCard, getProcessingFeeLabel } from '@/lib/utils/stripe-fee-calculator';
+import { resolveTicketPrices, expandPackagesWithPricing, validateTicketPricing, type TicketWithPrice, type EventTicketRecord, type PackageRecord } from '@/lib/utils/ticket-price-resolver';
 import { Info } from "lucide-react";
 import { 
   Tooltip,
@@ -162,77 +163,57 @@ function PaymentStep(props: PaymentStepProps) {
     checkSession();
   }, []);
 
-  // Function to expand packages into individual tickets for registration
+  // Function to expand packages into individual tickets for registration with price resolution
   const expandPackagesForRegistration = (
     tickets: Array<any>,
     ticketTypes: FunctionTicketDefinition[],
     ticketPackages: FunctionPackage[]
   ) => {
-    const expandedTickets: Array<any> = [];
+    // Convert to format expected by price resolver
+    const eventTicketRecords: EventTicketRecord[] = ticketTypes.map(ticket => ({
+      id: ticket.id,
+      name: ticket.name,
+      price: ticket.price,
+      description: ticket.description,
+      event_id: ticket.event_id || '',
+      function_id: ticket.function_id || functionId || storeFunctionId || ''
+    }));
+
+    const packageRecords: PackageRecord[] = ticketPackages.map(pkg => ({
+      id: pkg.id,
+      name: pkg.name,
+      price: pkg.price,
+      description: pkg.description,
+      includes: pkg.includes || []
+    }));
+
+    // Use the enhanced package expansion with pricing
+    const expandedTicketsWithPricing = expandPackagesWithPricing(
+      tickets,
+      eventTicketRecords,
+      packageRecords
+    );
+
+    // Convert to format expected by registration API
+    const expandedTickets = expandedTicketsWithPricing.map(ticket => ({
+      id: ticket.id,
+      attendeeId: ticket.attendeeId,
+      function_id: functionId || storeFunctionId,
+      eventTicketId: ticket.eventTicketId,
+      ticketTypeId: ticket.eventTicketId,
+      name: ticket.name,
+      price: ticket.price, // ✅ Now guaranteed to be from database
+      isFromPackage: ticket.isFromPackage,
+      packageId: ticket.packageId,
+      packageName: ticket.packageName,
+      isPackage: ticket.isPackage
+    }));
     
-    tickets.forEach(ticket => {
-      if (ticket.isPackage) {
-        // Find the package info - need to extract package ID from the compound ID
-        const packageId = ticket.id.split('-').slice(1).join('-'); // Remove attendeeId prefix
-        const packageInfo = ticketPackages.find(p => p.id === packageId);
-        console.log(`📦 Looking for package ${packageId}:`, packageInfo);
-        
-        if (packageInfo) {
-          // If we have individual tickets, expand the package
-          if (packageInfo.includes && packageInfo.includes.length > 0 && ticketTypes.length > 0) {
-            // Expand package into individual tickets
-            packageInfo.includes.forEach(ticketTypeId => {
-              const ticketType = ticketTypes.find(t => t.id === ticketTypeId);
-              if (ticketType) {
-                expandedTickets.push({
-                  id: `${ticket.attendeeId}-${ticketType.id}`,
-                  attendeeId: ticket.attendeeId,
-                  function_id: ticketType.function_id,
-                  eventTicketId: ticketType.id,
-                  ticketTypeId: ticketType.id,
-                  name: ticketType.name,
-                  price: ticketType.price,
-                  isFromPackage: true,
-                  packageId: packageInfo.id,
-                  packageName: packageInfo.name,
-                  isPackage: false  // Individual ticket from package
-                });
-              }
-            });
-          } else {
-            // Fallback: Use package as a single ticket when individual tickets aren't available
-            expandedTickets.push({
-              id: ticket.id,
-              attendeeId: ticket.attendeeId,
-              function_id: functionId || storeFunctionId, // Use the function ID from props or store
-              eventTicketId: packageInfo.id,
-              ticketTypeId: packageInfo.id,
-              name: packageInfo.name,
-              price: packageInfo.price,
-              isFromPackage: true,
-              packageId: packageInfo.id,
-              packageName: packageInfo.name,
-              isPackage: true  // This IS a package
-            });
-            console.log(`📦 Added package as single ticket: ${packageInfo.name} - $${packageInfo.price}`);
-          }
-        } else {
-          console.warn(`📦 Package not found for ID: ${packageId}`);
-        }
-      } else {
-        // Individual ticket - pass through
-        expandedTickets.push({
-          ...ticket,
-          eventTicketId: ticket.id.split('-')[1] || ticket.id,  // Extract actual ticket ID
-          ticketTypeId: ticket.id.split('-')[1] || ticket.id
-        });
-      }
-    });
-    
-    console.log("📦 Expanded tickets for registration:", {
+    console.log("📦 Expanded tickets for registration with database pricing:", {
       original: tickets.length,
       expanded: expandedTickets.length,
-      details: expandedTickets
+      totalValue: expandedTickets.reduce((sum, t) => sum + t.price, 0),
+      details: expandedTickets.map(t => ({ name: t.name, price: t.price, fromPackage: t.isFromPackage }))
     });
     
     return expandedTickets;
@@ -270,7 +251,7 @@ function PaymentStep(props: PaymentStepProps) {
     });
   };
 
-  // Calculate tickets for summary
+  // Calculate tickets for summary with price resolution
   const currentTicketsForSummary = useMemo(() => {
     if (isLoadingTickets) {
       console.log("🎫 Skipping ticket calculation - still loading");
@@ -297,7 +278,7 @@ function PaymentStep(props: PaymentStepProps) {
       console.warn("🎫 WARNING: No packages found but attendees exist - store might not be hydrated");
     }
     
-    console.log("🎫 Calculating tickets for summary:", {
+    console.log("🎫 Calculating tickets for summary with price resolution:", {
       attendeeCount: allStoreAttendees.length,
       attendeeIds: allStoreAttendees.map(a => a.attendeeId),
       packagesData: packages,
@@ -309,7 +290,8 @@ function PaymentStep(props: PaymentStepProps) {
       packagePrices: ticketPackages.map(p => ({ id: p.id, name: p.name, price: p.price }))
     });
     
-    return allStoreAttendees.flatMap(attendee => {
+    // Build tickets with Zustand store state first
+    const ticketsFromStore = allStoreAttendees.flatMap(attendee => {
       const attendeeId = attendee.attendeeId;
       const selection = packages[attendeeId];
       
@@ -326,7 +308,7 @@ function PaymentStep(props: PaymentStepProps) {
         return [];
       }
       
-      let tickets: Array<{ id: string; name: string; price: number; attendeeId: string; isPackage?: boolean; description?: string }> = [];
+      let tickets: Array<{ id: string; name: string; price: number; attendeeId: string; isPackage?: boolean; eventTicketId?: string }> = [];
 
       if (selection.ticketDefinitionId) {
         console.log(`🎫 Looking for package ${selection.ticketDefinitionId} in ${ticketPackages.length} packages`);
@@ -336,10 +318,9 @@ function PaymentStep(props: PaymentStepProps) {
           tickets.push({ 
             id: `${attendeeId}-${pkgInfo.id}`,
             name: pkgInfo.name, 
-            price: pkgInfo.price, 
+            price: pkgInfo.price, // Store price - will be resolved from database
             attendeeId, 
-            isPackage: true,
-            description: pkgInfo.description || `Package: ${pkgInfo.name}`
+            isPackage: true
           });
           console.log(`🎫 ✅ Added package ticket: ${pkgInfo.name} - $${pkgInfo.price}`);
         } else {
@@ -355,10 +336,10 @@ function PaymentStep(props: PaymentStepProps) {
             tickets.push({ 
               id: `${attendeeId}-${ticketInfo.id}`,
               name: ticketInfo.name, 
-              price: ticketInfo.price, 
+              price: ticketInfo.price, // Store price - will be resolved from database
               attendeeId, 
               isPackage: false,
-              description: ticketInfo.description || ticketInfo.name
+              eventTicketId: ticketInfo.id
             });
             console.log(`🎫 Added individual ticket: ${ticketInfo.name} - $${ticketInfo.price}`);
           } else {
@@ -368,7 +349,55 @@ function PaymentStep(props: PaymentStepProps) {
       }
       return tickets;
     });
-  }, [allStoreAttendees, packages, ticketTypes, ticketPackages, isLoadingTickets]);
+
+    // Convert ticket types and packages to format expected by price resolver
+    const eventTicketRecords: EventTicketRecord[] = ticketTypes.map(ticket => ({
+      id: ticket.id,
+      name: ticket.name,
+      price: ticket.price,
+      description: ticket.description,
+      event_id: ticket.event_id || '',
+      function_id: ticket.function_id || functionId || storeFunctionId || ''
+    }));
+
+    const packageRecords: PackageRecord[] = ticketPackages.map(pkg => ({
+      id: pkg.id,
+      name: pkg.name,
+      price: pkg.price,
+      description: pkg.description,
+      includes: pkg.includes || []
+    }));
+
+    // Use the new price resolver to ensure correct pricing from database
+    const resolvedTickets = resolveTicketPrices(
+      ticketsFromStore,
+      eventTicketRecords,
+      packageRecords
+    );
+
+    // Validate that all tickets have non-zero prices
+    const priceValidation = validateTicketPricing(resolvedTickets);
+    if (!priceValidation.isValid) {
+      console.error('🎯 Price validation failed:', priceValidation.zerotickets);
+    }
+
+    console.log('🎯 Final ticket summary with resolved prices:', {
+      originalTickets: ticketsFromStore.length,
+      resolvedTickets: resolvedTickets.length,
+      totalValue: priceValidation.totalValue,
+      allPricesValid: priceValidation.isValid
+    });
+
+    // Convert back to expected format for summary display
+    return resolvedTickets.map(ticket => ({
+      id: ticket.id,
+      name: ticket.name,
+      price: ticket.price, // Now guaranteed to be from database
+      attendeeId: ticket.attendeeId,
+      isPackage: ticket.isPackage,
+      description: ticket.description
+    }));
+  }, [allStoreAttendees, packages, ticketTypes, ticketPackages, isLoadingTickets, functionId, storeFunctionId]);
 
   // Calculate subtotal (ticket prices only)
   const subtotal = useMemo(() => {
@@ -623,7 +652,7 @@ function PaymentStep(props: PaymentStepProps) {
             additionalInfo: primaryAttendee?.specialNeeds
           };
 
-          // Prepare data for the new individuals registration API
+          // Prepare data for the new individuals registration API with complete Zustand store state
           const registrationData = {
             functionId: functionId || storeFunctionId,
             eventId: undefined, // Will be determined from tickets
@@ -634,7 +663,7 @@ function PaymentStep(props: PaymentStepProps) {
               attendeeId: ticket.attendeeId,
               ticketTypeId: ticket.eventTicketId,
               eventId: ticket.eventId,
-              price: ticket.price,
+              price: ticket.price, // ✅ Now using resolved database pricing
               isFromPackage: ticket.isFromPackage || false,
               packageId: ticket.packageId || undefined
             })),
@@ -657,7 +686,42 @@ function PaymentStep(props: PaymentStepProps) {
             subtotal,
             stripeFee: feeCalculation.stripeFee,
             agreeToTerms: true,
-            registrationId: currentRegistrationId // For draft recovery
+            registrationId: currentRegistrationId, // For draft recovery
+            
+            // ====== COMPLETE ZUSTAND STORE STATE CAPTURE ======
+            completeZustandStoreState: {
+              // Get complete store state including resolved pricing
+              ...useRegistrationStore.getState(),
+              // Override pricing data with resolved prices from database
+              resolvedTicketPricing: {
+                originalTickets: currentTicketsForSummary,
+                databaseResolvedPrices: expandedTickets.map(t => ({
+                  ticketId: t.eventTicketId,
+                  resolvedPrice: t.price,
+                  source: 'event_tickets_table'
+                })),
+                pricingValidation: validateTicketPricing(expandedTickets.map(t => ({
+                  id: t.id,
+                  name: t.name,
+                  price: t.price,
+                  attendeeId: t.attendeeId,
+                  eventTicketId: t.eventTicketId,
+                  isPackage: t.isPackage
+                })))
+              },
+              // Capture timestamp for audit
+              captureTimestamp: new Date().toISOString(),
+              captureLocation: 'payment_step_registration_submission'
+            },
+            
+            // Calculated pricing with resolved ticket prices
+            calculatedPricing: {
+              totalAmount,
+              subtotal,
+              stripeFee: feeCalculation.stripeFee,
+              resolvedFromDatabase: true,
+              priceResolutionTimestamp: new Date().toISOString()
+            }
           };
 
           const response = await fetch('/api/registrations/individuals', {

@@ -17,26 +17,32 @@ Implement a system that captures the **complete, unfiltered Zustand registration
 
 ### Functional Requirements
 
-1. **Complete State Capture**
-   - Capture the entire Zustand registration store state object
+1. **Registration-Type Specific Store Capture**
+   - **Individual Registration**: Capture complete `useRegistrationStore` state
+   - **Lodge Registration**: Capture complete `useLodgeRegistrationStore` state  
+   - **Delegation Registration**: Capture complete `useDelegationRegistrationStore` state
    - Include all computed/derived values (pricing, totals, fees)
    - Preserve all user inputs and form state
    - Maintain data types and nested object structures
 
 2. **Direct Store Access**
-   - Access Zustand store directly rather than relying on API payloads
-   - Capture state at key registration milestones (form completion, payment submission)
+   - Access appropriate Zustand store directly based on registration type
+   - Capture state right before payment submission (optimal timing)
    - Ensure timing captures the most complete state available
+   - Include calculated pricing data from payment components
 
-3. **Data Fidelity**
+3. **Data Fidelity & Security**
    - Zero data loss between frontend store and raw_registrations
    - Preserve exact field names, values, and structure from Zustand
+   - **EXCLUDE credit card fields only**: `cardNumber`, `expiryDate`, `cvc`, `cardName`
+   - Include `paymentIntentId` and all other fields
    - Maintain referential integrity (IDs, relationships)
 
 4. **Real-time Accuracy**
-   - Capture pricing calculations as they exist in store
+   - Capture calculated pricing (totalAmount, subtotal, stripeFee) from payment component
    - Include selected events, tickets, and computed totals
    - Preserve all attendee data with complete field sets
+   - Capture event_id resolution from packages and selected tickets
 
 ### Technical Requirements
 

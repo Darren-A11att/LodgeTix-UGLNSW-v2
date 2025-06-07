@@ -65,7 +65,7 @@ export default async function ConfirmationPage({ params }: ConfirmationPageProps
         functionName: registration.function_name,
         eventTitle: registration.event_title,
         eventDate: registration.event_start,
-        totalAmount: registration.total_amount,
+        totalAmount: registration.total_amount_paid,
         attendees: registration.attendees,
         tickets: registration.tickets,
         billingName: `${registration.billing_first_name} ${registration.billing_last_name}`,

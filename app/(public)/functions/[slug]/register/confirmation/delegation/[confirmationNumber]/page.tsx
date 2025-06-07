@@ -68,7 +68,7 @@ export default async function DelegationConfirmationPage({ params }: DelegationC
         functionName: registration.function_name,
         eventTitle: registration.event_title,
         eventDate: registration.event_start,
-        totalAmount: registration.total_amount,
+        totalAmount: registration.total_amount_paid,
         // Delegation-specific data
         delegationName: registration.delegation_name,
         delegationLeader: registration.delegation_leader,

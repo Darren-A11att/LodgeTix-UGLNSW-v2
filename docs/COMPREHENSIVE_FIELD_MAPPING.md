@@ -257,7 +257,7 @@ INSERT INTO registrations (
     registration_type,      -- 'individuals'::registration_type
     confirmation_number,    -- v_confirmation_number
     payment_status,         -- v_payment_status::payment_status
-    total_amount,           -- totalAmount || 0
+    total_amount_paid,           -- totalAmount || 0
     subtotal,               -- subtotal || 0
     stripe_fee,             -- stripeFee || 0
     stripe_payment_intent_id, -- paymentIntentId
@@ -384,6 +384,6 @@ The RPC function has fallback logic for email/phone fields:
 When `paymentCompleted = true`, the RPC function:
 1. Updates existing registration payment status
 2. Sets stripe_payment_intent_id
-3. Updates total_amount if provided
+3. Updates total_amount_paid if provided
 4. Returns confirmation_number from existing registration
 5. Marks raw_registrations entry as processed

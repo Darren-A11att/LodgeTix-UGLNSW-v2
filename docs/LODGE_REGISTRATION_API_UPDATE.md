@@ -66,7 +66,7 @@ const { data: registration, error: regError } = await supabase
     confirmation_number: null, // Edge Function will generate
     payment_status: 'pending',
     status: 'pending',
-    total_amount: totalAmount,
+    total_amount_paid: totalAmount,
     subtotal: subtotal,
     stripe_fee: stripeFee,
     stripe_payment_intent_id: paymentIntentId,
@@ -94,7 +94,7 @@ const { data, error } = await supabase
     payment_status: 'completed',
     status: 'completed', // This triggers Edge Function
     stripe_payment_intent_id: paymentIntentId,
-    total_amount: totalAmountPaid,
+    total_amount_paid: totalAmountPaid,
     updated_at: new Date().toISOString()
   })
   .eq('registration_id', registrationId)

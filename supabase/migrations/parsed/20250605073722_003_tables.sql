@@ -267,7 +267,7 @@ COMMENT ON COLUMN "public"."registrations"."subtotal" IS 'Original ticket price 
 
 COMMENT ON COLUMN "public"."registrations"."stripe_fee" IS 'Stripe processing fee passed to customer';
 
-COMMENT ON COLUMN "public"."registrations"."includes_processing_fee" IS 'Whether the total_amount includes the processing fee';
+COMMENT ON COLUMN "public"."registrations"."includes_processing_fee" IS 'Whether the total_amount_paid includes the processing fee';
 
 COMMENT ON COLUMN "public"."registrations"."auth_user_id" IS 'Auth user ID of the person who created the registration';
 

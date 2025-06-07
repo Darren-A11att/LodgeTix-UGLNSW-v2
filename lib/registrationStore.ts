@@ -23,8 +23,24 @@ export interface LodgeTicketOrder {
 // --- Placeholder Types (Defined locally) ---
 // Using RegistrationType from './registration-types'
 
-// Placeholder type for package/ticket selections per attendee
-// TODO: Define the actual structure based on package data
+// Enhanced ticket selection structure per the PRD requirements
+export interface TicketSelectionItem {
+  ticketId: string;
+  quantity: number;
+}
+
+export interface PackageSelection {
+  packageId: string;
+  quantity: number;
+  tickets: TicketSelectionItem[];
+}
+
+export interface AttendeeTicketSelections {
+  packages: PackageSelection[];
+  individualTickets: TicketSelectionItem[];
+}
+
+// Legacy interface for backward compatibility - will be phased out
 export interface PackageSelectionType {
   ticketDefinitionId: string | null;
   selectedEvents: string[]; // Array of event IDs
@@ -61,7 +77,9 @@ export interface RegistrationState {
   registrationType: RegistrationType | null;
   delegationType: 'lodge' | 'grandLodge' | 'masonicOrder' | null; // Type of delegation when registrationType is 'delegation'
   attendees: UnifiedAttendeeData[];
-  // Using Record<attendeeId, PackageSelectionType> for packages
+  // Enhanced ticket selections per attendee
+  ticketSelections: Record<string, AttendeeTicketSelections>; // attendeeId -> ticket selections
+  // Legacy packages for backward compatibility
   packages: Record<string, PackageSelectionType>;
   billingDetails: BillingDetailsType | null;
   agreeToTerms: boolean; // Add agreeToTerms
@@ -88,6 +106,14 @@ export interface RegistrationState {
   addPartnerAttendee: (attendeeId: string) => string | null; // Parent attendee ID, returns new partner ID or null if attendee not found
   updateAttendee: (attendeeId: string, updatedData: Partial<UnifiedAttendeeData>) => void;
   removeAttendee: (attendeeId: string) => void;
+  // Enhanced ticket selection actions
+  updateTicketSelections: (attendeeId: string, selections: AttendeeTicketSelections) => void;
+  addPackageSelection: (attendeeId: string, packageSelection: PackageSelection) => void;
+  removePackageSelection: (attendeeId: string, packageId: string) => void;
+  addIndividualTicket: (attendeeId: string, ticket: TicketSelectionItem) => void;
+  removeIndividualTicket: (attendeeId: string, ticketId: string) => void;
+  clearAttendeeTicketSelections: (attendeeId: string) => void;
+  // Legacy action for backward compatibility
   updatePackageSelection: (attendeeId: string, selection: PackageSelectionType) => void;
   updateBillingDetails: (details: BillingDetailsType) => void;
   setAgreeToTerms: (agreed: boolean) => void; // Add action
@@ -117,7 +143,7 @@ export interface RegistrationState {
 }
 
 // --- Initial State ---
-const initialRegistrationState: Omit<RegistrationState, 'startNewRegistration' | 'addPrimaryAttendee' | 'loadDraft' | 'clearRegistration' | 'clearAllAttendees' | 'setRegistrationType' | 'addAttendee' | 'addMasonAttendee' | 'addGuestAttendee' | 'addPartnerAttendee' | 'updateAttendee' | 'removeAttendee' | 'updatePackageSelection' | 'updateBillingDetails' | 'setAgreeToTerms' | '_updateStatus' | 'setCurrentStep' | 'goToNextStep' | 'goToPrevStep' | 'setConfirmationNumber' | 'setFunctionId' | 'setFunctionSlug' | 'setSelectedEvents' | 'setDraftRecoveryHandled' | 'setAnonymousSessionEstablished' | 'setLodgeTicketOrder' | 'setDelegationType'> = {
+const initialRegistrationState: Omit<RegistrationState, 'startNewRegistration' | 'addPrimaryAttendee' | 'loadDraft' | 'clearRegistration' | 'clearAllAttendees' | 'setRegistrationType' | 'addAttendee' | 'addMasonAttendee' | 'addGuestAttendee' | 'addPartnerAttendee' | 'updateAttendee' | 'removeAttendee' | 'updateTicketSelections' | 'addPackageSelection' | 'removePackageSelection' | 'addIndividualTicket' | 'removeIndividualTicket' | 'clearAttendeeTicketSelections' | 'updatePackageSelection' | 'updateBillingDetails' | 'setAgreeToTerms' | '_updateStatus' | 'setCurrentStep' | 'goToNextStep' | 'goToPrevStep' | 'setConfirmationNumber' | 'setFunctionId' | 'setFunctionSlug' | 'setSelectedEvents' | 'setDraftRecoveryHandled' | 'setAnonymousSessionEstablished' | 'setLodgeTicketOrder' | 'setDelegationType'> = {
     draftId: null,
     functionId: null, // Initialize functionId as null
     functionSlug: null, // Initialize functionSlug as null
@@ -125,7 +151,8 @@ const initialRegistrationState: Omit<RegistrationState, 'startNewRegistration' |
     registrationType: null,
     delegationType: null,
     attendees: [],
-    packages: {},
+    ticketSelections: {}, // Initialize enhanced ticket selections
+    packages: {}, // Legacy packages for backward compatibility
     billingDetails: null,
     agreeToTerms: false, // Init agreeToTerms
     status: 'idle',
@@ -521,6 +548,120 @@ export const useRegistrationStore = create<RegistrationState>(
         });
       },
 
+      // Enhanced ticket selection actions
+      updateTicketSelections: (attendeeId, selections) => {
+        set(state => ({
+          ticketSelections: {
+            ...state.ticketSelections,
+            [attendeeId]: selections,
+          },
+        }));
+        console.log(`[Store] Updated ticket selections for attendee ${attendeeId}:`, selections);
+      },
+
+      addPackageSelection: (attendeeId, packageSelection) => {
+        set(state => {
+          const currentSelections = state.ticketSelections[attendeeId] || { packages: [], individualTickets: [] };
+          const existingPackageIndex = currentSelections.packages.findIndex(p => p.packageId === packageSelection.packageId);
+          
+          let updatedPackages;
+          if (existingPackageIndex >= 0) {
+            // Update existing package
+            updatedPackages = [...currentSelections.packages];
+            updatedPackages[existingPackageIndex] = packageSelection;
+          } else {
+            // Add new package
+            updatedPackages = [...currentSelections.packages, packageSelection];
+          }
+          
+          return {
+            ticketSelections: {
+              ...state.ticketSelections,
+              [attendeeId]: {
+                ...currentSelections,
+                packages: updatedPackages,
+              },
+            },
+          };
+        });
+        console.log(`[Store] Added/updated package selection for attendee ${attendeeId}:`, packageSelection);
+      },
+
+      removePackageSelection: (attendeeId, packageId) => {
+        set(state => {
+          const currentSelections = state.ticketSelections[attendeeId];
+          if (!currentSelections) return state;
+          
+          return {
+            ticketSelections: {
+              ...state.ticketSelections,
+              [attendeeId]: {
+                ...currentSelections,
+                packages: currentSelections.packages.filter(p => p.packageId !== packageId),
+              },
+            },
+          };
+        });
+        console.log(`[Store] Removed package selection ${packageId} for attendee ${attendeeId}`);
+      },
+
+      addIndividualTicket: (attendeeId, ticket) => {
+        set(state => {
+          const currentSelections = state.ticketSelections[attendeeId] || { packages: [], individualTickets: [] };
+          const existingTicketIndex = currentSelections.individualTickets.findIndex(t => t.ticketId === ticket.ticketId);
+          
+          let updatedTickets;
+          if (existingTicketIndex >= 0) {
+            // Update existing ticket quantity
+            updatedTickets = [...currentSelections.individualTickets];
+            updatedTickets[existingTicketIndex] = ticket;
+          } else {
+            // Add new ticket
+            updatedTickets = [...currentSelections.individualTickets, ticket];
+          }
+          
+          return {
+            ticketSelections: {
+              ...state.ticketSelections,
+              [attendeeId]: {
+                ...currentSelections,
+                individualTickets: updatedTickets,
+              },
+            },
+          };
+        });
+        console.log(`[Store] Added/updated individual ticket for attendee ${attendeeId}:`, ticket);
+      },
+
+      removeIndividualTicket: (attendeeId, ticketId) => {
+        set(state => {
+          const currentSelections = state.ticketSelections[attendeeId];
+          if (!currentSelections) return state;
+          
+          return {
+            ticketSelections: {
+              ...state.ticketSelections,
+              [attendeeId]: {
+                ...currentSelections,
+                individualTickets: currentSelections.individualTickets.filter(t => t.ticketId !== ticketId),
+              },
+            },
+          };
+        });
+        console.log(`[Store] Removed individual ticket ${ticketId} for attendee ${attendeeId}`);
+      },
+
+      clearAttendeeTicketSelections: (attendeeId) => {
+        set(state => ({
+          ticketSelections: {
+            ...state.ticketSelections,
+            [attendeeId]: { packages: [], individualTickets: [] },
+          },
+        }));
+        console.log(`[Store] Cleared all ticket selections for attendee ${attendeeId}`);
+      },
+
+      // Legacy action for backward compatibility
       updatePackageSelection: (attendeeId, selection) => {
         set(state => ({
           packages: {
@@ -575,7 +716,8 @@ export const useRegistrationStore = create<RegistrationState>(
         registrationType: state.registrationType,
         delegationType: state.delegationType, // Persist delegation type
         attendees: state.attendees,
-        packages: state.packages,
+        ticketSelections: state.ticketSelections, // Persist enhanced ticket selections
+        packages: state.packages, // Keep legacy packages for backward compatibility
         billingDetails: state.billingDetails,
         // Don't persist agreeToTerms - it should always default to false
         status: state.status, // Persist status to track completed registrations
@@ -623,7 +765,8 @@ export const selectRegistrationType = (state: RegistrationState) => state.regist
 export const selectDelegationType = (state: RegistrationState) => state.delegationType;
 export const selectCurrentStep = (state: RegistrationState) => state.currentStep;
 export const selectAttendees = (state: RegistrationState) => state.attendees;
-export const selectPackages = (state: RegistrationState) => state.packages;
+export const selectTicketSelections = (state: RegistrationState) => state.ticketSelections;
+export const selectPackages = (state: RegistrationState) => state.packages; // Legacy selector
 export const selectBillingDetails = (state: RegistrationState) => state.billingDetails;
 export const selectAgreeToTerms = (state: RegistrationState) => state.agreeToTerms;
 export const selectDraftId = (state: RegistrationState) => state.draftId;
@@ -633,4 +776,22 @@ export const selectFunctionId = (state: RegistrationState) => state.functionId;
 export const selectFunctionSlug = (state: RegistrationState) => state.functionSlug;
 export const selectSelectedEvents = (state: RegistrationState) => state.selectedEvents;
 export const selectDraftRecoveryHandled = (state: RegistrationState) => state.draftRecoveryHandled;
-export const selectAnonymousSessionEstablished = (state: RegistrationState) => state.anonymousSessionEstablished; 
+export const selectAnonymousSessionEstablished = (state: RegistrationState) => state.anonymousSessionEstablished;
+
+// --- Enhanced Ticket Selection Selectors ---
+export const selectAttendeeTicketSelections = (attendeeId: string) => (state: RegistrationState) => 
+  state.ticketSelections[attendeeId] || { packages: [], individualTickets: [] };
+
+export const selectAttendeeHasTicketSelections = (attendeeId: string) => (state: RegistrationState) => {
+  const selections = state.ticketSelections[attendeeId];
+  return selections && (selections.packages.length > 0 || selections.individualTickets.length > 0);
+};
+
+export const selectAllAttendeeTicketSelections = (state: RegistrationState) => {
+  const allSelections: Record<string, AttendeeTicketSelections> = {};
+  state.attendees.forEach(attendee => {
+    allSelections[attendee.attendeeId] = state.ticketSelections[attendee.attendeeId] || 
+      { packages: [], individualTickets: [] };
+  });
+  return allSelections;
+}; 

@@ -89,7 +89,7 @@ const WEBHOOK_TEST_CASES: WebhookTestCase[] = [
             organisation_id: 'test-org-id',
             organisation_name: 'Test Organization',
             total_attendees: '2',
-            total_amount: '250.00',
+            total_amount_paid: '250.00',
             platform_fee: '12.50',
             tickets_count: '2',
             created_at: new Date().toISOString(),

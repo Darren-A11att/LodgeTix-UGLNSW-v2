@@ -50,7 +50,7 @@ interface PaymentIntentMetadata {
   
   // Financial
   subtotal: string;
-  total_amount: string;
+  total_amount_paid: string;
   platform_fee: string;
   platform_fee_percentage: string;
   currency: string;

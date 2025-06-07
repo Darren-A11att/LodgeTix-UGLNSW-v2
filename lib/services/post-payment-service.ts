@@ -241,7 +241,7 @@ export class PostPaymentService {
           }),
           subtotal: registration.subtotal || 0,
           bookingFee: registration.booking_fee || 0,
-          total: registration.total_amount || 0,
+          total: registration.total_amount_paid || 0,
           purchaseDate: new Date().toLocaleDateString('en-AU'),
           dressCode: registration.events.dress_code,
           specialInstructions: registration.events.special_instructions,

@@ -80,7 +80,7 @@ export function FunctionRegistrationsTab({ functionId, registrations }: Function
 
   const totalRevenue = filteredRegistrations
     .filter(reg => reg.payment_status === 'completed')
-    .reduce((sum, reg) => sum + (reg.total_amount || 0), 0)
+    .reduce((sum, reg) => sum + (reg.total_amount_paid || 0), 0)
 
   const totalAttendees = filteredRegistrations
     .reduce((sum, reg) => sum + (reg.attendees?.[0]?.count || 0), 0)
@@ -246,7 +246,7 @@ export function FunctionRegistrationsTab({ functionId, registrations }: Function
                   <TableCell>
                     <div>
                       <p className="font-medium">
-                        {formatCurrency(registration.total_amount || 0)}
+                        {formatCurrency(registration.total_amount_paid || 0)}
                       </p>
                       {registration.stripe_fee && (
                         <p className="text-sm text-muted-foreground">

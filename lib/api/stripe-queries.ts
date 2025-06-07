@@ -16,7 +16,7 @@ export interface RegistrationWithFullContext {
     registration_type: string;
     attendee_count: number;
     subtotal: number;
-    total_amount: number;
+    total_amount_paid: number;
     status: string;
     payment_status: string;
     created_at: string;
@@ -317,13 +317,13 @@ export async function getRegistrationWithFullContext(
         registration_type: registration.registration_type,
         attendee_count: registration.attendee_count,
         subtotal: registration.subtotal,
-        total_amount: registration.total_amount,
+        total_amount_paid: registration.total_amount_paid,
         status: registration.status,
         payment_status: registration.payment_status,
         created_at: registration.created_at,
         confirmation_number: registration.confirmation_number,
         stripe_payment_intent_id: registration.stripe_payment_intent_id,
-        total_amount_paid: registration.total_amount_paid,
+        total_amount_paid: registration.total_amount_paid_paid,
         stripe_fee: registration.stripe_fee,
         includes_processing_fee: registration.includes_processing_fee
       },
@@ -690,7 +690,7 @@ export async function getRegistrationMinimal(registrationId: string) {
         registration_type,
         status,
         payment_status,
-        total_amount,
+        total_amount_paid,
         stripe_payment_intent_id,
         event_id
       `)

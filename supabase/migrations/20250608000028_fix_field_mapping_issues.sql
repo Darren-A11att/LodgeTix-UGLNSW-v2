@@ -202,7 +202,7 @@ BEGIN
       function_id,
       customer_id,
       -- contact_id, -- Column doesn't exist in registrations table
-      total_amount_paid,  -- Fixed from total_amount
+      total_amount_paid,  -- Fixed from total_amount_paid
       subtotal,
       stripe_fee,
       stripe_payment_intent_id,  -- Fixed from payment_intent_id

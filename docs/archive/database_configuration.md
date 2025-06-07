@@ -50,7 +50,7 @@ Tracks all event registrations:
 - status (Text)
 - payment_status (Text)
 - confirmation_number (Text)
-- total_amount (Numeric)
+- total_amount_paid (Numeric)
 - stripe_fee (Numeric)
 - created_at/updated_at (Timestamptz)
 ```

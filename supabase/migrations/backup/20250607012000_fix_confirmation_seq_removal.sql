@@ -43,7 +43,7 @@ BEGIN
             payment_status = 'completed',
             status = 'completed',  -- Also update status for Edge Function trigger
             stripe_payment_intent_id = p_registration_data->>'paymentIntentId',
-            total_amount = COALESCE((p_registration_data->>'totalAmountPaid')::decimal, total_amount),
+            total_amount_paid = COALESCE((p_registration_data->>'totalAmountPaid')::decimal, total_amount_paid),
             updated_at = CURRENT_TIMESTAMP
         WHERE registration_id = v_registration_id
         AND auth_user_id = v_customer_id;
@@ -157,7 +157,7 @@ BEGIN
         confirmation_number,  -- Will be NULL initially
         payment_status,
         status,  -- Add status field
-        total_amount,
+        total_amount_paid,
         subtotal,
         stripe_fee,
         stripe_payment_intent_id,
@@ -196,7 +196,7 @@ BEGIN
         booking_contact_id = EXCLUDED.booking_contact_id,
         payment_status = EXCLUDED.payment_status,
         status = EXCLUDED.status,
-        total_amount = EXCLUDED.total_amount,
+        total_amount_paid = EXCLUDED.total_amount_paid,
         subtotal = EXCLUDED.subtotal,
         stripe_fee = EXCLUDED.stripe_fee,
         stripe_payment_intent_id = EXCLUDED.stripe_payment_intent_id,

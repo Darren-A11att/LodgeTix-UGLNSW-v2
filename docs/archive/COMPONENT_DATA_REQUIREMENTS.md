@@ -534,7 +534,7 @@ interface TicketType {
 {
   registration: {
     registration_id: string
-    total_amount: number
+    total_amount_paid: number
     currency: string
   }
   
@@ -666,7 +666,7 @@ interface TicketType {
     
     summary: {
       total_attendees: number
-      total_amount: number
+      total_amount_paid: number
       amount_paid: number
     }
   }>

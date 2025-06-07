@@ -132,7 +132,7 @@ BEGIN
         registration_type,
         confirmation_number,
         payment_status,
-        total_amount,
+        total_amount_paid,
         subtotal,
         stripe_fee,
         stripe_payment_intent_id,
@@ -158,7 +158,7 @@ BEGIN
     )
     ON CONFLICT (registration_id) DO UPDATE SET
         payment_status = EXCLUDED.payment_status,
-        total_amount = EXCLUDED.total_amount,
+        total_amount_paid = EXCLUDED.total_amount_paid,
         subtotal = EXCLUDED.subtotal,
         stripe_fee = EXCLUDED.stripe_fee,
         stripe_payment_intent_id = EXCLUDED.stripe_payment_intent_id,

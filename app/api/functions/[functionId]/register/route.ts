@@ -145,7 +145,7 @@ export async function POST(
       success: true,
       registrationId: data.registration_id,
       confirmationNumber: data.confirmation_number,
-      totalAmount: data.total_amount,
+      totalAmount: data.total_amount_paid,
       customerId: data.customer_id,
       attendeeIds: data.attendee_ids
     });

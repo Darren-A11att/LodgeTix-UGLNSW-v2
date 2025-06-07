@@ -13,7 +13,7 @@ interface RegistrationWithFullContext {
     registration_type: string;
     attendee_count: number;
     subtotal: number;
-    total_amount: number;
+    total_amount_paid: number;
     // ... other registration fields
   };
   
@@ -216,7 +216,7 @@ export async function getRegistrationWithFullContext(
       registration_type: registration.registration_type,
       attendee_count: registration.attendee_count,
       subtotal: registration.subtotal,
-      total_amount: registration.total_amount,
+      total_amount_paid: registration.total_amount_paid,
       status: registration.status,
       payment_status: registration.payment_status,
       created_at: registration.created_at,
@@ -438,7 +438,7 @@ BEGIN
     ), '[]'::json),
     'summary', json_build_object(
       'total_attendees', r.attendee_count,
-      'total_amount', r.total_amount,
+      'total_amount_paid', r.total_amount_paid,
       'attendee_breakdown', (
         SELECT json_object_agg(attendee_type, count)
         FROM (

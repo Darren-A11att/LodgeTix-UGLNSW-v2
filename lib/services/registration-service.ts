@@ -145,7 +145,7 @@ export class RegistrationService {
       // NO event_id field
       status: 'pending',
       payment_status: 'pending',
-      total_amount: 0, // Will be calculated
+      total_amount_paid: 0, // Will be calculated
       contact_details: {
         firstName: input.contactInfo.firstName,
         lastName: input.contactInfo.lastName,
@@ -301,7 +301,7 @@ export class RegistrationService {
       })),
       selectedEvents: registration.metadata?.selected_events || [],
       packages: registration.metadata?.packages || [],
-      totalAmount: registration.total_amount,
+      totalAmount: registration.total_amount_paid,
       paymentStatus: registration.payment_status,
       createdAt: registration.created_at,
       contactInfo: registration.contact_details as ContactInfo

@@ -27,7 +27,7 @@ const METADATA_TEST_CASES: MetadataTestCase[] = [
       organisation_id: '123e4567-e89b-12d3-a456-426614174002',
       organisation_name: 'Grand Lodge of NSW & ACT',
       total_attendees: '2',
-      total_amount: '250.00',
+      total_amount_paid: '250.00',
       platform_fee: '12.50',
       tickets_count: '2',
       created_at: new Date().toISOString(),
@@ -44,7 +44,7 @@ const METADATA_TEST_CASES: MetadataTestCase[] = [
       organisation_id: '123e4567-e89b-12d3-a456-426614174002',
       organisation_name: 'Grand Lodge of NSW & ACT',
       total_attendees: '2',
-      total_amount: '250.00',
+      total_amount_paid: '250.00',
       platform_fee: '12.50',
       tickets_count: '2',
       created_at: new Date().toISOString(),
@@ -62,7 +62,7 @@ const METADATA_TEST_CASES: MetadataTestCase[] = [
       organisation_id: '123e4567-e89b-12d3-a456-426614174002',
       organisation_name: 'Grand Lodge of NSW & ACT',
       total_attendees: '2',
-      total_amount: '250.00',
+      total_amount_paid: '250.00',
       platform_fee: '12.50',
       tickets_count: '2',
       created_at: new Date().toISOString(),
@@ -84,7 +84,7 @@ const METADATA_TEST_CASES: MetadataTestCase[] = [
       organisation_id: '123e4567-e89b-12d3-a456-426614174002',
       organisation_name: 'Grand Lodge of NSW & ACT',
       total_attendees: '10',
-      total_amount: '1250.00',
+      total_amount_paid: '1250.00',
       platform_fee: '62.50',
       tickets_count: '10',
       created_at: new Date().toISOString(),
@@ -94,7 +94,7 @@ const METADATA_TEST_CASES: MetadataTestCase[] = [
     checkFunction: (metadata) => {
       return (
         !isNaN(parseInt(metadata.total_attendees)) &&
-        !isNaN(parseFloat(metadata.total_amount)) &&
+        !isNaN(parseFloat(metadata.total_amount_paid)) &&
         !isNaN(parseFloat(metadata.platform_fee))
       );
     },
@@ -109,7 +109,7 @@ const METADATA_TEST_CASES: MetadataTestCase[] = [
       organisation_id: '123e4567-e89b-12d3-a456-426614174002',
       organisation_name: 'Grand Lodge of NSW & ACT',
       total_attendees: '50',
-      total_amount: '6250.00',
+      total_amount_paid: '6250.00',
       platform_fee: '312.50',
       tickets_count: '50',
       created_at: new Date().toISOString(),
@@ -129,7 +129,7 @@ const METADATA_TEST_CASES: MetadataTestCase[] = [
       organisation_id: '123e4567-e89b-12d3-a456-426614174002',
       organisation_name: 'Grand Lodge of NSW & ACT',
       total_attendees: '1',
-      total_amount: '85.00',
+      total_amount_paid: '85.00',
       platform_fee: '4.25',
       tickets_count: '1',
       created_at: new Date().toISOString(),
@@ -147,7 +147,7 @@ const METADATA_TEST_CASES: MetadataTestCase[] = [
       organisation_id: '123e4567-e89b-12d3-a456-426614174002',
       organisation_name: 'Grand Lodge of NSW & ACT',
       total_attendees: '1',
-      total_amount: '0.00',
+      total_amount_paid: '0.00',
       platform_fee: '0.00',
       tickets_count: '1',
       created_at: new Date().toISOString(),
@@ -173,7 +173,7 @@ async function testMetadataValidation() {
     try {
       // Create a test payment intent with the metadata
       const paymentIntent = await stripe.paymentIntents.create({
-        amount: Math.round(parseFloat(testCase.metadata.total_amount || '100') * 100),
+        amount: Math.round(parseFloat(testCase.metadata.total_amount_paid || '100') * 100),
         currency: 'aud',
         metadata: testCase.metadata,
         description: `Test: ${testCase.name}`,
@@ -190,7 +190,7 @@ async function testMetadataValidation() {
         'organisation_id',
         'organisation_name',
         'total_attendees',
-        'total_amount',
+        'total_amount_paid',
         'platform_fee',
         'tickets_count',
         'created_at',

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from '@/utils/supabase/server';
 import { createClientWithToken } from '@/utils/supabase/server-with-token';
+import { captureCompleteLodgeStoreState, storeZustandCaptureInRawRegistrations } from '@/lib/utils/zustand-store-capture';
 
 export async function POST(request: Request) {
   try {
@@ -148,6 +149,44 @@ export async function POST(request: Request) {
       console.error('Failed to log raw payload:', logError);
     }
     
+    // ====== CAPTURE COMPLETE LODGE ZUSTAND STORE STATE ======
+    try {
+      const { 
+        completeLodgeZustandStoreState,
+        calculatedPricing 
+      } = data;
+      
+      if (completeLodgeZustandStoreState) {
+        console.log('🏪 Capturing complete Lodge Zustand store state...');
+        
+        const lodgeStoreCapture = await captureCompleteLodgeStoreState(
+          data,
+          calculatedPricing || {
+            totalAmount: data.totalAmount || 0,
+            subtotal: data.subtotal || 0,
+            stripeFee: data.stripeFee || 0
+          }
+        );
+        
+        const captureResult = await storeZustandCaptureInRawRegistrations(
+          supabaseForLogging,
+          lodgeStoreCapture,
+          data.registrationId
+        );
+        
+        if (captureResult.success) {
+          console.log(`✅ Complete Lodge Zustand store captured: ${lodgeStoreCapture.metadata.field_count} fields`);
+        } else {
+          console.error('❌ Failed to capture Lodge Zustand store:', captureResult.error);
+        }
+      } else {
+        console.warn('⚠️ No complete Lodge Zustand store state provided - capturing only API payload');
+      }
+    } catch (storeError) {
+      console.error('Failed to capture Lodge Zustand store state:', storeError);
+    }
+    // ====== END LODGE ZUSTAND STORE CAPTURE ======
+    
     // Prepare booking contact data
     const bookingContact = {
       email: billingDetails.emailAddress,
@@ -206,7 +245,7 @@ export async function POST(request: Request) {
           lodge_id: lodgeDetails.lodge_id,
           table_count: tableCount,
           package_id: packageId,
-          total_amount: totalAmount,
+          total_amount_paid: totalAmount,
           subtotal: subtotal,
           stripe_fee: stripeFee
         },

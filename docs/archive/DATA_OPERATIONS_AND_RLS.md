@@ -533,7 +533,7 @@ const { data } = await supabase
 // FETCH - Registration total
 const { data: registration } = await supabase
   .from('registrations')
-  .select('registration_id, total_amount, event_id')
+  .select('registration_id, total_amount_paid, event_id')
   .eq('registration_id', registrationId)
   .single()
 

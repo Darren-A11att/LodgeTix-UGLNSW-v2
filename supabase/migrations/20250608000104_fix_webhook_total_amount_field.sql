@@ -1,5 +1,5 @@
 -- Fix webhook trigger function to use correct field names for total amount
--- The registrations table has 'total_amount_paid' and 'total_price_paid', not 'total_amount'
+-- The registrations table has 'total_amount_paid' and 'total_price_paid', not 'total_amount_paid'
 
 CREATE OR REPLACE FUNCTION public.should_generate_confirmation()
 RETURNS trigger

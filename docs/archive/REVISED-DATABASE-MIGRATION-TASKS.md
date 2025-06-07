@@ -296,7 +296,7 @@ SELECT
     COUNT(DISTINCT r.registration_id) as registration_count,
     MIN(e.event_start) as first_event_start,
     MAX(e.event_end) as last_event_end,
-    SUM(r.total_amount) as total_revenue
+    SUM(r.total_amount_paid) as total_revenue
 FROM functions f
 LEFT JOIN events e ON e.function_id = f.function_id
 LEFT JOIN registrations r ON r.function_id = f.function_id

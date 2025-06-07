@@ -168,7 +168,7 @@ BEGIN
         registration_type,
         confirmation_number,
         payment_status,
-        total_amount_paid,  -- FIXED: was total_amount, now total_amount_paid
+        total_amount_paid,  -- FIXED: was total_amount_paid, now total_amount_paid
         subtotal,
         stripe_fee,
         stripe_payment_intent_id,

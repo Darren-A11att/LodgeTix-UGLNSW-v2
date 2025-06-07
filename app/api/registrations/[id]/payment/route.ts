@@ -511,7 +511,7 @@ export async function GET(
       payment_status: currentRegistration.payment_status,
       status: currentRegistration.status,
       stripe_payment_intent_id: currentRegistration.stripe_payment_intent_id,
-      total_amount_paid: currentRegistration.total_amount_paid
+      total_amount_paid: currentRegistration.total_amount_paid_paid
     });
   } catch (error: any) {
     console.error("Error checking registration payment status (GET):", error);

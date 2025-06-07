@@ -1,0 +1,147 @@
+-- Create missing views that the code expects but don't exist in the database
+
+-- 1. registration_detail_view - Comprehensive registration information with all related data
+CREATE OR REPLACE VIEW public.registration_detail_view AS
+SELECT 
+    r.*,
+    -- Customer details
+    c.first_name as customer_first_name,
+    c.last_name as customer_last_name,
+    c.email as customer_email,
+    c.phone as customer_phone,
+    c.business_name as customer_business_name,
+    c.customer_type,
+    c.address_line1 as customer_address_line1,
+    c.address_line2 as customer_address_line2,
+    c.city as customer_city,
+    c.state as customer_state,
+    c.postal_code as customer_postal_code,
+    c.country as customer_country,
+    -- Function details
+    f.name as function_name,
+    f.slug as function_slug,
+    f.description as function_description,
+    f.start_date as function_start_date,
+    f.end_date as function_end_date,
+    f.image_url as function_image_url,
+    -- Location details
+    l.place_name as location_name,
+    l.street_address as location_address,
+    l.suburb as location_suburb,
+    l.state as location_state,
+    l.country as location_country,
+    l.postal_code as location_postal_code,
+    -- Counts
+    (SELECT COUNT(*) FROM attendees a WHERE a.registration_id = r.registration_id) as attendee_count,
+    (SELECT COUNT(*) FROM tickets t WHERE t.registration_id = r.registration_id) as ticket_count
+FROM registrations r
+LEFT JOIN customers c ON r.customer_id = c.customer_id
+LEFT JOIN functions f ON r.function_id = f.function_id
+LEFT JOIN locations l ON f.location_id = l.location_id;
+
+-- Grant permissions
+GRANT SELECT ON public.registration_detail_view TO authenticated;
+GRANT SELECT ON public.registration_detail_view TO anon;
+
+-- 2. attendee_complete_view - Complete attendee information with contacts and masonic profiles
+CREATE OR REPLACE VIEW public.attendee_complete_view AS
+SELECT 
+    a.*,
+    -- Contact details
+    c.type as contact_type,
+    c.email as contact_email,
+    c.mobile_number as contact_mobile,
+    c.business_name as contact_business_name,
+    c.address_line_1 as contact_address_line_1,
+    c.address_line_2 as contact_address_line_2,
+    c.suburb_city as contact_suburb_city,
+    c.state as contact_state,
+    c.country as contact_country,
+    c.postcode as contact_postcode,
+    -- Masonic profile details
+    mp.masonic_title,
+    mp.rank as masonic_rank,
+    mp.grand_lodge_id,
+    mp.lodge_id,
+    -- Lodge details
+    l.name as lodge_name,
+    l.number as lodge_number,
+    l.display_name as lodge_display_name,
+    -- Grand Lodge details
+    gl.name as grand_lodge_name,
+    gl.short_name as grand_lodge_short_name,
+    -- Registration details
+    r.confirmation_number,
+    r.registration_type,
+    r.payment_status,
+    r.status as registration_status
+FROM attendees a
+LEFT JOIN contacts c ON a.contact_id = c.contact_id
+LEFT JOIN masonic_profiles mp ON c.contact_id = mp.contact_id
+LEFT JOIN lodges l ON mp.lodge_id = l.lodge_id
+LEFT JOIN grand_lodges gl ON mp.grand_lodge_id = gl.grand_lodge_id
+LEFT JOIN registrations r ON a.registration_id = r.registration_id;
+
+-- Grant permissions
+GRANT SELECT ON public.attendee_complete_view TO authenticated;
+GRANT SELECT ON public.attendee_complete_view TO anon;
+
+-- 3. event_hierarchy_view - Event hierarchy with parent-child relationships
+CREATE OR REPLACE VIEW public.event_hierarchy_view AS
+WITH RECURSIVE event_tree AS (
+    -- Base case: root events (no parent)
+    SELECT 
+        event_id,
+        parent_event_id,
+        title,
+        slug,
+        event_start,
+        event_end,
+        function_id,
+        0 as event_level,
+        event_id as root_event_id,
+        ARRAY[event_id] as path
+    FROM events 
+    WHERE parent_event_id IS NULL
+    
+    UNION ALL
+    
+    -- Recursive case: child events
+    SELECT 
+        e.event_id,
+        e.parent_event_id,
+        e.title,
+        e.slug,
+        e.event_start,
+        e.event_end,
+        e.function_id,
+        et.event_level + 1,
+        et.root_event_id,
+        et.path || e.event_id
+    FROM events e
+    INNER JOIN event_tree et ON e.parent_event_id = et.event_id
+)
+SELECT 
+    *,
+    -- Additional computed fields
+    CASE 
+        WHEN event_level = 0 THEN 'root'
+        WHEN event_level = 1 THEN 'parent'
+        ELSE 'child'
+    END as hierarchy_type
+FROM event_tree
+ORDER BY root_event_id, event_level, event_start;
+
+-- Grant permissions
+GRANT SELECT ON public.event_hierarchy_view TO authenticated;
+GRANT SELECT ON public.event_hierarchy_view TO anon;
+
+-- Create indexes to improve view performance
+CREATE INDEX IF NOT EXISTS idx_registrations_customer_id ON registrations(customer_id);
+CREATE INDEX IF NOT EXISTS idx_registrations_function_id ON registrations(function_id);
+CREATE INDEX IF NOT EXISTS idx_attendees_registration_id ON attendees(registration_id);
+CREATE INDEX IF NOT EXISTS idx_attendees_contact_id ON attendees(contact_id);
+CREATE INDEX IF NOT EXISTS idx_contacts_contact_id ON contacts(contact_id);
+CREATE INDEX IF NOT EXISTS idx_masonic_profiles_contact_id ON masonic_profiles(contact_id);
+CREATE INDEX IF NOT EXISTS idx_events_parent_event_id ON events(parent_event_id);
+CREATE INDEX IF NOT EXISTS idx_events_function_id ON events(function_id);

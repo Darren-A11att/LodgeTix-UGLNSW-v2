@@ -57,7 +57,7 @@ BEGIN
         UPDATE registrations SET
             payment_status = p_payment_status::payment_status,
             stripe_payment_intent_id = p_stripe_payment_intent_id,
-            total_amount = p_total_amount,
+            total_amount_paid = p_total_amount,
             subtotal = p_subtotal,
             stripe_fee = p_stripe_fee,
             updated_at = CURRENT_TIMESTAMP
@@ -145,7 +145,7 @@ BEGIN
         booking_contact_id,
         payment_status,
         stripe_payment_intent_id,
-        total_amount,
+        total_amount_paid,
         subtotal,
         stripe_fee,
         confirmation_number,

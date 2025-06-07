@@ -17,7 +17,7 @@ interface RegistrationDetailView {
   registration_type: Database['public']['Enums']['registration_type'];
   status: string;
   payment_status: Database['public']['Enums']['payment_status'];
-  total_amount: number;
+  total_amount_paid: number;
   amount_paid: number;
   stripe_payment_intent_id: string | null;
   customer_id: string;

@@ -185,9 +185,9 @@ async function fetchEmailData(supabase: any, payload: EmailRequestPayload): Prom
       phone: registration.customers.phone
     },
     paymentDetails: {
-      totalAmount: registration.total_amount,
+      totalAmount: registration.total_amount_paid,
       stripeFee: registration.stripe_fee,
-      subtotal: registration.total_amount - registration.stripe_fee,
+      subtotal: registration.total_amount_paid - registration.stripe_fee,
       paymentIntentId: registration.stripe_payment_intent_id,
       receiptUrl: registration.stripe_receipt_url
     },

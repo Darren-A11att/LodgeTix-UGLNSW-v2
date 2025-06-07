@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from '@/utils/supabase/server';
 import { createClientWithToken } from '@/utils/supabase/server-with-token';
+import { captureCompleteRegistrationStoreState, storeZustandCaptureInRawRegistrations } from '@/lib/utils/zustand-store-capture';
 
 export async function POST(request: Request) {
   try {
@@ -36,6 +37,46 @@ export async function POST(request: Request) {
     } catch (logError) {
       console.error('Failed to log frontend form data:', logError);
     }
+    
+    // ====== CAPTURE COMPLETE ZUSTAND STORE STATE ======
+    // This captures the complete registration store state for 100% data fidelity
+    try {
+      const { 
+        completeZustandStoreState,
+        calculatedPricing 
+      } = data;
+      
+      if (completeZustandStoreState) {
+        console.log('🏪 Capturing complete Zustand registration store state...');
+        
+        const storeCapture = await captureCompleteRegistrationStoreState(
+          data,
+          calculatedPricing || {
+            totalAmount: data.totalAmount || 0,
+            subtotal: data.subtotal || 0,
+            stripeFee: data.stripeFee || 0
+          }
+        );
+        
+        const captureResult = await storeZustandCaptureInRawRegistrations(
+          supabaseForLogging,
+          storeCapture,
+          data.registrationId
+        );
+        
+        if (captureResult.success) {
+          console.log(`✅ Complete Zustand store captured: ${storeCapture.metadata.field_count} fields`);
+        } else {
+          console.error('❌ Failed to capture Zustand store:', captureResult.error);
+        }
+      } else {
+        console.warn('⚠️ No complete Zustand store state provided - capturing only API payload');
+      }
+    } catch (storeError) {
+      console.error('Failed to capture Zustand store state:', storeError);
+      // Don't fail the entire request for store capture issues
+    }
+    // ====== END ZUSTAND STORE CAPTURE ======
     
     // Extract the auth token from headers
     const authHeader = request.headers.get('authorization');

@@ -84,7 +84,7 @@ BEGIN
         UPDATE registrations SET
             payment_status = 'completed',
             stripe_payment_intent_id = p_registration_data->>'paymentIntentId',
-            total_amount = COALESCE((p_registration_data->>'totalAmountPaid')::decimal, total_amount),
+            total_amount_paid = COALESCE((p_registration_data->>'totalAmountPaid')::decimal, total_amount_paid),
             updated_at = CURRENT_TIMESTAMP
         WHERE registration_id = v_registration_id
         AND auth_user_id = v_customer_id;
@@ -220,7 +220,7 @@ BEGIN
         registration_type,
         confirmation_number,
         payment_status,
-        total_amount,
+        total_amount_paid,
         subtotal,
         stripe_fee,
         stripe_payment_intent_id,
@@ -257,7 +257,7 @@ BEGIN
         event_id = EXCLUDED.event_id,
         booking_contact_id = EXCLUDED.booking_contact_id,
         payment_status = EXCLUDED.payment_status,
-        total_amount = EXCLUDED.total_amount,
+        total_amount_paid = EXCLUDED.total_amount_paid,
         subtotal = EXCLUDED.subtotal,
         stripe_fee = EXCLUDED.stripe_fee,
         stripe_payment_intent_id = EXCLUDED.stripe_payment_intent_id,

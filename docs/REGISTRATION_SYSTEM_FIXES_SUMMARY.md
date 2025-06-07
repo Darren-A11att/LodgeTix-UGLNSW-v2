@@ -17,7 +17,7 @@ This document summarizes all the fixes applied to align the registration system'
 - Removed `attendee_data` column reference (doesn't exist)
 - Changed `suffix_1/2/3` → `suffix` (attendees table)
 - Removed `event_id` and `booking_contact_id` from registrations INSERT (columns don't exist)
-- Changed `total_amount` → `total_amount_paid` (registrations table)
+- Changed `total_amount_paid` → `total_amount_paid` (registrations table)
 - Changed `event_ticket_id` → `event_id` (tickets table)
 - Changed `ticket_status` → `status` (tickets table)
 - Changed `ticket_price` → `price_paid` (tickets table)

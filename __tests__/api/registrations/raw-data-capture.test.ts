@@ -471,7 +471,7 @@ describe('Raw Registration Data Capture Tests', () => {
       const lodgeContext = processedData.raw_data.lodge_context;
       expect(lodgeContext.lodge_name).toBe("Test Lodge No. 999");
       expect(lodgeContext.table_count).toBe(2);
-      expect(lodgeContext.total_amount).toBe(500);
+      expect(lodgeContext.total_amount_paid).toBe(500);
       expect(lodgeContext.subtotal).toBe(475);
       expect(lodgeContext.stripe_fee).toBe(25);
     });

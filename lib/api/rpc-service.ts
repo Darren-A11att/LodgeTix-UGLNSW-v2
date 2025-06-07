@@ -63,7 +63,7 @@ export interface CreateFunctionRegistrationParams {
 export interface CreateRegistrationResponse {
   registration_id: string;
   confirmation_number: string;
-  total_amount: number;
+  total_amount_paid: number;
   customer_id: string;
   attendee_ids: string[];
 }

@@ -56,12 +56,12 @@ export default async function FunctionsPage() {
     functions?.map(async (func) => {
       const { data: registrations } = await supabase
         .from('registrations')
-        .select('total_amount')
+        .select('total_amount_paid')
         .eq('function_id', func.function_id)
         .not('payment_status', 'eq', 'cancelled')
 
       const totalRevenue = registrations?.reduce(
-        (sum, reg) => sum + (reg.total_amount || 0), 
+        (sum, reg) => sum + (reg.total_amount_paid || 0), 
         0
       ) || 0
 

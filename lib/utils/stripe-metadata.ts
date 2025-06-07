@@ -166,7 +166,7 @@ export function buildPaymentIntentMetadata(params: PaymentIntentMetadataParams):
     
     // Financial
     subtotal: String(params.subtotal),
-    total_amount: String(params.totalAmount),
+    total_amount_paid: String(params.totalAmount),
     stripe_fee: String(params.stripeFee),
     platform_fee: String(params.platformFee),
     platform_fee_percentage: String(params.platformFeePercentage),

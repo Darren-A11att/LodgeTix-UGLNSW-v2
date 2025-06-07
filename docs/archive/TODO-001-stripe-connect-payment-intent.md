@@ -80,7 +80,7 @@ const paymentIntent = await stripe.paymentIntents.create({
     
     // Financial details
     subtotal: registration.subtotal,
-    total_amount: totalAmount,
+    total_amount_paid: totalAmount,
     platform_fee: (totalAmount * 0.05).toFixed(2),
     
     // Timestamps

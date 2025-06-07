@@ -113,7 +113,7 @@ export class QueryOptimizer {
     }
 
     if (options.includePayment) {
-      columns.push('payment_status', 'total_amount', 'amount_paid');
+      columns.push('payment_status', 'total_amount_paid', 'amount_paid');
     }
 
     if (options.includeTickets) {

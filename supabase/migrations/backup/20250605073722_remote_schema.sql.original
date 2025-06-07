@@ -1937,7 +1937,7 @@ BEGIN
                 WHERE registration_id = r.registration_id 
                   AND is_partner = true
             ),
-            'total_amount', r.total_ticket_amount,
+            'total_amount_paid', r.total_ticket_amount,
             'ticket_types', r.ticket_types,
             'has_dietary_requirements', EXISTS (
                 SELECT 1 FROM attendees 
@@ -2275,7 +2275,7 @@ BEGIN
         'reservation_id', v_reservation_id,
         'registration_id', v_registration_id,
         'expires_at', v_reservation_expires_at,
-        'total_amount', v_total_amount,
+        'total_amount_paid', v_total_amount,
         'tickets', array_to_json(v_created_tickets),
         'ticket_count', array_length(v_created_tickets, 1)
     );
@@ -2466,7 +2466,7 @@ BEGIN
         UPDATE registrations SET
             payment_status = 'completed',
             stripe_payment_intent_id = p_registration_data->>'paymentIntentId',
-            total_amount = COALESCE((p_registration_data->>'totalAmountPaid')::decimal, total_amount),
+            total_amount_paid = COALESCE((p_registration_data->>'totalAmountPaid')::decimal, total_amount_paid),
             updated_at = CURRENT_TIMESTAMP
         WHERE registration_id = v_registration_id
         AND auth_user_id = v_customer_id;
@@ -2586,7 +2586,7 @@ BEGIN
         registration_type,
         confirmation_number,
         payment_status,
-        total_amount,
+        total_amount_paid,
         subtotal,
         stripe_fee,
         stripe_payment_intent_id,
@@ -2623,7 +2623,7 @@ BEGIN
         event_id = EXCLUDED.event_id,
         booking_contact_id = EXCLUDED.booking_contact_id,
         payment_status = EXCLUDED.payment_status,
-        total_amount = EXCLUDED.total_amount,
+        total_amount_paid = EXCLUDED.total_amount_paid,
         subtotal = EXCLUDED.subtotal,
         stripe_fee = EXCLUDED.stripe_fee,
         stripe_payment_intent_id = EXCLUDED.stripe_payment_intent_id,
@@ -3522,7 +3522,7 @@ COMMENT ON COLUMN "public"."registrations"."stripe_fee" IS 'Stripe processing fe
 
 
 
-COMMENT ON COLUMN "public"."registrations"."includes_processing_fee" IS 'Whether the total_amount includes the processing fee';
+COMMENT ON COLUMN "public"."registrations"."includes_processing_fee" IS 'Whether the total_amount_paid includes the processing fee';
 
 
 

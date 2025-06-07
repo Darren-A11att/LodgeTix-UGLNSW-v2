@@ -160,7 +160,7 @@ class TestDataManager {
       customer_id: customerId,
       registration_type: 'individual',
       status: status,
-      total_amount: 0,
+      total_amount_paid: 0,
       created_at: new Date().toISOString()
     };
 

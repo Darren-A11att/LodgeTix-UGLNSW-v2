@@ -1,4 +1,5 @@
 import Image from "next/image"
+import { getHomepageContentService } from "@/lib/content/homepage-content-service"
 
 // Simple SVG icons as components
 const MapPinIcon = ({ className }: { className?: string }) => (
@@ -19,56 +20,49 @@ const UserGroupIcon = ({ className }: { className?: string }) => (
   </svg>
 );
 
-const features = [
-  {
-    name: 'Prime Locations',
-    description:
-      'Our events are held at prestigious venues across NSW & ACT, offering convenient access and parking for all attendees.',
-    icon: MapPinIcon,
-  },
-  {
-    name: 'Convenient Timing',
-    description: 'Events are scheduled to accommodate working schedules, with both evening and weekend options available.',
-    icon: ClockIcon,
-  },
-  {
-    name: 'Community Focused',
-    description: 'Join a welcoming community of Masons and guests from across the region, building lasting friendships and connections.',
-    icon: UserGroupIcon,
-  },
-]
+// Icon mapping for dynamic icon selection
+const iconComponents: { [key: string]: React.ComponentType<{ className?: string }> } = {
+  MapPin: MapPinIcon,
+  Clock: ClockIcon,
+  UserGroup: UserGroupIcon,
+};
 
-export function LocationInfoSection() {
+export async function LocationInfoSection() {
+  // Get content from centralized content service
+  const contentService = await getHomepageContentService()
+  const locationContent = await contentService.getLocationInfoContent()
   return (
     <div className="overflow-hidden bg-masonic-navy py-24 sm:py-32">
       <div className="mx-auto max-w-7xl px-6 lg:px-8">
         <div className="mx-auto grid max-w-2xl grid-cols-1 gap-x-8 gap-y-16 sm:gap-y-20 lg:mx-0 lg:max-w-none lg:grid-cols-2">
           <div className="lg:pt-4 lg:pr-8">
             <div className="lg:max-w-lg">
-              <h2 className="text-base/7 font-semibold text-masonic-gold">Experience Excellence</h2>
+              <h2 className="text-base/7 font-semibold text-masonic-gold">{locationContent.badge}</h2>
               <p className="mt-2 text-4xl font-semibold tracking-tight text-pretty text-white sm:text-5xl">
-                Premium Venues, Perfect Experiences
+                {locationContent.title}
               </p>
               <p className="mt-6 text-lg/8 text-gray-300">
-                Our events are hosted at carefully selected venues throughout NSW & ACT, ensuring every occasion meets 
-                the highest standards of quality, accessibility, and Masonic tradition.
+                {locationContent.description}
               </p>
               <dl className="mt-10 max-w-xl space-y-8 text-base/7 text-gray-300 lg:max-w-none">
-                {features.map((feature) => (
-                  <div key={feature.name} className="relative pl-9">
-                    <dt className="inline font-semibold text-white">
-                      <feature.icon aria-hidden="true" className="absolute top-1 left-1 size-5 text-masonic-gold" />
-                      {feature.name}
-                    </dt>{' '}
-                    <dd className="inline">{feature.description}</dd>
-                  </div>
-                ))}
+                {locationContent.features.map((feature: any) => {
+                  const IconComponent = iconComponents[feature.icon] || MapPinIcon;
+                  return (
+                    <div key={feature.name} className="relative pl-9">
+                      <dt className="inline font-semibold text-white">
+                        <IconComponent aria-hidden="true" className="absolute top-1 left-1 size-5 text-masonic-gold" />
+                        {feature.name}
+                      </dt>{' '}
+                      <dd className="inline">{feature.description}</dd>
+                    </div>
+                  );
+                })}
               </dl>
             </div>
           </div>
           <Image
-            alt="Masonic Lodge Hall Interior"
-            src="/placeholder.svg?height=600&width=800&text=Lodge+Hall"
+            alt={locationContent.image.alt}
+            src={locationContent.image.url}
             width={800}
             height={600}
             className="w-[48rem] max-w-none rounded-xl shadow-xl ring-1 ring-white/10 sm:w-[57rem] md:-ml-4 lg:-ml-0"

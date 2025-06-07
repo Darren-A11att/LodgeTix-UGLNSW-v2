@@ -221,7 +221,7 @@ const paymentIntent = await stripe.paymentIntents.create({
     registration_id: registrationId,
     subtotal_amount: subtotalAmount.toFixed(2),
     stripe_fee: (totalAmount - subtotalAmount).toFixed(2),
-    total_amount: totalAmount.toFixed(2),
+    total_amount_paid: totalAmount.toFixed(2),
     platform_fee: (subtotalAmount * platformFeePercentage).toFixed(2),
     // ... other metadata
   }
