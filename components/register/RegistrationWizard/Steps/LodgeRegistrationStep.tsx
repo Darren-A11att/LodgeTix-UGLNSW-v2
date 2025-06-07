@@ -10,7 +10,7 @@ import { CheckoutForm, CheckoutFormHandle } from '../payment/CheckoutForm';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Loader2, CreditCard, ShieldCheck, AlertCircle, ArrowLeft } from 'lucide-react';
+import { Loader2, CreditCard, ShieldCheck, AlertCircle, ArrowLeft, Check } from 'lucide-react';
 import { useRegistrationStore } from '@/lib/registrationStore';
 import { StripeBillingDetailsForClient } from '../payment/types';
 import { getFunctionTicketsService, FunctionPackage } from '@/lib/services/function-tickets-service';
