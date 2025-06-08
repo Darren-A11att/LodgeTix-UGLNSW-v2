@@ -570,11 +570,11 @@ const MasonLodgeInfo: React.FC<MasonLodgeInfoProps> = ({
 
   // Get better placeholders based on user location
   const getGrandLodgePlaceholder = () => {
-    const defaultPlaceholder = "Search Grand Lodge by name, country...";
+    const defaultPlaceholder = "Type To Search Grand Lodge by name, country...";
     
     // If we have country data, suggest it in the placeholder
     if (ipDataRef.current?.country_name) {
-      return `Search Grand Lodge in ${ipDataRef.current.country_name} or globally...`;
+      return `Type To Search Grand Lodge in ${ipDataRef.current.country_name}`;
     }
     
     return defaultPlaceholder;

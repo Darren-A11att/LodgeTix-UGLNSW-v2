@@ -69,11 +69,11 @@ export const GrandLodgeSelection: React.FC<GrandLodgeSelectionProps> = ({
 
   // Get better default placeholder based on user's location from IP
   const getGrandLodgePlaceholder = useCallback(() => {
-    const defaultPlaceholder = "Search Grand Lodge by name, country...";
+    const defaultPlaceholder = "Type to Search Grand Lodge by name, country...";
     
     // If we have country data, suggest it in the placeholder
     if (ipData?.country_name) {
-      return `Search Grand Lodge in ${ipData.country_name} or globally...`;
+      return `Type To Search Grand Lodge in ${ipData.country_name} or globally...`;
     }
     
     return defaultPlaceholder;
