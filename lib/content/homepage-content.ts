@@ -302,11 +302,11 @@ export const homepageContent = {
     },
     description: {
       source: 'FALLBACK' as ContentSource,
-      fallback: 'Become part of a tradition that spans centuries. Experience the brotherhood, ceremony, and fellowship that makes Freemasonry a cornerstone of community life.'
+      fallback: 'For over 135 years, Grand Installations and Proclamations of the Grand Master have marked defining moments in our Masonic journey.'
     },
     secondaryDescription: {
       source: 'FALLBACK' as ContentSource,
-      fallback: 'From intimate lodge meetings to grand installations, our events offer opportunities to connect with like-minded individuals, participate in meaningful ceremonies, and contribute to charitable causes that make a difference in our communities.'
+      fallback: 'Since Lord Carrington became our first Grand Master in 1888, these ceremonies have brought together Brethren right across New South Wales, Australia and Internationally to witness the continuity of leadership that guides our ancient craft.'
     },
     button: {
       text: {
@@ -322,25 +322,25 @@ export const homepageContent = {
       source: 'FALLBACK' as ContentSource,
       fallback: [
         {
-          url: '/placeholder.svg?height=400&width=592&text=Ceremony',
+          url: 'https://api.lodgetix.io/storage/v1/object/public/public-events/website/CTA/Ceremony%20p2%20socmed-469%20(1).jpg',
           alt: 'Masonic ceremony in progress',
           className: 'aspect-7/5 w-[37rem] max-w-none rounded-2xl bg-gray-50 object-cover',
           imagePosition: 'center'
         },
         {
-          url: '/placeholder.svg?height=604&width=768&text=Lodge+Meeting',
+          url: 'https://api.lodgetix.io/storage/v1/object/public/public-events/website/CTA/Ceremony%20p2%20socmed-133.jpg',
           alt: 'Lodge meeting with brethren',
           className: 'aspect-4/3 w-[24rem] max-w-none flex-none rounded-2xl bg-gray-50 object-cover',
           imagePosition: 'center'
         },
         {
-          url: '/placeholder.svg?height=842&width=1152&text=Charity+Work',
+          url: 'https://api.lodgetix.io/storage/v1/object/public/public-events/website/CTA/Banquet%20socmed-195.jpg',
           alt: 'Masonic charitable work',
           className: 'aspect-7/5 w-[37rem] max-w-none flex-none rounded-2xl bg-gray-50 object-cover',
           imagePosition: 'center'
         },
         {
-          url: '/placeholder.svg?height=604&width=768&text=Historic+Lodge',
+          url: 'https://api.lodgetix.io/storage/v1/object/public/public-events/website/CTA/Fairwell%20socmed-179.jpg',
           alt: 'Historic lodge building',
           className: 'aspect-4/3 w-[24rem] max-w-none rounded-2xl bg-gray-50 object-cover',
           imagePosition: 'center'
