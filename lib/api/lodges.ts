@@ -1,5 +1,6 @@
 import { supabase } from "../supabase";
 import { Database } from '../../shared/types/supabase';
+import { v4 as uuidv4 } from 'uuid';
 
 // Explicitly type based on your Database schema definitions
 export type LodgeRow = Database['public']['Tables']['lodges']['Row'] & {
@@ -7,6 +8,10 @@ export type LodgeRow = Database['public']['Tables']['lodges']['Row'] & {
 };
 export type LodgeInsert = Database['public']['Tables']['lodges']['Insert'];
 export type LodgeUpdate = Database['public']['Tables']['lodges']['Update'];
+
+// Add Organisation types
+export type OrganisationRow = Database['public']['Tables']['organisations']['Row'];
+export type OrganisationInsert = Database['public']['Tables']['organisations']['Insert'];
 
 /**
  * Fetches lodges filtered by Grand Lodge ID and optionally a search term.
@@ -106,7 +111,7 @@ export async function getLodgesByGrandLodgeId(
 }
 
 /**
- * Creates a new lodge in the database.
+ * Creates a new lodge in the database with its associated organisation.
  * @param lodgeData The data for the new lodge.
  * @returns Promise resolving to the created LodgeRow object or null.
  */
@@ -117,20 +122,69 @@ export async function createLodge(lodgeData: LodgeInsert): Promise<LodgeRow | nu
   }
 
   const displayName = lodgeData.name + (lodgeData.number ? ` No. ${lodgeData.number}` : '');
-  const insertData = { ...lodgeData, display_name: displayName }; 
-
+  
   try {
+    // First, get the grand lodge to inherit country information
+    const { data: grandLodgeData, error: grandLodgeError } = await supabase
+      .from('grand_lodges')
+      .select('country')
+      .eq('grand_lodge_id', lodgeData.grand_lodge_id)
+      .single();
+
+    if (grandLodgeError) {
+      console.error('Error fetching grand lodge:', grandLodgeError);
+      return null;
+    }
+
+    // Generate UUIDs for organisation and lodge
+    const organisationId = uuidv4();
+    const lodgeId = uuidv4();
+
+    // Create the organisation first
+    const organisationData: OrganisationInsert = {
+      organisation_id: organisationId,
+      name: displayName,
+      type: 'lodge',
+      country: grandLodgeData?.country || null
+    };
+
+    const { error: orgError } = await supabase
+      .from('organisations')
+      .insert(organisationData);
+
+    if (orgError) {
+      console.error('Error creating organisation:', orgError);
+      return null;
+    }
+
+    // Now create the lodge with the organisation_id
+    const insertData = { 
+      ...lodgeData, 
+      lodge_id: lodgeId,
+      display_name: displayName,
+      organisation_id: organisationId
+    }; 
+
     const { data, error } = await supabase
       .from('lodges')
       .insert(insertData)
-      .select()
+      .select('*, organisation_id')
       .single();
 
     if (error) {
       console.error('Error creating lodge:', error);
+      // If lodge creation fails, we should ideally delete the organisation
+      // but for now we'll just log the error
       return null;
     }
-    return data as LodgeRow;
+    
+    // Ensure the returned data includes the organisation_id
+    const lodgeWithOrgId: LodgeRow = {
+      ...data,
+      organisationid: organisationId  // Include both spellings for compatibility
+    };
+    
+    return lodgeWithOrgId;
   } catch (err) {
     console.error('Unexpected error creating lodge:', err);
     return null;
@@ -158,25 +212,6 @@ export async function searchAllLodges(
   console.log(`[searchAllLodges] Searching for: "${trimmedTerm}"${grandLodgeId ? ` in GL: ${grandLodgeId}` : ''}`);
 
   try {
-    // First attempt: Use the RPC function which is optimized for searching all columns
-    const { data, error } = await supabase.rpc('search_all_lodges', { 
-      search_term: trimmedTerm, 
-      result_limit: limit 
-    });
-
-    // If RPC succeeds, filter by grandLodgeId if specified and return results
-    if (!error && data) {
-      const results = grandLodgeId 
-        ? data.filter(lodge => lodge.grand_lodge_id === grandLodgeId)
-        : data;
-        
-      console.log(`[searchAllLodges] RPC returned ${results.length} results`);
-      return results as LodgeRow[];
-    }
-    
-    // If RPC fails, log error and fall back to direct queries
-    console.error('[searchAllLodges] Error calling RPC function, falling back to direct queries:', error);
-    
     // Create a query builder for direct queries
     let query = supabase.from('lodges').select('*');
     
