@@ -21,7 +21,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useRegistrationStore } from "@/lib/registrationStore";
-import { useLocationStore } from "@/lib/locationStore";
 import { useCallback } from "react";
 import { getAllGrandLodges, GrandLodgeRow } from "@/lib/api/grandLodges";
 
@@ -67,14 +66,7 @@ export const BillingDetailsForm: React.FC<BillingDetailsFormProps> = ({
   // Track previous billToPrimary value to detect actual changes
   const [prevBillToPrimary, setPrevBillToPrimary] = useState(false);
   
-  // Get geolocation data from LocationStore
-  const ipData = useLocationStore(state => state.ipData);
-  
-  // Extract country and state from ipData
-  const ipCountryIsoCode = ipData?.country_code || null;
-  const ipStateName = ipData?.region || null;
-
-  const [hasAttemptedGeoCountryPreselection, setHasAttemptedGeoCountryPreselection] = useState(false);
+  // Removed geolocation data usage - users must manually select country
   
   // Get stored billing details from Zustand store
   const storeBillingDetails = useRegistrationStore(state => state.billingDetails);
@@ -165,31 +157,8 @@ export const BillingDetailsForm: React.FC<BillingDetailsFormProps> = ({
         // Address fields are preserved from currentFormValues
       };
       
-      // Auto-populate country for Mason with Grand Lodge
-      if (primaryAttendee.attendeeType === 'mason' && primaryAttendee.grand_lodge_id) {
-        // Fetch Grand Lodge data to get country
-        getAllGrandLodges().then(grandLodges => {
-          const grandLodge = grandLodges.find(gl => gl.id === primaryAttendee.grand_lodge_id);
-          if (grandLodge && grandLodge.country) {
-            // Find matching country in the countries list
-            const matchingCountry = countries.find(c => 
-              c.name.toLowerCase() === grandLodge.country.toLowerCase() ||
-              c.iso2.toLowerCase() === grandLodge.country.toLowerCase()
-            );
-            
-            if (matchingCountry) {
-              const countryToSet: ZodCountryType = { 
-                name: matchingCountry.name, 
-                isoCode: matchingCountry.iso2, 
-                id: matchingCountry.id 
-              };
-              form.setValue('country', countryToSet, { shouldValidate: true });
-            }
-          }
-        }).catch(err => {
-          // Silent error handling
-        });
-      }
+      // Removed auto-populate country for Mason with Grand Lodge
+      // Users must manually select their country
       
     } else if (!billToPrimaryWatched && prevBillToPrimary) {
       // Checkbox was just unchecked - clear the personal details
@@ -307,88 +276,22 @@ export const BillingDetailsForm: React.FC<BillingDetailsFormProps> = ({
       setStates(sortedStates);
       setFetchError(prev => ({...prev, states: undefined}));
       
-      // Pre-select state if we have geo data and the country matches
-      if (sortedStates.length > 0 && !form.getValues('stateTerritory')) {
-        // Check stored billing details first
-        if (storeBillingDetails?.stateProvince && typeof storeBillingDetails.stateProvince === 'string') {
-          const matchingState = sortedStates.find(s => 
-            s.name.toLowerCase() === storeBillingDetails.stateProvince.toLowerCase() ||
-            s.state_code === storeBillingDetails.stateProvince
-          );
-          
-          if (matchingState) {
-            const stateToSet: StateTerritoryType = { 
-              id: matchingState.id, 
-              name: matchingState.name, 
-              isoCode: matchingState.state_code, 
-              countryCode: countryIsoCode 
-            };
-            form.setValue('stateTerritory', stateToSet, { shouldValidate: true });
-          }
-        }
-        // Otherwise check geolocation
-        else if (ipStateName && countryIsoCode === ipCountryIsoCode) {
-          const matchingState = sortedStates.find(s => 
-            s.name.toLowerCase() === ipStateName.toLowerCase() ||
-            s.state_code === ipStateName
-          );
-          
-          if (matchingState) {
-            const stateToSet: StateTerritoryType = { 
-              id: matchingState.id, 
-              name: matchingState.name, 
-              isoCode: matchingState.state_code, 
-              countryCode: countryIsoCode 
-            };
-            form.setValue('stateTerritory', stateToSet, { shouldValidate: true });
-          }
-        }
-      }
+      // Removed automatic state pre-selection
+      // Users must manually select their state/territory after selecting country
     } catch (err) {
       setFetchError(prev => ({...prev, states: 'Failed to load states for the selected country.'}));
       setStates([]);
     } finally {
       setIsLoadingStates(false);
     }
-  }, [form, ipStateName, ipCountryIsoCode, storeBillingDetails?.stateProvince]);
+  }, [form]);
 
-  // Pre-select country based on stored billing details or IP geolocation data
+  // Removed automatic country pre-selection
+  // Users must manually select their country for better accuracy
   useEffect(() => {
-    // Note: We allow country pre-selection from stored data as it's address-related, not personal info
-    // First priority: Load from stored billing details
-    if (countries.length > 0 && storeBillingDetails?.country && !form.getValues('country')) {
-      // Ensure country is a string before using string methods
-      const countryValue = storeBillingDetails.country;
-      if (typeof countryValue === 'string') {
-        const storedCountry = countries.find(c => 
-          c.iso2 === countryValue || 
-          c.name.toLowerCase() === countryValue.toLowerCase()
-        );
-        if (storedCountry) {
-          const countryToSet: ZodCountryType = { 
-            name: storedCountry.name, 
-            isoCode: storedCountry.iso2, 
-            id: storedCountry.id 
-          };
-          form.setValue('country', countryToSet, { shouldValidate: true });
-          // Immediately fetch states for this country
-          fetchAndPreselectStates(storedCountry.id, storedCountry.iso2);
-        }
-      }
-    }
-    // Second priority: IP geolocation
-    else if (countries.length > 0 && ipCountryIsoCode && !hasAttemptedGeoCountryPreselection && !form.getValues('country')) {
-      const geoCountry = countries.find(c => c.iso2 === ipCountryIsoCode);
-      if (geoCountry) {
-        const countryToSet: ZodCountryType = { name: geoCountry.name, isoCode: geoCountry.iso2, id: geoCountry.id };
-        form.setValue('country', countryToSet, { shouldValidate: true });
-        // Immediately fetch states for this country
-        fetchAndPreselectStates(geoCountry.id, geoCountry.iso2);
-      }
-      setHasAttemptedGeoCountryPreselection(true);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [countries, ipCountryIsoCode, hasAttemptedGeoCountryPreselection, storeBillingDetails?.country, fetchAndPreselectStates]);
+    // No automatic country pre-selection
+    // This ensures users explicitly choose their billing country
+  }, [countries]);
 
   // Fetch states when selected country changes (manual selection)
   useEffect(() => {
