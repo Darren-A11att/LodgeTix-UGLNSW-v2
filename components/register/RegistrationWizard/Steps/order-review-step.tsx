@@ -31,7 +31,7 @@ import { ticketService, EventTicket, TicketPackage } from '@/lib/api/ticketServi
 import { getFunctionTicketsService, type FunctionTicketDefinition, type FunctionPackage } from '@/lib/services/function-tickets-service';
 import { api } from '@/lib/api-logger';
 import { ValidationModal } from '@/components/ui/validation-modal';
-import { calculateStripeFees, getFeeDisclaimer, getFeeModeFromEnv, STRIPE_FEE_CONFIG, isDomesticCard, getProcessingFeeLabel, getPlatformFeePercentage } from '@/lib/utils/stripe-fee-calculator';
+import { calculateStripeFees, getFeeDisclaimer, getFeeModeFromEnv, STRIPE_RATES, isDomesticCard, getProcessingFeeLabel, getPlatformFeePercentage } from '@/lib/utils/stripe-fee-calculator';
 import { 
   Tooltip,
   TooltipContent,
@@ -241,10 +241,9 @@ function OrderReviewStep() {
   const subtotal = currentTickets.reduce((sum, ticket) => sum + ticket.price, 0)
   const feeCalculation = calculateStripeFees(subtotal, {
     isDomestic,
-    feeMode: getFeeModeFromEnv(),
     platformFeePercentage: getPlatformFeePercentage()
   })
-  const totalAmount = feeCalculation.total
+  const totalAmount = feeCalculation.customerPayment
   const totalTickets = currentTickets.length
 
   // Check if order is valid
@@ -512,8 +511,8 @@ function OrderReviewStep() {
                       <TooltipContent className="max-w-xs">
                         <p className="text-sm">{getFeeDisclaimer()}</p>
                         <div className="mt-2 text-xs space-y-1">
-                          <p>• Australian cards: {STRIPE_FEE_CONFIG.domestic.description}</p>
-                          <p>• International cards: {STRIPE_FEE_CONFIG.international.description}</p>
+                          <p>• Australian cards: {STRIPE_RATES.domestic.description}</p>
+                          <p>• International cards: {STRIPE_RATES.international.description}</p>
                         </div>
                         {!isDomestic && (
                           <p className="mt-2 text-xs font-medium">International fee applied based on billing country</p>

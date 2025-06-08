@@ -23,7 +23,7 @@ import { CheckoutFormHandle } from "../payment/CheckoutForm";
 import { PaymentProcessing } from "../payment/PaymentProcessing";
 import { OneColumnStepLayout } from "../Layouts/OneColumnStepLayout";
 import { getFunctionTicketsService, type FunctionTicketDefinition, type FunctionPackage } from '@/lib/services/function-tickets-service';
-import { calculateStripeFees, formatFeeBreakdown, getFeeDisclaimer, getFeeModeFromEnv, getPlatformFeePercentage, isDomesticCard, getProcessingFeeLabel } from '@/lib/utils/stripe-fee-calculator';
+import { calculateStripeFees, STRIPE_RATES, formatFeeBreakdown, getFeeDisclaimer, getFeeModeFromEnv, getPlatformFeePercentage, isDomesticCard, getProcessingFeeLabel } from '@/lib/utils/stripe-fee-calculator';
 import { resolveTicketPrices, expandPackagesWithPricing, validateTicketPricing, type TicketWithPrice, type EventTicketRecord, type PackageRecord } from '@/lib/utils/ticket-price-resolver';
 import { Info } from "lucide-react";
 import { 
@@ -501,14 +501,12 @@ function PaymentStep(props: PaymentStepProps) {
     const isDomestic = isDomesticCard(billingCountry?.isoCode);
     
     return calculateStripeFees(subtotal, {
-      isDomestic,
-      feeMode: getFeeModeFromEnv(),
-      platformFeePercentage: getPlatformFeePercentage()
+      isDomestic
     });
   }, [subtotal, billingCountry]);
 
   // Total amount including fees
-  const totalAmount = feeCalculation.total;
+  const totalAmount = feeCalculation.customerPayment;
 
   // Handle payment method creation from CheckoutForm
   const handlePaymentMethodCreated = async (paymentMethodId: string, stripeBillingDetails: StripeBillingDetailsForClient) => {

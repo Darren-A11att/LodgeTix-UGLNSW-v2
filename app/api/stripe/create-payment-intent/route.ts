@@ -227,15 +227,44 @@ export async function POST(request: Request) {
       }
     }
 
-    // Calculate platform fee if connected account exists
+    // NEW: Calculate fees using the correct formula and determine transfer amount
+    let transferAmount = 0;
+    let calculatedFees: any = null;
+    
     if (connectedAccountId) {
-      const platformFeePercentage = parseFloat(process.env.STRIPE_PLATFORM_FEE_PERCENTAGE || '0.05');
-      applicationFeeAmount = Math.round(amount * platformFeePercentage);
-      console.log(`Platform fee (${platformFeePercentage * 100}%): ${applicationFeeAmount / 100} ${currency.toUpperCase()}`);
+      // Import the new fee calculator
+      const { calculateFeesWithGeolocation } = await import('@/lib/utils/stripe-fee-calculator');
+      
+      // The 'amount' passed in should be the connectedAmount (subtotal)
+      // We need to calculate what the customer should actually pay
+      const connectedAmount = amount / 100; // Convert from cents to dollars
+      
+      // Get user's country from request headers or default to international
+      const userCountry = request.headers.get('cf-ipcountry') || 
+                         request.headers.get('x-vercel-ip-country') || 
+                         metadata?.userCountry;
+      
+      // Calculate fees with the new formula
+      calculatedFees = calculateFeesWithGeolocation(connectedAmount, userCountry);
+      
+      // Set transfer amount to exactly what connected account should receive
+      transferAmount = Math.round(calculatedFees.connectedAmount * 100); // Convert to cents
+      
+      // Update the total amount to what customer should actually pay
+      amount = Math.round(calculatedFees.customerPayment * 100); // Convert to cents
+      
+      console.log(`Fee calculation:`, {
+        connectedAmount: calculatedFees.connectedAmount,
+        platformFee: calculatedFees.platformFee,
+        stripeFee: calculatedFees.stripeFee,
+        customerPayment: calculatedFees.customerPayment,
+        isDomestic: calculatedFees.isDomestic,
+        userCountry
+      });
     }
 
-    // Calculate platform fee percentage
-    const platformFeePercentage = parseFloat(process.env.STRIPE_PLATFORM_FEE_PERCENTAGE || '0.05');
+    // Get platform fee percentage for legacy metadata (when no connected account)
+    const platformFeePercentage = parseFloat(process.env.STRIPE_PLATFORM_FEE_PERCENTAGE || '0.02');
     
     // Build comprehensive metadata
     let comprehensiveMetadata: Record<string, string> = {};
@@ -294,11 +323,14 @@ export async function POST(request: Request) {
         ticketTypes: ticketTypes,
         ticketIds: ticketIds,
         
-        // Financial
-        subtotal: amount / 100,
-        totalAmount: amount / 100,
-        platformFee: applicationFeeAmount / 100,
-        platformFeePercentage: platformFeePercentage,
+        // Financial (updated with new fee calculation)
+        subtotal: calculatedFees?.connectedAmount || amount / 100,
+        totalAmount: calculatedFees?.customerPayment || amount / 100,
+        platformFee: calculatedFees?.platformFee || 0,
+        stripeFee: calculatedFees?.stripeFee || 0,
+        processingFees: calculatedFees?.processingFeesDisplay || 0,
+        platformFeePercentage: calculatedFees?.breakdown.platformFeePercentage || platformFeePercentage,
+        isDomestic: calculatedFees?.isDomestic || false,
         currency: currency,
         
         // Tracking
@@ -317,11 +349,14 @@ export async function POST(request: Request) {
         event_slug: eventSlug,
         organisation_name: truncateMetadataValue(organisationName || ''),
         organisation_id: organisationId || '',
-        subtotal: String(amount / 100),
-        platform_fee: String(applicationFeeAmount / 100),
+        subtotal: String(calculatedFees?.connectedAmount || amount / 100),
+        total_amount: String(calculatedFees?.customerPayment || amount / 100),
+        platform_fee: String(calculatedFees?.platformFee || 0),
+        stripe_fee: String(calculatedFees?.stripeFee || 0),
+        processing_fees: String(calculatedFees?.processingFeesDisplay || 0),
+        is_domestic: String(calculatedFees?.isDomestic || false),
         created_at: new Date().toISOString(),
         environment: process.env.NODE_ENV || 'development',
-        // childEventsMetadata removed
       };
     }
     
@@ -373,14 +408,18 @@ export async function POST(request: Request) {
         }
         // If account check fails, proceed without connected account
         connectedAccountId = null;
-        applicationFeeAmount = 0;
+        transferAmount = 0;
+        calculatedFees = null;
       }
     }
 
     // Only add Connect parameters if we have a valid connected account
-    if (connectedAccountId) {
-      paymentIntentOptions.on_behalf_of = connectedAccountId;
-      paymentIntentOptions.application_fee_amount = applicationFeeAmount;
+    if (connectedAccountId && transferAmount > 0) {
+      // NEW: Use transfer_data instead of application_fee_amount for correct fee handling
+      paymentIntentOptions.transfer_data = {
+        amount: transferAmount, // Exact amount the connected account will receive
+        destination: connectedAccountId,
+      };
       
       // Add statement descriptor (max 22 chars)
       if (eventTitle) {
@@ -389,6 +428,8 @@ export async function POST(request: Request) {
           .replace(/[^a-zA-Z0-9 ]/g, '')
           .trim();
       }
+      
+      console.log(`Using transfer_data: ${transferAmount / 100} ${currency.toUpperCase()} to ${connectedAccountId}`);
     }
 
     // Options for the API call

@@ -1,99 +1,161 @@
 /**
- * Stripe Fee Calculator Utility
- * Handles calculation of Stripe transaction fees for Australian accounts
+ * Stripe Fee Calculator Utility - Complete Overhaul
+ * Handles calculation of Stripe transaction fees with correct Connect implementation
+ * 
+ * Key Features:
+ * - Guarantees connected accounts receive exact subtotal amounts
+ * - Platform fee capping with environment configuration
+ * - Geolocation-based domestic vs international fee determination
+ * - Correct fee calculation formula for Stripe Connect transfer_data[amount]
  */
 
 export interface StripeFeeCalculation {
-  subtotal: number;
-  stripeFee: number;
+  /** The amount the connected account will receive (guaranteed) */
+  connectedAmount: number;
+  /** Platform fee charged (capped at configured maximum) */
   platformFee: number;
-  total: number;
+  /** Stripe processing fee */
+  stripeFee: number;
+  /** Total amount the customer will pay */
+  customerPayment: number;
+  /** Processing fees shown to customer (stripeFee + platformFee) */
+  processingFeesDisplay: number;
+  /** Whether domestic or international rates were used */
+  isDomestic: boolean;
+  /** Breakdown for debugging */
+  breakdown: {
+    platformFeePercentage: number;
+    platformFeeCap: number;
+    stripePercentage: number;
+    stripeFixed: number;
+  };
 }
 
 export interface FeeCalculatorOptions {
-  isDomestic?: boolean;
+  /** ISO country code (e.g., 'AU', 'US', 'GB') */
+  userCountry?: string;
+  /** Override platform fee percentage (uses env var if not provided) */
   platformFeePercentage?: number;
-  feeMode?: 'pass_to_customer' | 'absorb';
+  /** Override platform fee cap (uses env var if not provided) */
+  platformFeeCap?: number;
+  /** Override domestic determination */
+  isDomestic?: boolean;
 }
 
 // Australian Stripe fee rates
 const STRIPE_RATES = {
   domestic: {
     percentage: 0.017, // 1.7%
-    fixed: 0.30 // $0.30 AUD
+    fixed: 0.30, // $0.30 AUD
+    description: "1.7% + $0.30 AUD (Australian cards)"
   },
   international: {
     percentage: 0.035, // 3.5%
-    fixed: 0.30 // $0.30 AUD
-  }
-} as const;
-
-// Stripe fee configuration with descriptions
-export const STRIPE_FEE_CONFIG = {
-  domestic: {
-    percentage: STRIPE_RATES.domestic.percentage,
-    fixed: STRIPE_RATES.domestic.fixed,
-    description: "1.7% + $0.30 AUD"
-  },
-  international: {
-    percentage: STRIPE_RATES.international.percentage,
-    fixed: STRIPE_RATES.international.fixed,
-    description: "3.5% + $0.30 AUD"
+    fixed: 0.30, // $0.30 AUD
+    description: "3.5% + $0.30 AUD (International cards)"
   }
 } as const;
 
 /**
- * Calculate Stripe transaction fees
- * Note: This uses standard Stripe pricing - actual fees may vary based on:
- * - Card type (domestic/international)
- * - Connected account pricing
- * - Negotiated rates
+ * Get platform fee configuration from environment variables
  */
-export function calculateStripeFees(
-  subtotal: number,
-  options: FeeCalculatorOptions = {}
-): StripeFeeCalculation {
-  const {
-    isDomestic = true, // Assume domestic by default
-    platformFeePercentage = 0, // 0% platform fee
-    feeMode = 'pass_to_customer'
-  } = options;
+function getPlatformFeeConfig(): { percentage: number; cap: number } {
+  const percentage = parseFloat(process.env.STRIPE_PLATFORM_FEE_PERCENTAGE || '0.02');
+  const cap = parseFloat(process.env.STRIPE_PLATFORM_FEE_CAP || '20');
   
-  // Select appropriate Stripe fee rates
-  const rates = isDomestic ? STRIPE_RATES.domestic : STRIPE_RATES.international;
-  
-  let stripeFee: number;
-  let total: number;
-  
-  // Platform fee is ALWAYS calculated on the subtotal only
-  const platformFee = subtotal * platformFeePercentage;
-  
-  if (feeMode === 'pass_to_customer') {
-    // With 0% platform fee, calculation is simpler:
-    // Total = subtotal + stripe processing fee
-    
-    // Calculate total including Stripe fee using the formula:
-    // total = (subtotal + fixed) / (1 - percentage)
-    total = (subtotal + rates.fixed) / (1 - rates.percentage);
-    
-    // Stripe fee is the difference between total and subtotal
-    stripeFee = total - subtotal;
-  } else {
-    // Absorb fees - customer pays subtotal only
-    stripeFee = subtotal * rates.percentage + rates.fixed;
-    total = subtotal;
-  }
-  
-  return {
-    subtotal: Number(subtotal.toFixed(2)),
-    stripeFee: Number(stripeFee.toFixed(2)),
-    platformFee: Number(platformFee.toFixed(2)),
-    total: Number(total.toFixed(2))
+  return { 
+    percentage: isNaN(percentage) ? 0.02 : percentage,
+    cap: isNaN(cap) ? 20 : cap
   };
 }
 
 /**
- * Calculate the Stripe fee for a given amount (for absorbed fees)
+ * Determine if a card should be treated as domestic based on user's country
+ */
+function isDomesticCard(userCountry?: string): boolean {
+  if (!userCountry) return false; // Default to international for safety
+  return userCountry.toUpperCase() === 'AU';
+}
+
+/**
+ * Calculate platform fee with capping
+ */
+function calculatePlatformFee(
+  connectedAmount: number, 
+  percentage: number, 
+  cap: number
+): number {
+  const calculatedFee = connectedAmount * percentage;
+  return Math.min(calculatedFee, cap);
+}
+
+/**
+ * MAIN FUNCTION: Calculate Stripe fees using the correct formula
+ * 
+ * Formula: stripe_amount = ((connectedAmount + platformFee) + stripeFixedFee) / (1 - stripePercentageFee)
+ * 
+ * This ensures:
+ * - Connected account gets exactly the connectedAmount via transfer_data[amount]
+ * - Platform gets the calculated platform fee (capped)
+ * - Customer pays the total amount including all fees
+ * - Stripe takes their fee from the customer payment
+ */
+export function calculateStripeFees(
+  connectedAmount: number,
+  options: FeeCalculatorOptions = {}
+): StripeFeeCalculation {
+  // Get configuration
+  const platformConfig = getPlatformFeeConfig();
+  const platformFeePercentage = options.platformFeePercentage ?? platformConfig.percentage;
+  const platformFeeCap = options.platformFeeCap ?? platformConfig.cap;
+  
+  // Determine if domestic or international
+  const isDomestic = options.isDomestic ?? isDomesticCard(options.userCountry);
+  const stripeRates = isDomestic ? STRIPE_RATES.domestic : STRIPE_RATES.international;
+  
+  // Calculate platform fee with capping
+  const platformFee = calculatePlatformFee(connectedAmount, platformFeePercentage, platformFeeCap);
+  
+  // Apply the correct formula
+  const customerPayment = (
+    (connectedAmount + platformFee) + stripeRates.fixed
+  ) / (1 - stripeRates.percentage);
+  
+  // Calculate actual Stripe fee on customer payment
+  const stripeFee = customerPayment * stripeRates.percentage + stripeRates.fixed;
+  
+  // Processing fees display (what customer sees as "Processing fees")
+  const processingFeesDisplay = customerPayment - connectedAmount;
+  
+  return {
+    connectedAmount: Number(connectedAmount.toFixed(2)),
+    platformFee: Number(platformFee.toFixed(2)),
+    stripeFee: Number(stripeFee.toFixed(2)),
+    customerPayment: Number(customerPayment.toFixed(2)),
+    processingFeesDisplay: Number(processingFeesDisplay.toFixed(2)),
+    isDomestic,
+    breakdown: {
+      platformFeePercentage,
+      platformFeeCap,
+      stripePercentage: stripeRates.percentage,
+      stripeFixed: stripeRates.fixed,
+    }
+  };
+}
+
+/**
+ * Convenience function for calculating fees with geolocation
+ */
+export function calculateFeesWithGeolocation(
+  connectedAmount: number,
+  userCountry?: string
+): StripeFeeCalculation {
+  return calculateStripeFees(connectedAmount, { userCountry });
+}
+
+/**
+ * Legacy function for backward compatibility
+ * @deprecated Use calculateStripeFees instead
  */
 export function calculateAbsorbedStripeFee(
   amount: number,
@@ -104,35 +166,90 @@ export function calculateAbsorbedStripeFee(
 }
 
 /**
- * Format fee for display
+ * Format fee breakdown for UI display
  */
-export function formatFeeBreakdown(calculation: StripeFeeCalculation): string[] {
-  return [
-    `Subtotal: $${calculation.subtotal.toFixed(2)}`,
-    `Processing Fee: $${calculation.stripeFee.toFixed(2)}`,
-    `Total: $${calculation.total.toFixed(2)}`
-  ];
+export function formatFeeBreakdown(calculation: StripeFeeCalculation): {
+  subtotal: string;
+  processingFees: string;
+  total: string;
+  feeType: string;
+} {
+  return {
+    subtotal: `$${calculation.connectedAmount.toFixed(2)}`,
+    processingFees: `$${calculation.processingFeesDisplay.toFixed(2)}`,
+    total: `$${calculation.customerPayment.toFixed(2)}`,
+    feeType: calculation.isDomestic ? 'Processing fees' : 'International processing fees'
+  };
 }
 
 /**
- * Get fee disclaimer text
+ * Get detailed fee explanation
  */
-export function getFeeDisclaimer(): string {
-  return "A processing fee is added to cover payment processing costs. This ensures the full ticket price goes to the event organizer.";
+export function getFeeExplanation(calculation: StripeFeeCalculation): string {
+  const platformFeeFormatted = `$${calculation.platformFee.toFixed(2)}`;
+  const stripeFeeFormatted = `$${calculation.stripeFee.toFixed(2)}`;
+  const feeType = calculation.isDomestic ? 'domestic' : 'international';
+  
+  return `Processing fees include platform fee (${platformFeeFormatted}) and ${feeType} Stripe fees (${stripeFeeFormatted}). This ensures the event organizer receives the full ticket price.`;
 }
 
 /**
- * Get fee explanation for different fee modes
+ * Validate fee calculation (for testing and debugging)
  */
-export function getFeeExplanation(feeMode: 'pass_to_customer' | 'absorb' = 'pass_to_customer'): string {
-  if (feeMode === 'pass_to_customer') {
-    return "Payment processing fees are added to ensure event organizers receive the full ticket price.";
+export function validateFeeCalculation(calculation: StripeFeeCalculation): {
+  isValid: boolean;
+  errors: string[];
+} {
+  const errors: string[] = [];
+  
+  // Check that customer payment equals connected amount + platform fee + stripe fee
+  const expectedTotal = calculation.connectedAmount + calculation.platformFee + calculation.stripeFee;
+  const actualTotal = calculation.customerPayment;
+  const tolerance = 0.01; // 1 cent tolerance for rounding
+  
+  if (Math.abs(expectedTotal - actualTotal) > tolerance) {
+    errors.push(`Total mismatch: expected ${expectedTotal.toFixed(2)}, got ${actualTotal.toFixed(2)}`);
   }
-  return "The ticket price shown is the final amount you'll pay. Processing fees are covered by the event organizer.";
+  
+  // Check processing fees display
+  const expectedProcessingFees = calculation.customerPayment - calculation.connectedAmount;
+  if (Math.abs(expectedProcessingFees - calculation.processingFeesDisplay) > tolerance) {
+    errors.push(`Processing fees display mismatch`);
+  }
+  
+  // Check platform fee cap
+  const { percentage, cap } = getPlatformFeeConfig();
+  const maxAllowedPlatformFee = Math.min(calculation.connectedAmount * percentage, cap);
+  if (calculation.platformFee > maxAllowedPlatformFee + tolerance) {
+    errors.push(`Platform fee exceeds cap: ${calculation.platformFee} > ${maxAllowedPlatformFee}`);
+  }
+  
+  return {
+    isValid: errors.length === 0,
+    errors
+  };
 }
 
 /**
- * Parse fee mode from environment or default
+ * Get fee configuration for display
+ */
+export function getFeeConfiguration(): {
+  platformFeePercentage: number;
+  platformFeeCap: number;
+  domesticRates: typeof STRIPE_RATES.domestic;
+  internationalRates: typeof STRIPE_RATES.international;
+} {
+  const config = getPlatformFeeConfig();
+  return {
+    platformFeePercentage: config.percentage,
+    platformFeeCap: config.cap,
+    domesticRates: STRIPE_RATES.domestic,
+    internationalRates: STRIPE_RATES.international
+  };
+}
+
+/**
+ * Get fee mode from environment
  */
 export function getFeeModeFromEnv(): 'pass_to_customer' | 'absorb' {
   const mode = process.env.NEXT_PUBLIC_STRIPE_FEE_MODE;
@@ -140,31 +257,40 @@ export function getFeeModeFromEnv(): 'pass_to_customer' | 'absorb' {
 }
 
 /**
- * Get platform fee percentage from environment or default
+ * Get platform fee percentage from environment
  */
 export function getPlatformFeePercentage(): number {
-  const percentage = process.env.NEXT_PUBLIC_PLATFORM_FEE_PERCENTAGE;
-  return percentage ? parseFloat(percentage) : 0; // Default 0%
+  return getPlatformFeeConfig().percentage;
 }
 
 /**
- * Determine if a card should be treated as domestic (Australian) based on billing country
- * @param countryCode ISO country code (e.g., 'AU', 'US', 'GB')
- * @returns true if the card should be treated as domestic (Australian)
+ * Get platform fee cap from environment
  */
-export function isDomesticCard(countryCode?: string): boolean {
-  // If no country code provided, default to international for safety
-  if (!countryCode) return false;
-  
-  // Only Australian cards are considered domestic
-  return countryCode.toUpperCase() === 'AU';
+export function getPlatformFeeCap(): number {
+  return getPlatformFeeConfig().cap;
 }
+
+/**
+ * Determine if a card should be treated as domestic (for external use)
+ */
+export { isDomesticCard };
 
 /**
  * Get the appropriate fee label based on domestic/international status
- * @param isDomestic Whether the card is domestic
- * @returns The label to display for the processing fee
  */
 export function getProcessingFeeLabel(isDomestic: boolean): string {
-  return isDomestic ? 'Processing Fee' : 'International Processing Fee';
+  return isDomestic ? 'Processing fees' : 'International processing fees';
 }
+
+/**
+ * Get fee disclaimer text
+ */
+export function getFeeDisclaimer(): string {
+  return "Processing fees are added to cover payment processing costs. This ensures the full amount goes to the event organizer.";
+}
+
+// Export rate constants for external use
+export { STRIPE_RATES };
+
+// Type exports
+export type { FeeCalculatorOptions };

@@ -778,7 +778,7 @@ function ConfirmationStep({ confirmationNumber: propsConfirmationNumber, confirm
                     <Separator className="my-2" />
                     <div className="flex justify-between items-center">
                       <span className="font-bold text-lg">Total Paid:</span>
-                      <span className="font-bold text-lg">${calculateStripeFees(totalAmount).total.toFixed(2)}</span>
+                      <span className="font-bold text-lg">${calculateStripeFees(totalAmount).customerPayment.toFixed(2)}</span>
                     </div>
                   </div>
                 </CardContent>

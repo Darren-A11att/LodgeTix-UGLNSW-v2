@@ -39,8 +39,7 @@ export const OrderSummaryWithFees: React.FC<OrderSummaryWithFeesProps> = ({
   const platformFeePercentage = getPlatformFeePercentage();
   const feeCalculation = calculateStripeFees(subtotalAmount, {
     isDomestic: true, // Default to domestic, could be enhanced to detect card type
-    platformFeePercentage,
-    feeMode
+    platformFeePercentage
   });
 
   return (
@@ -65,7 +64,7 @@ export const OrderSummaryWithFees: React.FC<OrderSummaryWithFeesProps> = ({
           <div className="space-y-2">
             <div className="flex justify-between text-sm">
               <span>Subtotal</span>
-              <span>${feeCalculation.subtotal.toFixed(2)}</span>
+              <span>${subtotalAmount.toFixed(2)}</span>
             </div>
             
             {showFees && feeMode === 'pass_to_customer' && (
@@ -94,7 +93,7 @@ export const OrderSummaryWithFees: React.FC<OrderSummaryWithFeesProps> = ({
           
           <div className="flex justify-between font-bold text-lg text-masonic-navy">
             <span>Amount Due:</span>
-            <span>${feeCalculation.total.toFixed(2)}</span>
+            <span>${feeCalculation.customerPayment.toFixed(2)}</span>
           </div>
           
           {showFees && feeMode === 'pass_to_customer' && (

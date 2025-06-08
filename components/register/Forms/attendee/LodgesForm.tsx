@@ -9,7 +9,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import formSaveManager from '@/lib/formSaveManager';
 import { getFunctionTicketsService, FunctionTicketDefinition, FunctionPackage } from '@/lib/services/function-tickets-service';
 import { getEnvironmentConfig } from '@/lib/config/environment';
-import { calculateStripeFees, getFeeDisclaimer, getFeeModeFromEnv, getPlatformFeePercentage, getProcessingFeeLabel, isDomesticCard } from '@/lib/utils/stripe-fee-calculator';
+import { calculateStripeFees, STRIPE_RATES, getFeeDisclaimer, getFeeModeFromEnv, getPlatformFeePercentage, getProcessingFeeLabel, isDomesticCard } from '@/lib/utils/stripe-fee-calculator';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 // Import form components
@@ -150,9 +150,7 @@ export const LodgesForm: React.FC<LodgesFormProps> = ({
     
     // Calculate Stripe fees
     const feeCalculation = calculateStripeFees(subtotal, {
-      isDomestic: true, // Default to domestic for Australian lodges
-      feeMode: getFeeModeFromEnv(),
-      platformFeePercentage: getPlatformFeePercentage()
+      isDomestic: true // Default to domestic for Australian lodges
     });
     
     setCalculatedPackageOrder({
@@ -160,7 +158,7 @@ export const LodgesForm: React.FC<LodgesFormProps> = ({
       totalTickets: packageCount * baseQuantity,
       totalPrice: subtotal,
       stripeFee: feeCalculation.stripeFee,
-      totalWithFees: feeCalculation.total
+      totalWithFees: feeCalculation.customerPayment
     });
   }, [packageCount, baseQuantity, packagePrice]);
 
@@ -554,9 +552,7 @@ export const LodgeFormSummary: React.FC = () => {
   // Calculate fees for the summary
   const subtotal = lodgeTicketOrder.tableCount * 1950;
   const feeCalculation = calculateStripeFees(subtotal, {
-    isDomestic: true, // Default to domestic for Australian lodges
-    feeMode: getFeeModeFromEnv(),
-    platformFeePercentage: getPlatformFeePercentage()
+    isDomestic: true // Default to domestic for Australian lodges
   });
 
   return (
@@ -614,7 +610,7 @@ export const LodgeFormSummary: React.FC = () => {
               <div className="flex justify-between items-center pt-2">
                 <span className="font-medium">Total Amount</span>
                 <span className="text-lg font-bold text-primary">
-                  ${feeCalculation.total.toLocaleString()}
+                  ${feeCalculation.customerPayment.toLocaleString()}
                 </span>
               </div>
             </div>

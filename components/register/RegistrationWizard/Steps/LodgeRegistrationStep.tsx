@@ -14,7 +14,7 @@ import { Loader2, CreditCard, ShieldCheck, AlertCircle, ArrowLeft, Check } from 
 import { useRegistrationStore } from '@/lib/registrationStore';
 import { StripeBillingDetailsForClient } from '../payment/types';
 import { getFunctionTicketsService, FunctionPackage } from '@/lib/services/function-tickets-service';
-import { calculateStripeFees, getFeeModeFromEnv, getPlatformFeePercentage } from '@/lib/utils/stripe-fee-calculator';
+import { calculateStripeFees, STRIPE_RATES, getFeeModeFromEnv, getPlatformFeePercentage } from '@/lib/utils/stripe-fee-calculator';
 
 // Get Stripe publishable key
 const stripePublishableKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!;
@@ -101,11 +101,9 @@ export const LodgeRegistrationStep: React.FC<LodgeRegistrationStepProps> = ({
   // Calculate total amount including Stripe fees
   const subtotal = lodgeTicketOrder ? lodgeTicketOrder.tableCount * packagePrice : 0;
   const feeCalculation = calculateStripeFees(subtotal, {
-    isDomestic: true, // Default to domestic for Australian lodges
-    feeMode: getFeeModeFromEnv(),
-    platformFeePercentage: getPlatformFeePercentage()
+    isDomestic: true // Default to domestic for Australian lodges
   });
-  const totalAmount = feeCalculation.total;
+  const totalAmount = feeCalculation.customerPayment;
 
   // Handle form completion
   const handleFormComplete = useCallback(() => {

@@ -110,7 +110,6 @@ export function getTicketSummaryData({
     if (feeMode === 'pass_to_customer' && orderTotalAmount > 0) {
       const feeCalculation = calculateStripeFees(orderTotalAmount, {
         isDomestic: true, // Default to domestic for Australian customers
-        feeMode: feeMode,
         platformFeePercentage: 0 // This will be determined by the fee calculator
       });
       
@@ -121,7 +120,7 @@ export function getTicketSummaryData({
       
       orderItems.push({
         label: 'Total',
-        value: formatCurrency(feeCalculation.total),
+        value: formatCurrency(feeCalculation.customerPayment),
         isHighlight: true
       });
     } else {

@@ -1631,7 +1631,7 @@ const TicketSelectionStep: React.FC = () => {
                                 )}
                                 <div className="flex justify-between items-center p-2 font-bold">
                                   <span>Total</span>
-                                  <span>${calculateStripeFees(getAttendeeTicketTotal(attendee.attendeeId)).total.toFixed(2)}</span>
+                                  <span>${calculateStripeFees(getAttendeeTicketTotal(attendee.attendeeId)).customerPayment.toFixed(2)}</span>
                                 </div>
                               </div>
                             </div>
