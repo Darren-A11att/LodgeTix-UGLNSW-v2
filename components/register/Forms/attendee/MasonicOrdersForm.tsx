@@ -410,8 +410,8 @@ export const LodgesForm: React.FC<LodgesFormProps> = ({
           </div>
         </CardHeader>
         <CardContent className="p-6">
-          {/* 2-Column Layout */}
-          <div className="grid grid-cols-2 gap-8">
+          {/* Responsive 2-Column Layout - Stack on mobile, side-by-side on medium screens and up */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             {/* Column 1: Ticket Selection (from ticket-selection-step) */}
             <div className="space-y-4">
               <h3 className="font-medium text-lg mb-4">Available Packages</h3>
@@ -636,10 +636,86 @@ const BookingContactDetails = React.memo(({
     <div className="space-y-4 border-t pt-6">
       <h3 className="text-base font-medium">Booking Contact</h3>
       
-      {/* Name and Title Row - following MasonForm layout */}
-      <div className="grid grid-cols-12 gap-4">
-        {/* Masonic Title - 2 columns */}
-        <div className="col-span-2">
+      {/* Desktop Layout (md and above) */}
+      <div className="hidden md:block space-y-4">
+        {/* Name and Title Row - following MasonForm layout */}
+        <div className="grid grid-cols-12 gap-4">
+          {/* Masonic Title - 2 columns */}
+          <div className="col-span-2">
+            <Label>Title *</Label>
+            <select
+              className="w-full border rounded-md px-3 py-2"
+              value={primaryAttendee.title || ''}
+              onChange={(e) => handleFieldChangeImmediate('title', e.target.value)}
+            >
+              <option value="">Select</option>
+              {MASON_TITLES.map(title => (
+                <option key={title} value={title}>{title}</option>
+              ))}
+            </select>
+          </div>
+          
+          {/* First Name - 4 columns */}
+          <div className="col-span-4">
+            <Label>First Name *</Label>
+            <input
+              type="text"
+              className="w-full border rounded-md px-3 py-2"
+              value={primaryAttendee.firstName || ''}
+              onChange={(e) => handleFieldChange('firstName', e.target.value)}
+              required
+            />
+          </div>
+          
+          {/* Last Name - 4 columns */}
+          <div className="col-span-4">
+            <Label>Last Name *</Label>
+            <input
+              type="text"
+              className="w-full border rounded-md px-3 py-2"
+              value={primaryAttendee.lastName || ''}
+              onChange={(e) => handleFieldChange('lastName', e.target.value)}
+              required
+            />
+          </div>
+          
+          {/* Rank - 2 columns */}
+          <div className="col-span-2">
+            <Label>Rank *</Label>
+            <select
+              className="w-full border rounded-md px-3 py-2"
+              value={primaryAttendee.rank || ''}
+              onChange={(e) => handleFieldChangeImmediate('rank', e.target.value)}
+            >
+              <option value="">Select</option>
+              {MASON_RANKS.map(rank => (
+                <option key={rank.value} value={rank.value}>{rank.label}</option>
+              ))}
+            </select>
+          </div>
+        </div>
+        
+        {/* Grand Officer Fields - show if rank is GL */}
+        {primaryAttendee.rank === 'GL' && (
+          <GrandOfficerFields
+            data={primaryAttendee}
+            onChange={handleFieldChangeImmediate}
+            required={true}
+          />
+        )}
+        
+        {/* Contact Information */}
+        <ContactInfo
+          data={primaryAttendee}
+          isPrimary={true}
+          onChange={handleFieldChange}
+        />
+      </div>
+      
+      {/* Mobile Layout (smaller than md) */}
+      <div className="md:hidden space-y-4">
+        {/* Stack all fields vertically */}
+        <div>
           <Label>Title *</Label>
           <select
             className="w-full border rounded-md px-3 py-2"
@@ -653,8 +729,7 @@ const BookingContactDetails = React.memo(({
           </select>
         </div>
         
-        {/* First Name - 4 columns */}
-        <div className="col-span-4">
+        <div>
           <Label>First Name *</Label>
           <input
             type="text"
@@ -665,8 +740,7 @@ const BookingContactDetails = React.memo(({
           />
         </div>
         
-        {/* Last Name - 4 columns */}
-        <div className="col-span-4">
+        <div>
           <Label>Last Name *</Label>
           <input
             type="text"
@@ -677,8 +751,7 @@ const BookingContactDetails = React.memo(({
           />
         </div>
         
-        {/* Rank - 2 columns */}
-        <div className="col-span-2">
+        <div>
           <Label>Rank *</Label>
           <select
             className="w-full border rounded-md px-3 py-2"
@@ -691,23 +764,23 @@ const BookingContactDetails = React.memo(({
             ))}
           </select>
         </div>
-      </div>
-      
-      {/* Grand Officer Fields - show if rank is GL */}
-      {primaryAttendee.rank === 'GL' && (
-        <GrandOfficerFields
+        
+        {/* Grand Officer Fields - show if rank is GL */}
+        {primaryAttendee.rank === 'GL' && (
+          <GrandOfficerFields
+            data={primaryAttendee}
+            onChange={handleFieldChangeImmediate}
+            required={true}
+          />
+        )}
+        
+        {/* Contact Information */}
+        <ContactInfo
           data={primaryAttendee}
-          onChange={handleFieldChangeImmediate}
-          required={true}
+          isPrimary={true}
+          onChange={handleFieldChange}
         />
-      )}
-      
-      {/* Contact Information */}
-      <ContactInfo
-        data={primaryAttendee}
-        isPrimary={true}
-        onChange={handleFieldChange}
-      />
+      </div>
     </div>
   );
 });

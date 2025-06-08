@@ -76,9 +76,27 @@ export const ContactInfo: React.FC<ContactInfoProps> = React.memo(({
     <div className="space-y-4" data-attendee-id={data.attendeeId} data-is-partner={data.isPartner ? "true" : "false"}>
       {/* Contact preference - only show for non-primary attendees */}
       {!isPrimary && (
-        <div className="grid grid-cols-12 gap-4">
-          {/* All fields on the same row for non-primary attendees */}
-          <div className="col-span-4">
+        <>
+          {/* Desktop Layout (md and above) */}
+          <div className="hidden md:grid grid-cols-12 gap-4">
+            {/* All fields on the same row for non-primary attendees */}
+            <div className="col-span-4">
+              <SelectField
+                label="Contact"
+                name="contactPreference"
+                value={contactPreference} // Use the computed value directly - simpler approach
+                onChange={handleContactPreferenceChange}
+                options={CONTACT_PREFERENCES}
+                required={true}
+                className="select-no-left-padding"
+              />
+            </div>
+              
+            {/* Contact fields for non-primary attendees are now shown below in a separate conditional */}
+          </div>
+          
+          {/* Mobile Layout (smaller than md) */}
+          <div className="md:hidden">
             <SelectField
               label="Contact"
               name="contactPreference"
@@ -89,15 +107,36 @@ export const ContactInfo: React.FC<ContactInfoProps> = React.memo(({
               className="select-no-left-padding"
             />
           </div>
-            
-          {/* Contact fields for non-primary attendees are now shown below in a separate conditional */}
-        </div>
+        </>
       )}
 
       {/* Contact fields - shown for primary attendees */}
       {isPrimary && (
-        <div className="grid grid-cols-12 gap-4">
-          <div className="col-span-6">
+        <>
+          {/* Desktop Layout (md and above) */}
+          <div className="hidden md:grid grid-cols-12 gap-4">
+            <div className="col-span-6">
+              <EmailField
+                label="Email Address"
+                name="primaryEmail"
+                value={data.primaryEmail || ''}
+                onChange={(value) => onChange('primaryEmail', value)}
+                required={true}
+              />
+            </div>
+            <div className="col-span-6">
+              <PhoneField
+                label="Phone Number"
+                name="primaryPhone"
+                value={data.primaryPhone || ''}
+                onChange={(value) => onChange('primaryPhone', value)}
+                required={true}
+              />
+            </div>
+          </div>
+          
+          {/* Mobile Layout (smaller than md) */}
+          <div className="md:hidden space-y-4">
             <EmailField
               label="Email Address"
               name="primaryEmail"
@@ -105,8 +144,6 @@ export const ContactInfo: React.FC<ContactInfoProps> = React.memo(({
               onChange={(value) => onChange('primaryEmail', value)}
               required={true}
             />
-          </div>
-          <div className="col-span-6">
             <PhoneField
               label="Phone Number"
               name="primaryPhone"
@@ -115,13 +152,36 @@ export const ContactInfo: React.FC<ContactInfoProps> = React.memo(({
               required={true}
             />
           </div>
-        </div>
+        </>
       )}
       
       {/* Show contact fields for non-primary attendees who selected "directly" */}
       {!isPrimary && contactPreference === 'directly' && (
-        <div className="grid grid-cols-12 gap-4 mt-4">
-          <div className="col-span-6">
+        <>
+          {/* Desktop Layout (md and above) */}
+          <div className="hidden md:grid grid-cols-12 gap-4 mt-4">
+            <div className="col-span-6">
+              <EmailField
+                label="Email Address"
+                name="primaryEmail"
+                value={data.primaryEmail || ''}
+                onChange={(value) => onChange('primaryEmail', value)}
+                required={true}
+              />
+            </div>
+            <div className="col-span-6">
+              <PhoneField
+                label="Phone Number"
+                name="primaryPhone"
+                value={data.primaryPhone || ''}
+                onChange={(value) => onChange('primaryPhone', value)}
+                required={true}
+              />
+            </div>
+          </div>
+          
+          {/* Mobile Layout (smaller than md) */}
+          <div className="md:hidden space-y-4 mt-4">
             <EmailField
               label="Email Address"
               name="primaryEmail"
@@ -129,8 +189,6 @@ export const ContactInfo: React.FC<ContactInfoProps> = React.memo(({
               onChange={(value) => onChange('primaryEmail', value)}
               required={true}
             />
-          </div>
-          <div className="col-span-6">
             <PhoneField
               label="Phone Number"
               name="primaryPhone"
@@ -139,7 +197,7 @@ export const ContactInfo: React.FC<ContactInfoProps> = React.memo(({
               required={true}
             />
           </div>
-        </div>
+        </>
       )}
 
       {/* Confirmation message - show when contact is via primary or later */}
