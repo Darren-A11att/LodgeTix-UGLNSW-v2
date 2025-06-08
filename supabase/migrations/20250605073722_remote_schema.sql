@@ -5272,11 +5272,11 @@ CREATE INDEX "idx_webhook_logs_webhook_name" ON "public"."webhook_logs" USING "b
 
 
 
-CREATE OR REPLACE TRIGGER "generate-attendee-qr-webhook" AFTER INSERT OR UPDATE ON "public"."attendees" FOR EACH ROW EXECUTE FUNCTION "supabase_functions"."http_request"('https://pwwpcjbbxotmiqrisjvf.supabase.co/functions/v1/attendee-qr-generator', 'POST', '{"Content-type":"application/json"}', '{}', '5000');
+-- CREATE OR REPLACE TRIGGER "generate-attendee-qr-webhook" AFTER INSERT OR UPDATE ON "public"."attendees" FOR EACH ROW EXECUTE FUNCTION "supabase_functions"."http_request"('https://pwwpcjbbxotmiqrisjvf.supabase.co/functions/v1/attendee-qr-generator', 'POST', '{"Content-type":"application/json"}', '{}', '5000');
 
 
 
-CREATE OR REPLACE TRIGGER "generate-ticket-qr-webhook" AFTER INSERT ON "public"."tickets" FOR EACH ROW EXECUTE FUNCTION "supabase_functions"."http_request"('https://pwwpcjbbxotmiqrisjvf.supabase.co/functions/v1/ticket-qr-generator', 'POST', '{"Content-type":"application/json"}', '{}', '5000');
+-- CREATE OR REPLACE TRIGGER "generate-ticket-qr-webhook" AFTER INSERT ON "public"."tickets" FOR EACH ROW EXECUTE FUNCTION "supabase_functions"."http_request"('https://pwwpcjbbxotmiqrisjvf.supabase.co/functions/v1/ticket-qr-generator', 'POST', '{"Content-type":"application/json"}', '{}', '5000');
 
 
 

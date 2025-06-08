@@ -4,6 +4,10 @@ import { Button } from "@/components/ui/button"
 import { getHomepageContentService } from "@/lib/content/homepage-content-service"
 import { MasonicLogo } from "@/components/masonic-logo"
 
+function classNames(...classes: string[]) {
+  return classes.filter(Boolean).join(' ')
+}
+
 export async function HeroAngledDesign() {
   // Get content from centralized content service
   const contentService = await getHomepageContentService()
@@ -84,14 +88,29 @@ export async function HeroAngledDesign() {
           </div>
         </div>
         <div className="bg-masonic-lightblue lg:absolute lg:inset-y-0 lg:right-0 lg:w-1/2 relative">
-          <Image
-            alt={heroContent.image.alt}
-            src={heroContent.image.url}
-            width={800}
-            height={800}
-            className="aspect-3/2 object-cover lg:aspect-auto lg:size-full"
-            priority
-          />
+          <div className="relative w-full h-full lg:aspect-auto aspect-[3/2]">
+            <Image
+              alt={heroContent.image.alt}
+              src={heroContent.image.url}
+              fill
+              className={classNames(
+                "object-cover",
+                heroContent.image.position === 'top' && 'object-top',
+                heroContent.image.position === 'bottom' && 'object-bottom',
+                heroContent.image.position === 'left' && 'object-left',
+                heroContent.image.position === 'right' && 'object-right',
+                heroContent.image.position === 'center' && 'object-center',
+                (!heroContent.image.position || heroContent.image.position === 'center') && 'object-center'
+              )}
+              style={{
+                maskImage: 'linear-gradient(to bottom, black, black)',
+                maskSize: '100% 100%',
+                WebkitMaskImage: 'linear-gradient(to bottom, black, black)',
+                WebkitMaskSize: '100% 100%'
+              }}
+              priority
+            />
+          </div>
           {/* 30% transparent masonic blue overlay */}
           <div className={`absolute inset-0 ${heroContent.backgroundOverlay}`}></div>
         </div>

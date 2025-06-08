@@ -291,7 +291,7 @@ export const LodgesForm: React.FC<LodgesFormProps> = ({
               These details will be applied to all members in this registration
             </p>
           </CardHeader>
-          <CardContent className="space-y-6 pt-6">
+          <CardContent className="space-y-6 pt-4 md:pt-6 px-4 md:px-6">
             {/* Lodge Selection Fields */}
             <div className="grid md:grid-cols-2 gap-6">
               <div className="space-y-2">
@@ -349,9 +349,9 @@ export const LodgesForm: React.FC<LodgesFormProps> = ({
             </Badge>
           </div>
         </CardHeader>
-        <CardContent className="p-6">
-          {/* 2-Column Layout */}
-          <div className="grid grid-cols-2 gap-8">
+        <CardContent className="p-4 md:p-6">
+          {/* Responsive Layout - Stack on mobile, 2 columns on desktop */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-8">
             {/* Column 1: Ticket Selection (from ticket-selection-step) */}
             <div className="space-y-4">
               <h3 className="font-medium text-lg mb-4">Available Packages</h3>
@@ -370,7 +370,7 @@ export const LodgesForm: React.FC<LodgesFormProps> = ({
                       )}
                       onClick={() => setSelectedPackageId(pkg.id)}
                     >
-                      <div className="flex items-start justify-between">
+                      <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-3">
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-2">
                             {selectedPackage?.id === pkg.id && (
@@ -400,7 +400,7 @@ export const LodgesForm: React.FC<LodgesFormProps> = ({
                             </span>
                           </div>
                         </div>
-                        <div className="text-right">
+                        <div className="text-left md:text-right">
                           <p className="text-2xl font-bold">${pkg.price.toLocaleString()}</p>
                           <p className="text-sm text-gray-500">per package</p>
                         </div>
@@ -446,7 +446,7 @@ export const LodgesForm: React.FC<LodgesFormProps> = ({
             <div className="space-y-6">
 
               {/* Order Summary */}
-              <div className="bg-gray-50 rounded-lg p-6 space-y-4">
+              <div className="bg-gray-50 rounded-lg p-4 md:p-6 space-y-4">
                 <h4 className="font-medium text-lg">Order Summary</h4>
                 
                 <div className="space-y-2">

@@ -55,16 +55,25 @@ export async function FeaturedEventsRedesigned() {
                   'flex-auto lg:col-span-5 lg:row-start-1 xl:col-span-6',
                 )}
               >
-                <div className="aspect-[4/3] w-full h-full rounded-lg bg-gray-100 overflow-hidden">
+                <div className="relative aspect-[4/3] w-full rounded-lg bg-gray-100 overflow-hidden">
                   <Image
                     alt={event.title}
                     src={event.imageUrl}
-                    width={1000}
-                    height={400}
-                    className="w-full h-full object-cover object-center"
+                    fill
+                    className={classNames(
+                      "object-cover",
+                      event.imagePosition === 'top' && 'object-top',
+                      event.imagePosition === 'bottom' && 'object-bottom',
+                      event.imagePosition === 'left' && 'object-left',
+                      event.imagePosition === 'right' && 'object-right',
+                      event.imagePosition === 'center' && 'object-center',
+                      (!event.imagePosition || event.imagePosition === 'center') && 'object-center'
+                    )}
                     style={{
-                      clipPath: 'inset(0 0 0 0)',
-                      maskImage: 'none'
+                      maskImage: 'linear-gradient(to bottom, black, black)',
+                      maskSize: '100% 100%',
+                      WebkitMaskImage: 'linear-gradient(to bottom, black, black)',
+                      WebkitMaskSize: '100% 100%'
                     }}
                   />
                 </div>

@@ -70,8 +70,11 @@ CREATE TRIGGER trg_generate_confirmation_number_insert
   FOR EACH ROW
   EXECUTE FUNCTION trigger_generate_confirmation_number_insert();
 
+-- Drop the view if it exists before recreating
+DROP VIEW IF EXISTS lodge_registration_confirmation_view;
+
 -- Create the lodge_registration_confirmation_view that the API is looking for
-CREATE OR REPLACE VIEW lodge_registration_confirmation_view AS
+CREATE VIEW lodge_registration_confirmation_view AS
 SELECT 
   r.registration_id,
   r.confirmation_number,
@@ -92,7 +95,7 @@ GRANT SELECT ON lodge_registration_confirmation_view TO anon, authenticated;
 
 -- Update any existing completed lodge registrations that don't have confirmation numbers
 UPDATE registrations 
-SET confirmation_number = generate_confirmation_number(registration_type, registration_id)
+SET confirmation_number = generate_confirmation_number(registration_type::text, registration_id)
 WHERE registration_type = 'lodge' 
   AND payment_status = 'completed' 
   AND confirmation_number IS NULL;

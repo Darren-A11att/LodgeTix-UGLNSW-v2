@@ -119,7 +119,7 @@ END $$;
 
 -- Update any existing completed lodge registrations that don't have confirmation numbers
 UPDATE registrations 
-SET confirmation_number = generate_confirmation_number(registration_type, registration_id)
+SET confirmation_number = generate_confirmation_number(registration_type::text, registration_id)
 WHERE registration_type = 'lodge' 
   AND payment_status = 'completed' 
   AND confirmation_number IS NULL;

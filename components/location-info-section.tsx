@@ -1,6 +1,10 @@
 import Image from "next/image"
 import { getHomepageContentService } from "@/lib/content/homepage-content-service"
 
+function classNames(...classes: string[]) {
+  return classes.filter(Boolean).join(' ')
+}
+
 // Simple SVG icons as components
 const MapPinIcon = ({ className }: { className?: string }) => (
   <svg className={className} fill="currentColor" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
@@ -60,13 +64,28 @@ export async function LocationInfoSection() {
               </dl>
             </div>
           </div>
-          <Image
-            alt={locationContent.image.alt}
-            src={locationContent.image.url}
-            width={800}
-            height={600}
-            className="w-[48rem] max-w-none rounded-xl shadow-xl ring-1 ring-white/10 sm:w-[57rem] md:-ml-4 lg:-ml-0"
-          />
+          <div className="relative w-[48rem] max-w-none sm:w-[57rem] md:-ml-4 lg:-ml-0 aspect-[4/3] rounded-xl overflow-hidden shadow-xl ring-1 ring-white/10">
+            <Image
+              alt={locationContent.image.alt}
+              src={locationContent.image.url}
+              fill
+              className={classNames(
+                "object-cover",
+                locationContent.image.position === 'top' && 'object-top',
+                locationContent.image.position === 'bottom' && 'object-bottom',
+                locationContent.image.position === 'left' && 'object-left',
+                locationContent.image.position === 'right' && 'object-right',
+                locationContent.image.position === 'center' && 'object-center',
+                (!locationContent.image.position || locationContent.image.position === 'center') && 'object-center'
+              )}
+              style={{
+                maskImage: 'linear-gradient(to bottom, black, black)',
+                maskSize: '100% 100%',
+                WebkitMaskImage: 'linear-gradient(to bottom, black, black)',
+                WebkitMaskSize: '100% 100%'
+              }}
+            />
+          </div>
         </div>
       </div>
     </div>

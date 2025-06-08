@@ -105,6 +105,10 @@ export const homepageContent = {
           valueColumn: 'name'
         },
         fallback: 'Masonic Lodge Interior'
+      },
+      position: {
+        source: 'FALLBACK' as ContentSource,
+        fallback: 'center' // Options: 'center', 'top', 'bottom', 'left', 'right'
       }
     },
     backgroundOverlay: {
@@ -114,7 +118,7 @@ export const homepageContent = {
     badge: {
       text: {
         source: 'FALLBACK' as ContentSource,
-        fallback: 'United Grand Lodge of NSW & ACT official ticketing platform.'
+        fallback: 'Sydney Masonic Centre, 19-21 September 2025'
       },
       linkText: {
         source: 'FALLBACK' as ContentSource,
@@ -159,35 +163,35 @@ export const homepageContent = {
   sponsors: {
     title: {
       source: 'FALLBACK' as ContentSource,
-      fallback: 'Proudly supported by Masonic organizations across NSW & ACT'
+      fallback: 'The United Grand Lodge of New South Wales & the Australian Capital Territory'
     },
     items: {
       source: 'FALLBACK' as ContentSource,
       fallback: [
         {
           name: 'United Grand Lodge of NSW & ACT',
-          logo: '/placeholder.svg?height=48&width=158&text=UGL',
-          alt: 'United Grand Lodge of NSW & ACT Logo'
+          logo: 'https://api.lodgetix.io/storage/v1/object/public/public-events/website/hero-logos/1.png',
+          alt: 'Freemasons NSW & ACT Logo'
         },
         {
-          name: 'Masonic Care NSW',
-          logo: '/placeholder.svg?height=48&width=158&text=Care',
-          alt: 'Masonic Care NSW Logo'
+          name: 'Centennary Seal',
+          logo: 'https://api.lodgetix.io/storage/v1/object/public/public-events/website/hero-logos/2.png',
+          alt: 'Centennary Seal Logo'
         },
         {
-          name: 'Freemasons Foundation',
-          logo: '/placeholder.svg?height=48&width=158&text=Foundation',
-          alt: 'Freemasons Foundation Logo'
+          name: 'Masonicare',
+          logo: 'https://api.lodgetix.io/storage/v1/object/public/public-events/website/hero-logos/3.png',
+          alt: 'Masonicare Logo'
         },
         {
-          name: 'Royal Arch Chapter',
-          logo: '/placeholder.svg?height=48&width=158&text=Royal+Arch',
-          alt: 'Royal Arch Chapter Logo'
+          name: 'Grand Masters Coat of Arms',
+          logo: 'https://api.lodgetix.io/storage/v1/object/public/public-events/website/hero-logos/4.png',
+          alt: 'Coat of Arms'
         },
         {
-          name: 'Mark Master Masons',
-          logo: '/placeholder.svg?height=48&width=158&text=Mark',
-          alt: 'Mark Master Masons Logo'
+          name: 'Sydney Masonic Centre',
+          logo: 'https://api.lodgetix.io/storage/v1/object/public/public-events/website/hero-logos/5.png',
+          alt: 'Sydney Masonic Centre Logo'
         }
       ]
     }
@@ -223,6 +227,7 @@ export const homepageContent = {
           date: 'Saturday, March 15, 2025',
           location: 'Masonic Centre, Sydney',
           imageUrl: '/placeholder.svg?height=400&width=1000&text=Grand+Installation',
+          imagePosition: 'center', // Options: 'center', 'top', 'bottom', 'left', 'right', 'left-top', etc.
           price: 'From $150'
         },
         {
@@ -232,6 +237,7 @@ export const homepageContent = {
           date: 'Friday, April 12, 2025',
           location: 'Grand Ballroom, Sydney',
           imageUrl: '/placeholder.svg?height=400&width=1000&text=Charity+Gala',
+          imagePosition: 'center',
           price: 'From $200'
         }
       ]
@@ -242,42 +248,46 @@ export const homepageContent = {
   locationInfo: {
     badge: {
       source: 'FALLBACK' as ContentSource,
-      fallback: 'Experience Excellence'
+      fallback: 'Sydney Masonic Centre'
     },
     title: {
       source: 'FALLBACK' as ContentSource,
-      fallback: 'Premium Venues, Perfect Experiences'
+      fallback: 'Sacred Architecture, Living Tradition'
     },
     description: {
       source: 'FALLBACK' as ContentSource,
-      fallback: 'Our events are hosted at carefully selected venues throughout NSW & ACT, ensuring every occasion meets the highest standards of quality, accessibility, and Masonic tradition.'
+      fallback: 'Standing as a masterpiece of symbolic architecture, where Brutalist design meets ancient Masonic wisdom. Every element of the SMC speaks to our Crafts timeless teachings, welcoming Brethren into a building that is itself a lesson in stone.'
     },
     image: {
       url: {
         source: 'FALLBACK' as ContentSource,
-        fallback: '/placeholder.svg?height=600&width=800&text=Lodge+Hall'
+        fallback: 'https://headbox-media.imgix.net/spaces/28866/photos/a907daca-5580-4c3c-896b-890ee147adec_Screen%20Shot%202022-04-20%20at%204.32.15%20pm.png?auto=format&ar=3%3A2&fit=crop&q=60&ixlib=react-9.5.4'
       },
       alt: {
         source: 'FALLBACK' as ContentSource,
         fallback: 'Masonic Lodge Hall Interior'
+      },
+      position: {
+        source: 'FALLBACK' as ContentSource,
+        fallback: 'center' // Options: 'center', 'top', 'bottom', 'left', 'right'
       }
     },
     features: {
       source: 'FALLBACK' as ContentSource,
       fallback: [
         {
-          name: 'Prime Locations',
-          description: 'Our events are held at prestigious venues across NSW & ACT, offering convenient access and parking for all attendees.',
+          name: 'Architectural Symbolism',
+          description: 'Ascend the winding stair from Goulburn Street to reach the mayble foyer, where twin circular elevators rise like the great pillars.',
           icon: 'MapPin'
         },
         {
-          name: 'Convenient Timing',
-          description: 'Events are scheduled to accommodate working schedules, with both evening and weekend options available.',
+          name: 'The Middle Chamber',
+          description: 'Arrive at the marble foyer, and enter the Grand Lodge Room, where 600 masons & guests can gather beneath celestial lighting that mirrors the canopy of heaven',
           icon: 'Clock'
         },
         {
-          name: 'Community Focused',
-          description: 'Join a welcoming community of Masons and guests from across the region, building lasting friendships and connections.',
+          name: 'Living Masonic Heritage',
+          description: 'More than mere concrete and steel, this Brutalist landmark embodies our principles in its very form, inspiring contemplation of the Great Architects design.',
           icon: 'UserGroup'
         }
       ]
@@ -288,7 +298,7 @@ export const homepageContent = {
   cta: {
     title: {
       source: 'FALLBACK' as ContentSource,
-      fallback: 'Join Our Community'
+      fallback: 'Be Part of History'
     },
     description: {
       source: 'FALLBACK' as ContentSource,
@@ -314,22 +324,26 @@ export const homepageContent = {
         {
           url: '/placeholder.svg?height=400&width=592&text=Ceremony',
           alt: 'Masonic ceremony in progress',
-          className: 'aspect-7/5 w-[37rem] max-w-none rounded-2xl bg-gray-50 object-cover'
+          className: 'aspect-7/5 w-[37rem] max-w-none rounded-2xl bg-gray-50 object-cover',
+          imagePosition: 'center'
         },
         {
           url: '/placeholder.svg?height=604&width=768&text=Lodge+Meeting',
           alt: 'Lodge meeting with brethren',
-          className: 'aspect-4/3 w-[24rem] max-w-none flex-none rounded-2xl bg-gray-50 object-cover'
+          className: 'aspect-4/3 w-[24rem] max-w-none flex-none rounded-2xl bg-gray-50 object-cover',
+          imagePosition: 'center'
         },
         {
           url: '/placeholder.svg?height=842&width=1152&text=Charity+Work',
           alt: 'Masonic charitable work',
-          className: 'aspect-7/5 w-[37rem] max-w-none flex-none rounded-2xl bg-gray-50 object-cover'
+          className: 'aspect-7/5 w-[37rem] max-w-none flex-none rounded-2xl bg-gray-50 object-cover',
+          imagePosition: 'center'
         },
         {
           url: '/placeholder.svg?height=604&width=768&text=Historic+Lodge',
           alt: 'Historic lodge building',
-          className: 'aspect-4/3 w-[24rem] max-w-none rounded-2xl bg-gray-50 object-cover'
+          className: 'aspect-4/3 w-[24rem] max-w-none rounded-2xl bg-gray-50 object-cover',
+          imagePosition: 'center'
         }
       ]
     }
