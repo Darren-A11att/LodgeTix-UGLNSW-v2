@@ -168,17 +168,17 @@ export const useLocationStore = create<LocationState>(
         set({ isLoadingIpData: true, ipDataError: null });
         let dataToStore: IpApiData = { ...defaultIpData }; // Start with defaults
         try {
-          const apiUrl = '/api/ip-location';
+          // Call ipapi.co directly from the client
+          const apiUrl = 'https://ipapi.co/json/';
           const controller = new AbortController();
           const timeoutId = setTimeout(() => controller.abort(), 5000);
 
-          console.log('[LocationStore] Fetching IP data from server API...');
+          console.log('[LocationStore] Fetching IP data from ipapi.co (client-side)...');
             
             const response = await fetch(apiUrl, {
               signal: controller.signal,
               headers: { 
-                'Accept': 'application/json',
-                'Content-Type': 'application/json'
+                'Accept': 'application/json'
               }
             });
             clearTimeout(timeoutId);
@@ -205,7 +205,7 @@ export const useLocationStore = create<LocationState>(
             set({ ipDataError: null });
             }
         } catch (fetchError: any) {
-          console.warn('[LocationStore] Error fetching IP data from server API, using default:', fetchError);
+          console.warn('[LocationStore] Error fetching IP data from ipapi.co, using default:', fetchError);
           dataToStore = { ...defaultIpData }; // Reset to defaults on error
           set({ ipDataError: fetchError.name === 'AbortError' ? 'IP detection timed out.' : 'Failed to detect country.' });
         } finally {

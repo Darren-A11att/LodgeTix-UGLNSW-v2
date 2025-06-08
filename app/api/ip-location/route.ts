@@ -1,12 +1,31 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
-    const apiUrl = 'https://ipapi.co/json/';
+    // Get the client's real IP address from headers
+    const forwardedFor = request.headers.get('x-forwarded-for');
+    const realIp = request.headers.get('x-real-ip');
+    const cfConnectingIp = request.headers.get('cf-connecting-ip'); // Cloudflare
+    
+    // Priority: CF-Connecting-IP (Cloudflare) > X-Forwarded-For > X-Real-IP
+    let clientIp = cfConnectingIp || forwardedFor?.split(',')[0].trim() || realIp;
+    
+    console.log('[IP Location API] Client IP detection:', {
+      'x-forwarded-for': forwardedFor,
+      'x-real-ip': realIp,
+      'cf-connecting-ip': cfConnectingIp,
+      'detected': clientIp
+    });
+
+    // Construct API URL with client IP if available
+    const apiUrl = clientIp 
+      ? `https://ipapi.co/${clientIp}/json/`
+      : 'https://ipapi.co/json/';
+      
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout for server requests
 
-    console.log('[IP Location API] Fetching IP data from ipapi.co...');
+    console.log('[IP Location API] Fetching IP data from ipapi.co for IP:', clientIp || 'auto-detect');
     
     const response = await fetch(apiUrl, {
       signal: controller.signal,
@@ -55,7 +74,18 @@ export async function GET() {
     }
 
     const ipData = await response.json();
-    console.log('[IP Location API] Successfully retrieved IP data');
+    console.log('[IP Location API] Successfully retrieved IP data:', {
+      ip: ipData.ip,
+      country: ipData.country,
+      country_name: ipData.country_name,
+      region: ipData.region,
+      city: ipData.city
+    });
+    
+    // Ensure the actual client IP is included if we detected it
+    if (clientIp && ipData.ip !== clientIp) {
+      console.log('[IP Location API] Warning: API returned different IP than detected client IP');
+    }
     
     return NextResponse.json(ipData);
   } catch (error: any) {
