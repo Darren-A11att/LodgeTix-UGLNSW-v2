@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 import React from 'react'
+import Script from 'next/script'
 import '@/styles/globals.css'
 import './disableFastRefreshLogs'
 import { LocationInitializer } from '@/components/location-initializer'
@@ -31,6 +32,25 @@ export default function RootLayout({
             {children}
           </LayoutWithFooter>
         </AuthProvider>
+        
+        {/* Crisp Chat Widget */}
+        <Script
+          id="crisp-widget"
+          strategy="afterInteractive"
+          dangerouslySetInnerHTML={{
+            __html: `
+              window.$crisp=[];
+              window.CRISP_WEBSITE_ID="16b49683-a08e-4e31-99b6-2b4c004e486f";
+              (function(){
+                var d=document;
+                var s=d.createElement("script");
+                s.src="https://client.crisp.chat/l.js";
+                s.async=1;
+                d.getElementsByTagName("head")[0].appendChild(s);
+              })();
+            `,
+          }}
+        />
       </body>
     </html>
   )

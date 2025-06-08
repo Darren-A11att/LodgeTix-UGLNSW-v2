@@ -375,3 +375,14 @@ body {
     animation: availability-change 0.5s ease-in-out;
   }
 }
+
+/* Crisp Chat Widget Positioning */
+/* Move the chat widget up by 100px to avoid overlapping with continue buttons */
+#crisp-chatbox {
+  bottom: 100px !important;
+}
+
+/* Optional: Add a smooth transition when the widget appears */
+#crisp-chatbox[data-visible="true"] {
+  transition: bottom 0.3s ease-in-out;
+}
