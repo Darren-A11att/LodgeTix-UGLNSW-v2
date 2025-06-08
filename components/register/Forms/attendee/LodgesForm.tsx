@@ -292,43 +292,8 @@ export const LodgesForm: React.FC<LodgesFormProps> = ({
             </p>
           </CardHeader>
           <CardContent className="space-y-6 pt-6">
-            {/* Desktop Layout - Lodge Selection Fields (md and above) */}
-            <div className="hidden md:grid md:grid-cols-2 gap-6">
-              <div className="space-y-2">
-                <GrandLodgeSelection 
-                  value={lodgeDetails?.grand_lodge_id || ''}
-                  onChange={handleGrandLodgeChange}
-                />
-                {!lodgeDetails?.grand_lodge_id && (
-                  <p className="text-amber-600 text-xs mt-1 flex items-center gap-1">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
-                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a.75.75 0 000 1.5h.253a.25.25 0 01.244.304l-.459 2.066A1.75 1.75 0 0010.747 15H11a.75.75 0 000-1.5h-.253a.25.25 0 01-.244-.304l.459-2.066A1.75 1.75 0 009.253 9H9z" clipRule="evenodd" />
-                    </svg>
-                    Required to proceed
-                  </p>
-                )}
-              </div>
-              
-              <div className="space-y-2">
-                <LodgeSelection 
-                  grand_lodge_id={lodgeDetails?.grand_lodge_id || ''}
-                  value={lodgeDetails?.lodge_id || ''}
-                  onChange={(lodgeId, lodgeName) => handleLodgeChange(lodgeId, lodgeName ?? '')}
-                  disabled={!lodgeDetails?.grand_lodge_id}
-                />
-                {lodgeDetails?.grand_lodge_id && !lodgeDetails?.lodge_id && (
-                  <p className="text-amber-600 text-xs mt-1 flex items-center gap-1">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
-                      <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a.75.75 0 000 1.5h.253a.25.25 0 01.244.304l-.459 2.066A1.75 1.75 0 0010.747 15H11a.75.75 0 000-1.5h-.253a.25.25 0 01-.244-.304l.459-2.066A1.75 1.75 0 009.253 9H9z" clipRule="evenodd" />
-                    </svg>
-                    Required to proceed
-                  </p>
-                )}
-              </div>
-            </div>
-            
-            {/* Mobile Layout - Lodge Selection Fields (smaller than md) */}
-            <div className="md:hidden space-y-4">
+            {/* Lodge Selection Fields */}
+            <div className="grid md:grid-cols-2 gap-6">
               <div className="space-y-2">
                 <GrandLodgeSelection 
                   value={lodgeDetails?.grand_lodge_id || ''}
@@ -385,9 +350,9 @@ export const LodgesForm: React.FC<LodgesFormProps> = ({
           </div>
         </CardHeader>
         <CardContent className="p-6">
-          {/* Desktop Layout - 2 columns (md and above) */}
-          <div className="hidden md:grid grid-cols-2 gap-8">
-            {/* Column 1: Ticket Selection */}
+          {/* 2-Column Layout */}
+          <div className="grid grid-cols-2 gap-8">
+            {/* Column 1: Ticket Selection (from ticket-selection-step) */}
             <div className="space-y-4">
               <h3 className="font-medium text-lg mb-4">Available Packages</h3>
               
@@ -565,188 +530,6 @@ export const LodgesForm: React.FC<LodgesFormProps> = ({
                   </div>
                 )}
               </div>
-            </div>
-          </div>
-          
-          {/* Mobile Layout - single column (smaller than md) */}
-          <div className="md:hidden space-y-6">
-            {/* Available Packages */}
-            <div className="space-y-4">
-              <h3 className="font-medium text-lg">Available Packages</h3>
-              
-              {/* Dynamic Package Display */}
-              {lodgePackages.length > 0 ? (
-                <div className="space-y-3">
-                  {lodgePackages.map((pkg) => (
-                    <div 
-                      key={pkg.id}
-                      className={cn(
-                        "border rounded-lg p-4 cursor-pointer transition-all",
-                        selectedPackage?.id === pkg.id 
-                          ? "border-primary bg-primary/5 shadow-sm" 
-                          : "hover:bg-gray-50"
-                      )}
-                      onClick={() => setSelectedPackageId(pkg.id)}
-                    >
-                      <div className="space-y-3">
-                        <div className="flex items-start justify-between">
-                          <div className="flex items-center gap-2">
-                            {selectedPackage?.id === pkg.id && (
-                              <Check className="w-5 h-5 text-primary" />
-                            )}
-                            <Package className="w-5 h-5 text-primary" />
-                            <h4 className="font-medium">{pkg.name}</h4>
-                          </div>
-                          <div className="text-right">
-                            <p className="text-xl font-bold">${pkg.price.toLocaleString()}</p>
-                            <p className="text-xs text-gray-500">per package</p>
-                          </div>
-                        </div>
-                        
-                        {pkg.description && (
-                          <p className="text-sm text-gray-600">
-                            {pkg.description}
-                          </p>
-                        )}
-                        
-                        {pkg.includes_description && pkg.includes_description.length > 0 && (
-                          <ul className="text-sm text-gray-600 space-y-1">
-                            {pkg.includes_description.map((item, index) => (
-                              <li key={index} className="flex items-center gap-2">
-                                <Check className="w-4 h-4 text-green-600 flex-shrink-0" />
-                                <span>{item}</span>
-                              </li>
-                            ))}
-                          </ul>
-                        )}
-                        
-                        <div className="p-2 bg-blue-50 rounded text-sm">
-                          <span className="text-blue-800 font-medium">
-                            Base Quantity: {pkg.qty || 10} tickets per package
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              ) : (
-                <div className="border rounded-lg p-4 border-amber-200 bg-amber-50">
-                  <div className="flex items-center gap-2 text-amber-800">
-                    <Info className="w-4 h-4" />
-                    <p className="text-sm">
-                      {isLoadingData ? 'Loading package information...' : 
-                       functionPackages.length > 0 ? 
-                         'No packages available for lodge registrations. Please contact support.' :
-                         'No packages found. Please check your configuration.'}
-                    </p>
-                  </div>
-                </div>
-              )}
-            </div>
-            
-            {/* Package Selection */}
-            <div>
-              <Label htmlFor="package-count-mobile" className="text-base font-medium mb-2 block">
-                Number of Packages
-              </Label>
-              <AttendeeCounter
-                id="package-count-mobile"
-                label=""
-                value={packageCount}
-                min={minPackages}
-                max={maxPackages}
-                onChange={handlePackageCountChange}
-                disabled={!lodgeDetails?.lodge_id}
-              />
-              <p className="text-sm text-gray-600 mt-2">
-                {packageCount} {packageCount === 1 ? 'package' : 'packages'} = {packageCount * baseQuantity} tickets
-              </p>
-            </div>
-            
-            {/* Order Summary */}
-            <div className="bg-gray-50 rounded-lg p-4 space-y-3">
-              <h4 className="font-medium">Order Summary</h4>
-              
-              <div className="space-y-2">
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-600">Packages</span>
-                  <span className="font-medium">{packageCount} × ${packagePrice.toLocaleString()}</span>
-                </div>
-                <div className="flex justify-between items-center text-sm text-gray-500">
-                  <span>Total Tickets</span>
-                  <span>{calculatedPackageOrder.totalTickets} tickets</span>
-                </div>
-                <div className="flex justify-between items-center text-sm text-gray-500">
-                  <span>Base Quantity per Package</span>
-                  <span>{baseQuantity} tickets</span>
-                </div>
-              </div>
-
-              <div className="border-t pt-3 space-y-2">
-                <div className="text-sm text-gray-600">
-                  <div className="flex justify-between">
-                    <span>Total Ceremony Tickets</span>
-                    <span>{calculatedPackageOrder.totalTickets}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Total Gala Dinner Tickets</span>
-                    <span>{calculatedPackageOrder.totalTickets}</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="border-t pt-3 space-y-2">
-                {/* Subtotal */}
-                <div className="flex justify-between items-center">
-                  <span className="text-gray-600">Subtotal</span>
-                  <span className="font-medium">
-                    ${calculatedPackageOrder.totalPrice.toLocaleString()}
-                  </span>
-                </div>
-                
-                {/* Processing Fee */}
-                {getFeeModeFromEnv() === 'pass_to_customer' && (
-                  <div className="flex justify-between items-center">
-                    <span className="text-gray-600 flex items-center gap-1">
-                      {getProcessingFeeLabel(true)}
-                      <TooltipProvider>
-                        <Tooltip>
-                          <TooltipTrigger>
-                            <Info className="h-3 w-3 text-gray-400" />
-                          </TooltipTrigger>
-                          <TooltipContent className="max-w-xs">
-                            <p className="text-sm">{getFeeDisclaimer()}</p>
-                            <div className="mt-2 text-xs space-y-1">
-                              <p>• Australian cards: 1.75% + $0.30</p>
-                              <p>• International cards: 2.9% + $0.30</p>
-                            </div>
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
-                    </span>
-                    <span className="font-medium">
-                      ${calculatedPackageOrder.stripeFee.toFixed(2)}
-                    </span>
-                  </div>
-                )}
-                
-                {/* Total Amount */}
-                <div className="border-t pt-2 mt-2">
-                  <div className="flex justify-between items-center">
-                    <span className="font-semibold">Total Amount</span>
-                    <span className="text-xl font-bold text-primary">
-                      ${calculatedPackageOrder.totalWithFees.toLocaleString()}
-                    </span>
-                  </div>
-                </div>
-              </div>
-              
-              {/* Fee disclaimer */}
-              {getFeeModeFromEnv() === 'pass_to_customer' && (
-                <div className="text-xs text-gray-500 pt-2">
-                  {getFeeDisclaimer()}
-                </div>
-              )}
             </div>
           </div>
         </CardContent>

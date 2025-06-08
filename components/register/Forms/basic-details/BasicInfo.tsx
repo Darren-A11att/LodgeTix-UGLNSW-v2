@@ -118,8 +118,7 @@ export const BasicInfo = React.memo<SectionProps>(({
   if (type === 'mason') {
     return (
       <div className="space-y-6">
-        {/* Desktop Layout (md and above) */}
-        <div className="hidden md:grid grid-cols-12 gap-4">
+        <div className="grid grid-cols-12 gap-4">
           {/* Title - 2 columns */}
           <div className="col-span-2">
             <SelectField
@@ -169,45 +168,6 @@ export const BasicInfo = React.memo<SectionProps>(({
           </div>
         </div>
         
-        {/* Mobile Layout (smaller than md) */}
-        <div className="md:hidden space-y-4">
-          <SelectField
-            label="Masonic Title"
-            name="title"
-            value={data.title || ''}
-            onChange={handleTitleChangeWithLogic}
-            options={titleOptions}
-            required={true}
-          />
-          
-          <TextField
-            label="First Name"
-            name="firstName"
-            value={data.firstName || ''}
-            onChange={(value) => onChange('firstName', value)}
-            required={true}
-            updateOnBlur={true}
-          />
-          
-          <TextField
-            label="Last Name"
-            name="lastName"
-            value={data.lastName || ''}
-            onChange={(value) => onChange('lastName', value)}
-            required={true}
-            updateOnBlur={true}
-          />
-          
-          <SelectField
-            label="Rank"
-            name="rank"
-            value={data.rank || ''}
-            onChange={handleRankChangeWithLogic}
-            options={rankOptions}
-            required={true}
-          />
-        </div>
-        
         {/* Warning for title/rank mismatches */}
         {titleRankMismatch && (
           <Alert variant="destructive" className="cursor-pointer" onClick={titleRankMismatch.fix}>
@@ -224,8 +184,7 @@ export const BasicInfo = React.memo<SectionProps>(({
   // Render Guest-specific layout
   return (
     <div className="space-y-6">
-      {/* Desktop Layout (md and above) */}
-      <div className="hidden md:grid grid-cols-12 gap-4">
+      <div className="grid grid-cols-12 gap-4">
         {/* Title - 2 columns */}
         <div className="col-span-2">
           <SelectField
@@ -261,36 +220,6 @@ export const BasicInfo = React.memo<SectionProps>(({
             updateOnBlur={true}
           />
         </div>
-      </div>
-      
-      {/* Mobile Layout (smaller than md) */}
-      <div className="md:hidden space-y-4">
-        <SelectField
-          label="Title"
-          name="title"
-          value={data.title || ''}
-          onChange={handleTitleChangeWithLogic}
-          options={titleOptions}
-          required={true}
-        />
-        
-        <TextField
-          label="First Name"
-          name="firstName"
-          value={data.firstName || ''}
-          onChange={(value) => onChange('firstName', value)}
-          required={true}
-          updateOnBlur={true}
-        />
-        
-        <TextField
-          label="Last Name"
-          name="lastName"
-          value={data.lastName || ''}
-          onChange={(value) => onChange('lastName', value)}
-          required={true}
-          updateOnBlur={true}
-        />
       </div>
     </div>
   );
