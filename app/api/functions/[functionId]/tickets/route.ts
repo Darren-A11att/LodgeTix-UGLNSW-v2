@@ -73,6 +73,7 @@ export async function GET(
         ticket_price: ticket.ticket_price,
         event_id: ticket.event_id,
         event_title: ticket.event_title,
+        event_subtitle: ticket.event_subtitle,
         event_slug: ticket.event_slug,
         function_id: ticket.function_id,
         is_active: ticket.ticket_is_active,

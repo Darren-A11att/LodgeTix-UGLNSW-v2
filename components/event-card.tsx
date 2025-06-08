@@ -57,9 +57,9 @@ export function EventCard(props: EventCardProps) {
     ? `From ${formatCurrency(event.minPrice)}`
     : 'View pricing')
   
-  // Links - Get tickets goes to function registration, View Details goes to function page
+  // Links - Get tickets goes to function registration, View Details goes to event details page
   const registerLink = functionSlug ? `/functions/${functionSlug}/register` : `/functions/${slug}/register`
-  const detailsLink = functionSlug ? `/functions/${functionSlug}` : `/functions/${slug}`
+  const detailsLink = functionSlug ? `/functions/${functionSlug}/events/${slug}` : `/functions/${slug}/events/${slug}`
   
   return (
     <div className="group block border border-gray-200 rounded-lg overflow-hidden hover:shadow-lg transition-shadow duration-200">

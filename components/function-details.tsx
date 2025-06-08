@@ -11,16 +11,16 @@ interface FunctionDetailsProps {
 
 export function FunctionDetails({ function: fn }: FunctionDetailsProps) {
   // Calculate duration in days
-  const startDate = new Date(fn.startDate)
-  const endDate = new Date(fn.endDate)
+  const startDate = new Date(fn.start_date)
+  const endDate = new Date(fn.end_date)
   const durationDays = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1
 
   return (
     <div>
       {/* Hero Section */}
       <div className="relative h-96">
-        {fn.imageUrl ? (
-          <img src={fn.imageUrl} alt={fn.name} className="w-full h-full object-cover" />
+        {fn.image_url ? (
+          <img src={fn.image_url} alt={fn.name} className="w-full h-full object-cover" />
         ) : (
           <div className="w-full h-full bg-gray-200" />
         )}

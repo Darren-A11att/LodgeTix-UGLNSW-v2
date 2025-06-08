@@ -18,11 +18,11 @@ export function EventDetails({ event, functionSlug }: EventDetailsProps) {
       {/* Back to Function Link */}
       <div className="container mx-auto py-4">
         <Link 
-          href={`/functions/${functionSlug}`} 
+          href="/functions" 
           className="inline-flex items-center text-blue-600 hover:text-blue-800"
         >
           <ArrowLeft className="w-4 h-4 mr-2" />
-          Back to {event.functionName}
+          Back to Events
         </Link>
       </div>
 

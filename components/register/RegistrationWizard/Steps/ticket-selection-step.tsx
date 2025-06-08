@@ -1010,8 +1010,8 @@ const TicketSelectionStep: React.FC = () => {
                       <TableRow>
                         <TableHead className="w-[50px]"></TableHead>
                         <TableHead>Ticket</TableHead>
-                        <TableHead>Description</TableHead>
-                        <TableHead className="text-right">
+                        <TableHead className="hidden md:table-cell">Description</TableHead>
+                        <TableHead className="text-right hidden md:table-cell">
                           Availability
                         </TableHead>
                         <TableHead className="text-right">Price</TableHead>
@@ -1083,9 +1083,30 @@ const TicketSelectionStep: React.FC = () => {
                               <div className="w-5 h-5" /> // Empty space to maintain alignment
                             )}
                           </TableCell>
-                          <TableCell className="font-medium">{ticket.name}</TableCell>
-                          <TableCell>{ticket.description || 'No description available'}</TableCell>
-                          <TableCell className="text-right">
+                          <TableCell>
+                            <div>
+                              <div className="font-medium">{ticket.name}</div>
+                              {ticket.event_subtitle && (
+                                <div className="text-xs text-gray-500">{ticket.event_subtitle}</div>
+                              )}
+                              {/* Show availability on mobile */}
+                              <div className="md:hidden mt-1">
+                                {ticket.is_active === false ? (
+                                  <span className="text-xs text-gray-500">Inactive</span>
+                                ) : ticket.available_count === null ? (
+                                  <span className="text-xs text-green-600">Available</span>
+                                ) : ticket.available_count === 0 ? (
+                                  <span className="text-xs text-red-600">Sold Out</span>
+                                ) : ticket.available_count <= 10 ? (
+                                  <span className="text-xs text-amber-600">Only {ticket.available_count} left</span>
+                                ) : (
+                                  <span className="text-xs text-green-600">{ticket.available_count} available</span>
+                                )}
+                              </div>
+                            </div>
+                          </TableCell>
+                          <TableCell className="hidden md:table-cell">{ticket.description || 'No description available'}</TableCell>
+                          <TableCell className="text-right hidden md:table-cell">
                             {ticket.is_active === false ? (
                               <Badge variant="outline" className="bg-gray-100 text-gray-500">Inactive</Badge>
                             ) : (
@@ -1442,8 +1463,8 @@ const TicketSelectionStep: React.FC = () => {
                                               <Check className="h-3 w-3 text-green-600 mt-0.5" />
                                               <div>
                                                 <span>{ticket.name}</span>
-                                                {ticket.event_title && (
-                                                  <span className="text-xs text-gray-400 block">{ticket.event_title}</span>
+                                                {ticket.event_subtitle && (
+                                                  <span className="text-xs text-gray-400 block">{ticket.event_subtitle}</span>
                                                 )}
                                               </div>
                                             </li>
@@ -1466,8 +1487,8 @@ const TicketSelectionStep: React.FC = () => {
                               <TableRow>
                                 <TableHead className="w-[50px]"></TableHead>
                                 <TableHead>Ticket</TableHead>
-                                <TableHead>Description</TableHead>
-                                <TableHead className="text-right">
+                                <TableHead className="hidden md:table-cell">Description</TableHead>
+                                <TableHead className="text-right hidden md:table-cell">
                                   Availability
                                 </TableHead>
                                 <TableHead className="text-right">Price</TableHead>
@@ -1506,13 +1527,27 @@ const TicketSelectionStep: React.FC = () => {
                                   <TableCell>
                                     <div>
                                       <div className="font-medium">{ticket.name}</div>
-                                      {ticket.event_title && (
-                                        <div className="text-xs text-gray-500">{ticket.event_title}</div>
+                                      {ticket.event_subtitle && (
+                                        <div className="text-xs text-gray-500">{ticket.event_subtitle}</div>
                                       )}
+                                      {/* Show availability on mobile */}
+                                      <div className="md:hidden mt-1">
+                                        {ticket.is_active === false ? (
+                                          <span className="text-xs text-gray-500">Inactive</span>
+                                        ) : ticket.available_count === null ? (
+                                          <span className="text-xs text-green-600">Available</span>
+                                        ) : ticket.available_count === 0 ? (
+                                          <span className="text-xs text-red-600">Sold Out</span>
+                                        ) : ticket.available_count <= 10 ? (
+                                          <span className="text-xs text-amber-600">Only {ticket.available_count} left</span>
+                                        ) : (
+                                          <span className="text-xs text-green-600">{ticket.available_count} available</span>
+                                        )}
+                                      </div>
                                     </div>
                                   </TableCell>
-                                  <TableCell>{ticket.description || 'No description available'}</TableCell>
-                                  <TableCell className="text-right">
+                                  <TableCell className="hidden md:table-cell">{ticket.description || 'No description available'}</TableCell>
+                                  <TableCell className="text-right hidden md:table-cell">
                                     {ticket.is_active === false ? (
                                       <Badge variant="outline" className="bg-gray-100 text-gray-500">Inactive</Badge>
                                     ) : (

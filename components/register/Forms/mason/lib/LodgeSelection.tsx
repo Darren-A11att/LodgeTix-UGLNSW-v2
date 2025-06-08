@@ -605,11 +605,11 @@ export const LodgeSelection: React.FC<LodgeSelectionProps> = ({
     if (!grand_lodge_id) return 'Select a Grand Lodge first';
     
     if (hasCachedLodges()) {
-      return 'Select from list or type to search';
+      return 'Type to search lodges...';
     }
     
     if (ipData?.region_code && ipData?.region) {
-      return `Search for Lodges in ${ipData.region} or globally...`;
+      return `Type to Search for Lodges in ${ipData.region} or globally`;
     }
     
     return 'Type to search lodges...';

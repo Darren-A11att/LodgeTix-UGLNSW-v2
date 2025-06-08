@@ -15,9 +15,7 @@ export function EventsPageHeader({ functionData }: EventsPageHeaderProps) {
     : `${format(startDate, 'd MMM')} - ${format(endDate, 'd MMM yyyy')}`
   
   // Get location display
-  const locationDisplay = functionData.location 
-    ? `${functionData.location.suburb || functionData.location.place_name}, ${functionData.location.state}`
-    : 'Various locations'
+  const locationDisplay = functionData.location?.place_name || 'Various locations'
 
   // Function details for cards
   const cards = [

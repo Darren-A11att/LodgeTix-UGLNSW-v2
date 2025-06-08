@@ -9,6 +9,7 @@ interface FunctionTicketDefinitionRaw {
   ticket_price: number
   event_id: string
   event_title: string
+  event_subtitle: string | null
   event_slug: string
   function_id: string
   is_active: boolean | null
@@ -28,6 +29,7 @@ export interface FunctionTicketDefinition {
   price: number
   event_id: string
   event_title: string
+  event_subtitle: string | null
   event_slug: string
   function_id: string
   is_active: boolean | null
@@ -90,6 +92,7 @@ function adaptTicketToFrontend(rawTicket: FunctionTicketDefinitionRaw): Function
     price: rawTicket.ticket_price,
     event_id: rawTicket.event_id,
     event_title: rawTicket.event_title,
+    event_subtitle: rawTicket.event_subtitle,
     event_slug: rawTicket.event_slug,
     function_id: rawTicket.function_id,
     is_active: rawTicket.is_active,

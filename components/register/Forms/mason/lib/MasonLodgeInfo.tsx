@@ -594,7 +594,7 @@ const MasonLodgeInfo: React.FC<MasonLodgeInfoProps> = ({
     const hasCachedLodges = cacheForGl?.data?.length > 0;
     
     if (hasCachedLodges) {
-      return "Select from cached lodges or search...";
+      return "Type to Search Lodge";
     }
     
     return "Search Lodge name, number, town...";
