@@ -84,7 +84,7 @@ export const OrderSummaryWithFees: React.FC<OrderSummaryWithFeesProps> = ({
                     </Tooltip>
                   </TooltipProvider>
                 </span>
-                <span>${feeCalculation.stripeFee.toFixed(2)}</span>
+                <span>${feeCalculation.processingFeesDisplay.toFixed(2)}</span>
               </div>
             )}
           </div>

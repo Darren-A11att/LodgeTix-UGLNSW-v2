@@ -1006,7 +1006,7 @@ function PaymentStep(props: PaymentStepProps) {
                           </Tooltip>
                         </TooltipProvider>
                       </span>
-                      <span className="font-medium text-gray-900">${feeCalculation.stripeFee.toFixed(2)}</span>
+                      <span className="font-medium text-gray-900">${feeCalculation.processingFeesDisplay.toFixed(2)}</span>
                     </div>
                   </div>
                   

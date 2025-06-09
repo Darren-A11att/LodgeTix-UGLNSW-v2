@@ -13,11 +13,18 @@ export type { UnifiedAttendeeData };
 export interface LodgeTicketOrder {
   tableCount: number;
   totalTickets: number;
-  galaDinnerTickets: number;
-  ceremonyTickets: number;
+  galaDinnerTickets: number; // Deprecated - kept for backward compatibility
+  ceremonyTickets: number; // Deprecated - kept for backward compatibility
   eventId: string;
-  galaDinnerEventId: string;
-  ceremonyEventId: string;
+  galaDinnerEventId: string; // Deprecated - kept for backward compatibility
+  ceremonyEventId: string; // Deprecated - kept for backward compatibility
+  // New flexible structure for dynamic ticket types
+  includedTickets?: Array<{
+    ticketId: string;
+    ticketName: string;
+    quantity: number;
+    eventId: string;
+  }>;
 }
 
 // --- Placeholder Types (Defined locally) ---
