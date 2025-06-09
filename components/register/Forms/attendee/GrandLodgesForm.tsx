@@ -1,10 +1,10 @@
-import React, { useCallback, useEffect, useState, useMemo } from 'react';
+import React, { useCallback, useEffect, useState, useMemo, useRef } from 'react';
 import { useRegistrationStore } from '@/lib/registrationStore';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Info, ShoppingCart, Users, Package, Check, Building, Plus, X, UserPlus } from 'lucide-react';
+import { Info, ShoppingCart, Users, Package, Check, Building, Plus, X, UserPlus, CreditCard, ShieldCheck, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import formSaveManager from '@/lib/formSaveManager';
@@ -16,6 +16,14 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
+import { ChevronRight } from 'lucide-react';
+import { loadStripe } from '@stripe/stripe-js';
+import { Elements } from '@stripe/react-stripe-js';
+import { CheckoutForm, CheckoutFormHandle } from '../../RegistrationWizard/payment/CheckoutForm';
+import { StripeBillingDetailsForClient } from '../../RegistrationWizard/payment/types';
+import { useRouter } from 'next/navigation';
+import { getFunctionTicketsService, FunctionTicketDefinition, FunctionPackage } from '@/lib/services/function-tickets-service';
+import { calculateStripeFees, getFeeModeFromEnv, getProcessingFeeLabel } from '@/lib/utils/stripe-fee-calculator';
 
 // Import form components
 import { BasicInfo } from '../basic-details/BasicInfo';
@@ -47,6 +55,10 @@ const EVENT_IDS = {
 
 // Table package configuration (10 tickets per table)
 const TABLE_SIZE = 10;
+
+// Get Stripe publishable key
+const stripePublishableKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!;
+const stripePromise = loadStripe(stripePublishableKey);
 const TABLE_PRICE = 1950; // $195 per ticket x 10 = $1950 per table
 
 interface GrandLodgesFormProps {
@@ -54,6 +66,7 @@ interface GrandLodgesFormProps {
   minTables?: number;
   maxTables?: number;
   onComplete?: () => void;
+  onValidationError?: (errors: string[]) => void;
   className?: string;
   fieldErrors?: Record<string, Record<string, string>>;
 }
@@ -78,14 +91,22 @@ interface DelegationMember {
   isEditing?: boolean;
 }
 
-export const GrandLodgesForm: React.FC<GrandLodgesFormProps> = ({
+export interface GrandLodgesFormHandle {
+  submit: () => void;
+}
+
+export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodgesFormProps>(({
   functionId,
   minTables = 1,
   maxTables = 10,
   onComplete,
+  onValidationError,
   className,
   fieldErrors,
-}) => {
+}, ref) => {
+  const router = useRouter();
+  const checkoutFormRef = useRef<CheckoutFormHandle>(null);
+  
   const { 
     attendees, 
     addMasonAttendee,
@@ -111,6 +132,16 @@ export const GrandLodgesForm: React.FC<GrandLodgesFormProps> = ({
   const [editingMember, setEditingMember] = useState<DelegationMember | null>(null);
   const [delegationOrder, setDelegationOrder] = useState(1);
   const [delegationTypeTab, setDelegationTypeTab] = useState<'grandLodge' | 'masonicOrder'>('grandLodge');
+  
+  // Payment state for ticket purchase
+  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
+  const [paymentError, setPaymentError] = useState<string | null>(null);
+  const [showPaymentForm, setShowPaymentForm] = useState(false);
+  
+  // Dynamic data state
+  const [functionPackages, setFunctionPackages] = useState<FunctionPackage[]>([]);
+  const [isLoadingData, setIsLoadingData] = useState(true);
+  const [dataError, setDataError] = useState<string | null>(null);
   
   // One-time initialization - move useRef before other hooks to maintain order
   const isInitializedRef = React.useRef(false);
@@ -149,6 +180,8 @@ export const GrandLodgesForm: React.FC<GrandLodgesFormProps> = ({
         updateAttendee(primaryId, {
           isPrimary: true,
           attendeeType: 'Mason',
+          rank: 'GL', // Default to Grand Lodge rank
+          grandOfficerStatus: 'Present', // Default to Present Grand Officer
         });
         setPrimaryAttendeeId(primaryId);
       }
@@ -253,31 +286,98 @@ export const GrandLodgesForm: React.FC<GrandLodgesFormProps> = ({
     }
   }, [updateFieldImmediate, primaryAttendeeId]);
 
-  // Validate and complete
-  const handleComplete = useCallback(() => {
-    formSaveManager.saveBeforeNavigation().then(() => {
-      // Validate based on delegation type tab
-      if (delegationTypeTab === 'grandLodge') {
-        if (!selectedGrandLodge) {
-          alert('Please select a Grand Lodge');
-          return;
-        }
-      } else if (delegationTypeTab === 'masonicOrder') {
-        if (!primaryAttendee?.organisationName || !primaryAttendee?.organisationAbbreviation || !primaryAttendee?.organisationKnownAs) {
-          alert('Please complete all Masonic Order fields');
-          return;
-        }
+  // Get validation errors based on current tab
+  const getValidationErrors = useCallback(() => {
+    const errors: string[] = [];
+    
+    // Validate based on delegation type tab
+    if (delegationTypeTab === 'grandLodge') {
+      if (!selectedGrandLodge) {
+        errors.push('Grand Lodge selection is required');
+      }
+    } else if (delegationTypeTab === 'masonicOrder') {
+      if (!primaryAttendee?.organisationName) {
+        errors.push('Masonic Order formal name is required');
+      }
+      if (!primaryAttendee?.organisationAbbreviation) {
+        errors.push('Masonic Order abbreviation is required');
+      }
+      if (!primaryAttendee?.organisationKnownAs) {
+        errors.push('Masonic Order known as name is required');
+      }
+    }
+    
+    // For Purchase Tickets Only tab, only validate booking contact fields
+    if (activeTab === 'purchaseOnly') {
+      // Validate only the booking contact required fields
+      if (!primaryAttendee?.firstName) {
+        errors.push('Booking Contact: First name is required');
+      }
+      if (!primaryAttendee?.lastName) {
+        errors.push('Booking Contact: Last name is required');
+      }
+      if (!primaryAttendee?.primaryEmail) {
+        errors.push('Booking Contact: Email is required');
+      }
+      if (!primaryAttendee?.primaryPhone) {
+        errors.push('Booking Contact: Phone number is required');
+      }
+    } else {
+      // For Register Delegation tab, validate all primary attendee fields
+      if (!primaryAttendee?.title) {
+        errors.push('Booking Contact: Title is required');
+      }
+      if (!primaryAttendee?.firstName) {
+        errors.push('Booking Contact: First name is required');
+      }
+      if (!primaryAttendee?.lastName) {
+        errors.push('Booking Contact: Last name is required');
+      }
+      if (!primaryAttendee?.rank) {
+        errors.push('Booking Contact: Rank is required');
+      }
+      if (!primaryAttendee?.primaryEmail) {
+        errors.push('Booking Contact: Email is required');
+      }
+      if (!primaryAttendee?.primaryPhone) {
+        errors.push('Booking Contact: Phone number is required');
       }
       
-      if (!primaryAttendee || !primaryAttendee.firstName || !primaryAttendee.lastName) {
-        alert('Please complete the booking contact details');
+      // For Grand Officer fields (when rank is GL)
+      if (primaryAttendee?.rank === 'GL' && primaryAttendee?.grandOfficerStatus === 'Present' && !primaryAttendee?.presentGrandOfficerRole) {
+        errors.push('Booking Contact: Grand Officer role is required');
+      }
+    }
+    
+    return errors;
+  }, [activeTab, delegationTypeTab, primaryAttendee, selectedGrandLodge]);
+
+  // Validate and complete
+  const handleComplete = useCallback(() => {
+    console.log('[GrandLodgesForm] handleComplete called');
+    console.log('[GrandLodgesForm] activeTab:', activeTab);
+    console.log('[GrandLodgesForm] primaryAttendee:', primaryAttendee);
+    
+    formSaveManager.saveBeforeNavigation().then(() => {
+      const errors = getValidationErrors();
+      console.log('[GrandLodgesForm] Validation errors:', errors);
+      
+      // Check if there are validation errors
+      if (errors.length > 0) {
+        // Pass errors to parent through callback
+        if (onValidationError) {
+          console.log('[GrandLodgesForm] Calling onValidationError with errors');
+          onValidationError(errors);
+        }
         return;
       }
       
       if (activeTab === 'purchaseOnly') {
         // For purchase only, validate ticket count
         if (ticketCount < 1) {
-          alert('Please select at least 1 ticket');
+          if (onValidationError) {
+            onValidationError(['Please select at least 1 ticket']);
+          }
           return;
         }
         
@@ -294,16 +394,20 @@ export const GrandLodgesForm: React.FC<GrandLodgesFormProps> = ({
           });
         }
         
-        // Skip directly to payment step (step 3)
-        if (onComplete) {
-          // Set flag to skip ticket selection step
-          useRegistrationStore.getState().setCurrentStep(3);
-          onComplete();
-        }
+        // Skip directly to payment step (step 5)
+        // Skip ticket selection (step 3) and order review (step 4)
+        console.log('[GrandLodgesForm] Purchase only validation passed, jumping to payment step');
+        useRegistrationStore.getState().setCurrentStep(5); // Step 5 is payment
+        
+        // Since we manually set the step, we should not call onComplete
+        // as it would increment the step again
+        return;
       } else {
         // For register delegation, validate delegation members
         if (delegationMembers.length === 0) {
-          alert('Please add at least one delegation member');
+          if (onValidationError) {
+            onValidationError(['Please add at least one delegation member']);
+          }
           return;
         }
         
@@ -313,7 +417,21 @@ export const GrandLodgesForm: React.FC<GrandLodgesFormProps> = ({
         );
         
         if (invalidMembers.length > 0) {
-          alert('Please complete all required fields for delegation members');
+          if (onValidationError) {
+            const memberErrors: string[] = [];
+            delegationMembers.forEach((member, index) => {
+              if (!member.firstName) {
+                memberErrors.push(`Delegation Member ${index + 1}: First name is required`);
+              }
+              if (!member.lastName) {
+                memberErrors.push(`Delegation Member ${index + 1}: Last name is required`);
+              }
+              if (!member.title) {
+                memberErrors.push(`Delegation Member ${index + 1}: Title is required`);
+              }
+            });
+            onValidationError(memberErrors);
+          }
           return;
         }
         
@@ -360,7 +478,121 @@ export const GrandLodgesForm: React.FC<GrandLodgesFormProps> = ({
         }
       }
     });
-  }, [selectedGrandLodge, primaryAttendee, activeTab, ticketCount, delegationMembers, onComplete, setLodgeTicketOrder, addMasonAttendee, addGuestAttendee, addPartnerAttendee, updateAttendee, primaryAttendeeId, delegationTypeTab]);
+  }, [selectedGrandLodge, primaryAttendee, activeTab, ticketCount, delegationMembers, onComplete, onValidationError, setLodgeTicketOrder, addMasonAttendee, addGuestAttendee, addPartnerAttendee, updateAttendee, primaryAttendeeId, delegationTypeTab, getValidationErrors]);
+
+  // Payment handlers for ticket-only purchase
+  const handlePaymentSuccess = useCallback(async (paymentMethodId: string, billingDetails: StripeBillingDetailsForClient) => {
+    console.log('[GrandLodgesForm] Payment success, processing ticket purchase');
+    
+    try {
+      // Calculate fees
+      const subtotal = ticketCount * 195;
+      const feeCalculation = calculateStripeFees(subtotal, { isDomesticCard: true });
+      const totalAmount = feeCalculation.customerPayment;
+      
+      // Create payment intent and process registration
+      const response = await fetch(`/api/functions/${functionId}/tickets/purchase`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ticketCount,
+          bookingContact: {
+            firstName: primaryAttendee?.firstName,
+            lastName: primaryAttendee?.lastName,
+            email: primaryAttendee?.primaryEmail,
+            phone: primaryAttendee?.primaryPhone,
+          },
+          grandLodgeId: selectedGrandLodge,
+          delegationType: delegationTypeTab,
+          paymentMethodId,
+          amount: totalAmount * 100, // Convert to cents
+          subtotal: subtotal * 100,
+          stripeFee: feeCalculation.stripeFee * 100,
+          billingDetails,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to process payment');
+      }
+
+      if (result.success && result.confirmationNumber) {
+        // Redirect to confirmation page
+        console.log('[GrandLodgesForm] Payment successful, redirecting to confirmation');
+        router.push(`/functions/${functionId}/register/confirmation/tickets/${result.confirmationNumber}`);
+      } else {
+        throw new Error('Payment failed');
+      }
+    } catch (err: any) {
+      console.error('Payment error:', err);
+      setPaymentError(err.message || 'Failed to complete payment');
+      setIsProcessingPayment(false);
+    }
+  }, [ticketCount, primaryAttendee, selectedGrandLodge, delegationTypeTab, functionId, router]);
+
+  const handlePaymentError = useCallback((error: string) => {
+    console.error('Payment error:', error);
+    setPaymentError(error);
+    setIsProcessingPayment(false);
+  }, []);
+
+  const handlePurchaseTickets = useCallback(async () => {
+    // Validate form
+    const errors = getValidationErrors();
+    if (errors.length > 0) {
+      if (onValidationError) {
+        onValidationError(errors);
+      }
+      return;
+    }
+
+    if (ticketCount < 1) {
+      setPaymentError('Please select at least 1 ticket');
+      return;
+    }
+
+    // Clear any previous errors
+    setPaymentError(null);
+    setIsProcessingPayment(true);
+
+    // Trigger payment method creation in CheckoutForm
+    if (checkoutFormRef.current) {
+      const result = await checkoutFormRef.current.createPaymentMethod();
+      if (result.error) {
+        setPaymentError(result.error);
+        setIsProcessingPayment(false);
+      }
+      // Success is handled by onPaymentSuccess callback
+    } else {
+      setPaymentError('Payment form not ready');
+      setIsProcessingPayment(false);
+    }
+  }, [getValidationErrors, ticketCount, onValidationError]);
+
+  // Get billing details for Stripe
+  const getBillingDetails = useCallback((): StripeBillingDetailsForClient => {
+    return {
+      name: `${primaryAttendee?.firstName || ''} ${primaryAttendee?.lastName || ''}`,
+      email: primaryAttendee?.primaryEmail || '',
+      phone: primaryAttendee?.primaryPhone || '',
+      address: {
+        line1: primaryAttendee?.addressLine1 || '',
+        city: primaryAttendee?.suburb || '',
+        state: primaryAttendee?.stateTerritory?.name || '',
+        postal_code: primaryAttendee?.postcode || '',
+        country: primaryAttendee?.country?.isoCode || 'AU',
+      }
+    };
+  }, [primaryAttendee]);
+
+  // Expose submit method to parent
+  React.useImperativeHandle(ref, () => ({
+    submit: handleComplete
+  }), [handleComplete]);
 
   return (
     <div className={cn("space-y-6", className)}>
@@ -575,19 +807,99 @@ export const GrandLodgesForm: React.FC<GrandLodgesFormProps> = ({
                         <span className="text-gray-600">Tickets</span>
                         <span className="font-medium">{ticketCount} × $195</span>
                       </div>
+                      
+                      {getFeeModeFromEnv() === 'pass_to_customer' && (
+                        <>
+                          <div className="flex justify-between items-center">
+                            <span className="text-gray-600">Subtotal</span>
+                            <span className="font-medium">${(ticketCount * 195).toLocaleString()}</span>
+                          </div>
+                          <div className="flex justify-between items-center">
+                            <span className="text-gray-600">Processing Fee</span>
+                            <span className="font-medium">
+                              ${calculateStripeFees(ticketCount * 195, { isDomesticCard: true }).processingFeesDisplay.toFixed(2)}
+                            </span>
+                          </div>
+                        </>
+                      )}
                     </div>
 
                     <div className="border-t pt-4">
                       <div className="flex justify-between items-center">
                         <span className="text-lg font-semibold">Total Amount</span>
                         <span className="text-2xl font-bold text-primary">
-                          ${(ticketCount * 195).toLocaleString()}
+                          ${calculateStripeFees(ticketCount * 195, { isDomesticCard: true }).customerPayment.toLocaleString()}
                         </span>
                       </div>
                     </div>
                   </div>
                 </div>
               </div>
+
+              {/* Payment Section - Only show in Purchase Tickets mode */}
+              {activeTab === 'purchaseOnly' && (
+                <div className="mt-6 border-t pt-6">
+                  <div className="mb-4">
+                    <h3 className="font-medium text-lg flex items-center gap-2">
+                      <CreditCard className="w-5 h-5" />
+                      Payment Information
+                    </h3>
+                    <p className="text-sm text-gray-600 mt-1">
+                      Complete your purchase by entering your payment details below
+                    </p>
+                  </div>
+
+                  {/* Security Note */}
+                  <Alert className="border-blue-200 bg-blue-50 mb-4">
+                    <ShieldCheck className="h-4 w-4 text-blue-600" />
+                    <AlertDescription className="text-sm text-blue-800">
+                      Your payment information is securely processed by Stripe. We never store your card details.
+                    </AlertDescription>
+                  </Alert>
+
+                  {/* Error display */}
+                  {paymentError && (
+                    <Alert variant="destructive" className="mb-4">
+                      <AlertDescription>{paymentError}</AlertDescription>
+                    </Alert>
+                  )}
+
+                  {/* Stripe Elements */}
+                  <Elements stripe={stripePromise}>
+                    <CheckoutForm
+                      ref={checkoutFormRef}
+                      totalAmount={calculateStripeFees(ticketCount * 195, { isDomesticCard: true }).customerPayment}
+                      onPaymentSuccess={handlePaymentSuccess}
+                      onPaymentError={handlePaymentError}
+                      setIsProcessingPayment={setIsProcessingPayment}
+                      billingDetails={getBillingDetails()}
+                      isProcessing={isProcessingPayment}
+                    />
+                  </Elements>
+
+                  {/* Purchase Button */}
+                  <div className="mt-6">
+                    <Button
+                      onClick={handlePurchaseTickets}
+                      disabled={!selectedGrandLodge || ticketCount < 1 || isProcessingPayment}
+                      className="w-full"
+                      size="lg"
+                    >
+                      {isProcessingPayment ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Processing Payment...
+                        </>
+                      ) : (
+                        <>
+                          <CreditCard className="mr-2 h-4 w-4" />
+                          Complete Purchase
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -733,7 +1045,7 @@ export const GrandLodgesForm: React.FC<GrandLodgesFormProps> = ({
       </Dialog>
     </div>
   );
-};
+});
 
 // Delegation Member Row Component
 const DelegationMemberRow: React.FC<{

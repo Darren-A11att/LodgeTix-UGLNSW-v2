@@ -500,6 +500,9 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ function
       if (registrationType === 'lodge') {
         // Lodge validation is handled by the LodgeRegistrationStore
         errors = []; // No attendee validation for lodge registrations
+      } else if (registrationType === 'delegation') {
+        // Delegation validation is handled internally by GrandLodgesForm
+        errors = []; // No attendee validation for delegation registrations
       } else {
         errors = validateAttendeeData(allAttendees);
       }
@@ -563,6 +566,11 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ function
         
         // Debounce validation by 500ms to reduce frequency
         validationTimeoutRef.current = setTimeout(() => {
+          // Skip validation for delegation type - it's handled internally
+          if (registrationType === 'delegation') {
+            setValidationErrors([]);
+            return;
+          }
           const errors = validateAttendeeData(allAttendees); // Call it directly
           setValidationErrors(errors);
           

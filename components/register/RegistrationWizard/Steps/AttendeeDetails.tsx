@@ -1,10 +1,10 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useRef } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useRegistrationStore } from '@/lib/registrationStore';
 // Lodge registration store is now part of the unified store
 import { IndividualsForm } from '../../Forms/attendee/IndividualsForm';
 import { LodgesForm } from '../../Forms/attendee/LodgesForm';
-import { GrandLodgesForm } from '../../Forms/attendee/GrandLodgesForm';
+import { GrandLodgesForm, GrandLodgesFormHandle } from '../../Forms/attendee/GrandLodgesForm';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import TermsAndConditions from '../../Functions/TermsAndConditions';
@@ -51,6 +51,12 @@ const AttendeeDetails: React.FC<AttendeeDetailsProps> = ({
       // For lodge registration, use the lodge store validation
       return isLodgeFormValid() && agreeToTerms;
     }
+    if (registrationType === 'delegation') {
+      // For delegation registration, we need custom validation
+      // If there are no attendees (just the primary booking contact), validation should be minimal
+      // The GrandLodgesForm handles its own validation internally
+      return agreeToTerms;
+    }
     // For other registration types, use the standard validation
     return validationErrors.length === 0 && agreeToTerms;
   }, [registrationType, isLodgeFormValid, validationErrors, agreeToTerms]);
@@ -89,8 +95,18 @@ const AttendeeDetails: React.FC<AttendeeDetailsProps> = ({
     return errorMap;
   }, [validationErrors]);
   
+  // Reference to store the form's submit handler
+  const grandLodgesFormRef = useRef<GrandLodgesFormHandle | null>(null);
+  
   const handleContinue = useCallback(() => {
     setAttemptedSubmit(true);
+    
+    // For delegation type, we need to trigger the form's validation
+    if (registrationType === 'delegation' && grandLodgesFormRef.current) {
+      // Trigger the form's submit method which will handle validation
+      grandLodgesFormRef.current.submit();
+      return;
+    }
     
     if (!isFormValid) {
       // Show validation modal with errors
@@ -100,7 +116,38 @@ const AttendeeDetails: React.FC<AttendeeDetailsProps> = ({
     }
     
     nextStep();
-  }, [isFormValid, nextStep]);
+  }, [isFormValid, nextStep, registrationType]);
+  
+  // State to store delegation validation errors
+  const [delegationValidationErrors, setDelegationValidationErrors] = useState<string[]>([]);
+  
+  // Special handler for delegation forms that checks terms and proceeds
+  const handleDelegationComplete = useCallback(() => {
+    // Check terms agreement first
+    if (!agreeToTerms) {
+      const errors = ['You must agree to the terms and conditions'];
+      setValidationErrors(errors);
+      setShowValidationModal(true);
+      setShowErrors(true);
+      return;
+    }
+    
+    // All validation passed, proceed to next step
+    nextStep();
+  }, [agreeToTerms, nextStep]);
+  
+  // Handler for delegation validation errors
+  const handleDelegationValidationError = useCallback((errors: string[]) => {
+    // Add terms error if not agreed
+    const allErrors = [...errors];
+    if (!agreeToTerms) {
+      allErrors.push('You must agree to the terms and conditions');
+    }
+    
+    setValidationErrors(allErrors);
+    setShowValidationModal(true);
+    setShowErrors(true);
+  }, [agreeToTerms]);
   
   // Format validation errors for modal
   const formatValidationErrors = () => {
@@ -109,6 +156,16 @@ const AttendeeDetails: React.FC<AttendeeDetailsProps> = ({
     if (registrationType === 'lodge') {
       // For lodge registration, get errors from lodge store
       errors = getLodgeValidationErrors();
+    } else if (registrationType === 'delegation') {
+      // For delegation registration, only check terms agreement
+      // The GrandLodgesForm handles its own internal validation
+      if (!agreeToTerms) {
+        errors.push('You must agree to the terms and conditions');
+      }
+      return errors.map(error => ({
+        field: 'Terms & Conditions',
+        message: error
+      }));
     } else {
       // For other registration types, use standard validation errors
       errors = [...validationErrors];
@@ -141,9 +198,19 @@ const AttendeeDetails: React.FC<AttendeeDetailsProps> = ({
         );
       
       case 'lodge':
+        // Check if we have a valid functionId from the store
+        if (!functionId) {
+          return (
+            <Alert variant="destructive">
+              <AlertDescription>
+                Function ID is not available. Please refresh the page and try again.
+              </AlertDescription>
+            </Alert>
+          );
+        }
         return (
           <LodgesForm
-            functionId={FEATURED_FUNCTION_ID}
+            functionId={functionId}
             minTables={1}
             maxTables={10}
             onComplete={handleContinue}
@@ -153,10 +220,22 @@ const AttendeeDetails: React.FC<AttendeeDetailsProps> = ({
       
       case 'delegation':
         // Official Delegation uses GrandLodgesForm
+        // Check if we have a valid functionId from the store
+        if (!functionId) {
+          return (
+            <Alert variant="destructive">
+              <AlertDescription>
+                Function ID is not available. Please refresh the page and try again.
+              </AlertDescription>
+            </Alert>
+          );
+        }
         return (
           <GrandLodgesForm
-            functionId={FEATURED_FUNCTION_ID}
-            onComplete={handleContinue}
+            ref={grandLodgesFormRef}
+            functionId={functionId}
+            onComplete={handleDelegationComplete} // Use special handler that checks terms
+            onValidationError={handleDelegationValidationError} // Pass validation error handler
             fieldErrors={showErrors ? fieldErrorsByAttendee : {}}
           />
         );
