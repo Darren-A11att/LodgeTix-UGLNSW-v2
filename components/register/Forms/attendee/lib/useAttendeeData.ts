@@ -79,14 +79,14 @@ export const useAttendeeDataWithDebounce = (attendeeId: string, delay = 300) => 
   const { updateField, updateMultipleFields, ...rest } = useAttendeeData(attendeeId);
   
   // Create debounced versions of the update functions with configurable delay
-  // Use leading: true to update immediately and trailing: true to also update after delay
-  // This prevents the flickering issue while still providing debounce benefits
+  // Use leading: true only to update immediately without double updates
+  // This prevents data loss while avoiding duplicate saves
   const debouncedUpdateField = useDebouncedCallback(
     updateField, 
     delay,
     { 
       leading: true,  // Update immediately on first call
-      trailing: true, // Also update after delay
+      trailing: false, // Don't update again after delay to prevent double updates
       maxWait: delay * 2 // Ensure update happens within reasonable time
     }
   );
@@ -96,7 +96,7 @@ export const useAttendeeDataWithDebounce = (attendeeId: string, delay = 300) => 
     delay,
     { 
       leading: true,
-      trailing: true,
+      trailing: false, // Prevent double updates
       maxWait: delay * 2
     }
   );

@@ -206,13 +206,22 @@ export const LodgesForm: React.FC<LodgesFormProps> = ({
 
   // Update Grand Lodge
   const handleGrandLodgeChange = useCallback((grandLodgeId: string) => {
-    updateLodgeDetails({
-      grand_lodge_id: grandLodgeId,
-      // Clear lodge when grand lodge changes
-      lodge_id: '',
-      lodgeName: '',
-    });
-  }, [updateLodgeDetails]);
+    // Only clear lodge if we're actually changing to a different grand lodge
+    const currentGrandLodgeId = lodgeDetails?.grand_lodge_id;
+    if (currentGrandLodgeId && currentGrandLodgeId !== grandLodgeId) {
+      // Clear lodge when switching to a different grand lodge
+      updateLodgeDetails({
+        grand_lodge_id: grandLodgeId,
+        lodge_id: '',
+        lodgeName: '',
+      });
+    } else {
+      // Just update the grand lodge without clearing lodge selection
+      updateLodgeDetails({
+        grand_lodge_id: grandLodgeId,
+      });
+    }
+  }, [updateLodgeDetails, lodgeDetails?.grand_lodge_id]);
 
   // No field change handlers needed - BookingContactSection will use lodge store directly
 

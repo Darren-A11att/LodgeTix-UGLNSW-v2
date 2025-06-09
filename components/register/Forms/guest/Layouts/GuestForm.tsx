@@ -72,7 +72,7 @@ export const GuestForm: React.FC<GuestFormProps> = ({ attendeeId, attendeeNumber
   const titleOptions = GUEST_TITLES.map(title => ({ value: title, label: title }));
   
   return (
-    <div className="p-4 space-y-4 relative">
+    <div className="pt-0 px-3 pb-3 sm:p-4 space-y-3 sm:space-y-4 relative">
       
       {/* For First Row Layout */}
       <div className="hidden md:block">

@@ -155,7 +155,7 @@ export const MasonForm: React.FC<MasonFormProps> = ({ attendeeId, attendeeNumber
   }));
   
   return (
-    <div className="p-4 space-y-4 relative" data-attendee-id={attendeeId}>
+    <div className="pt-0 px-3 pb-3 sm:p-4 space-y-3 sm:space-y-4 relative" data-attendee-id={attendeeId}>
       
       {/* Desktop Layout (md and above) */}
       <div className="hidden md:block space-y-4">

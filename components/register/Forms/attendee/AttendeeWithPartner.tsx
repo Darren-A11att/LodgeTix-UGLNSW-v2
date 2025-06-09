@@ -1,6 +1,6 @@
-import React, { lazy, Suspense, useMemo } from 'react';
+import React, { lazy, Suspense, useMemo, useCallback } from 'react';
 import { usePartnerManager } from './lib/usePartnerManager';
-import { FormProps } from './types';
+import { FormProps, AttendeeData } from './types';
 import { PartnerToggle } from '../shared/PartnerToggle';
 import { Separator } from '@/components/ui/separator';
 import { Button } from '@/components/ui/button';
@@ -35,6 +35,20 @@ export const AttendeeWithPartner: React.FC<AttendeeWithPartnerProps> = ({
   fieldErrors = {},
 }) => {
   const { attendee, partner, hasPartner, togglePartner, updatePartnerRelationship } = usePartnerManager(attendeeId);
+
+  // Helper function to generate dynamic partner header
+  const getPartnerTitle = useCallback((partner: AttendeeData | null) => {
+    if (!partner || (!partner.firstName && !partner.lastName)) {
+      return 'Partner Details';
+    }
+    
+    const parts: string[] = [];
+    if (partner.title) parts.push(partner.title);
+    if (partner.firstName) parts.push(partner.firstName);
+    if (partner.lastName) parts.push(partner.lastName);
+    
+    return parts.join(' ') || 'Partner Details';
+  }, []);
 
   // Determine which form to render based on attendee type
   const AttendeeFormComponent = useMemo(() => {
@@ -108,7 +122,7 @@ export const AttendeeWithPartner: React.FC<AttendeeWithPartnerProps> = ({
         <>
           <Separator className="my-4" />
           <div className="flex justify-between items-center px-4 mb-2">
-            <h3 className="text-lg font-semibold">Partner Details</h3>
+            <h3 className="text-lg font-semibold">{getPartnerTitle(partner)}</h3>
             <Button
               variant="ghost"
               size="sm"

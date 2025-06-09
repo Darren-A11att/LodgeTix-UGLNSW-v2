@@ -30,7 +30,8 @@ export async function POST(request: Request) {
       paymentIntentId = null,
       customerId,
       agreeToTerms = true,
-      registrationId = null // Optional for draft recovery
+      registrationId = null, // Optional for draft recovery
+      connectedAccountId = null // NEW: Stripe connected account ID
     } = data;
     
     // Validate required fields
@@ -219,6 +220,7 @@ export async function POST(request: Request) {
       p_total_amount: totalAmount,
       p_subtotal: subtotal,
       p_stripe_fee: stripeFee,
+      p_connected_account_id: connectedAccountId, // NEW: Pass connected account ID
       p_metadata: {
         agreeToTerms,
         createdVia: 'lodge_registration_api'
@@ -305,9 +307,11 @@ export async function POST(request: Request) {
     return NextResponse.json({
       success: true,
       registrationId: rpcResult.registrationId,
+      connectedAccountId: rpcResult.connectedAccountId, // NEW: For payment processing
       registrationData: {
         registration_id: rpcResult.registrationId,
         customer_id: rpcResult.customerId,
+        connected_account_id: rpcResult.connectedAccountId, // NEW: Include in data
         organisation_name: rpcResult.organisationName,
         table_count: rpcResult.tableCount,
         total_attendees: rpcResult.totalAttendees

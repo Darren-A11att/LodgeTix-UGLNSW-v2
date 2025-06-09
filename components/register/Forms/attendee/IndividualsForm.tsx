@@ -1,11 +1,11 @@
-import React, { useCallback, useState, useMemo, useEffect } from 'react';
+import React, { useCallback, useState, useMemo, useEffect, useRef } from 'react';
 import { useRegistrationStore } from '@/lib/registrationStore';
 import { AttendeeWithPartner } from './AttendeeWithPartner';
 import { AddRemoveControl, LegacyAddRemoveControl } from '../shared/AddRemoveControl';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { Users, Plus, UserRound, UserCog } from 'lucide-react';
+import { Users, Plus, UserRound, UserCog, PlusCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { AttendeeData } from './types';
 import { validateAttendee } from './utils/validation';
@@ -36,6 +36,16 @@ export const IndividualsForm: React.FC<IndividualsFormProps> = ({
   const [expandedAttendees, setExpandedAttendees] = useState<Set<string>>(
     new Set([attendees[0]?.attendeeId])
   );
+  const cardRefs = useRef<{ [key: string]: HTMLDivElement | null }>({});
+  const [isMobile, setIsMobile] = useState(false);
+
+  // Check for mobile device
+  useEffect(() => {
+    const checkMobile = () => setIsMobile(window.innerWidth < 640); // sm breakpoint
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   // Filter to only show primary attendees (not partners)
   const primaryAttendees = attendees.filter(a => !a.isPartner);
@@ -49,27 +59,104 @@ export const IndividualsForm: React.FC<IndividualsFormProps> = ({
     return primaryAttendees.filter(a => a.attendeeType === 'guest').length;
   }, [primaryAttendees]);
 
-  // Add new attendee - first attendee is Mason, rest can be selected
-  const handleAddAttendee = useCallback(() => {
+  // Helper function to generate dynamic card title
+  const getCardTitle = useCallback((attendee: AttendeeData, index: number, isExpanded: boolean) => {
+    const isPrimary = index === 0;
+    
+    // If expanded, show simple titles
+    if (isExpanded) {
+      return isPrimary ? 'Your Details' : `Attendee ${index + 1}`;
+    }
+    
+    // If collapsed and has no data, show appropriate default
+    if (!attendee.firstName && !attendee.lastName) {
+      return isPrimary ? 'Your Details' : 'New Attendee';
+    }
+    
+    // Build dynamic title based on attendee data
+    const parts: string[] = [];
+    
+    if (attendee.title) parts.push(attendee.title);
+    if (attendee.firstName) parts.push(attendee.firstName);
+    if (attendee.lastName) parts.push(attendee.lastName);
+    
+    // Add rank for masons
+    if (attendee.attendeeType === 'mason' && attendee.rank) {
+      if (attendee.rank === 'GL' && attendee.suffix) {
+        parts.push(attendee.suffix); // Grand Rank
+      } else {
+        parts.push(attendee.rank);
+      }
+    }
+    
+    return parts.join(' ') || (isPrimary ? 'Your Details' : `Attendee ${index + 1}`);
+  }, []);
+
+  // Add new attendee with mobile-specific behavior
+  const handleAddAttendee = useCallback((type: 'mason' | 'guest') => {
     if (primaryAttendees.length >= maxAttendees) return;
     
     // First save any pending changes to ensure current data is preserved
     formSaveManager.saveBeforeNavigation();
     
-    // Default behavior for backward compatibility
-    const attendeeType = primaryAttendees.length === 0 ? 'mason' : 'guest';
-    const newAttendeeId = attendeeType === 'mason' 
+    // Add the new attendee
+    const newAttendeeId = type === 'mason' 
       ? addMasonAttendee() 
       : addGuestAttendee();
     
-    // Expand the new attendee
-    setExpandedAttendees(prev => new Set([...prev, newAttendeeId]));
+    // On mobile, collapse all other cards and only expand the new one
+    if (isMobile) {
+      setExpandedAttendees(new Set([newAttendeeId]));
+    } else {
+      // On desktop, add to expanded set
+      setExpandedAttendees(prev => new Set([...prev, newAttendeeId]));
+    }
     
     // Explicitly save state after adding attendee
     setTimeout(() => {
       formSaveManager.saveOnAttendeeChange();
+      
+      // On mobile, scroll to the new card
+      if (isMobile && cardRefs.current[newAttendeeId]) {
+        setTimeout(() => {
+          const card = cardRefs.current[newAttendeeId];
+          if (card) {
+            // Find the scrollable container (main element with overflow-y-auto)
+            const scrollableContainer = document.querySelector('main.overflow-y-auto');
+            if (!scrollableContainer) {
+              console.warn('Scrollable container not found');
+              return;
+            }
+            
+            // Get the card header within the card
+            const cardHeader = card.querySelector('.cursor-pointer'); // The CardHeader element
+            
+            if (cardHeader) {
+              // Get positions relative to the scrollable container
+              const containerRect = scrollableContainer.getBoundingClientRect();
+              const cardHeaderRect = cardHeader.getBoundingClientRect();
+              
+              // Calculate the current scroll position of the container
+              const currentScrollTop = scrollableContainer.scrollTop;
+              
+              // Calculate where the card header is relative to the container's scrollable area
+              const cardRelativeTop = cardHeaderRect.top - containerRect.top + currentScrollTop;
+              
+              // We want to position the card header at the top of the visible area with a small gap
+              // The container has padding-top of 16px (p-4), so we account for that
+              const targetScrollTop = cardRelativeTop - 8; // 8px gap from the top of the visible area
+              
+              // Scroll the container (not the window!)
+              scrollableContainer.scrollTo({
+                top: Math.max(0, targetScrollTop),
+                behavior: 'smooth'
+              });
+            }
+          }
+        }, 400); // Increased delay to ensure card expansion completes
+      }
     }, 100); // Small delay to ensure component has rendered
-  }, [addMasonAttendee, addGuestAttendee, primaryAttendees, maxAttendees]);
+  }, [addMasonAttendee, addGuestAttendee, primaryAttendees, maxAttendees, isMobile]);
 
   // Remove attendee
   const handleRemoveAttendee = useCallback((attendeeId: string) => {
@@ -145,18 +232,21 @@ export const IndividualsForm: React.FC<IndividualsFormProps> = ({
           ).length;
 
           return (
-            <Card key={attendee.attendeeId} className="overflow-hidden">
+            <Card 
+              key={attendee.attendeeId} 
+              className="overflow-hidden"
+              ref={(el) => { cardRefs.current[attendee.attendeeId] = el; }}
+            >
               <CardHeader 
-                className="cursor-pointer"
+                className="cursor-pointer py-3 sm:py-4"
                 onClick={() => toggleAttendeeExpansion(attendee.attendeeId)}
               >
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-lg font-semibold">
-                    {isPrimary ? 'Your Details' : `Attendee ${attendeeNumber}`}
-                    {!isExpanded && attendee.firstName && attendee.lastName && (
+                    {getCardTitle(attendee, index, isExpanded)}
+                    {partnerCount > 0 && !isExpanded && (
                       <span className="font-normal text-gray-600 ml-2">
-                        - {attendee.firstName} {attendee.lastName}
-                        {partnerCount > 0 && ` (+${partnerCount} partner)`}
+                        (+{partnerCount} partner{partnerCount > 1 ? 's' : ''})
                       </span>
                     )}
                   </CardTitle>
@@ -186,7 +276,7 @@ export const IndividualsForm: React.FC<IndividualsFormProps> = ({
               </CardHeader>
 
               {isExpanded && (
-                <CardContent className="px-6 pt-2 pb-6">
+                <CardContent className="px-4 sm:px-6 pt-0 sm:pt-2 pb-3 sm:pb-6">
                   <AttendeeWithPartner
                     attendeeId={attendee.attendeeId}
                     attendeeNumber={attendeeNumber}
@@ -203,23 +293,13 @@ export const IndividualsForm: React.FC<IndividualsFormProps> = ({
       </div>
 
       {/* Attendee type controls at the bottom of form */}
-      <div className="mt-6 pt-6 border-t border-slate-200 space-y-6">
-        <div className="flex items-center gap-4">
+      <div>
+        {/* Desktop view - existing controls */}
+        <div className="hidden sm:flex items-center gap-4">
           <LegacyAddRemoveControl
             label="Mason"
             count={primaryAttendees.filter(a => a.attendeeType === 'mason').length}
-            onAdd={() => {
-              // Save current form state before adding a new attendee
-              formSaveManager.saveBeforeNavigation();
-              
-              const newAttendeeId = addMasonAttendee();
-              setExpandedAttendees(prev => new Set([...prev, newAttendeeId]));
-              
-              // Explicitly save after adding attendee
-              setTimeout(() => {
-                formSaveManager.saveOnAttendeeChange();
-              }, 100);
-            }}
+            onAdd={() => handleAddAttendee('mason')}
             onRemove={() => {
               const masonAttendees = primaryAttendees.filter(a => a.attendeeType === 'mason');
               // Don't remove the first Mason if it's the only one
@@ -235,18 +315,7 @@ export const IndividualsForm: React.FC<IndividualsFormProps> = ({
           <LegacyAddRemoveControl
             label="Guest"
             count={primaryAttendees.filter(a => a.attendeeType === 'guest').length}
-            onAdd={() => {
-              // Save current form state before adding a new attendee
-              formSaveManager.saveBeforeNavigation();
-              
-              const newAttendeeId = addGuestAttendee();
-              setExpandedAttendees(prev => new Set([...prev, newAttendeeId]));
-              
-              // Explicitly save after adding attendee
-              setTimeout(() => {
-                formSaveManager.saveOnAttendeeChange();
-              }, 100);
-            }}
+            onAdd={() => handleAddAttendee('guest')}
             onRemove={() => {
               const guestAttendees = primaryAttendees.filter(a => a.attendeeType === 'guest');
               if (guestAttendees.length > 0) {
@@ -258,9 +327,35 @@ export const IndividualsForm: React.FC<IndividualsFormProps> = ({
             max={5}
           />
         </div>
+        
+        {/* Mobile view - simple buttons */}
+        <div className="sm:hidden flex justify-center gap-3">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => handleAddAttendee('mason')}
+            disabled={primaryAttendees.filter(a => a.attendeeType === 'mason').length >= 5}
+            className="border-[#c8a870] text-[#c8a870] hover:border-[#b09760] hover:text-[#b09760]"
+          >
+            <PlusCircle className="w-4 h-4 mr-2" />
+            Add Mason
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={() => handleAddAttendee('guest')}
+            disabled={primaryAttendees.filter(a => a.attendeeType === 'guest').length >= 5}
+            className="border-[#c8a870] text-[#c8a870] hover:border-[#b09760] hover:text-[#b09760]"
+          >
+            <PlusCircle className="w-4 h-4 mr-2" />
+            Add Guest
+          </Button>
+        </div>
       </div>
 
-      <Separator />
+      <Separator className="mt-6" />
 
       {/* Action buttons - removed since navigation is handled by WizardBodyStructureLayout */}
       {/* Keep the handleComplete function so it can still be called by the onComplete prop */}

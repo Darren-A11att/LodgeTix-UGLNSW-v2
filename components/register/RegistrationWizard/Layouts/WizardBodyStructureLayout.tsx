@@ -50,10 +50,10 @@ export const WizardBodyStructureLayout: React.FC<WizardBodyStructureLayoutProps>
       )}
       
       {/* Row 2: Section Header */}
-      <div className="mb-6 flex-shrink-0">
+      <div className="mb-2 sm:mb-6 flex-shrink-0">
         <SectionHeader>
-          <h1 className="text-2xl font-bold text-masonic-navy">{sectionTitle}</h1>
-          <div className="masonic-divider"></div>
+          <h1 className="text-xl sm:text-2xl font-bold text-masonic-navy">{sectionTitle}</h1>
+          <div className="masonic-divider my-2 sm:my-6"></div>
           {sectionDescription && (
             <p className="text-gray-600 hidden sm:block">{sectionDescription}</p>
           )}

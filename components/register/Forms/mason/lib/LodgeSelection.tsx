@@ -244,32 +244,32 @@ export const LodgeSelection: React.FC<LodgeSelectionProps> = ({
   // Reset lodge selection when grand_lodge_id changes
   // But only if the lodgeId is not already set in the store
   useEffect(() => {
-    // Only reset if grand_lodge_id actually changed
-    if (prevGrandLodgeIdRef.current !== grand_lodge_id) {
+    // Only reset if grand_lodge_id actually changed and we're moving from one grand lodge to another
+    if (prevGrandLodgeIdRef.current !== grand_lodge_id && prevGrandLodgeIdRef.current !== undefined) {
       // Clear search cache when grand lodge changes
       searchCacheRef.current = {};
       lastSearchQueryRef.current = '';
       
       prevGrandLodgeIdRef.current = grand_lodge_id;
       
-      // Don't reset if we already have a valid lodgeId for this grandLodge
-      if (value && grand_lodge_id) {
-        // Try to load the lodge data
-        return;
+      // Only clear if moving between different grand lodges, not on initial load
+      if (prevGrandLodgeIdRef.current && grand_lodge_id && prevGrandLodgeIdRef.current !== grand_lodge_id) {
+        // Clear selection when switching between grand lodges
+        setSelectedLodge(null);
+        setInputValue('');
+        onChange('', '', '');
       }
-      
-      // Otherwise clear selection for a new grandLodge
-      setSelectedLodge(null);
-      setInputValue('');
-      onChange('', '', '');
+    } else if (prevGrandLodgeIdRef.current === undefined) {
+      // First time loading, just set the ref
+      prevGrandLodgeIdRef.current = grand_lodge_id;
     }
-  }, [grand_lodge_id]); // Only depend on grand_lodge_id changes
+  }, [grand_lodge_id, onChange]); // Only depend on grand_lodge_id changes
 
   // Handle input change with tracking for user interaction
   const inputChangeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   
-  const handleInputChange = useCallback((value: string) => {
-    setInputValue(value);
+  const handleInputChange = useCallback((inputValue: string) => {
+    setInputValue(inputValue);
     userIsTypingRef.current = true;
     
     // Clear any existing timeout to prevent multiple searches
@@ -289,20 +289,25 @@ export const LodgeSelection: React.FC<LodgeSelectionProps> = ({
     }, 500);
     
     // If clearing the input, clear the selection
-    if (value === '') {
+    if (inputValue === '') {
       setSelectedLodge(null);
       lodgeNameRef.current = null;
       onChange('', '', '');
     } else if (selectedLodge) {
       // If there's a selected lodge but input doesn't match it,
       // preserve the ID but update the display value
-      onChange(selectedLodge.lodge_id, value, selectedLodge.organisation_id);
+      onChange(selectedLodge.lodge_id, inputValue, selectedLodge.organisation_id);
     } else {
-      // For a partial input with no selection, don't set ID yet
-      // but update display value so it persists
-      onChange('', value, '');
+      // Preserve existing lodge ID if we have one, even if selectedLodge hasn't loaded yet
+      // Only clear the ID if the input is actually empty
+      if (inputValue === '') {
+        onChange('', '', '');
+      } else {
+        // Keep the existing value prop (lodge ID) while updating display text
+        onChange(value || '', inputValue, '');
+      }
     }
-  }, [onChange, selectedLodge]);
+  }, [onChange, selectedLodge, value]);
 
   // Load selected lodge data with improved reliability
   useEffect(() => {
