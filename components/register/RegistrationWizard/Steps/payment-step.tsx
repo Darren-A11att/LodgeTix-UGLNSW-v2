@@ -818,13 +818,40 @@ function PaymentStep(props: PaymentStepProps) {
         // Set confirmation number in store
         setStoreConfirmationNumber(confirmationResult.confirmationNumber);
         
+        // Determine the registration type for routing
+        const confirmationType = confirmationResult.registrationType || registrationType || 'individuals';
+        
+        // Save registration data to localStorage for confirmation page
+        const confirmationData = {
+          registrationId,
+          confirmationNumber: confirmationResult.confirmationNumber,
+          registrationType: confirmationType,
+          functionData: {
+            id: functionId,
+            name: functionDetails?.name,
+            startDate: functionDetails?.start_date,
+            endDate: functionDetails?.end_date,
+            location: functionDetails?.location
+          },
+          billingDetails,
+          attendees: allStoreAttendees,
+          tickets: currentTicketsForSummary,
+          totalAmount,
+          subtotal,
+          stripeFee: feeCalculation.stripeFee
+        };
+        
+        // Store with confirmation number as key
+        localStorage.setItem(`registration_${confirmationResult.confirmationNumber}`, JSON.stringify(confirmationData));
+        // Also store as recent registration
+        localStorage.setItem('recent_registration', JSON.stringify(confirmationData));
+        
+        console.log("💾 Saved registration data to localStorage:", confirmationData);
+        
         // Get the function slug from the current URL or props
         const pathSegments = window.location.pathname.split('/');
         const functionSlugIndex = pathSegments.indexOf('functions') + 1;
         const functionSlug = pathSegments[functionSlugIndex] || '';
-        
-        // Determine the registration type for routing
-        const confirmationType = confirmationResult.registrationType || registrationType || 'individuals';
         
         // Navigate to type-specific confirmation page
         setTimeout(() => {
