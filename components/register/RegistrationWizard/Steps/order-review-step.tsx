@@ -31,13 +31,6 @@ import { ticketService, EventTicket, TicketPackage } from '@/lib/api/ticketServi
 import { getFunctionTicketsService, type FunctionTicketDefinition, type FunctionPackage } from '@/lib/services/function-tickets-service';
 import { api } from '@/lib/api-logger';
 import { ValidationModal } from '@/components/ui/validation-modal';
-import { calculateStripeFees, getFeeDisclaimer, getFeeModeFromEnv, STRIPE_RATES, isDomesticCard, getProcessingFeeLabel, getPlatformFeePercentage } from '@/lib/utils/stripe-fee-calculator';
-import { 
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
 
 // Note: Using dynamic function_id from registration store instead of hardcoded parent event ID
 
@@ -230,20 +223,8 @@ function OrderReviewStep() {
     return getAttendeeTickets(attendeeId).reduce((sum, ticket) => sum + ticket.price, 0)
   }
 
-  // Get billing details from store to determine domestic/international fees
-  const billingDetails = useRegistrationStore((s) => s.billingDetails);
-  // Handle both string and object types for country
-  const billingCountry = typeof billingDetails?.country === 'string' 
-    ? billingDetails.country 
-    : (billingDetails?.country as any)?.isoCode;
-  const isDomestic = isDomesticCard(billingCountry);
-
   const subtotal = currentTickets.reduce((sum, ticket) => sum + ticket.price, 0)
-  const feeCalculation = calculateStripeFees(subtotal, {
-    isDomestic,
-    platformFeePercentage: getPlatformFeePercentage()
-  })
-  const totalAmount = feeCalculation.customerPayment
+  const totalAmount = subtotal
   const totalTickets = currentTickets.length
 
   // Check if order is valid
@@ -494,38 +475,10 @@ function OrderReviewStep() {
             })}
           </CardContent>
           <CardFooter className="flex flex-col space-y-4 bg-gray-50 p-6">
-            {/* Fee Breakdown */}
+            {/* Order Total */}
             <div className="w-full space-y-2 rounded-lg border border-gray-200 bg-white p-4">
-              <div className="flex justify-between items-center text-sm">
-                <span className="text-gray-600">Subtotal:</span>
-                <span className="font-medium">${subtotal.toFixed(2)}</span>
-              </div>
-              <div className="flex justify-between items-center text-sm">
-                <span className="text-gray-600 flex items-center gap-1">
-                  {getProcessingFeeLabel(isDomestic)}
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger>
-                        <Info className="h-3 w-3 text-gray-400" />
-                      </TooltipTrigger>
-                      <TooltipContent className="max-w-xs">
-                        <p className="text-sm">{getFeeDisclaimer()}</p>
-                        <div className="mt-2 text-xs space-y-1">
-                          <p>• Australian cards: {STRIPE_RATES.domestic.description}</p>
-                          <p>• International cards: {STRIPE_RATES.international.description}</p>
-                        </div>
-                        {!isDomestic && (
-                          <p className="mt-2 text-xs font-medium">International fee applied based on billing country</p>
-                        )}
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                </span>
-                <span className="font-medium">${feeCalculation.stripeFee.toFixed(2)}</span>
-              </div>
-              <Separator className="my-2" />
               <div className="flex justify-between items-center font-bold">
-                <span>Total Amount:</span>
+                <span>Order Total:</span>
                 <span className="text-lg">${totalAmount.toFixed(2)}</span>
               </div>
             </div>

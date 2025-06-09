@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Clear Local Auth Storage</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 14px 20px;
+            margin: 8px 0;
+            border: none;
+            cursor: pointer;
+            width: 100%;
+            font-size: 16px;
+        }
+        button:hover {
+            opacity: 0.8;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 10px;
+            background-color: #f1f1f1;
+            border-radius: 5px;
+        }
+        .error {
+            color: red;
+        }
+        .success {
+            color: green;
+        }
+    </style>
+</head>
+<body>
+    <h1>Clear Supabase Local Auth Storage</h1>
+    <p>This page will help clear any cached authentication data that might be causing issues with your local development environment.</p>
+    
+    <button onclick="clearAuthStorage()">Clear All Auth Storage</button>
+    
+    <div id="result" class="result" style="display:none;"></div>
+    
+    <h2>What this does:</h2>
+    <ul>
+        <li>Clears all localStorage items related to Supabase auth</li>
+        <li>Clears all sessionStorage items</li>
+        <li>Removes any cached JWT tokens</li>
+        <li>Clears registration store data</li>
+    </ul>
+    
+    <h2>After clearing:</h2>
+    <ol>
+        <li>Close this tab</li>
+        <li>Go back to http://localhost:3000</li>
+        <li>Try the registration flow again</li>
+    </ol>
+    
+    <script>
+        function clearAuthStorage() {
+            const resultDiv = document.getElementById('result');
+            resultDiv.style.display = 'block';
+            resultDiv.innerHTML = '<h3>Clearing storage...</h3>';
+            
+            try {
+                // Clear specific Supabase auth keys
+                const keysToRemove = [];
+                for (let i = 0; i < localStorage.length; i++) {
+                    const key = localStorage.key(i);
+                    if (key && (
+                        key.includes('supabase') || 
+                        key.includes('auth') || 
+                        key.includes('sb-') ||
+                        key.includes('registration-store')
+                    )) {
+                        keysToRemove.push(key);
+                    }
+                }
+                
+                // Remove the keys
+                keysToRemove.forEach(key => {
+                    console.log('Removing localStorage key:', key);
+                    localStorage.removeItem(key);
+                });
+                
+                // Clear sessionStorage
+                sessionStorage.clear();
+                
+                // Clear cookies related to Supabase (if any)
+                document.cookie.split(";").forEach(function(c) { 
+                    if (c.includes('sb-') || c.includes('supabase')) {
+                        document.cookie = c.replace(/^ +/, "").replace(/=.*/, "=;expires=" + new Date().toUTCString() + ";path=/");
+                    }
+                });
+                
+                resultDiv.innerHTML = `
+                    <h3 class="success">✅ Storage cleared successfully!</h3>
+                    <p>Removed ${keysToRemove.length} localStorage items</p>
+                    <p>Cleared all sessionStorage</p>
+                    <p>You can now close this tab and return to your application.</p>
+                `;
+                
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <h3 class="error">❌ Error clearing storage</h3>
+                    <p>${error.message}</p>
+                `;
+            }
+        }
+    </script>
+</body>
+</html>

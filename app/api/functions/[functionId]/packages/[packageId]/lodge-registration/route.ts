@@ -121,12 +121,10 @@ export async function POST(
       const connectedAccountId = functionData.organisations?.stripe_onbehalfof;
       const organisationName = functionData.organisations?.name;
       
-      // Calculate platform fee
-      let applicationFeeAmount = 0;
-      if (connectedAccountId) {
-        const platformFeePercentage = parseFloat(process.env.STRIPE_PLATFORM_FEE_PERCENTAGE || '0.05');
-        applicationFeeAmount = Math.round(amount * platformFeePercentage);
-      }
+      // Platform fee is handled by the difference between customer payment and transfer amount
+      // Customer pays: amount (includes all fees)
+      // Connected account receives: subtotal
+      // Platform keeps: amount - subtotal - stripe_processing_fee
       
       // Get base URL with fallback
       const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
@@ -150,7 +148,7 @@ export async function POST(
           table_count: tableCount.toString(),
           subtotal: String(subtotal / 100),
           stripe_fee: String(stripeFee / 100),
-          platform_fee: String(applicationFeeAmount / 100),
+          platform_fee: String((amount - subtotal - stripeFee) / 100),
           created_at: new Date().toISOString(),
           environment: process.env.NODE_ENV || 'development'
         },
@@ -167,11 +165,13 @@ export async function POST(
             );
           }
           
-          // For application fees, we need to create the payment on the platform account
-          // and use transfer_data to send funds to the connected account
+          // For destination charges with Stripe Connect:
+          // - Customer pays the total (subtotal + platform fee + stripe fee)
+          // - Connected account receives exactly the subtotal
+          // - Platform keeps the difference minus Stripe's processing fee
           paymentIntentOptions.transfer_data = {
             destination: connectedAccountId,
-            amount: amount - applicationFeeAmount, // Amount to transfer after fee
+            amount: subtotal, // Transfer exactly the subtotal to connected account
           };
           
           // Add statement descriptor

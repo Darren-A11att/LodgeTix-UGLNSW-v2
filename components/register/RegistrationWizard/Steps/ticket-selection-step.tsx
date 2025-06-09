@@ -22,9 +22,6 @@ import { type FunctionTicketDefinition, type FunctionPackage, getFunctionTickets
 import { api } from '@/lib/api-logger'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { ValidationModal } from '@/components/ui/validation-modal'
-import { calculateStripeFees, getFeeModeFromEnv, getFeeDisclaimer } from '@/lib/utils/stripe-fee-calculator'
-import { Info } from "lucide-react"
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { useTicketAvailability } from '@/hooks/use-ticket-availability'
 import { ConnectionStatus } from '@/components/ui/connection-status'
 import { TicketAvailabilityIndicator, TicketAvailabilityBadge } from '@/components/ui/ticket-availability-indicator'
@@ -1641,32 +1638,10 @@ const TicketSelectionStep: React.FC = () => {
                                   </div>
                                 </div>
                               ))}
-                              <div className="border-t pt-2 space-y-1">
-                                <div className="flex justify-between items-center px-2 text-sm">
-                                  <span>Subtotal</span>
-                                  <span>${getAttendeeTicketTotal(attendee.attendeeId)}</span>
-                                </div>
-                                {getFeeModeFromEnv() === 'pass_to_customer' && (
-                                  <div className="flex justify-between items-center px-2 text-sm text-gray-600">
-                                    <span className="flex items-center gap-1">
-                                      Processing Fee
-                                      <TooltipProvider>
-                                        <Tooltip>
-                                          <TooltipTrigger>
-                                            <Info className="h-3 w-3" />
-                                          </TooltipTrigger>
-                                          <TooltipContent className="max-w-xs">
-                                            <p className="text-sm">{getFeeDisclaimer()}</p>
-                                          </TooltipContent>
-                                        </Tooltip>
-                                      </TooltipProvider>
-                                    </span>
-                                    <span>${calculateStripeFees(getAttendeeTicketTotal(attendee.attendeeId)).stripeFee.toFixed(2)}</span>
-                                  </div>
-                                )}
+                              <div className="border-t pt-2">
                                 <div className="flex justify-between items-center p-2 font-bold">
                                   <span>Total</span>
-                                  <span>${calculateStripeFees(getAttendeeTicketTotal(attendee.attendeeId)).customerPayment.toFixed(2)}</span>
+                                  <span>${getAttendeeTicketTotal(attendee.attendeeId).toFixed(2)}</span>
                                 </div>
                               </div>
                             </div>

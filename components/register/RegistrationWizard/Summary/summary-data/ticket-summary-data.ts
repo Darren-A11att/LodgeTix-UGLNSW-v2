@@ -1,5 +1,4 @@
 import { formatCurrency } from '@/lib/formatters';
-import { calculateStripeFees, getFeeModeFromEnv } from '@/lib/utils/stripe-fee-calculator';
 
 interface TicketSummaryDataProps {
   currentTickets: any[];
@@ -95,46 +94,17 @@ export function getTicketSummaryData({
     });
   }
   
-  // Add order total section with fees
+  // Add order total section (without fees)
   if (sections.length > 0) {
-    const feeMode = getFeeModeFromEnv();
-    const orderItems = [];
-    
-    // Add subtotal
-    orderItems.push({
-      label: 'Subtotal',
-      value: formatCurrency(orderTotalAmount)
-    });
-    
-    // Add processing fee if in pass_to_customer mode
-    if (feeMode === 'pass_to_customer' && orderTotalAmount > 0) {
-      const feeCalculation = calculateStripeFees(orderTotalAmount, {
-        isDomestic: true, // Default to domestic for Australian customers
-        platformFeePercentage: 0 // This will be determined by the fee calculator
-      });
-      
-      orderItems.push({
-        label: 'Processing Fee',
-        value: formatCurrency(feeCalculation.stripeFee)
-      });
-      
-      orderItems.push({
-        label: 'Total',
-        value: formatCurrency(feeCalculation.customerPayment),
-        isHighlight: true
-      });
-    } else {
-      // No fees, just show the total
-      orderItems.push({
-        label: 'Total',
-        value: formatCurrency(orderTotalAmount),
-        isHighlight: true
-      });
-    }
-    
     sections.push({
       title: 'Order Total',
-      items: orderItems
+      items: [
+        {
+          label: 'Total',
+          value: formatCurrency(orderTotalAmount),
+          isHighlight: true
+        }
+      ]
     });
   }
   
