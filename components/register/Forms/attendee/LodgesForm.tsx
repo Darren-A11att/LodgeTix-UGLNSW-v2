@@ -119,20 +119,10 @@ export const LodgesForm: React.FC<LodgesFormProps> = ({
         setFunctionTickets(tickets);
         setFunctionPackages(packages);
         
-        // Debug log to see what packages are available
-        console.log('All packages fetched:', packages);
-        console.log('Package eligibility types:', packages.map(p => ({
-          name: p.name,
-          eligibleRegistrationTypes: p.eligibleRegistrationTypes,
-          includes: p.includes,
-          included_items: p.included_items
-        })));
-        
         // Auto-select first lodge package if available
         const lodgePackagesFound = packages.filter(pkg => 
           pkg.eligibleRegistrationTypes.includes('lodges')
         );
-        console.log('Lodge packages found:', lodgePackagesFound);
         
         if (lodgePackagesFound.length > 0 && !selectedPackageId) {
           setSelectedPackageId(lodgePackagesFound[0].id);
@@ -508,10 +498,6 @@ export const LodgesForm: React.FC<LodgesFormProps> = ({
                     <span className="font-medium">{packageCount} × ${packagePrice.toLocaleString()}</span>
                   </div>
                   <div className="flex justify-between items-center text-sm text-gray-500">
-                    <span>Total Tickets</span>
-                    <span>{calculatedPackageOrder.totalTickets} tickets</span>
-                  </div>
-                  <div className="flex justify-between items-center text-sm text-gray-500">
                     <span>Base Quantity per Package</span>
                     <span>{baseQuantity} tickets</span>
                   </div>
@@ -521,38 +507,65 @@ export const LodgesForm: React.FC<LodgesFormProps> = ({
                   <div className="text-sm text-gray-600">
                     {/* Dynamic display of included event tickets */}
                     {(() => {
-                      console.log('Selected package data:', {
-                        name: selectedPackage?.name,
-                        includes: selectedPackage?.includes,
-                        includesLength: selectedPackage?.includes?.length,
-                        qty: selectedPackage?.qty
-                      });
-                      console.log('Function tickets available:', functionTickets.map(t => ({ id: t.id, name: t.name })));
-                      
-                      if (selectedPackage?.includes && selectedPackage.includes.length > 0) {
-                        return selectedPackage.includes.map((ticketId) => {
-                          // Find the corresponding ticket details
-                          const ticket = functionTickets.find(t => t.id === ticketId);
-                          console.log('Mapping ticket:', { ticketId, found: !!ticket, ticketName: ticket?.name });
-                          if (!ticket) return null;
-                          
-                          const totalQuantity = packageCount * (selectedPackage?.qty || 10);
-                          
-                          return (
-                            <div key={ticketId} className="flex justify-between">
-                              <span>Total {ticket.name}</span>
-                              <span>{totalQuantity}</span>
-                            </div>
-                          );
-                        });
-                      } else {
-                        // Fallback if no included items specified
+                      // First, check if includes array exists and has items
+                      if (!selectedPackage?.includes || !Array.isArray(selectedPackage.includes) || selectedPackage.includes.length === 0) {
                         return (
                           <div className="text-center text-gray-500 py-2">
                             <p className="text-sm">Package includes {calculatedPackageOrder.totalTickets} tickets</p>
                           </div>
                         );
                       }
+
+                      // Filter out valid ticket mappings
+                      const ticketMappings = selectedPackage.includes
+                        .map((includedItem, index) => {
+                          // Handle both string IDs and object structures
+                          let ticketId: string = '';
+                          
+                          if (typeof includedItem === 'string') {
+                            ticketId = includedItem;
+                          } else if (includedItem && typeof includedItem === 'object') {
+                            // If it's an object, try to find the ID property
+                            // Try different possible property names
+                            ticketId = (includedItem as any).event_ticket_id || 
+                                      (includedItem as any).ticket_id || 
+                                      (includedItem as any).id || 
+                                      '';
+                          }
+                          
+                          // Skip if we couldn't extract a valid ID
+                          if (!ticketId) return null;
+                          
+                          // Find the corresponding ticket details
+                          const ticket = functionTickets.find(t => t.id === ticketId);
+                          if (!ticket) return null;
+                          
+                          const totalQuantity = packageCount * (selectedPackage?.qty || 10);
+                          
+                          return {
+                            key: `${ticketId}-${index}`,
+                            name: ticket.name,
+                            quantity: totalQuantity
+                          };
+                        })
+                        .filter(Boolean); // Remove null entries
+
+                      // If we have valid ticket mappings, display them
+                      if (ticketMappings.length > 0) {
+                        return ticketMappings.map(mapping => (
+                          <div key={mapping!.key} className="flex justify-between">
+                            <span>Total {mapping!.name}</span>
+                            <span>{mapping!.quantity}</span>
+                          </div>
+                        ));
+                      }
+
+                      // Fallback if no valid mappings found
+                      return (
+                        <div className="text-center text-gray-500 py-2">
+                          <p className="text-sm">Package includes {calculatedPackageOrder.totalTickets} tickets</p>
+                        </div>
+                      );
                     })()}
                   </div>
                 </div>
@@ -659,10 +672,6 @@ export const LodgeFormSummary: React.FC = () => {
               <div className="flex justify-between">
                 <span className="text-sm text-gray-600">Tables Ordered</span>
                 <span className="font-medium">{lodgeTicketOrder.tableCount}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-sm text-gray-600">Total Tickets</span>
-                <span className="font-medium">{lodgeTicketOrder.totalTickets}</span>
               </div>
               {/* Dynamic display of included tickets if available, otherwise fallback to legacy */}
               {lodgeTicketOrder.includedTickets && lodgeTicketOrder.includedTickets.length > 0 ? (
