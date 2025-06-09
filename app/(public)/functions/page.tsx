@@ -12,11 +12,22 @@ export default async function FunctionsPage() {
   const functionService = await createServerFunctionService()
   
   try {
+    // Check if featured function ID is configured
+    if (!FEATURED_FUNCTION_ID) {
+      console.warn('No featured function ID configured in environment variables')
+      throw new Error('No featured function configured')
+    }
+    
     // Get featured function info
     const featuredFunction = await getFeaturedFunctionInfo(true)
     
     // Fetch the featured function details
     const functionData = await functionService.getFunctionById(FEATURED_FUNCTION_ID)
+    
+    if (!functionData) {
+      console.error('Featured function not found in database:', FEATURED_FUNCTION_ID)
+      throw new Error('Featured function not found')
+    }
     
     // Get events for the featured function
     const events = await functionService.getEventsForFunction(FEATURED_FUNCTION_ID)
@@ -59,13 +70,13 @@ export default async function FunctionsPage() {
       <div className="min-h-screen bg-white">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="pt-12 pb-8">
-            <SectionHeader>
+            <div className="text-center">
               <h1 className="text-4xl font-bold mb-2 text-masonic-navy">Upcoming Functions</h1>
-              <div className="masonic-divider"></div>
+              <div className="masonic-divider mx-auto w-24 h-1 bg-masonic-gold my-4"></div>
               <p className="text-gray-600 text-lg">
                 Explore our upcoming Masonic functions and register for the events that interest you
               </p>
-            </SectionHeader>
+            </div>
           </div>
           
           <div className="text-center py-16">
