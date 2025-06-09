@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Checkbox } from '@/components/ui/checkbox';
 import { useLocationStore } from '@/lib/locationStore';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { InfoIcon, Plus } from 'lucide-react';
+import { InfoIcon } from 'lucide-react';
 import { AttendeeData } from '../../attendee/types';
 
 interface LodgeSelectionProps {
@@ -708,7 +708,7 @@ export const LodgeSelection: React.FC<LodgeSelectionProps> = ({
         disabled={disabled || !grand_lodge_id || useSameLodge}
         isLoading={isLoadingLodges || isLoadingAllLodges}
         className="mt-1"
-        allowCreate={true}
+        allowCreate={grand_lodge_id !== '3e893fa6-2cc2-448c-be9c-e3858cc90e11'}
         createNewText="Create new Lodge..."
         onCreateNew={() => setShowCreateDialog(true)}
       />
@@ -777,7 +777,7 @@ export const LodgeField: React.FC<{
 }> = ({ mason, updateAttendee, errors, primaryMason }) => {
   const handleChange = useCallback((lodgeId: string, lodgeNameNumber?: string) => {
     updateAttendee({ 
-      lodgeId,
+      lodge_id: lodgeId,
       lodgeNameNumber: lodgeNameNumber || '' 
     });
   }, [updateAttendee]);
@@ -785,10 +785,10 @@ export const LodgeField: React.FC<{
   return (
     <LodgeSelection
       grand_lodge_id={mason.grand_lodge_id}
-      value={mason.lodgeId}
+      value={mason.lodge_id}
       onChange={handleChange}
       required={true}
-      error={errors?.lodgeId}
+      error={errors?.lodge_id}
       showUseSameLodge={!mason.isPrimary}
       primaryMason={primaryMason}
     />
