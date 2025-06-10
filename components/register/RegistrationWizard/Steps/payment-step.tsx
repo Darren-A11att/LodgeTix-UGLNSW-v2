@@ -827,13 +827,19 @@ function PaymentStep(props: PaymentStepProps) {
           confirmationNumber: confirmationResult.confirmationNumber,
           registrationType: confirmationType,
           functionData: {
-            id: functionId,
-            name: functionDetails?.name,
-            startDate: functionDetails?.start_date,
-            endDate: functionDetails?.end_date,
-            location: functionDetails?.location
+            id: functionId || storeFunctionId,
+            name: '', // Will be populated from database if needed
+            startDate: '',
+            endDate: '',
+            location: {
+              place_name: '',
+              street_address: '',
+              suburb: '',
+              state: '',
+              postal_code: ''
+            }
           },
-          billingDetails,
+          billingDetails: form.getValues(),
           attendees: allStoreAttendees,
           tickets: currentTicketsForSummary,
           totalAmount,

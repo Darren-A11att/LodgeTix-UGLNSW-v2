@@ -17,13 +17,14 @@ export class PaymentCompletionService {
 
   /**
    * Invoke the edge function to generate confirmation number
+   * Note: This is a fallback mechanism. The primary method is the database webhook.
    */
   private async invokeConfirmationEdgeFunction(
     registrationId: string,
     registrationType: string,
     status: string,
     paymentStatus: string
-  ): Promise<{ success: boolean; error?: string }> {
+  ): Promise<{ success: boolean; error?: string; isCorsError?: boolean }> {
     try {
       console.log('🚀 Invoking generate-confirmation edge function...');
       const supabase = createClient();
@@ -49,13 +50,30 @@ export class PaymentCompletionService {
       });
 
       if (error) {
+        // Check if this is a CORS-related error (which is expected in some deployments)
+        const errorMessage = error.message || '';
+        if (errorMessage.includes('CORS') || errorMessage.includes('Failed to send a request to the Edge Function')) {
+          console.warn('⚠️ Edge function manual invocation blocked by CORS. This is expected if database webhooks are configured.');
+          console.warn('⚠️ The database webhook should handle confirmation generation automatically.');
+          return { success: false, error: 'CORS_BLOCKED', isCorsError: true };
+        }
+        
         console.error('❌ Edge function error:', error);
         return { success: false, error: error.message };
       }
 
       console.log('✅ Edge function response:', data);
       return { success: true };
-    } catch (error) {
+    } catch (error: any) {
+      // Handle fetch/network errors (including CORS)
+      const errorMessage = error.message || '';
+      if (errorMessage.includes('CORS') || errorMessage.includes('Failed to fetch') || errorMessage.includes('net::ERR_FAILED')) {
+        console.warn('⚠️ Edge function manual invocation blocked by CORS/network policy.');
+        console.warn('⚠️ This is expected behavior when database webhooks are properly configured.');
+        console.warn('⚠️ Confirmation generation will proceed via database webhook.');
+        return { success: false, error: 'CORS_BLOCKED', isCorsError: true };
+      }
+      
       console.error('❌ Failed to invoke edge function:', error);
       return { success: false, error: 'Failed to invoke confirmation generation' };
     }
@@ -96,7 +114,11 @@ export class PaymentCompletionService {
       );
 
       if (!edgeResult.success) {
-        console.error('Edge function invocation failed:', edgeResult.error);
+        if (edgeResult.isCorsError) {
+          console.log('ℹ️ Manual edge function invocation blocked by CORS - relying on database webhook');
+        } else {
+          console.error('Edge function invocation failed:', edgeResult.error);
+        }
         // Continue with polling anyway as the webhook might still trigger
       }
     }
