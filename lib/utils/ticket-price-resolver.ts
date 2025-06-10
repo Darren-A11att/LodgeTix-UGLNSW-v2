@@ -76,7 +76,7 @@ export function resolveTicketPrices(
 
   return ticketsFromStore.map(ticket => {
     let resolvedPrice = ticket.price; // Fallback to store price
-    let eventTicketId = ticket.eventTicketId || ticket.id.split('-').slice(1).join('-');
+    let eventTicketId;
     
     if (ticket.isPackage) {
       // For packages, get price from package records
@@ -98,10 +98,8 @@ export function resolveTicketPrices(
       }
     } else {
       // For individual tickets, get price from event_tickets records
-      // Handle both formats: "attendee-1-ticket-123" and "ticket-123"
-      if (ticket.id.includes('-') && ticket.id.split('-').length > 2) {
-        eventTicketId = ticket.id.split('-').slice(1).join('-');
-      } else if (ticket.eventTicketId) {
+      // Use eventTicketId if available, otherwise use ticket.id directly
+      if (ticket.eventTicketId) {
         eventTicketId = ticket.eventTicketId;
       } else {
         eventTicketId = ticket.id;
@@ -207,11 +205,9 @@ export function expandPackagesWithPricing(
       }
     } else {
       // Individual ticket - resolve price from event_tickets
-      // Handle both formats: "attendee-1-ticket-123" and "ticket-123"
+      // Use eventTicketId if available, otherwise use ticket.id directly
       let eventTicketId;
-      if (ticket.id.includes('-') && ticket.id.split('-').length > 2) {
-        eventTicketId = ticket.id.split('-').slice(1).join('-');
-      } else if (ticket.eventTicketId) {
+      if (ticket.eventTicketId) {
         eventTicketId = ticket.eventTicketId;
       } else {
         eventTicketId = ticket.id;

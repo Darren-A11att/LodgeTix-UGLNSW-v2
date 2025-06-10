@@ -167,6 +167,7 @@ export interface RegistrationState {
   
   // Draft recovery methods
   setDraftRecoveryHandled: (handled: boolean) => void; // Set if draft recovery has been handled
+  setDraftId: (id: string) => void; // Set the draft ID directly (for using registrationId as draftId)
   
   // Anonymous session methods
   setAnonymousSessionEstablished: (established: boolean) => void; // Set if anonymous session is established
@@ -760,6 +761,10 @@ export const useRegistrationStore = create<RegistrationState>(
       
       // Draft recovery actions
       setDraftRecoveryHandled: (handled) => set({ draftRecoveryHandled: handled }),
+      setDraftId: (id) => {
+        console.log(`[Store] Setting draft ID to: ${id}`);
+        set({ draftId: id, status: 'draft' });
+      },
       
       // Anonymous session actions
       setAnonymousSessionEstablished: (established) => set({ anonymousSessionEstablished: established }),

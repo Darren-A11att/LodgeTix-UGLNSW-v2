@@ -308,6 +308,7 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ function
   const setDraftRecoveryHandled = useRegistrationStore(state => state.setDraftRecoveryHandled)
   const setAnonymousSessionEstablished = useRegistrationStore(state => state.setAnonymousSessionEstablished)
   const setRegistrationType = useRegistrationStore(state => state.setRegistrationType) // For setting registration type
+  const setDraftId = useRegistrationStore(state => state.setDraftId) // For setting draft ID directly
   
   // State for Draft Recovery Modal
   const [showDraftRecoveryModal, setShowDraftRecoveryModal] = useState(false)
@@ -390,6 +391,12 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ function
           setFunctionSlug(functionSlug);
           // Store the function ID in the registration store as well
           setFunctionId(functionId);
+          
+          // Set the registrationId as the draftId if provided
+          if (registrationId) {
+            console.log(`Using registrationId as draftId: ${registrationId}`);
+            setDraftId(registrationId);
+          }
           
           // Set initializing to false to proceed to the registration type step
           setIsInitializing(false);

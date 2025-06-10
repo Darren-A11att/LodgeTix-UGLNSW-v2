@@ -289,11 +289,12 @@ const TicketSelectionStep: React.FC = () => {
           const ticketTypeInfo = ticketTypes.find(t => t.id === eventId);
           if (ticketTypeInfo) {
             const derivedIndividualTicket = {
-              id: `${attendeeIdentifier}-${ticketTypeInfo.id}`, 
+              id: ticketTypeInfo.id, // Use the event ticket ID directly
               name: ticketTypeInfo.name,
               price: ticketTypeInfo.price,
               description: ticketTypeInfo.description || "",
               attendeeId: attendeeIdentifier,
+              eventTicketId: ticketTypeInfo.id, // Explicitly set the event ticket ID
               isPackage: false,
             };
             return derivedIndividualTicket;
@@ -428,7 +429,7 @@ const TicketSelectionStep: React.FC = () => {
     // Get the current draft ID from the store
     const draftId = useRegistrationStore.getState().draftId;
     if (!draftId) {
-      console.warn('No draft ID available, skipping persistence');
+      console.error('No draft ID available for ticket persistence. This should not happen with registrationId as draftId.');
       return;
     }
 
