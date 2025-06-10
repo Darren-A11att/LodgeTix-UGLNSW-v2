@@ -52,15 +52,17 @@
 ## Phase 2: Component Updates
 
 ### 2.1 Update Ticket Selection Step
-- [ ] Update `ticket-selection-step.tsx`:
-  - [ ] When fetching tickets, call `captureTicketMetadata` for each
-  - [ ] When fetching packages, call `capturePackageMetadata` for each
-  - [ ] Replace `handleSelectPackage` to use new actions
-  - [ ] Replace `handleToggleIndividualTicket` to use new actions
-  - [ ] Update all references to old store structure
-  - [ ] Add timestamp capture on each selection
-  - [ ] Update `currentTickets` derivation to use new structure
-  - [ ] Update validation functions
+- [x] Update `ticket-selection-step.tsx`:
+  - [x] When fetching tickets, call `captureTicketMetadata` for each
+  - [x] When fetching packages, call `capturePackageMetadata` for each
+  - [x] Update `handleSelectPackage` to use new actions alongside old ones
+  - [x] Update `handleToggleIndividualTicket` to use new actions alongside old ones
+  - [x] Keep all references to old store structure for backward compatibility
+  - [x] Add timestamp capture on each selection (done in store)
+  - [x] Keep `currentTickets` derivation using old structure
+  - [ ] Update validation functions to check new metadata
+  - [x] Add lodge bulk selection metadata capture
+  - [x] Call `updateOrderSummary` before navigation
 
 ### 2.2 Update Payment Step
 - [ ] Update `payment-step.tsx`:
