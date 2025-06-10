@@ -6,6 +6,7 @@ import './disableFastRefreshLogs'
 import { LocationInitializer } from '@/components/location-initializer'
 import { AuthProvider } from '@/contexts/auth-provider'
 import { LayoutWithFooter } from '@/components/ui/layout-with-footer'
+import { Toaster } from '@/components/ui/sonner'
 
 export const metadata: Metadata = {
   title: 'Grand Proclamation 2025 | United Grand Lodge of NSW & ACT',
@@ -31,6 +32,7 @@ export default function RootLayout({
           <LayoutWithFooter>
             {children}
           </LayoutWithFooter>
+          <Toaster />
         </AuthProvider>
         
         {/* Crisp Chat Widget */}
