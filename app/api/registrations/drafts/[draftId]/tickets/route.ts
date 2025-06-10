@@ -45,7 +45,22 @@ export async function POST(
     
     const supabase = await createClient();
     
-    // Get current user
+    // Get or create anonymous session (same pattern as lodge registration API)
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    
+    if (!session) {
+      const { data: anonData, error: anonError } = await supabase.auth.signInAnonymously();
+      if (anonError) {
+        console.error('Failed to create anonymous session:', anonError);
+        console.groupEnd();
+        return NextResponse.json(
+          { error: 'Authentication failed' },
+          { status: 401 }
+        );
+      }
+    }
+    
+    // Get current user after ensuring session exists
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) {
       console.error("Authentication failed:", authError);
@@ -124,7 +139,21 @@ export async function GET(
   try {
     const supabase = await createClient();
     
-    // Get current user
+    // Get or create anonymous session (same pattern as lodge registration API)
+    const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+    
+    if (!session) {
+      const { data: anonData, error: anonError } = await supabase.auth.signInAnonymously();
+      if (anonError) {
+        console.error('Failed to create anonymous session:', anonError);
+        return NextResponse.json(
+          { error: 'Authentication failed' },
+          { status: 401 }
+        );
+      }
+    }
+    
+    // Get current user after ensuring session exists
     const { data: { user }, error: authError } = await supabase.auth.getUser();
     if (authError || !user) {
       return NextResponse.json(

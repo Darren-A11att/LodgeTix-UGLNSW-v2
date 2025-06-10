@@ -512,6 +512,31 @@ function PaymentStep(props: PaymentStepProps) {
   const handlePaymentMethodCreated = async (paymentMethodId: string, stripeBillingDetails: StripeBillingDetailsForClient) => {
     console.log("💳 Payment method created, processing payment:", paymentMethodId);
     
+    // Check for existing confirmation in localStorage first
+    console.log("🔍 Checking for existing confirmation in localStorage...");
+    try {
+      const recentRegistration = localStorage.getItem('recent_registration');
+      if (recentRegistration) {
+        const registrationData = JSON.parse(recentRegistration);
+        if (registrationData.confirmationNumber) {
+          console.log("✅ Found existing confirmation number:", registrationData.confirmationNumber);
+          console.log("🚀 Redirecting to fallback confirmation page immediately");
+          
+          // Get the function slug from the current URL
+          const pathSegments = window.location.pathname.split('/');
+          const functionSlugIndex = pathSegments.indexOf('functions') + 1;
+          const functionSlug = pathSegments[functionSlugIndex] || '';
+          
+          // Immediate redirect to fallback confirmation page
+          router.push(`/functions/${functionSlug}/register/confirmation/fallback/${registrationData.confirmationNumber}`);
+          return;
+        }
+      }
+    } catch (error) {
+      console.warn("⚠️ Could not check localStorage for existing confirmation:", error);
+      // Continue with normal payment process if localStorage check fails
+    }
+    
     if (!anonymousSessionEstablished) {
       setPaymentError("Session expired. Please return to the registration type page to complete verification.");
       return;
