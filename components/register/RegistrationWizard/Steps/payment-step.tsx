@@ -1022,13 +1022,6 @@ function PaymentStep(props: PaymentStepProps) {
                             </TooltipTrigger>
                             <TooltipContent className="max-w-xs">
                               <p className="text-sm">{getFeeDisclaimer()}</p>
-                              <div className="mt-2 text-xs space-y-1">
-                                <p>• Australian cards: 1.75% + $0.30</p>
-                                <p>• International cards: 2.9% + $0.30</p>
-                              </div>
-                              {!isDomesticCard(billingCountry?.isoCode) && (
-                                <p className="mt-2 text-xs font-medium">International fee applied based on billing country</p>
-                              )}
                             </TooltipContent>
                           </Tooltip>
                         </TooltipProvider>
