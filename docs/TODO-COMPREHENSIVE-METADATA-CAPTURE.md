@@ -66,14 +66,18 @@
 
 ### 2.2 Update Payment Step
 - [x] Update `payment-step.tsx`:
-  - [ ] Read from `attendeeSelections` instead of `packages`
-  - [ ] Use `orderSummary` for totals
+  - [x] Add enhanced metadata selectors from store
+  - [x] Create enhanced summary data calculation
+  - [x] Update order summary display to use SummaryRenderer
+  - [x] Read from `orderSummary` for subtotal when available
+  - [x] Maintain backward compatibility with legacy display
   - [x] Update ticket expansion logic (already using resolved pricing)
   - [x] Update API payload construction (already captures complete store state)
 
 ### 2.3 Update Summary Components
-- [ ] Update all summary components to read from new structure
-- [ ] Update summary data getters
+- [x] Create enhanced ticket summary data getter (ticket-summary-data-enhanced.ts)
+- [ ] Update summary components to use enhanced getters
+- [ ] Update other summary data getters (payment, order review, attendee)
 
 ## Phase 3: API Updates
 
@@ -94,8 +98,8 @@
   - [x] Store complete selection data
 
 ### 3.3 Update Confirmation Flow
-- [ ] Update confirmation number generation to use metadata
-- [ ] Update confirmation emails to leverage full details
+- [x] Confirmation number generation already uses complete store data
+- [ ] Update confirmation emails to leverage enhanced metadata
 
 ## Phase 4: Testing
 
