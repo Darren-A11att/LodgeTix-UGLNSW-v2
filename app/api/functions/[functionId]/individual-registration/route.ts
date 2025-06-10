@@ -104,16 +104,27 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         confirmation_method: 'manual',
         confirm: true,
         return_url: `${process.env.NEXT_PUBLIC_APP_URL}/functions/${functionData.slug || functionId}/register/success`,
+        receipt_email: bookingContact?.email || primaryAttendee?.email, // Use billing email, not attendee email
         metadata: {
+          // Function (consistent with create-payment-intent)
           function_id: functionId,
           function_name: functionData.name?.substring(0, 100) || '',
+          
+          // Registration details
           registration_type: 'individual',
           total_attendees: attendees.length.toString(),
           primary_attendee_name: primaryAttendee ? `${primaryAttendee.firstName} ${primaryAttendee.lastName}`.substring(0, 100) : '',
           attendee_types: JSON.stringify(attendeeTypes).substring(0, 200),
+          
+          // Financial
           subtotal: String(subtotal),
           stripe_fee: String(stripeFee),
           platform_fee: String(applicationFeeAmount / 100),
+          
+          // Organization
+          organisation_name: organisationName?.substring(0, 100) || '',
+          
+          // Tracking
           created_at: new Date().toISOString(),
           environment: process.env.NODE_ENV || 'development'
         },
@@ -133,8 +144,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           paymentIntentOptions.on_behalf_of = connectedAccountId;
           paymentIntentOptions.application_fee_amount = applicationFeeAmount;
           
-          // Add statement descriptor
-          const statementDescriptor = functionData.name
+          // Add statement descriptor with function name and registration type
+          const descriptorText = `${functionData.name} individual`.trim();
+          const statementDescriptor = descriptorText
             ?.substring(0, 22)
             .replace(/[^a-zA-Z0-9 ]/g, '')
             .trim();

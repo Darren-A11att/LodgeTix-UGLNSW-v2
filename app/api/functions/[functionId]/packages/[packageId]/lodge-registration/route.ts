@@ -130,6 +130,10 @@ export async function POST(
       const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
       console.log('[Lodge Registration API] Base URL:', baseUrl);
       
+      // Determine receipt email
+      const receiptEmail = bookingContact?.email || lodgeDetails?.contactEmail;
+      console.log('[Lodge Registration API] Setting receipt email to:', receiptEmail);
+      
       // Prepare payment intent options
       const paymentIntentOptions: any = {
         amount,
@@ -139,6 +143,8 @@ export async function POST(
         confirm: true,
         // Use functionId in return URL to avoid issues with undefined slug
         return_url: `${baseUrl}/api/functions/${functionId}/register/success`,
+        // Send receipt to booking contact email (the person making the payment)
+        receipt_email: receiptEmail,
         metadata: {
           function_id: functionId,
           function_name: functionData.name?.substring(0, 100) || '',
@@ -174,8 +180,9 @@ export async function POST(
             amount: subtotal, // Transfer exactly the subtotal to connected account
           };
           
-          // Add statement descriptor
-          const statementDescriptor = functionData.name
+          // Add statement descriptor with function name and registration type
+          const descriptorText = `${functionData.name} lodge`.trim();
+          const statementDescriptor = descriptorText
             ?.substring(0, 22)
             .replace(/[^a-zA-Z0-9 ]/g, '')
             .trim();

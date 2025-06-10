@@ -76,10 +76,9 @@ export interface PaymentIntentMetadataParams {
   registrationType: 'individual' | 'lodge' | 'delegation';
   confirmationNumber: string;
   
-  // Event
-  eventId: string;
-  eventTitle: string;
-  eventSlug: string;
+  // Function (replaces Event)
+  functionId: string;
+  functionName: string;
   
   // Organization
   organisationId: string;
@@ -98,10 +97,12 @@ export interface PaymentIntentMetadataParams {
   lodgeNumber?: string;
   grandLodgeId?: string;
   
-  // Tickets
+  // Tickets (Enhanced)
   ticketsCount: number;
   ticketTypes: Record<string, number>; // { standard: 5, vip: 2 }
   ticketIds: string[];
+  packages?: Array<{ id: string; isPackage: boolean }>; // Packages selected
+  individualTickets?: Array<{ id: string; isPackage: boolean }>; // Individual tickets selected
   
   // Financial
   subtotal: number;
@@ -109,6 +110,8 @@ export interface PaymentIntentMetadataParams {
   stripeFee: number;
   platformFee: number;
   platformFeePercentage: number;
+  isDomestic: boolean;
+  processingFees: number;
   currency: string;
   
   // Tracking
@@ -130,6 +133,15 @@ export function buildPaymentIntentMetadata(params: PaymentIntentMetadataParams):
     .map(([type, count]) => `${type}:${count}`)
     .join(',');
     
+  // Format packages and individual tickets
+  const packagesStr = params.packages 
+    ? params.packages.map(p => `${p.id}:${p.isPackage}`).join(',')
+    : '';
+    
+  const individualTicketsStr = params.individualTickets
+    ? params.individualTickets.map(t => `${t.id}:${t.isPackage}`).join(',')
+    : '';
+    
   // Build the metadata object
   const rawMetadata = {
     // Registration Core
@@ -137,10 +149,9 @@ export function buildPaymentIntentMetadata(params: PaymentIntentMetadataParams):
     registration_type: params.registrationType,
     confirmation_number: params.confirmationNumber,
     
-    // Event
-    event_id: params.eventId,
-    event_title: params.eventTitle,
-    event_slug: params.eventSlug,
+    // Function (replaces Event)
+    function_id: params.functionId,
+    function_name: params.functionName,
     
     // Organization
     organisation_id: params.organisationId,
@@ -159,10 +170,12 @@ export function buildPaymentIntentMetadata(params: PaymentIntentMetadataParams):
     lodge_number: params.lodgeNumber || '',
     grand_lodge_id: params.grandLodgeId || '',
     
-    // Ticket Details
+    // Ticket Details (Enhanced)
     tickets_count: String(params.ticketsCount),
     ticket_types: ticketTypesStr,
     ticket_ids: params.ticketIds.join(','),
+    packages: packagesStr,
+    individual_tickets: individualTicketsStr,
     
     // Financial
     subtotal: String(params.subtotal),
@@ -170,6 +183,8 @@ export function buildPaymentIntentMetadata(params: PaymentIntentMetadataParams):
     stripe_fee: String(params.stripeFee),
     platform_fee: String(params.platformFee),
     platform_fee_percentage: String(params.platformFeePercentage),
+    is_domestic: String(params.isDomestic),
+    processing_fees: String(params.processingFees),
     currency: params.currency,
     
     // Tracking

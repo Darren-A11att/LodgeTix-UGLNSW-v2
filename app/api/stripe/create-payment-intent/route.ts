@@ -288,16 +288,37 @@ export async function POST(request: Request) {
         }
       });
       
+      // Categorize tickets into packages and individual tickets
+      const packages: Array<{ id: string; isPackage: boolean }> = [];
+      const individualTickets: Array<{ id: string; isPackage: boolean }> = [];
+      
+      ticketsList.forEach(ticket => {
+        if (ticket.event_tickets) {
+          // Check if this is a package or individual ticket based on registration context
+          // For now, we'll determine this based on the registration type and ticket structure
+          const isPackageTicket = registrationType === 'lodge' || ticket.event_tickets.name?.toLowerCase().includes('package');
+          
+          if (isPackageTicket) {
+            packages.push({
+              id: ticket.ticket_id,
+              isPackage: true
+            });
+          } else {
+            individualTickets.push({
+              id: ticket.ticket_id,
+              isPackage: false
+            });
+          }
+        }
+      });
+
       comprehensiveMetadata = buildPaymentIntentMetadata({
         // Registration
         registrationId: registrationId,
         registrationType: registrationType as 'individual' | 'lodge' | 'delegation',
         confirmationNumber: confirmationNumber,
         
-        // Event & Function
-        eventId: registration.event_id,
-        eventTitle: eventTitle,
-        eventSlug: eventSlug,
+        // Function (replaces Event)
         functionId: functionId,
         functionName: functionName,
         
@@ -318,10 +339,12 @@ export async function POST(request: Request) {
         lodgeNumber: lodgeInfo?.lodgeNumber,
         grandLodgeId: lodgeInfo?.grandLodge,
         
-        // Tickets
+        // Tickets (Enhanced)
         ticketsCount: ticketsList.length,
         ticketTypes: ticketTypes,
         ticketIds: ticketIds,
+        packages: packages.length > 0 ? packages : undefined,
+        individualTickets: individualTickets.length > 0 ? individualTickets : undefined,
         
         // Financial (updated with new fee calculation)
         subtotal: calculatedFees?.connectedAmount || amount / 100,
@@ -342,19 +365,28 @@ export async function POST(request: Request) {
       
       // No child events metadata to merge with functions architecture
     } else {
-      // Minimal metadata when no registration ID
+      // Minimal metadata when no registration ID (Simple Payments)
       comprehensiveMetadata = {
-        event_id: eventId || '',
-        event_title: truncateMetadataValue(eventTitle),
-        event_slug: eventSlug,
+        // Function (replaces Event)
+        function_id: functionId || '',
+        function_name: truncateMetadataValue(functionName || ''),
+        
+        // Organization
         organisation_name: truncateMetadataValue(organisationName || ''),
         organisation_id: organisationId || '',
+        
+        // Financial
         subtotal: String(calculatedFees?.connectedAmount || amount / 100),
         total_amount: String(calculatedFees?.customerPayment || amount / 100),
         platform_fee: String(calculatedFees?.platformFee || 0),
         stripe_fee: String(calculatedFees?.stripeFee || 0),
         processing_fees: String(calculatedFees?.processingFeesDisplay || 0),
         is_domestic: String(calculatedFees?.isDomestic || false),
+        
+        // Payment type
+        payment_type: 'simple_payment',
+        
+        // Tracking
         created_at: new Date().toISOString(),
         environment: process.env.NODE_ENV || 'development',
       };
@@ -369,6 +401,31 @@ export async function POST(request: Request) {
       },
       metadata: comprehensiveMetadata,
     };
+    
+    // Add receipt email based on registration type - use billing contact, not attendee
+    let receiptEmail = null;
+    if (registrationId) {
+      // For full registrations, we have registration data with billing details
+      if (registrationType === 'individual') {
+        // For individual registrations, use billing details email
+        // This should come from the billing form the user filled out
+        receiptEmail = metadata?.billingEmail || primaryAttendee?.email;
+      } else if (registrationType === 'lodge') {
+        // For lodge registrations, use lodge customer email from booking contact
+        receiptEmail = metadata?.lodgeCustomerEmail || primaryAttendee?.email;
+      } else if (registrationType === 'delegation') {
+        // For delegation registrations, use primary contact email
+        receiptEmail = primaryAttendee?.email;
+      }
+    } else {
+      // For simple payments (no registration), use any provided email
+      receiptEmail = metadata?.customerEmail || metadata?.email;
+    }
+    
+    if (receiptEmail) {
+      paymentIntentOptions.receipt_email = receiptEmail;
+      console.log(`Setting receipt email to: ${receiptEmail} (${registrationType || 'simple'} payment)`);
+    }
     
     // Create or update Stripe customer if we have primary attendee
     if (connectedAccountId && primaryAttendee) {
@@ -421,9 +478,10 @@ export async function POST(request: Request) {
         destination: connectedAccountId,
       };
       
-      // Add statement descriptor (max 22 chars)
-      if (eventTitle) {
-        paymentIntentOptions.statement_descriptor_suffix = eventTitle
+      // Add statement descriptor (max 22 chars) - use function name and registration type
+      if (functionName) {
+        const descriptorText = `${functionName} ${registrationType}`.trim();
+        paymentIntentOptions.statement_descriptor_suffix = descriptorText
           .substring(0, 22)
           .replace(/[^a-zA-Z0-9 ]/g, '')
           .trim();
