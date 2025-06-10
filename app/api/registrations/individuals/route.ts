@@ -1,14 +1,35 @@
 import { NextResponse } from "next/server";
 import { createClient } from '@/utils/supabase/server';
 import { createClientWithToken } from '@/utils/supabase/server-with-token';
-import { captureCompleteRegistrationStoreState, storeZustandCaptureInRawRegistrations } from '@/lib/utils/zustand-store-capture';
+import { 
+  captureCompleteRegistrationStoreState, 
+  captureCompleteLodgeStoreState,
+  captureCompleteDelegationStoreState,
+  storeZustandCaptureInRawRegistrations 
+} from '@/lib/utils/zustand-store-capture';
+
+/**
+ * Enhanced Individuals Registration API
+ * 
+ * This endpoint has been enhanced to handle ALL registration types:
+ * - individuals (original functionality)
+ * - lodge (no attendees, organization-level purchase)
+ * - delegation (two branches: tickets only or full registration)
+ * 
+ * It maintains the existing direct edge function invocation pattern
+ * and comprehensive Zustand store capture for all types.
+ */
 
 export async function POST(request: Request) {
   try {
-    console.group("📝 Individuals Registration API");
+    console.group("📝 Enhanced Registration API (All Types)");
     
     const data = await request.json();
-    console.log("Received registration data:", JSON.stringify(data, null, 2));
+    console.log("Received registration data type:", data.registrationType || 'individuals');
+    
+    // Detect registration type from payload
+    const registrationType = data.registrationType || 'individuals';
+    console.log(`Processing ${registrationType} registration`);
     
     // Create a client to log raw payload
     const supabaseForLogging = await createClient();
@@ -22,17 +43,18 @@ export async function POST(request: Request) {
             source: 'frontend_form_submission',
             timestamp: new Date().toISOString(),
             form_data: data,
-            note: 'Initial form data before server-side processing and enrichment'
+            registration_type: registrationType,
+            note: `Initial ${registrationType} form data before server-side processing`
           },
           registration_id: data.registrationId || null,
-          registration_type: 'individuals_frontend',
+          registration_type: `${registrationType}_frontend`,
           created_at: new Date().toISOString()
         });
       
       if (rawError) {
         console.error('Error logging frontend form data:', rawError);
       } else {
-        console.log('Frontend form data logged to raw_registrations table');
+        console.log(`Frontend ${registrationType} form data logged to raw_registrations table`);
       }
     } catch (logError) {
       console.error('Failed to log frontend form data:', logError);
@@ -43,21 +65,59 @@ export async function POST(request: Request) {
     try {
       const { 
         completeZustandStoreState,
+        completeLodgeZustandStoreState,
+        completeDelegationZustandStoreState,
         calculatedPricing 
       } = data;
       
-      if (completeZustandStoreState) {
-        console.log('🏪 Capturing complete Zustand registration store state...');
-        
-        const storeCapture = await captureCompleteRegistrationStoreState(
-          data,
-          calculatedPricing || {
-            totalAmount: data.totalAmount || 0,
-            subtotal: data.subtotal || 0,
-            stripeFee: data.stripeFee || 0
+      let storeCapture = null;
+      
+      // Branch based on registration type for store capture
+      switch (registrationType) {
+        case 'individuals':
+          if (completeZustandStoreState) {
+            console.log('🏪 Capturing complete Individual Zustand registration store state...');
+            storeCapture = await captureCompleteRegistrationStoreState(
+              data,
+              calculatedPricing || {
+                totalAmount: data.totalAmount || 0,
+                subtotal: data.subtotal || 0,
+                stripeFee: data.stripeFee || 0
+              }
+            );
           }
-        );
-        
+          break;
+          
+        case 'lodge':
+          if (completeLodgeZustandStoreState) {
+            console.log('🏪 Capturing complete Lodge Zustand registration store state...');
+            storeCapture = await captureCompleteLodgeStoreState(
+              data,
+              calculatedPricing || {
+                totalAmount: data.totalAmount || 0,
+                subtotal: data.subtotal || 0,
+                stripeFee: data.stripeFee || 0
+              }
+            );
+          }
+          break;
+          
+        case 'delegation':
+          if (completeDelegationZustandStoreState) {
+            console.log('🏪 Capturing complete Delegation Zustand registration store state...');
+            storeCapture = await captureCompleteDelegationStoreState(
+              data,
+              calculatedPricing || {
+                totalAmount: data.totalAmount || 0,
+                subtotal: data.subtotal || 0,
+                stripeFee: data.stripeFee || 0
+              }
+            );
+          }
+          break;
+      }
+      
+      if (storeCapture) {
         const captureResult = await storeZustandCaptureInRawRegistrations(
           supabaseForLogging,
           storeCapture,
@@ -65,12 +125,12 @@ export async function POST(request: Request) {
         );
         
         if (captureResult.success) {
-          console.log(`✅ Complete Zustand store captured: ${storeCapture.metadata.field_count} fields`);
+          console.log(`✅ Complete ${registrationType} Zustand store captured: ${storeCapture.metadata.field_count} fields`);
         } else {
-          console.error('❌ Failed to capture Zustand store:', captureResult.error);
+          console.error(`❌ Failed to capture ${registrationType} Zustand store:`, captureResult.error);
         }
       } else {
-        console.warn('⚠️ No complete Zustand store state provided - capturing only API payload');
+        console.warn(`⚠️ No complete ${registrationType} Zustand store state provided - capturing only API payload`);
       }
     } catch (storeError) {
       console.error('Failed to capture Zustand store state:', storeError);
@@ -81,75 +141,6 @@ export async function POST(request: Request) {
     // Extract the auth token from headers
     const authHeader = request.headers.get('authorization');
     console.log("Auth header present:", !!authHeader);
-    
-    // Extract data from the request
-    const {
-      primaryAttendee,
-      additionalAttendees = [],
-      tickets = [],
-      totalAmount = 0,
-      subtotal = 0,
-      stripeFee = 0,
-      paymentIntentId = null,
-      billingDetails,
-      eventId,
-      functionId,
-      customerId,
-      billToPrimaryAttendee = false,
-      agreeToTerms = true,
-      registrationId = null // Optional for draft recovery
-    } = data;
-    
-    // Validate required fields
-    if (!customerId) {
-      console.error("CRITICAL: customerId (auth.uid()) not provided");
-      console.groupEnd();
-      return NextResponse.json(
-        { error: "User authentication token not provided or invalid." },
-        { status: 401 }
-      );
-    }
-    
-    if (!functionId) {
-      console.error("Missing function ID");
-      console.groupEnd();
-      return NextResponse.json(
-        { error: "Function ID is required for registration" },
-        { status: 400 }
-      );
-    }
-    
-    if (!primaryAttendee) {
-      console.error("Missing primary attendee data");
-      console.groupEnd();
-      return NextResponse.json(
-        { error: "Primary attendee data is required" },
-        { status: 400 }
-      );
-    }
-    
-    if (!billingDetails || !billingDetails.emailAddress || !billingDetails.firstName || !billingDetails.lastName) {
-      console.error("Missing or incomplete billing details");
-      console.groupEnd();
-      return NextResponse.json(
-        { error: "Complete billing details are required" },
-        { status: 400 }
-      );
-    }
-    
-    // Validate event ID if provided
-    let finalEventId = eventId;
-    let eventTitle = null;
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    
-    if (finalEventId && !uuidRegex.test(finalEventId)) {
-      console.error(`Invalid event ID format: ${finalEventId}`);
-      console.groupEnd();
-      return NextResponse.json(
-        { error: "Invalid event ID format. Must be a valid UUID." },
-        { status: 400 }
-      );
-    }
     
     // Authenticate user
     let user = null;
@@ -191,6 +182,20 @@ export async function POST(request: Request) {
       );
     }
     
+    // Extract common data
+    const {
+      customerId,
+      functionId,
+      eventId,
+      totalAmount = 0,
+      subtotal = 0,
+      stripeFee = 0,
+      paymentIntentId = null,
+      billingDetails,
+      agreeToTerms = true,
+      registrationId = null // Optional for draft recovery
+    } = data;
+    
     // Verify customer ID matches authenticated user
     if (user.id !== customerId) {
       console.error("Customer ID mismatch:", { userId: user.id, customerId });
@@ -201,13 +206,24 @@ export async function POST(request: Request) {
       );
     }
     
+    // Validate function ID
+    if (!functionId) {
+      console.error("Missing function ID");
+      console.groupEnd();
+      return NextResponse.json(
+        { error: "Function ID is required for registration" },
+        { status: 400 }
+      );
+    }
+    
     // Get event title if eventId provided
-    if (finalEventId) {
+    let eventTitle = null;
+    if (eventId) {
       try {
         const { data: eventData, error: eventError } = await supabase
           .from('events')
           .select('title')
-          .eq('event_id', finalEventId)
+          .eq('event_id', eventId)
           .single();
           
         if (!eventError && eventData) {
@@ -219,91 +235,204 @@ export async function POST(request: Request) {
       }
     }
     
-    // Prepare the data for the RPC function
-    const rpcData = {
-      registrationId: registrationId, // Use provided ID or let RPC generate one
-      functionId,
-      eventId: finalEventId,
-      eventTitle,
-      registrationType: 'individuals',
-      primaryAttendee,
-      additionalAttendees,
-      tickets,
-      totalAmount,
-      subtotal,
-      stripeFee,
-      paymentIntentId,
-      billingDetails,
-      agreeToTerms,
-      billToPrimaryAttendee,
-      authUserId: user.id,
-      paymentCompleted: false // Initial registration, not payment completion
-    };
+    // ====== BRANCH BASED ON REGISTRATION TYPE ======
+    let rpcResult = null;
+    let rpcError = null;
     
-    console.log("Calling upsert_individual_registration RPC with data:", JSON.stringify(rpcData, null, 2));
-    
-    // Log the COMPLETE, ENRICHED registration data (this is what we really want for debugging)
-    try {
-      const comprehensiveRegistrationData = {
-        source: 'complete_server_processed_data',
-        timestamp: new Date().toISOString(),
+    switch (registrationType) {
+      case 'individuals': {
+        // Extract individual-specific data
+        const {
+          primaryAttendee,
+          additionalAttendees = [],
+          tickets = [],
+          billToPrimaryAttendee = false,
+        } = data;
         
-        // Original form submission from frontend
-        original_form_data: data,
-        
-        // Complete processed registration data sent to RPC
-        processed_registration_data: rpcData,
-        
-        // Additional context and metadata
-        processing_context: {
-          auth_user_id: user.id,
-          is_anonymous_user: user.is_anonymous || false,
-          user_email: user.email,
-          function_context: {
-            function_id: functionId,
-            event_id: finalEventId,
-            event_title: eventTitle
-          },
-          validation_passed: true,
-          processing_completed_at: new Date().toISOString()
-        },
-        
-        // Data comparison for gap analysis
-        data_gaps_analysis: {
-          frontend_fields_count: data ? Object.keys(data).length : 0,
-          processed_fields_count: rpcData ? Object.keys(rpcData).length : 0,
-          ticket_count: rpcData.tickets?.length || 0,
-          attendee_count: (rpcData.primaryAttendee ? 1 : 0) + (rpcData.additionalAttendees?.length || 0),
-          has_pricing_data: (rpcData.totalAmount > 0 || rpcData.subtotal > 0),
-          has_fee_calculation: rpcData.stripeFee > 0,
-          note: 'This record contains both original form data and complete processed data for comprehensive analysis'
+        // Validate required fields
+        if (!primaryAttendee) {
+          console.error("Missing primary attendee data");
+          console.groupEnd();
+          return NextResponse.json(
+            { error: "Primary attendee data is required" },
+            { status: 400 }
+          );
         }
-      };
-
-      const { error: comprehensiveError } = await supabaseForLogging
-        .from('raw_registrations')
-        .insert({
-          raw_data: comprehensiveRegistrationData,
-          registration_id: data.registrationId || null,
-          registration_type: 'individuals_complete',
-          created_at: new Date().toISOString()
+        
+        if (!billingDetails || !billingDetails.emailAddress || !billingDetails.firstName || !billingDetails.lastName) {
+          console.error("Missing or incomplete billing details");
+          console.groupEnd();
+          return NextResponse.json(
+            { error: "Complete billing details are required" },
+            { status: 400 }
+          );
+        }
+        
+        // Prepare the data for the RPC function
+        const rpcData = {
+          registrationId,
+          functionId,
+          eventId,
+          eventTitle,
+          registrationType: 'individuals',
+          primaryAttendee,
+          additionalAttendees,
+          tickets,
+          totalAmount,
+          subtotal,
+          stripeFee,
+          paymentIntentId,
+          billingDetails,
+          agreeToTerms,
+          billToPrimaryAttendee,
+          authUserId: user.id,
+          paymentCompleted: false
+        };
+        
+        console.log("Calling upsert_individual_registration RPC");
+        
+        // Call the RPC function
+        const result = await supabase.rpc('upsert_individual_registration', {
+          p_registration_data: rpcData
         });
-      
-      if (comprehensiveError) {
-        console.error('Error logging comprehensive registration data:', comprehensiveError);
-      } else {
-        console.log('✅ Comprehensive registration data logged with pricing, fees, and complete attendee details');
+        
+        rpcResult = result.data;
+        rpcError = result.error;
+        break;
       }
-    } catch (logError) {
-      console.error('Failed to log comprehensive registration data:', logError);
+      
+      case 'lodge': {
+        // Extract lodge-specific data
+        const {
+          lodgeDetails,
+          tickets = [],
+          tableCount = 0,
+        } = data;
+        
+        // Validate lodge details
+        if (!lodgeDetails || !lodgeDetails.lodgeId) {
+          console.error("Missing lodge details");
+          console.groupEnd();
+          return NextResponse.json(
+            { error: "Lodge details are required" },
+            { status: 400 }
+          );
+        }
+        
+        if (!billingDetails || !billingDetails.emailAddress) {
+          console.error("Missing billing details for lodge");
+          console.groupEnd();
+          return NextResponse.json(
+            { error: "Billing details are required" },
+            { status: 400 }
+          );
+        }
+        
+        // Prepare lodge data (NO attendees array)
+        const lodgeData = {
+          registrationId,
+          functionId,
+          eventId,
+          eventTitle,
+          registrationType: 'lodge',
+          lodgeDetails,
+          tickets,
+          tableCount,
+          totalAmount,
+          subtotal,
+          stripeFee,
+          paymentIntentId,
+          billingDetails,
+          agreeToTerms,
+          authUserId: user.id,
+          paymentCompleted: false
+        };
+        
+        console.log("Calling upsert_lodge_registration RPC");
+        
+        const result = await supabase.rpc('upsert_lodge_registration', {
+          p_registration_data: lodgeData
+        });
+        
+        rpcResult = result.data;
+        rpcError = result.error;
+        break;
+      }
+      
+      case 'delegation': {
+        // Extract delegation-specific data
+        const {
+          delegationInfo,
+          bookingContact,
+          attendees = [],
+          tickets = [],
+        } = data;
+        
+        // Determine which branch based on attendees
+        const hasDelegates = attendees && attendees.length > 0;
+        
+        // Validate delegation info
+        if (!delegationInfo || !delegationInfo.name) {
+          console.error("Missing delegation info");
+          console.groupEnd();
+          return NextResponse.json(
+            { error: "Delegation information is required" },
+            { status: 400 }
+          );
+        }
+        
+        if (!bookingContact || !bookingContact.emailAddress) {
+          console.error("Missing booking contact");
+          console.groupEnd();
+          return NextResponse.json(
+            { error: "Booking contact is required" },
+            { status: 400 }
+          );
+        }
+        
+        // Prepare delegation data
+        const delegationData = {
+          registrationId,
+          functionId,
+          eventId,
+          eventTitle,
+          registrationType: 'delegation',
+          delegationInfo,
+          bookingContact,
+          attendees: hasDelegates ? attendees : [], // Empty array for tickets-only
+          tickets,
+          totalAmount,
+          subtotal,
+          stripeFee,
+          paymentIntentId,
+          billingDetails: billingDetails || bookingContact, // Use booking contact as billing if not provided
+          agreeToTerms,
+          authUserId: user.id,
+          paymentCompleted: false,
+          isBulkTicketPurchase: !hasDelegates // Flag for tickets-only branch
+        };
+        
+        console.log(`Calling upsert_delegation_registration RPC (${hasDelegates ? 'with attendees' : 'tickets only'})`);
+        
+        const result = await supabase.rpc('upsert_delegation_registration', {
+          p_registration_data: delegationData
+        });
+        
+        rpcResult = result.data;
+        rpcError = result.error;
+        break;
+      }
+      
+      default:
+        console.error("Invalid registration type:", registrationType);
+        console.groupEnd();
+        return NextResponse.json(
+          { error: "Invalid registration type" },
+          { status: 400 }
+        );
     }
     
-    // Call the RPC function
-    const { data: rpcResult, error: rpcError } = await supabase
-      .rpc('upsert_individual_registration', {
-        p_registration_data: rpcData
-      });
-    
+    // Handle RPC errors
     if (rpcError) {
       console.error("RPC Error:", rpcError);
       console.groupEnd();
@@ -322,57 +451,32 @@ export async function POST(request: Request) {
       );
     }
     
-    console.log("Individual registration created successfully:", rpcResult);
+    console.log(`${registrationType} registration created successfully:`, rpcResult);
     
     const finalRegistrationId = rpcResult?.registrationId || rpcResult?.registration_id;
     let confirmationNumber = rpcResult?.confirmationNumber || rpcResult?.confirmation_number;
     
-    // Log the FINAL RESULT data with all generated IDs and confirmation details
+    // Log the FINAL RESULT data
     try {
-      // Get customer record to capture complete customer data
-      let customerRecord = null;
-      try {
-        const { data: customer, error: customerError } = await supabase
-          .from('customers')
-          .select('*')
-          .eq('customer_id', user.id)
-          .single();
-          
-        if (!customerError && customer) {
-          customerRecord = customer;
-        }
-      } catch (error) {
-        console.log('Could not fetch customer record for logging');
-      }
-
       const finalResultData = {
         source: 'final_registration_result',
         timestamp: new Date().toISOString(),
-        
-        // Complete RPC result
+        registration_type: registrationType,
         rpc_result: rpcResult,
-        
-        // Generated IDs and confirmation data
         generated_data: {
           final_registration_id: finalRegistrationId,
           confirmation_number: confirmationNumber,
           customer_id: user.id,
           function_id: functionId,
-          event_id: finalEventId
+          event_id: eventId
         },
-        
-        // Complete customer record (what actually gets stored in database)
-        customer_record: customerRecord,
-        
-        // Success metrics
         processing_summary: {
           registration_successful: !!rpcResult?.success,
           confirmation_generated: !!confirmationNumber,
           registration_id_generated: !!finalRegistrationId,
           customer_authenticated: !!user.id,
-          total_amount_processed: rpcData.totalAmount,
-          tickets_processed: rpcData.tickets?.length || 0,
-          attendees_processed: (rpcData.primaryAttendee ? 1 : 0) + (rpcData.additionalAttendees?.length || 0)
+          total_amount_processed: totalAmount,
+          tickets_processed: data.tickets?.length || 0
         }
       };
 
@@ -381,38 +485,17 @@ export async function POST(request: Request) {
         .insert({
           raw_data: finalResultData,
           registration_id: finalRegistrationId,
-          registration_type: 'individuals_final_result',
+          registration_type: `${registrationType}_final_result`,
           created_at: new Date().toISOString()
         });
       
       if (finalError) {
         console.error('Error logging final result data:', finalError);
       } else {
-        console.log('✅ Final registration result logged with all generated IDs and customer data');
+        console.log(`✅ Final ${registrationType} registration result logged`);
       }
     } catch (logError) {
       console.error('Failed to log final result data:', logError);
-    }
-    
-    // Update raw_registrations with the final registration_id if it wasn't provided initially
-    if (!registrationId && finalRegistrationId) {
-      try {
-        const { error: updateError } = await supabaseForLogging
-          .from('raw_registrations')
-          .update({ registration_id: finalRegistrationId })
-          .eq('raw_data->customerId', customerId)
-          .is('registration_id', null)
-          .order('created_at', { ascending: false })
-          .limit(1);
-          
-        if (updateError) {
-          console.error('Error updating raw_registrations with registration_id:', updateError);
-        } else {
-          console.log('Updated raw_registrations with final registration_id:', finalRegistrationId);
-        }
-      } catch (error) {
-        console.error('Failed to update raw_registrations:', error);
-      }
     }
     
     // Generate confirmation number if payment was provided
@@ -420,7 +503,7 @@ export async function POST(request: Request) {
       console.log("Triggering confirmation number generation...");
       
       try {
-        // Invoke the confirmation generation edge function
+        // Invoke the confirmation generation edge function with type-specific data
         const { data: edgeFunctionData, error: edgeFunctionError } = await supabase.functions.invoke('generate-confirmation', {
           body: {
             type: 'UPDATE',
@@ -432,9 +515,9 @@ export async function POST(request: Request) {
               status: 'completed',
               payment_status: 'completed',
               confirmation_number: null,
-              registration_type: 'individuals',
+              registration_type: registrationType, // Pass the actual registration type
               function_id: functionId,
-              customer_id: '',
+              customer_id: user.id || '',
               created_at: new Date().toISOString(),
               updated_at: new Date().toISOString()
             },
@@ -444,9 +527,9 @@ export async function POST(request: Request) {
               status: 'pending',
               payment_status: 'pending',
               confirmation_number: null,
-              registration_type: 'individuals',
+              registration_type: registrationType,
               function_id: functionId,
-              customer_id: '',
+              customer_id: user.id || '',
               created_at: new Date().toISOString(),
               updated_at: new Date().toISOString()
             }
@@ -476,9 +559,15 @@ export async function POST(request: Request) {
         
         console.log(`Poll attempt ${i + 1}/${maxPolls}`);
         
-        // Query the confirmation view
+        // Query the appropriate confirmation view based on type
+        const viewName = registrationType === 'lodge' ? 
+          'lodge_registration_confirmation_view' : 
+          registrationType === 'delegation' ?
+          'delegation_registration_confirmation_view' :
+          'individuals_registration_confirmation_view';
+          
         const { data: confirmationData, error: confirmationError } = await supabase
-          .from('individuals_registration_confirmation_view')
+          .from(viewName)
           .select('confirmation_number')
           .eq('registration_id', finalRegistrationId)
           .single();
@@ -508,29 +597,13 @@ export async function POST(request: Request) {
       }
     }
     
-    // Fetch the complete registration data from the view
-    const { data: registrationView, error: viewError } = await supabase
-      .from('individuals_registration_complete_view')
-      .select('*')
-      .eq('registration_id', finalRegistrationId)
-      .single();
-    
-    if (viewError) {
-      console.warn("Could not fetch registration view:", viewError);
-      // Don't fail the request, just log the warning
-    } else {
-      console.log("Registration view data:", {
-        attendees: registrationView?.attendees?.length || 0,
-        tickets: registrationView?.total_tickets || 0,
-        contacts: registrationView?.total_contacts_created || 0
-      });
-    }
-    
     console.groupEnd();
     
+    // Return consistent response for all types
     return NextResponse.json({
       success: true,
       registrationId: finalRegistrationId,
+      registrationType,
       confirmationNumber: confirmationNumber,
       registrationData: {
         registration_id: finalRegistrationId,
@@ -541,7 +614,7 @@ export async function POST(request: Request) {
     });
     
   } catch (error: any) {
-    console.error("Error in individuals registration API:", error);
+    console.error(`Error in enhanced registration API:`, error);
     console.error("Stack trace:", error.stack);
     console.groupEnd();
     return NextResponse.json(
@@ -553,7 +626,7 @@ export async function POST(request: Request) {
 
 export async function PUT(request: Request) {
   try {
-    console.group("💲 Update Individuals Registration Payment");
+    console.group("💲 Update Registration Payment (All Types)");
     
     const data = await request.json();
     const { registrationId, paymentIntentId, totalAmountPaid } = data;
@@ -596,28 +669,97 @@ export async function PUT(request: Request) {
       );
     }
     
-    // Prepare payment completion data
-    const rpcData = {
-      registrationId,
-      functionId: existingRegistration.function_id,
-      totalAmountPaid,
-      paymentIntentId,
-      paymentCompleted: true,
-      paymentStatus: 'completed', // Set payment_status to completed
-      status: 'completed', // Set overall status to completed to trigger edge function
-      confirmationNumber: existingRegistration.confirmation_number,
-      subtotal: existingRegistration.subtotal,
-      stripeFee: existingRegistration.stripe_fee,
-      authUserId: existingRegistration.auth_user_id
-    };
+    const registrationType = existingRegistration.registration_type;
+    console.log(`Processing payment update for ${registrationType} registration`);
     
-    console.log("Calling upsert_individual_registration for payment completion:", rpcData);
+    // Branch based on registration type
+    let rpcResult = null;
+    let rpcError = null;
     
-    // Call RPC to update payment status
-    const { data: rpcResult, error: rpcError } = await supabase
-      .rpc('upsert_individual_registration', {
-        p_registration_data: rpcData
-      });
+    switch (registrationType) {
+      case 'individuals': {
+        // Prepare payment completion data
+        const rpcData = {
+          registrationId,
+          functionId: existingRegistration.function_id,
+          totalAmountPaid,
+          paymentIntentId,
+          paymentCompleted: true,
+          paymentStatus: 'completed',
+          status: 'completed',
+          confirmationNumber: existingRegistration.confirmation_number,
+          subtotal: existingRegistration.subtotal,
+          stripeFee: existingRegistration.stripe_fee,
+          authUserId: existingRegistration.auth_user_id
+        };
+        
+        console.log("Calling upsert_individual_registration for payment completion");
+        
+        const result = await supabase.rpc('upsert_individual_registration', {
+          p_registration_data: rpcData
+        });
+        
+        rpcResult = result.data;
+        rpcError = result.error;
+        break;
+      }
+      
+      case 'lodge': {
+        // Prepare lodge payment completion data
+        const rpcData = {
+          registrationId,
+          functionId: existingRegistration.function_id,
+          totalAmountPaid,
+          paymentIntentId,
+          paymentCompleted: true,
+          paymentStatus: 'completed',
+          status: 'completed',
+          authUserId: existingRegistration.auth_user_id
+        };
+        
+        console.log("Calling upsert_lodge_registration for payment completion");
+        
+        const result = await supabase.rpc('upsert_lodge_registration', {
+          p_registration_data: rpcData
+        });
+        
+        rpcResult = result.data;
+        rpcError = result.error;
+        break;
+      }
+      
+      case 'delegation': {
+        // Prepare delegation payment completion data
+        const rpcData = {
+          registrationId,
+          functionId: existingRegistration.function_id,
+          totalAmountPaid,
+          paymentIntentId,
+          paymentCompleted: true,
+          paymentStatus: 'completed',
+          status: 'completed',
+          authUserId: existingRegistration.auth_user_id
+        };
+        
+        console.log("Calling upsert_delegation_registration for payment completion");
+        
+        const result = await supabase.rpc('upsert_delegation_registration', {
+          p_registration_data: rpcData
+        });
+        
+        rpcResult = result.data;
+        rpcError = result.error;
+        break;
+      }
+      
+      default:
+        console.error("Unknown registration type:", registrationType);
+        console.groupEnd();
+        return NextResponse.json(
+          { error: "Unknown registration type" },
+          { status: 400 }
+        );
+    }
     
     if (rpcError) {
       console.error("RPC Error during payment update:", rpcError);
@@ -628,7 +770,7 @@ export async function PUT(request: Request) {
       );
     }
     
-    console.log("Payment updated successfully:", rpcResult);
+    console.log(`Payment updated successfully for ${registrationType}:`, rpcResult);
     
     // Generate confirmation number after successful payment
     try {
@@ -646,7 +788,7 @@ export async function PUT(request: Request) {
             status: 'completed',
             payment_status: 'completed',
             confirmation_number: null,
-            registration_type: 'individuals',
+            registration_type: registrationType,
             function_id: existingRegistration.function_id,
             customer_id: existingRegistration.auth_user_id || '',
             created_at: existingRegistration.created_at || new Date().toISOString(),
@@ -658,7 +800,7 @@ export async function PUT(request: Request) {
             status: 'pending',
             payment_status: 'pending',
             confirmation_number: null,
-            registration_type: 'individuals',
+            registration_type: registrationType,
             function_id: existingRegistration.function_id,
             customer_id: existingRegistration.auth_user_id || '',
             created_at: existingRegistration.created_at || new Date().toISOString(),
@@ -680,7 +822,8 @@ export async function PUT(request: Request) {
     
     return NextResponse.json({
       success: true,
-      registrationId
+      registrationId,
+      registrationType
     });
     
   } catch (error: any) {
@@ -707,9 +850,30 @@ export async function GET(request: Request) {
     
     const supabase = await createClient();
     
+    // First get the registration to determine type
+    const { data: registration, error: regError } = await supabase
+      .from('registrations')
+      .select('registration_type')
+      .eq('registration_id', registrationId)
+      .single();
+      
+    if (regError || !registration) {
+      return NextResponse.json(
+        { error: "Registration not found" },
+        { status: 404 }
+      );
+    }
+    
+    // Use appropriate view based on type
+    const viewName = registration.registration_type === 'lodge' ? 
+      'lodge_registration_complete_view' : 
+      registration.registration_type === 'delegation' ?
+      'delegation_registration_complete_view' :
+      'individuals_registration_complete_view';
+    
     // Fetch from the comprehensive view
-    const { data: registration, error } = await supabase
-      .from('individuals_registration_complete_view')
+    const { data: registrationData, error } = await supabase
+      .from(viewName)
       .select('*')
       .eq('registration_id', registrationId)
       .single();
@@ -724,7 +888,8 @@ export async function GET(request: Request) {
     
     return NextResponse.json({
       success: true,
-      registration
+      registration: registrationData,
+      registrationType: registration.registration_type
     });
     
   } catch (error: any) {

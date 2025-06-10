@@ -140,7 +140,9 @@ describe('Comprehensive Metadata Capture', () => {
           startDate: eventData.startDate,
           endDate: eventData.endDate,
           venue: eventData.venue,
-          venueAddress: eventData.venueAddress
+          venueAddress: eventData.venueAddress,
+          description: null,
+          status: null
         },
         availability: {
           isActive: true,
@@ -234,7 +236,7 @@ describe('Comprehensive Metadata Capture', () => {
   });
 
   describe('Attendee Selection Management', () => {
-    const attendeeId = 'att_123';
+    let attendeeId: string;
     const attendeeName = 'John Smith';
     const attendeeType = 'mason';
 
@@ -243,11 +245,11 @@ describe('Comprehensive Metadata Capture', () => {
       
       // Setup: Add attendee and capture metadata
       act(() => {
-        result.current.addMasonAttendee();
+        const newAttendeeId = result.current.addMasonAttendee();
+        attendeeId = newAttendeeId;
         const attendees = result.current.attendees;
         if (attendees.length > 0) {
           result.current.updateAttendee(attendees[0].attendeeId, {
-            attendeeId,
             firstName: 'John',
             lastName: 'Smith'
           });
@@ -279,7 +281,8 @@ describe('Comprehensive Metadata Capture', () => {
         quantity: 1,
         subtotal: 150.00,
         selectionTimestamp: expect.any(String),
-        status: 'unpaid'
+        status: 'unpaid',
+        attendeeId
       });
       
       expect(selection.attendeeSubtotal).toBe(150.00);
@@ -349,17 +352,25 @@ describe('Comprehensive Metadata Capture', () => {
     it('should calculate complete order summary with all metadata', () => {
       const { result } = renderHook(() => useRegistrationStore());
       
-      // Setup: Add function metadata, attendees, and selections
+      // Setup: Add function metadata and capture ticket metadata
       act(() => {
+        result.current.setFunctionId(mockFunctionMetadata.functionId);
         result.current.captureFunctionMetadata(mockFunctionMetadata);
         result.current.captureTicketMetadata(mockEventTicket, {});
         result.current.capturePackageMetadata(mockPackage, [mockEventTicket, mockCeremonyTicket]);
-        
-        // Add two attendees
+      });
+      
+      // Add two attendees
+      act(() => {
         result.current.addMasonAttendee();
         result.current.addGuestAttendee();
-        const attendees = result.current.attendees;
-        
+      });
+      
+      // Now get the attendees after state has updated
+      const attendees = result.current.attendees;
+      
+      // Add selections
+      act(() => {
         // First attendee selects package
         result.current.addAttendeePackageSelection(attendees[0].attendeeId, mockPackage.id, 1);
         
