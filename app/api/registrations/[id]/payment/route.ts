@@ -253,13 +253,16 @@ export async function PUT(
             amount: Math.round(subtotal * 100), // Transfer the subtotal to connected account
           };
           
-          // Add statement descriptor
-          const statementDescriptor = paymentData.event.title
-            ?.substring(0, 22)
-            .replace(/[^a-zA-Z0-9 ]/g, '')
-            .trim();
-          if (statementDescriptor) {
-            paymentIntentOptions.statement_descriptor_suffix = statementDescriptor;
+          // Add statement descriptor using function name for consistency
+          const functionName = paymentData.function?.name;
+          if (functionName) {
+            const statementDescriptor = functionName
+              .substring(0, 22)
+              .replace(/[^a-zA-Z0-9 ]/g, '')
+              .trim();
+            if (statementDescriptor) {
+              paymentIntentOptions.statement_descriptor_suffix = statementDescriptor;
+            }
           }
         } catch (accountError: any) {
           console.error('Connected account validation failed:', accountError);
