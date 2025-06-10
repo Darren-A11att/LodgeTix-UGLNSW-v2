@@ -514,7 +514,10 @@ const TicketSelectionStep: React.FC = () => {
         attendeeCount: Object.keys(ticketSelectionsPayload).length
       });
       
-      // Call the draft persistence API
+      // Get current metadata from store
+      const storeState = useRegistrationStore.getState();
+      
+      // Call the draft persistence API with enhanced metadata
       const response = await fetch(`/api/registrations/drafts/${draftId}/tickets`, {
         method: 'POST',
         headers: {
@@ -522,7 +525,14 @@ const TicketSelectionStep: React.FC = () => {
         },
         body: JSON.stringify({
           functionId,
-          ticketSelections: ticketSelectionsPayload
+          ticketSelections: ticketSelectionsPayload,
+          // NEW: Include enhanced metadata
+          functionMetadata: storeState.functionMetadata,
+          ticketMetadata: storeState.ticketMetadata,
+          packageMetadata: storeState.packageMetadata,
+          attendeeSelections: storeState.attendeeSelections,
+          orderSummary: storeState.orderSummary,
+          lodgeBulkSelection: storeState.lodgeBulkSelection
         })
       });
       

@@ -8,11 +8,25 @@ export async function POST(
   try {
     console.group("💾 Draft Ticket Persistence API");
     
-    const { functionId, ticketSelections } = await request.json();
+    const { 
+      functionId, 
+      ticketSelections,
+      // NEW: Enhanced metadata fields
+      functionMetadata,
+      ticketMetadata,
+      packageMetadata,
+      attendeeSelections,
+      orderSummary,
+      lodgeBulkSelection
+    } = await request.json();
+    
     console.log("Received draft ticket persistence request:", {
       draftId: params.draftId,
       functionId,
-      attendeeCount: Object.keys(ticketSelections || {}).length
+      attendeeCount: Object.keys(ticketSelections || {}).length,
+      hasMetadata: !!(functionMetadata || ticketMetadata || packageMetadata),
+      hasEnhancedSelections: !!attendeeSelections,
+      hasOrderSummary: !!orderSummary
     });
     
     // Validate required fields
@@ -67,9 +81,18 @@ export async function POST(
       draftId: params.draftId,
       functionId,
       ticketSelections,
+      // NEW: Enhanced metadata storage
+      metadata: {
+        functionMetadata,
+        ticketMetadata,
+        packageMetadata,
+        attendeeSelections,
+        orderSummary,
+        lodgeBulkSelection
+      },
       userId: user.id,
       lastUpdated: new Date().toISOString(),
-      version: 1
+      version: 2 // Bumped version for enhanced metadata
     };
     
     // For this implementation, we'll use the raw_registrations table to store drafts

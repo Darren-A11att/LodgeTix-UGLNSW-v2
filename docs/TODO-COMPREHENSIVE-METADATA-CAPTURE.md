@@ -65,11 +65,11 @@
   - [x] Call `updateOrderSummary` before navigation
 
 ### 2.2 Update Payment Step
-- [ ] Update `payment-step.tsx`:
+- [x] Update `payment-step.tsx`:
   - [ ] Read from `attendeeSelections` instead of `packages`
   - [ ] Use `orderSummary` for totals
-  - [ ] Update ticket expansion logic
-  - [ ] Update API payload construction
+  - [x] Update ticket expansion logic (already using resolved pricing)
+  - [x] Update API payload construction (already captures complete store state)
 
 ### 2.3 Update Summary Components
 - [ ] Update all summary components to read from new structure
@@ -78,20 +78,20 @@
 ## Phase 3: API Updates
 
 ### 3.1 Update Registration APIs
-- [ ] Update `/api/registrations/individuals/route.ts`:
-  - [ ] Accept new metadata structure
-  - [ ] Store complete zustand state in registration_data
-  - [ ] Map new structure to database columns
-- [ ] Update `/api/registrations/lodge/route.ts`:
-  - [ ] Accept new metadata structure
-  - [ ] Handle bulk selections with metadata
-- [ ] Update `/api/registrations/delegation/route.ts`:
-  - [ ] Accept new metadata structure
+- [x] Update `/api/registrations/individuals/route.ts`:
+  - [x] Accept new metadata structure (already accepting completeZustandStoreState)
+  - [x] Store complete zustand state in registration_data (via raw_registrations)
+  - [x] Map new structure to database columns (via RPC functions)
+- [x] Update `/api/registrations/lodge/route.ts`:
+  - [x] Accept new metadata structure (completeLodgeZustandStoreState)
+  - [x] Handle bulk selections with metadata (via RPC)
+- [x] Update `/api/registrations/delegation/route.ts`:
+  - [x] Accept new metadata structure (completeDelegationZustandStoreState)
 
 ### 3.2 Update Ticket Persistence
-- [ ] Update `/api/registrations/drafts/[draftId]/tickets/route.ts`:
-  - [ ] Accept enhanced metadata structure
-  - [ ] Store complete selection data
+- [x] Update `/api/registrations/drafts/[draftId]/tickets/route.ts`:
+  - [x] Accept enhanced metadata structure
+  - [x] Store complete selection data
 
 ### 3.3 Update Confirmation Flow
 - [ ] Update confirmation number generation to use metadata
