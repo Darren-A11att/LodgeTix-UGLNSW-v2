@@ -40,3 +40,5 @@ next-env.d.ts
 
 # MCP configuration (contains sensitive tokens)
 .mcp.json
+.DS_Store
+**/.DS_Store
