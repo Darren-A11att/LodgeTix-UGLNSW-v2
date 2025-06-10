@@ -1017,7 +1017,11 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ function
         // Remove console.log to reduce noise - console.log('🎯 Rendering payment step (case 6)');
         return (
           <Suspense fallback={<StepLoadingFallback />}>
-            <PaymentStep onSaveData={saveRegistrationData} />
+            <PaymentStep 
+              functionId={functionData?.id || resolvedFunctionId || providedFunctionId}
+              functionData={functionData}
+              onSaveData={saveRegistrationData} 
+            />
           </Suspense>
         )
       case 6:

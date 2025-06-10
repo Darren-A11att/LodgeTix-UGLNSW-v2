@@ -37,6 +37,7 @@ import { useRouter } from 'next/navigation';
 
 interface PaymentStepProps {
   functionId?: string;
+  functionData?: any;
   onNextStep?: () => void;
   onPrevStep?: () => void;
   onSaveData?: () => Promise<{ success: boolean; registrationId?: string; error?: string }>;
@@ -45,7 +46,7 @@ interface PaymentStepProps {
 }
 
 function PaymentStep(props: PaymentStepProps) {
-  const { onNextStep, onPrevStep, functionId } = props;
+  const { onNextStep, onPrevStep, functionId, functionData } = props;
   const router = useRouter();
   
   // Get navigation functions from store as fallback
@@ -846,27 +847,49 @@ function PaymentStep(props: PaymentStepProps) {
         // Determine the registration type for routing
         const confirmationType = confirmationResult.registrationType || registrationType || 'individuals';
         
+        // Get complete function data for confirmation page
+        let completeFunctionData = {
+          id: functionId || storeFunctionId,
+          name: '',
+          startDate: '',
+          endDate: '',
+          location: {
+            place_name: '',
+            street_address: '',
+            suburb: '',
+            state: '',
+            postal_code: ''
+          }
+        };
+
+        // Fetch function details if we have functionData available
+        if (functionData) {
+          completeFunctionData = {
+            id: functionData.id,
+            name: functionData.name || 'Event Registration',
+            startDate: functionData.startDate || '',
+            endDate: functionData.endDate || '',
+            location: functionData.location || completeFunctionData.location
+          };
+        }
+
         // Save registration data to localStorage for confirmation page
         const confirmationData = {
           registrationId,
           confirmationNumber: confirmationResult.confirmationNumber,
           registrationType: confirmationType,
-          functionData: {
-            id: functionId || storeFunctionId,
-            name: '', // Will be populated from database if needed
-            startDate: '',
-            endDate: '',
-            location: {
-              place_name: '',
-              street_address: '',
-              suburb: '',
-              state: '',
-              postal_code: ''
-            }
-          },
+          functionData: completeFunctionData,
           billingDetails: form.getValues(),
           attendees: allStoreAttendees,
-          tickets: currentTicketsForSummary,
+          tickets: currentTicketsForSummary.map(ticket => ({
+            ...ticket,
+            // Add field name mappings for confirmation page compatibility
+            ticketName: ticket.name,
+            ticket_name: ticket.name,
+            ticketPrice: ticket.price,
+            ticket_price: ticket.price,
+            attendeeId: ticket.attendeeId
+          })),
           totalAmount,
           subtotal,
           stripeFee: feeCalculation.stripeFee
