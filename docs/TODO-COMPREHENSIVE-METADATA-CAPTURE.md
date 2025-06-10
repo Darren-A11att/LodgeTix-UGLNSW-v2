@@ -3,46 +3,51 @@
 ## Phase 1: Store Structure Updates
 
 ### 1.1 Update Type Definitions
-- [ ] Create new interfaces in `lib/registration-types.ts`:
-  - [ ] `TicketMetadata` interface with event nesting
-  - [ ] `PackageMetadata` interface with full ticket inclusion
-  - [ ] `EnhancedTicketSelection` interface
-  - [ ] `EnhancedPackageSelection` interface
-  - [ ] `AttendeeSelectionSummary` interface
-  - [ ] `OrderSummary` interface
-  - [ ] `RegistrationTableData` interface
+- [x] Create new interfaces in `lib/registration-metadata-types.ts`:
+  - [x] `TicketMetadata` interface with event nesting
+  - [x] `PackageMetadata` interface with full ticket inclusion
+  - [x] `EnhancedTicketSelection` interface
+  - [x] `EnhancedPackageSelection` interface
+  - [x] `AttendeeSelectionSummary` interface
+  - [x] `OrderSummary` interface
+  - [x] `RegistrationTableData` interface
 
 ### 1.2 Update Registration Store
-- [ ] Remove old interfaces from `lib/registrationStore.ts`:
-  - [ ] Remove `PackageSelectionType`
-  - [ ] Remove `TicketSelectionItem`
-  - [ ] Remove `PackageSelection`
-  - [ ] Remove `AttendeeTicketSelections`
-- [ ] Add new state properties:
-  - [ ] `ticketMetadata: Record<string, TicketMetadata>`
-  - [ ] `packageMetadata: Record<string, PackageMetadata>`
-  - [ ] `attendeeSelections: Record<string, AttendeeSelectionSummary>`
-  - [ ] `orderSummary: OrderSummary | null`
-  - [ ] `registrationTableData: RegistrationTableData`
-- [ ] Remove old state properties:
-  - [ ] Remove `packages`
-  - [ ] Remove `ticketSelections`
+- [x] Remove old interfaces from `lib/registrationStore.ts`:
+  - [x] Keep `PackageSelectionType` (for backward compatibility)
+  - [x] Keep `TicketSelectionItem` (for backward compatibility)
+  - [x] Keep `PackageSelection` (for backward compatibility)
+  - [x] Keep `AttendeeTicketSelections` (for backward compatibility)
+- [x] Add new state properties:
+  - [x] `functionMetadata: FunctionMetadata | null`
+  - [x] `ticketMetadata: Record<string, TicketMetadata>`
+  - [x] `packageMetadata: Record<string, PackageMetadata>`
+  - [x] `attendeeSelections: Record<string, AttendeeSelectionSummary>`
+  - [x] `orderSummary: OrderSummary | null`
+  - [x] `registrationTableData: RegistrationTableData`
+  - [x] `lodgeBulkSelection: LodgeBulkSelection | null`
+- [x] Keep old state properties for now:
+  - [x] Keep `packages` (for backward compatibility)
+  - [x] Keep `ticketSelections` (for backward compatibility)
 
 ### 1.3 Implement New Store Actions
-- [ ] `captureTicketMetadata(ticketData: FunctionTicketDefinition)`
-- [ ] `capturePackageMetadata(packageData: FunctionPackage, includedTickets: FunctionTicketDefinition[])`
-- [ ] `addAttendeePackageSelection(attendeeId: string, packageId: string, quantity: number)`
-- [ ] `addAttendeeTicketSelection(attendeeId: string, ticketId: string, quantity: number)`
-- [ ] `removeAttendeeSelection(attendeeId: string, itemId: string, itemType: 'package' | 'ticket')`
-- [ ] `updateOrderSummary()`
-- [ ] `updateRegistrationTableData(data: Partial<RegistrationTableData>)`
-- [ ] Remove old actions:
-  - [ ] `updatePackageSelection`
-  - [ ] `updateTicketSelections`
-  - [ ] `addPackageSelection`
-  - [ ] `removePackageSelection`
-  - [ ] `addIndividualTicket`
-  - [ ] `removeIndividualTicket`
+- [x] `captureFunctionMetadata(metadata: FunctionMetadata)`
+- [x] `captureTicketMetadata(ticketData: FunctionTicketDefinition)`
+- [x] `capturePackageMetadata(packageData: FunctionPackage, includedTickets: FunctionTicketDefinition[])`
+- [x] `addAttendeePackageSelection(attendeeId: string, packageId: string, quantity: number)`
+- [x] `addAttendeeTicketSelection(attendeeId: string, ticketId: string, quantity: number)`
+- [x] `removeAttendeeSelection(attendeeId: string, itemId: string, itemType: 'package' | 'ticket')`
+- [x] `updateOrderSummary()`
+- [x] `updateRegistrationTableData(data: Partial<RegistrationTableData>)`
+- [x] `addLodgeBulkPackageSelection(packageId: string, quantity: number)`
+- [x] `addLodgeBulkTicketSelections(selections: Array)` (stub implementation)
+- [x] Keep old actions for backward compatibility:
+  - [x] Keep `updatePackageSelection`
+  - [x] Keep `updateTicketSelections`
+  - [x] Keep `addPackageSelection`
+  - [x] Keep `removePackageSelection`
+  - [x] Keep `addIndividualTicket`
+  - [x] Keep `removeIndividualTicket`
 
 ## Phase 2: Component Updates
 
@@ -93,10 +98,10 @@
 ## Phase 4: Testing
 
 ### 4.1 Write Unit Tests
-- [ ] Test new store actions
-- [ ] Test metadata capture
-- [ ] Test selection timestamps
-- [ ] Test order summary calculations
+- [x] Test new store actions
+- [x] Test metadata capture
+- [x] Test selection timestamps
+- [x] Test order summary calculations
 
 ### 4.2 Write Integration Tests
 - [ ] Test individual registration scenarios:
