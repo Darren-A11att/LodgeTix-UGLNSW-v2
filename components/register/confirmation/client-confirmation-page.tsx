@@ -1,5 +1,6 @@
 'use client';
 
+import React from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
@@ -24,9 +25,9 @@ interface ClientConfirmationPageProps {
 
 export function ClientConfirmationPage({ confirmationNumber, fallbackData }: ClientConfirmationPageProps) {
   const localData = useConfirmationData(confirmationNumber);
-  const registration = localData || fallbackData;
+  const rawRegistration = localData || fallbackData;
 
-  if (!registration) {
+  if (!rawRegistration) {
     return (
       <div className="min-h-screen bg-gray-50 py-8">
         <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -40,6 +41,55 @@ export function ClientConfirmationPage({ confirmationNumber, fallbackData }: Cli
     );
   }
 
+  // Normalize data structure to handle both localStorage and database formats
+  const registration = {
+    ...rawRegistration,
+    // Normalize function data structure
+    functionData: rawRegistration.functionData || {
+      name: rawRegistration.function_name,
+      slug: rawRegistration.function_slug,
+      description: rawRegistration.function_description,
+      startDate: rawRegistration.function_start_date,
+      endDate: rawRegistration.function_end_date,
+      imageUrl: rawRegistration.function_image_url,
+      location: {
+        place_name: rawRegistration.function_location_name,
+        street_address: rawRegistration.function_location_address,
+        suburb: rawRegistration.function_location_city,
+        state: rawRegistration.function_location_state,
+        country: rawRegistration.function_location_country,
+        postal_code: rawRegistration.function_location_postal_code
+      },
+      organiser: {
+        id: rawRegistration.function_organiser_id,
+        name: rawRegistration.organiser_name || 'United Grand Lodge of NSW & ACT',
+        knownAs: rawRegistration.organiser_known_as,
+        abbreviation: rawRegistration.organiser_abbreviation,
+        website: rawRegistration.organiser_website
+      }
+    },
+    // Normalize tickets array - fix price field mapping
+    tickets: (rawRegistration.tickets || []).map((ticket: any) => ({
+      ...ticket,
+      ticketPrice: ticket.ticketPrice || ticket.ticket_price || 0,
+      ticketName: ticket.ticketName || ticket.ticket_name || 'Event Ticket'
+    })),
+    // Ensure attendees array exists
+    attendees: rawRegistration.attendees || [],
+    // Normalize billing details
+    billingDetails: rawRegistration.billingDetails || {
+      firstName: rawRegistration.billing_first_name || rawRegistration.customer_first_name,
+      lastName: rawRegistration.billing_last_name || rawRegistration.customer_last_name,
+      emailAddress: rawRegistration.billing_email || rawRegistration.customer_email,
+      mobileNumber: rawRegistration.billing_phone || rawRegistration.customer_phone,
+      addressLine1: rawRegistration.billing_street_address,
+      suburb: rawRegistration.billing_city,
+      stateTerritory: { name: rawRegistration.billing_state },
+      postcode: rawRegistration.billing_postal_code,
+      country: { name: rawRegistration.billing_country }
+    }
+  };
+
   // Format date
   const formatDate = (dateString: string) => {
     if (!dateString) return '';
@@ -52,10 +102,10 @@ export function ClientConfirmationPage({ confirmationNumber, fallbackData }: Cli
     }).format(date);
   };
 
-  // Calculate totals from local data
+  // Calculate totals from local data - handle both field name formats
   const subtotal = registration.subtotal || 0;
-  const stripeFee = registration.stripeFee || 0;
-  const totalAmount = registration.totalAmount || 0;
+  const stripeFee = registration.stripeFee || registration.stripe_fee || 0;
+  const totalAmount = registration.totalAmount || registration.total_amount_paid || 0;
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
@@ -135,7 +185,12 @@ export function ClientConfirmationPage({ confirmationNumber, fallbackData }: Cli
                   Event Details
                 </h3>
                 <div className="space-y-2 text-sm">
-                  <p className="font-medium">{registration.functionData?.name}</p>
+                  <p className="font-medium">{registration.functionData?.name || 'Event'}</p>
+                  {registration.functionData?.organiser?.name && (
+                    <p className="text-gray-600">
+                      <span className="font-medium">Organiser:</span> {registration.functionData.organiser.name}
+                    </p>
+                  )}
                   {registration.functionData?.location && (
                     <>
                       <p className="flex items-center text-gray-600">
@@ -147,8 +202,15 @@ export function ClientConfirmationPage({ confirmationNumber, fallbackData }: Cli
                         <p>
                           {registration.functionData.location.suburb}, {registration.functionData.location.state} {registration.functionData.location.postal_code}
                         </p>
+                        <p>{registration.functionData.location.country}</p>
                       </div>
                     </>
+                  )}
+                  {(registration.functionData?.startDate || registration.functionData?.endDate) && (
+                    <p className="flex items-center text-gray-600">
+                      <Calendar className="h-4 w-4 mr-2" />
+                      {formatDate(registration.functionData.startDate)} - {formatDate(registration.functionData.endDate)}
+                    </p>
                   )}
                 </div>
               </div>
