@@ -163,6 +163,43 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
     });
   }, [tableCount]);
   
+  // Fetch function packages on mount
+  useEffect(() => {
+    const fetchFunctionData = async () => {
+      if (!functionId) {
+        console.error('[GrandLodgesForm] No function ID provided');
+        setDataError('Function ID is required');
+        return;
+      }
+      
+      try {
+        setIsLoadingData(true);
+        console.log('[GrandLodgesForm] Fetching packages for function:', functionId);
+        const ticketsService = getFunctionTicketsService();
+        const { packages } = await ticketsService.getFunctionTicketsAndPackages(functionId);
+        
+        // Filter for packages with "delegations" registration type
+        const delegationPackages = packages.filter(pkg => 
+          pkg.eligibleRegistrationTypes.includes('delegations')
+        );
+        
+        console.log('[GrandLodgesForm] Fetched delegation packages:', delegationPackages);
+        setFunctionPackages(delegationPackages);
+      } catch (error) {
+        console.error('Failed to fetch function data:', error);
+        setDataError('Failed to load ticket information');
+      } finally {
+        setIsLoadingData(false);
+      }
+    };
+    
+    fetchFunctionData();
+  }, [functionId]);
+
+  // Get the first available delegation package
+  const selectedPackage = functionPackages[0];
+  const ticketPrice = selectedPackage?.price || 195; // Fallback price
+
   // Initialize Grand Lodge from primary attendee when loaded
   useEffect(() => {
     if (primaryAttendee && !selectedGrandLodge && primaryAttendee.grand_lodge_id) {
@@ -486,7 +523,7 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
     
     try {
       // Calculate fees
-      const subtotal = ticketCount * 195;
+      const subtotal = ticketCount * ticketPrice;
       const feeCalculation = calculateStripeFees(subtotal, { isDomesticCard: true });
       const totalAmount = feeCalculation.customerPayment;
       
@@ -532,7 +569,7 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
       setPaymentError(err.message || 'Failed to complete payment');
       setIsProcessingPayment(false);
     }
-  }, [ticketCount, primaryAttendee, selectedGrandLodge, delegationTypeTab, functionId, router]);
+  }, [ticketCount, ticketPrice, primaryAttendee, selectedGrandLodge, delegationTypeTab, functionId, router]);
 
   const handlePaymentError = useCallback((error: string) => {
     console.error('Payment error:', error);
@@ -736,47 +773,56 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
               </div>
             </CardHeader>
             <CardContent className="p-6">
-              <div className="grid grid-cols-2 gap-8">
-                {/* Column 1: Package Info */}
-                <div className="space-y-4">
-                  <h3 className="font-medium text-lg mb-4">Grand Proclamation Package</h3>
-                  
-                  <div className="border rounded-lg p-4 bg-blue-50">
-                    <div className="flex items-start justify-between">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-2">
-                          <Package className="w-5 h-5 text-primary" />
-                          <h4 className="font-medium">Individual Ticket</h4>
+              {isLoadingData ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="animate-spin h-8 w-8 mr-2" />
+                  <span>Loading ticket information...</span>
+                </div>
+              ) : dataError ? (
+                <Alert variant="destructive">
+                  <AlertDescription>{dataError}</AlertDescription>
+                </Alert>
+              ) : !selectedPackage ? (
+                <Alert variant="destructive">
+                  <AlertDescription>No delegation packages available for this function.</AlertDescription>
+                </Alert>
+              ) : (
+                <div className="grid grid-cols-2 gap-8">
+                  {/* Column 1: Package Info */}
+                  <div className="space-y-4">
+                    <h3 className="font-medium text-lg mb-4">{selectedPackage.name || 'Delegation Package'}</h3>
+                    
+                    <div className="border rounded-lg p-4 bg-blue-50">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-2">
+                            <Package className="w-5 h-5 text-primary" />
+                            <h4 className="font-medium">{selectedPackage.display_name || 'Individual Ticket'}</h4>
+                          </div>
+                          {selectedPackage.description && (
+                            <p className="text-sm text-gray-600 mb-2">
+                              {selectedPackage.description}
+                            </p>
+                          )}
+                          <p className="text-sm text-gray-600">
+                            Quantity: {selectedPackage.qty} tickets per package
+                          </p>
                         </div>
-                        <p className="text-sm text-gray-600 mb-2">
-                          Complete package per attendee including:
-                        </p>
-                        <ul className="text-sm text-gray-600 space-y-1 ml-4">
-                          <li className="flex items-center gap-2">
-                            <Check className="w-4 h-4 text-green-600" />
-                            Installation Ceremony
-                          </li>
-                          <li className="flex items-center gap-2">
-                            <Check className="w-4 h-4 text-green-600" />
-                            Grand Banquet Gala Dinner
-                          </li>
-                        </ul>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-2xl font-bold">$195</p>
-                        <p className="text-sm text-gray-500">per ticket</p>
+                        <div className="text-right">
+                          <p className="text-2xl font-bold">${ticketPrice}</p>
+                          <p className="text-sm text-gray-500">per ticket</p>
+                        </div>
                       </div>
                     </div>
-                  </div>
 
-                  <Alert className="border-blue-200 bg-blue-50">
-                    <Info className="h-4 w-4 text-blue-600" />
-                    <AlertDescription className="text-sm">
-                      Purchase tickets now and provide attendee details later.
-                      This option will skip directly to payment.
-                    </AlertDescription>
-                  </Alert>
-                </div>
+                    <Alert className="border-blue-200 bg-blue-50">
+                      <Info className="h-4 w-4 text-blue-600" />
+                      <AlertDescription className="text-sm">
+                        Purchase tickets now and provide attendee details later.
+                        This option will skip directly to payment.
+                      </AlertDescription>
+                    </Alert>
+                  </div>
 
                 {/* Column 2: Ticket Count and Summary */}
                 <div className="space-y-6">
@@ -805,19 +851,19 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
                     <div className="space-y-2">
                       <div className="flex justify-between items-center">
                         <span className="text-gray-600">Tickets</span>
-                        <span className="font-medium">{ticketCount} × $195</span>
+                        <span className="font-medium">{ticketCount} × ${ticketPrice}</span>
                       </div>
                       
                       {getFeeModeFromEnv() === 'pass_to_customer' && (
                         <>
                           <div className="flex justify-between items-center">
                             <span className="text-gray-600">Subtotal</span>
-                            <span className="font-medium">${(ticketCount * 195).toLocaleString()}</span>
+                            <span className="font-medium">${(ticketCount * ticketPrice).toLocaleString()}</span>
                           </div>
                           <div className="flex justify-between items-center">
                             <span className="text-gray-600">Processing Fee</span>
                             <span className="font-medium">
-                              ${calculateStripeFees(ticketCount * 195, { isDomesticCard: true }).processingFeesDisplay.toFixed(2)}
+                              ${calculateStripeFees(ticketCount * ticketPrice, { isDomesticCard: true }).processingFeesDisplay.toFixed(2)}
                             </span>
                           </div>
                         </>
@@ -828,16 +874,17 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
                       <div className="flex justify-between items-center">
                         <span className="text-lg font-semibold">Total Amount</span>
                         <span className="text-2xl font-bold text-primary">
-                          ${calculateStripeFees(ticketCount * 195, { isDomesticCard: true }).customerPayment.toLocaleString()}
+                          ${calculateStripeFees(ticketCount * ticketPrice, { isDomesticCard: true }).customerPayment.toLocaleString()}
                         </span>
                       </div>
                     </div>
                   </div>
                 </div>
               </div>
+              )}
 
               {/* Payment Section - Only show in Purchase Tickets mode */}
-              {activeTab === 'purchaseOnly' && (
+              {activeTab === 'purchaseOnly' && selectedPackage && (
                 <div className="mt-6 border-t pt-6">
                   <div className="mb-4">
                     <h3 className="font-medium text-lg flex items-center gap-2">
@@ -868,7 +915,7 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
                   <Elements stripe={stripePromise}>
                     <CheckoutForm
                       ref={checkoutFormRef}
-                      totalAmount={calculateStripeFees(ticketCount * 195, { isDomesticCard: true }).customerPayment}
+                      totalAmount={calculateStripeFees(ticketCount * ticketPrice, { isDomesticCard: true }).customerPayment}
                       onPaymentSuccess={handlePaymentSuccess}
                       onPaymentError={handlePaymentError}
                       setIsProcessingPayment={setIsProcessingPayment}

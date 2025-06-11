@@ -13,6 +13,7 @@ import { getBrowserClient } from '@/lib/supabase-singleton';
 import { Button } from "@/components/ui/button";
 import { Form } from "@/components/ui/form";
 import { ArrowLeft, Loader2 } from "lucide-react";
+import { SummaryRenderer } from '../Summary/SummaryRenderer';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { StripeBillingDetailsForClient } from "../payment/types";
 
@@ -32,8 +33,8 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { getPaymentCompletionService } from '@/lib/services/payment-completion-service';
 import { useRouter } from 'next/navigation';
+import { getEnhancedTicketSummaryData } from '../Summary/summary-data/ticket-summary-data-enhanced';
 
 interface PaymentStepProps {
   functionId?: string;
@@ -67,6 +68,12 @@ function PaymentStep(props: PaymentStepProps) {
     setConfirmationNumber: setStoreConfirmationNumber,
     draftId: storeDraftId,
     functionId: storeFunctionId,
+    // New metadata structures
+    attendeeSelections,
+    orderSummary,
+    lodgeBulkSelection,
+    ticketMetadata,
+    packageMetadata,
   } = useRegistrationStore();
   
   const anonymousSessionEstablished = useRegistrationStore(selectAnonymousSessionEstablished);
@@ -251,7 +258,17 @@ function PaymentStep(props: PaymentStepProps) {
     });
   };
 
-  // Calculate tickets for summary with price resolution
+  // Calculate enhanced ticket summary data using new metadata
+  const enhancedSummaryData = useMemo(() => {
+    return getEnhancedTicketSummaryData({
+      attendeeSelections,
+      orderSummary,
+      lodgeBulkSelection,
+      attendees: allStoreAttendees
+    });
+  }, [attendeeSelections, orderSummary, lodgeBulkSelection, allStoreAttendees]);
+
+  // Calculate tickets for summary with price resolution (legacy - still needed for API submission)
   const currentTicketsForSummary = useMemo(() => {
     if (isLoadingTickets) {
       console.log("🎫 Skipping ticket calculation - still loading");
@@ -399,8 +416,15 @@ function PaymentStep(props: PaymentStepProps) {
     }));
   }, [allStoreAttendees, packages, ticketTypes, ticketPackages, isLoadingTickets, functionId, storeFunctionId]);
 
-  // Calculate subtotal (ticket prices only)
+  // Calculate subtotal from orderSummary or fallback to legacy calculation
   const subtotal = useMemo(() => {
+    // Prefer orderSummary if available
+    if (orderSummary && orderSummary.subtotal > 0) {
+      console.log("💰 Using orderSummary for subtotal:", orderSummary.subtotal);
+      return orderSummary.subtotal;
+    }
+    
+    // Fallback to legacy calculation
     const total = currentTicketsForSummary.reduce((sum, ticket) => {
       const price = ticket.price || 0;
       if (price === 0) {
@@ -409,7 +433,7 @@ function PaymentStep(props: PaymentStepProps) {
       return sum + price;
     }, 0);
     
-    console.log("💰 Subtotal calculation:", {
+    console.log("💰 Subtotal calculation (legacy):", {
       subtotal: total,
       ticketCount: currentTicketsForSummary.length,
       tickets: currentTicketsForSummary.map(t => ({ 
@@ -431,7 +455,7 @@ function PaymentStep(props: PaymentStepProps) {
     }
     
     return total;
-  }, [currentTicketsForSummary]);
+  }, [orderSummary, currentTicketsForSummary]);
 
   // We'll calculate fees after form is defined - no default, will be set based on form value or geolocation
   const [billingCountry, setBillingCountry] = useState<{ isoCode: string; name: string } | null>(null);
@@ -785,16 +809,19 @@ function PaymentStep(props: PaymentStepProps) {
         return newSteps;
       });
 
-      // Step 2: Process payment
-      const response = await fetch(`/api/registrations/${registrationId}/payment`, {
-        method: 'PUT',
-        headers: { "Content-Type": "application/json" },
+      // Step 2: Process payment using unified payment service
+      const response = await fetch('/api/payments/create-intent', {
+        method: 'POST',
+        headers: { 
+          "Content-Type": "application/json",
+          'Authorization': `Bearer ${(await getBrowserClient().auth.getSession()).data.session?.access_token}`
+        },
         body: JSON.stringify({
+          registrationId,
           paymentMethodId,
-          totalAmount, // This now includes the processing fee
-          subtotal, // Original ticket prices before fees
-          stripeFee: feeCalculation.stripeFee,
-          billingDetails: stripeBillingDetails
+          billingDetails: stripeBillingDetails,
+          sessionId: storeDraftId, // Include session ID for tracking
+          referrer: window.location.href
         }),
       });
 
@@ -804,17 +831,21 @@ function PaymentStep(props: PaymentStepProps) {
         throw new Error(result.error || "Failed to process payment");
       }
 
-      console.log("✅ Payment processed:", result);
+      console.log("✅ Payment intent created:", result);
       
       // Handle 3D Secure if needed
       if (result.requiresAction && result.clientSecret) {
         console.log("🔐 3D Secure required");
         const stripe = (window as any).Stripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY);
-        const { error } = await stripe.confirmCardPayment(result.clientSecret);
         
-        if (error) {
-          throw new Error(`Authentication failed: ${error.message}`);
+        // The payment intent already has the payment method attached
+        const { error: confirmError, paymentIntent } = await stripe.confirmCardPayment(result.clientSecret);
+        
+        if (confirmError) {
+          throw new Error(`Authentication failed: ${confirmError.message}`);
         }
+        
+        console.log("✅ 3D Secure completed:", paymentIntent.status);
       }
       
       // Update final step
@@ -825,14 +856,29 @@ function PaymentStep(props: PaymentStepProps) {
         return newSteps;
       });
       
-      // Wait for confirmation number from Edge Function
-      console.log("⏳ Waiting for confirmation number...");
-      const paymentCompletionService = getPaymentCompletionService();
-      const confirmationResult = await paymentCompletionService.waitForConfirmationNumber(registrationId);
+      // Wait for confirmation number using polling endpoint
+      console.log("⏳ Polling for confirmation number...");
       
-      if (confirmationResult.success && confirmationResult.confirmationNumber) {
+      // Poll the confirmation endpoint
+      const confirmationResponse = await fetch(`/api/registrations/${registrationId}/confirmation`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${(await getBrowserClient().auth.getSession()).data.session?.access_token}`
+        }
+      });
+      
+      const confirmationResult = await confirmationResponse.json();
+      
+      if (!confirmationResponse.ok) {
+        throw new Error(confirmationResult.error || "Failed to retrieve confirmation number");
+      }
+      
+      if (confirmationResult.confirmationNumber) {
         console.log("✅ Confirmation number received:", confirmationResult.confirmationNumber);
         console.log("📋 Registration type:", confirmationResult.registrationType);
+        if (confirmationResult.isTemporary) {
+          console.log("⚠️ Using temporary confirmation number");
+        }
         
         // Update final step
         setProcessingSteps(prev => {
@@ -912,7 +958,7 @@ function PaymentStep(props: PaymentStepProps) {
           router.push(`/functions/${functionSlug}/register/confirmation/${confirmationType}/${confirmationResult.confirmationNumber}`);
         }, 1500);
       } else {
-        throw new Error(confirmationResult.error || "Failed to generate confirmation number");
+        throw new Error("No confirmation number received");
       }
       
     } catch (error: any) {
@@ -1034,64 +1080,114 @@ function PaymentStep(props: PaymentStepProps) {
               {/* Order Summary */}
               <div className="bg-gray-50 p-4 md:p-6 rounded-lg space-y-4">
                 <h4 className="font-medium text-gray-900">Order Details</h4>
-                <div className="space-y-3">
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Total Attendees:</span>
-                    <span className="font-medium text-gray-900">{allStoreAttendees.length}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-600">Total Tickets:</span>
-                    <span className="font-medium text-gray-900">{currentTicketsForSummary.length}</span>
-                  </div>
-                  
-                  {/* Ticket Details */}
-                  {currentTicketsForSummary.length > 0 && (
-                    <div className="space-y-1 pt-2 border-t border-gray-200">
-                      {currentTicketsForSummary.map((ticket, idx) => (
-                        <div key={ticket.id} className="flex justify-between text-xs">
-                          <span className="text-gray-500 truncate pr-2" style={{ maxWidth: 'calc(100% - 60px)' }}>
-                            {ticket.name}
-                          </span>
-                          <span className="text-gray-600 font-medium">${ticket.price.toFixed(2)}</span>
+                
+                {/* Use enhanced summary data if available, otherwise fall back to basic display */}
+                {enhancedSummaryData.sections.length > 0 ? (
+                  <div className="space-y-4">
+                    {/* Render enhanced summary sections */}
+                    <SummaryRenderer 
+                      sections={enhancedSummaryData.sections.filter(section => 
+                        // Filter out the order summary section as we'll show it separately
+                        section.title !== 'Order Summary'
+                      )}
+                      className="text-sm"
+                    />
+                    
+                    {/* Add processing fee to the total display */}
+                    <div className="pt-2 space-y-2 border-t">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-600">Subtotal:</span>
+                        <span className="font-medium text-gray-900">${subtotal.toFixed(2)}</span>
+                      </div>
+                      
+                      {/* Processing Fee */}
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-600 flex items-center gap-1">
+                          {getProcessingFeeLabel(isDomesticCard(billingCountry?.isoCode))}
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger>
+                                <Info className="h-3 w-3 text-gray-400" />
+                              </TooltipTrigger>
+                              <TooltipContent className="max-w-xs">
+                                <p className="text-sm">{getFeeDisclaimer()}</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        </span>
+                        <span className="font-medium text-gray-900">${feeCalculation.processingFeesDisplay.toFixed(2)}</span>
+                      </div>
+                      
+                      {/* Total */}
+                      <div className="border-t-2 border-gray-200 pt-3 mt-3">
+                        <div className="flex justify-between items-center">
+                          <span className="font-semibold text-gray-900">Total Amount:</span>
+                          <span className="text-xl font-bold text-masonic-navy">${totalAmount.toFixed(2)}</span>
                         </div>
-                      ))}
+                      </div>
                     </div>
-                  )}
-                  
-                  {/* Subtotal */}
-                  <div className="pt-2 space-y-2">
+                  </div>
+                ) : (
+                  /* Fallback to basic display */
+                  <div className="space-y-3">
                     <div className="flex justify-between text-sm">
-                      <span className="text-gray-600">Subtotal:</span>
-                      <span className="font-medium text-gray-900">${subtotal.toFixed(2)}</span>
+                      <span className="text-gray-600">Total Attendees:</span>
+                      <span className="font-medium text-gray-900">{allStoreAttendees.length}</span>
+                    </div>
+                    <div className="flex justify-between text-sm">
+                      <span className="text-gray-600">Total Tickets:</span>
+                      <span className="font-medium text-gray-900">{currentTicketsForSummary.length}</span>
                     </div>
                     
-                    {/* Processing Fee */}
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-600 flex items-center gap-1">
-                        {getProcessingFeeLabel(isDomesticCard(billingCountry?.isoCode))}
-                        <TooltipProvider>
-                          <Tooltip>
-                            <TooltipTrigger>
-                              <Info className="h-3 w-3 text-gray-400" />
-                            </TooltipTrigger>
-                            <TooltipContent className="max-w-xs">
-                              <p className="text-sm">{getFeeDisclaimer()}</p>
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-                      </span>
-                      <span className="font-medium text-gray-900">${feeCalculation.processingFeesDisplay.toFixed(2)}</span>
+                    {/* Ticket Details */}
+                    {currentTicketsForSummary.length > 0 && (
+                      <div className="space-y-1 pt-2 border-t border-gray-200">
+                        {currentTicketsForSummary.map((ticket, idx) => (
+                          <div key={ticket.id} className="flex justify-between text-xs">
+                            <span className="text-gray-500 truncate pr-2" style={{ maxWidth: 'calc(100% - 60px)' }}>
+                              {ticket.name}
+                            </span>
+                            <span className="text-gray-600 font-medium">${ticket.price.toFixed(2)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                    
+                    {/* Subtotal and fees */}
+                    <div className="pt-2 space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-600">Subtotal:</span>
+                        <span className="font-medium text-gray-900">${subtotal.toFixed(2)}</span>
+                      </div>
+                      
+                      {/* Processing Fee */}
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-600 flex items-center gap-1">
+                          {getProcessingFeeLabel(isDomesticCard(billingCountry?.isoCode))}
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger>
+                                <Info className="h-3 w-3 text-gray-400" />
+                              </TooltipTrigger>
+                              <TooltipContent className="max-w-xs">
+                                <p className="text-sm">{getFeeDisclaimer()}</p>
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
+                        </span>
+                        <span className="font-medium text-gray-900">${feeCalculation.processingFeesDisplay.toFixed(2)}</span>
+                      </div>
+                    </div>
+                    
+                    {/* Total */}
+                    <div className="border-t-2 border-gray-200 pt-3 mt-3">
+                      <div className="flex justify-between items-center">
+                        <span className="font-semibold text-gray-900">Total Amount:</span>
+                        <span className="text-xl font-bold text-masonic-navy">${totalAmount.toFixed(2)}</span>
+                      </div>
                     </div>
                   </div>
-                  
-                  {/* Total */}
-                  <div className="border-t-2 border-gray-200 pt-3 mt-3">
-                    <div className="flex justify-between items-center">
-                      <span className="font-semibold text-gray-900">Total Amount:</span>
-                      <span className="text-xl font-bold text-masonic-navy">${totalAmount.toFixed(2)}</span>
-                    </div>
-                  </div>
-                </div>
+                )}
               </div>
               
               {/* Payment Method */}

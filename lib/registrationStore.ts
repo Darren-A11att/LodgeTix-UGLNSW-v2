@@ -5,6 +5,19 @@ import { TicketType } from '../shared/types/register';
 import { TicketDefinitionType } from '../shared/types/ticket';
 import { RegistrationType, UnifiedAttendeeData } from './registration-types';
 import { generateUUID } from './uuid-slug-utils';
+import type { 
+  FunctionMetadata,
+  TicketMetadata,
+  PackageMetadata,
+  AttendeeSelectionSummary,
+  OrderSummary,
+  RegistrationTableData,
+  LodgeBulkSelection,
+  EnhancedTicketSelection,
+  EnhancedPackageSelection
+} from './registration-metadata-types';
+import { determineAvailabilityStatus } from './registration-metadata-types';
+import type { FunctionTicketDefinition, FunctionPackage } from './services/function-tickets-service';
 
 // Re-export UnifiedAttendeeData for backward compatibility
 export type { UnifiedAttendeeData };
@@ -108,10 +121,24 @@ export interface RegistrationState {
   registrationType: RegistrationType | null;
   delegationType: 'lodge' | 'grandLodge' | 'masonicOrder' | null; // Type of delegation when registrationType is 'delegation'
   attendees: UnifiedAttendeeData[];
-  // Enhanced ticket selections per attendee
+  
+  // NEW: Comprehensive metadata storage
+  functionMetadata: FunctionMetadata | null;
+  ticketMetadata: Record<string, TicketMetadata>; // ticketId -> metadata
+  packageMetadata: Record<string, PackageMetadata>; // packageId -> metadata
+  attendeeSelections: Record<string, AttendeeSelectionSummary>; // attendeeId -> summary
+  orderSummary: OrderSummary | null;
+  
+  // NEW: Registration table mapping
+  registrationTableData: RegistrationTableData;
+  
+  // NEW: Lodge bulk selection (no attendees yet)
+  lodgeBulkSelection: LodgeBulkSelection | null;
+  
+  // Keep for now - will be removed after migration
   ticketSelections: Record<string, AttendeeTicketSelections>; // attendeeId -> ticket selections
-  // Legacy packages for backward compatibility
   packages: Record<string, PackageSelectionType>;
+  
   billingDetails: BillingDetailsType | null;
   agreeToTerms: boolean; // Add agreeToTerms
   status: 'idle' | 'loading' | 'draft' | 'error' | 'saving' | 'completed'; // Added idle/saving/completed
@@ -184,10 +211,22 @@ export interface RegistrationState {
   updateLodgeTableOrder: (order: Partial<LodgeTableOrder>) => void;
   isLodgeFormValid: () => boolean;
   getLodgeValidationErrors: () => string[];
+  
+  // NEW: Comprehensive metadata actions
+  captureFunctionMetadata: (metadata: Omit<FunctionMetadata, 'captureTimestamp'>) => void;
+  captureTicketMetadata: (ticket: FunctionTicketDefinition, eventData?: Partial<{ startDate: string; endDate: string; venue: string; venueAddress: string; description: string; status: string }>) => void;
+  capturePackageMetadata: (pkg: FunctionPackage, includedTickets: FunctionTicketDefinition[]) => void;
+  addAttendeeTicketSelection: (attendeeId: string, ticketId: string, quantity: number) => void;
+  addAttendeePackageSelection: (attendeeId: string, packageId: string, quantity: number) => void;
+  removeAttendeeSelection: (attendeeId: string, itemId: string, itemType: 'package' | 'ticket') => void;
+  updateOrderSummary: () => void;
+  updateRegistrationTableData: (data: Partial<RegistrationTableData>) => void;
+  addLodgeBulkPackageSelection: (packageId: string, quantity: number) => void;
+  addLodgeBulkTicketSelections: (selections: Array<{ ticketId: string; quantity: number }>) => void;
 }
 
 // --- Initial State ---
-const initialRegistrationState: Omit<RegistrationState, 'startNewRegistration' | 'addPrimaryAttendee' | 'loadDraft' | 'clearRegistration' | 'clearAllAttendees' | 'setRegistrationType' | 'addAttendee' | 'addMasonAttendee' | 'addGuestAttendee' | 'addPartnerAttendee' | 'updateAttendee' | 'removeAttendee' | 'updateTicketSelections' | 'addPackageSelection' | 'removePackageSelection' | 'addIndividualTicket' | 'removeIndividualTicket' | 'clearAttendeeTicketSelections' | 'updatePackageSelection' | 'updateBillingDetails' | 'setAgreeToTerms' | '_updateStatus' | 'setCurrentStep' | 'goToNextStep' | 'goToPrevStep' | 'setConfirmationNumber' | 'setFunctionId' | 'setFunctionSlug' | 'setSelectedEvents' | 'setDraftRecoveryHandled' | 'setAnonymousSessionEstablished' | 'setLodgeTicketOrder' | 'setDelegationType' | 'updateLodgeCustomer' | 'updateLodgeDetails' | 'updateLodgeTableOrder' | 'isLodgeFormValid' | 'getLodgeValidationErrors'> = {
+const initialRegistrationState: Omit<RegistrationState, 'startNewRegistration' | 'addPrimaryAttendee' | 'loadDraft' | 'clearRegistration' | 'clearAllAttendees' | 'setRegistrationType' | 'addAttendee' | 'addMasonAttendee' | 'addGuestAttendee' | 'addPartnerAttendee' | 'updateAttendee' | 'removeAttendee' | 'updateTicketSelections' | 'addPackageSelection' | 'removePackageSelection' | 'addIndividualTicket' | 'removeIndividualTicket' | 'clearAttendeeTicketSelections' | 'updatePackageSelection' | 'updateBillingDetails' | 'setAgreeToTerms' | '_updateStatus' | 'setCurrentStep' | 'goToNextStep' | 'goToPrevStep' | 'setConfirmationNumber' | 'setFunctionId' | 'setFunctionSlug' | 'setSelectedEvents' | 'setDraftRecoveryHandled' | 'setAnonymousSessionEstablished' | 'setLodgeTicketOrder' | 'setDelegationType' | 'updateLodgeCustomer' | 'updateLodgeDetails' | 'updateLodgeTableOrder' | 'isLodgeFormValid' | 'getLodgeValidationErrors' | 'captureFunctionMetadata' | 'captureTicketMetadata' | 'capturePackageMetadata' | 'addAttendeeTicketSelection' | 'addAttendeePackageSelection' | 'removeAttendeeSelection' | 'updateOrderSummary' | 'updateRegistrationTableData' | 'addLodgeBulkPackageSelection' | 'addLodgeBulkTicketSelections'> = {
     draftId: null,
     functionId: null, // Initialize functionId as null
     functionSlug: null, // Initialize functionSlug as null
@@ -195,6 +234,28 @@ const initialRegistrationState: Omit<RegistrationState, 'startNewRegistration' |
     registrationType: null,
     delegationType: null,
     attendees: [],
+    
+    // NEW: Initialize metadata storage
+    functionMetadata: null,
+    ticketMetadata: {},
+    packageMetadata: {},
+    attendeeSelections: {},
+    orderSummary: null,
+    registrationTableData: {
+      function_id: null,
+      customer_id: null,
+      booking_contact_id: null,
+      event_id: null,
+      total_amount: 0,
+      stripe_fee: 0,
+      status: 'draft',
+      payment_status: 'unpaid',
+      payment_intent_id: null,
+      stripe_payment_intent_id: null,
+      organization_id: null
+    },
+    lodgeBulkSelection: null,
+    
     ticketSelections: {}, // Initialize enhanced ticket selections
     packages: {}, // Legacy packages for backward compatibility
     billingDetails: null,
@@ -438,7 +499,15 @@ export const useRegistrationStore = create<RegistrationState>(
           delegationType: null, // Explicitly clear delegation type
           functionId: null,
           functionSlug: null,
-          selectedEvents: []
+          selectedEvents: [],
+          // Reset all new metadata fields
+          functionMetadata: null,
+          ticketMetadata: {},
+          packageMetadata: {},
+          attendeeSelections: {},
+          orderSummary: null,
+          registrationTableData: initialRegistrationState.registrationTableData,
+          lodgeBulkSelection: null
         }); // Reset to initial state but keep session
         console.log('Registration state cleared.');
       },
@@ -816,7 +885,356 @@ export const useRegistrationStore = create<RegistrationState>(
         if (!lodgeDetails.lodge_id) errors.push('Lodge selection is required');
         
         return errors;
-      }
+      },
+      
+      // NEW: Comprehensive metadata actions
+      captureFunctionMetadata: (metadata) => set({
+        functionMetadata: {
+          ...metadata,
+          captureTimestamp: new Date().toISOString()
+        }
+      }),
+      
+      captureTicketMetadata: (ticket, eventData = {}) => set(state => {
+        const ticketMetadata: TicketMetadata = {
+          ticketId: ticket.id,
+          name: ticket.name,
+          description: ticket.description,
+          price: ticket.price,
+          event: {
+            eventId: ticket.event_id,
+            eventTitle: ticket.event_title,
+            eventSubtitle: ticket.event_subtitle,
+            eventSlug: ticket.event_slug,
+            startDate: eventData.startDate || null,
+            endDate: eventData.endDate || null,
+            venue: eventData.venue || null,
+            venueAddress: eventData.venueAddress || null,
+            description: eventData.description || null,
+            status: eventData.status || null
+          },
+          availability: {
+            isActive: ticket.is_active ?? true,
+            totalCapacity: ticket.total_capacity,
+            availableCount: ticket.available_count,
+            reservedCount: ticket.reserved_count,
+            soldCount: ticket.sold_count,
+            status: determineAvailabilityStatus(ticket.available_count)
+          },
+          status: 'unpaid',
+          selectionTimestamp: new Date().toISOString(),
+          functionId: ticket.function_id
+        };
+        
+        return {
+          ticketMetadata: {
+            ...state.ticketMetadata,
+            [ticket.id]: ticketMetadata
+          }
+        };
+      }),
+      
+      capturePackageMetadata: (pkg, includedTickets) => set(state => {
+        // Get full metadata for included tickets
+        const includedTicketsMetadata = includedTickets.map(ticket => {
+          // Use existing captured metadata if available, otherwise create new
+          return state.ticketMetadata[ticket.id] || {
+            ticketId: ticket.id,
+            name: ticket.name,
+            description: ticket.description,
+            price: ticket.price,
+            event: {
+              eventId: ticket.event_id,
+              eventTitle: ticket.event_title,
+              eventSubtitle: ticket.event_subtitle,
+              eventSlug: ticket.event_slug,
+              startDate: null,
+              endDate: null,
+              venue: null,
+              venueAddress: null,
+              description: null,
+              status: null
+            },
+            availability: {
+              isActive: ticket.is_active ?? true,
+              totalCapacity: ticket.total_capacity,
+              availableCount: ticket.available_count,
+              reservedCount: ticket.reserved_count,
+              soldCount: ticket.sold_count,
+              status: 'available'
+            },
+            status: 'unpaid',
+            selectionTimestamp: new Date().toISOString(),
+            functionId: ticket.function_id
+          };
+        });
+        
+        const packageMetadata: PackageMetadata = {
+          packageId: pkg.id,
+          name: pkg.name,
+          description: pkg.description,
+          price: pkg.price,
+          originalPrice: pkg.original_price,
+          discount: pkg.discount,
+          includedTickets: includedTicketsMetadata,
+          includesDescription: pkg.includes_description,
+          status: 'unpaid',
+          selectionTimestamp: new Date().toISOString(),
+          functionId: pkg.function_id
+        };
+        
+        return {
+          packageMetadata: {
+            ...state.packageMetadata,
+            [pkg.id]: packageMetadata
+          }
+        };
+      }),
+      
+      addAttendeeTicketSelection: (attendeeId, ticketId, quantity) => set(state => {
+        const ticketMetadata = state.ticketMetadata[ticketId];
+        if (!ticketMetadata) {
+          console.error(`Ticket metadata not found for ticket ${ticketId}`);
+          return state;
+        }
+        
+        const attendee = state.attendees.find(a => a.attendeeId === attendeeId);
+        if (!attendee) {
+          console.error(`Attendee not found: ${attendeeId}`);
+          return state;
+        }
+        
+        const ticketRecord: EnhancedTicketSelection = {
+          ticketRecordId: uuidv7(),
+          ticket: ticketMetadata,
+          quantity,
+          subtotal: ticketMetadata.price * quantity,
+          selectionTimestamp: new Date().toISOString(),
+          status: 'unpaid',
+          attendeeId
+        };
+        
+        const existingSelection = state.attendeeSelections[attendeeId] || {
+          attendeeId,
+          attendeeName: `${attendee.firstName} ${attendee.lastName}`,
+          attendeeType: attendee.attendeeType,
+          packages: [],
+          individualTickets: [],
+          attendeeSubtotal: 0,
+          status: 'unpaid'
+        };
+        
+        const updatedSelection: AttendeeSelectionSummary = {
+          ...existingSelection,
+          individualTickets: [...existingSelection.individualTickets, ticketRecord],
+          attendeeSubtotal: existingSelection.attendeeSubtotal + ticketRecord.subtotal
+        };
+        
+        return {
+          attendeeSelections: {
+            ...state.attendeeSelections,
+            [attendeeId]: updatedSelection
+          }
+        };
+      }),
+      
+      addAttendeePackageSelection: (attendeeId, packageId, quantity) => set(state => {
+        const packageMetadata = state.packageMetadata[packageId];
+        if (!packageMetadata) {
+          console.error(`Package metadata not found for package ${packageId}`);
+          return state;
+        }
+        
+        const attendee = state.attendees.find(a => a.attendeeId === attendeeId);
+        if (!attendee) {
+          console.error(`Attendee not found: ${attendeeId}`);
+          return state;
+        }
+        
+        // Generate ticket records for each included ticket
+        const generatedTicketRecords = packageMetadata.includedTickets.map(ticket => ({
+          ticketRecordId: uuidv7(),
+          eventTicketId: ticket.ticketId,
+          fromPackageId: packageId
+        }));
+        
+        const packageRecord: EnhancedPackageSelection = {
+          packageRecordId: uuidv7(),
+          package: packageMetadata,
+          quantity,
+          subtotal: packageMetadata.price * quantity,
+          selectionTimestamp: new Date().toISOString(),
+          status: 'unpaid',
+          generatedTicketRecords
+        };
+        
+        const existingSelection = state.attendeeSelections[attendeeId] || {
+          attendeeId,
+          attendeeName: `${attendee.firstName} ${attendee.lastName}`,
+          attendeeType: attendee.attendeeType,
+          packages: [],
+          individualTickets: [],
+          attendeeSubtotal: 0,
+          status: 'unpaid'
+        };
+        
+        const updatedSelection: AttendeeSelectionSummary = {
+          ...existingSelection,
+          packages: [...existingSelection.packages, packageRecord],
+          attendeeSubtotal: existingSelection.attendeeSubtotal + packageRecord.subtotal
+        };
+        
+        return {
+          attendeeSelections: {
+            ...state.attendeeSelections,
+            [attendeeId]: updatedSelection
+          }
+        };
+      }),
+      
+      removeAttendeeSelection: (attendeeId, itemId, itemType) => set(state => {
+        const selection = state.attendeeSelections[attendeeId];
+        if (!selection) return state;
+        
+        let updatedSelection = { ...selection };
+        
+        if (itemType === 'ticket') {
+          const ticketIndex = selection.individualTickets.findIndex(t => t.ticketRecordId === itemId);
+          if (ticketIndex >= 0) {
+            const removedTicket = selection.individualTickets[ticketIndex];
+            updatedSelection.individualTickets = selection.individualTickets.filter(t => t.ticketRecordId !== itemId);
+            updatedSelection.attendeeSubtotal -= removedTicket.subtotal;
+          }
+        } else {
+          const packageIndex = selection.packages.findIndex(p => p.packageRecordId === itemId);
+          if (packageIndex >= 0) {
+            const removedPackage = selection.packages[packageIndex];
+            updatedSelection.packages = selection.packages.filter(p => p.packageRecordId !== itemId);
+            updatedSelection.attendeeSubtotal -= removedPackage.subtotal;
+          }
+        }
+        
+        return {
+          attendeeSelections: {
+            ...state.attendeeSelections,
+            [attendeeId]: updatedSelection
+          }
+        };
+      }),
+      
+      updateOrderSummary: () => set(state => {
+        const attendeeSummaries = Object.values(state.attendeeSelections);
+        const subtotal = attendeeSummaries.reduce((sum, summary) => sum + summary.attendeeSubtotal, 0);
+        
+        // Count total tickets (from packages and individual)
+        let totalTickets = 0;
+        let totalPackages = 0;
+        
+        attendeeSummaries.forEach(summary => {
+          totalPackages += summary.packages.length;
+          totalTickets += summary.individualTickets.length;
+          
+          // Add tickets from packages
+          summary.packages.forEach(pkg => {
+            totalTickets += pkg.generatedTicketRecords.length;
+          });
+        });
+        
+        // Add lodge bulk selection if present
+        if (state.lodgeBulkSelection) {
+          totalTickets += state.lodgeBulkSelection.willGenerateTickets;
+          if (state.lodgeBulkSelection.selectionType === 'package') {
+            totalPackages += 1;
+          }
+        }
+        
+        const orderSummary: OrderSummary = {
+          registrationId: state.draftId || undefined,
+          functionId: state.functionId || '',
+          functionName: state.functionMetadata?.functionName || '',
+          registrationType: state.registrationType || 'individuals',
+          totalAttendees: state.attendees.length,
+          attendeeSummaries,
+          subtotal: state.lodgeBulkSelection ? state.lodgeBulkSelection.subtotal : subtotal,
+          processingFees: 0, // Will be calculated in payment step
+          stripeFee: 0, // Will be calculated in payment step
+          totalAmount: state.lodgeBulkSelection ? state.lodgeBulkSelection.subtotal : subtotal,
+          currency: 'AUD',
+          totalTickets,
+          totalPackages,
+          status: state.status === 'completed' ? 'completed' : state.status === 'error' ? 'cancelled' : 'draft',
+          paymentStatus: 'unpaid',
+          createdAt: state.orderSummary?.createdAt || new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          selectionCompleteTimestamp: new Date().toISOString()
+        };
+        
+        return { orderSummary };
+      }),
+      
+      updateRegistrationTableData: (data) => set(state => ({
+        registrationTableData: {
+          ...state.registrationTableData,
+          ...data
+        }
+      })),
+      
+      addLodgeBulkPackageSelection: (packageId, quantity) => set(state => {
+        const packageMetadata = state.packageMetadata[packageId];
+        if (!packageMetadata) {
+          console.error(`Package metadata not found for package ${packageId}`);
+          return state;
+        }
+        
+        const pricePerUnit = packageMetadata.price;
+        const subtotal = pricePerUnit * quantity;
+        const willGenerateTickets = packageMetadata.includedTickets.length * quantity;
+        
+        const lodgeBulkSelection: LodgeBulkSelection = {
+          selectionType: 'package',
+          packageId,
+          packageMetadata,
+          quantity,
+          pricePerUnit,
+          subtotal,
+          status: 'unpaid',
+          selectionTimestamp: new Date().toISOString(),
+          willGenerateTickets
+        };
+        
+        // Also update order summary
+        const orderSummary: OrderSummary = {
+          registrationId: state.draftId || undefined,
+          functionId: state.functionId || '',
+          functionName: state.functionMetadata?.functionName || '',
+          registrationType: 'lodge',
+          totalAttendees: quantity,
+          attendeeSummaries: [], // No attendees yet for lodge
+          subtotal,
+          processingFees: 0,
+          stripeFee: 0,
+          totalAmount: subtotal,
+          currency: 'AUD',
+          totalTickets: willGenerateTickets,
+          totalPackages: 1,
+          status: 'draft',
+          paymentStatus: 'unpaid',
+          createdAt: state.orderSummary?.createdAt || new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+          selectionCompleteTimestamp: new Date().toISOString()
+        };
+        
+        return {
+          lodgeBulkSelection,
+          orderSummary
+        };
+      }),
+      
+      addLodgeBulkTicketSelections: (selections) => set(state => {
+        // Implementation for bulk individual ticket selection (if needed)
+        console.log('Lodge bulk ticket selections not fully implemented yet');
+        return state;
+      })
 
     }),
     {

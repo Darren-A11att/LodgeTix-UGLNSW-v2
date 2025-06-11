@@ -85,6 +85,14 @@ const TicketSelectionStep: React.FC = () => {
   const removeIndividualTicket = useRegistrationStore((s) => s.removeIndividualTicket);
   const clearAttendeeTicketSelections = useRegistrationStore((s) => s.clearAttendeeTicketSelections);
   const goToNextStep = useRegistrationStore((s) => s.goToNextStep);
+  
+  // NEW: Comprehensive metadata capture actions
+  const captureTicketMetadata = useRegistrationStore((s) => s.captureTicketMetadata);
+  const capturePackageMetadata = useRegistrationStore((s) => s.capturePackageMetadata);
+  const addAttendeeTicketSelection = useRegistrationStore((s) => s.addAttendeeTicketSelection);
+  const addAttendeePackageSelection = useRegistrationStore((s) => s.addAttendeePackageSelection);
+  const removeAttendeeSelection = useRegistrationStore((s) => s.removeAttendeeSelection);
+  const updateOrderSummary = useRegistrationStore((s) => s.updateOrderSummary);
 
   // State for dynamic ticket and package data
   const [ticketTypes, setTicketTypes] = useState<FunctionTicketDefinition[]>([])
@@ -175,6 +183,20 @@ const TicketSelectionStep: React.FC = () => {
           isActive: t.is_active,
           available: t.available_count
         })))
+        
+        // NEW: Capture metadata for all tickets and packages
+        tickets.forEach(ticket => {
+          captureTicketMetadata(ticket, {
+            // Add any additional event data if available
+            // For now, we just capture what's in the ticket object
+          });
+        });
+        
+        packages.forEach(pkg => {
+          // Find the included tickets for this package
+          const includedTickets = tickets.filter(t => pkg.includes.includes(t.id));
+          capturePackageMetadata(pkg, includedTickets);
+        });
         
         api.debug(`Successfully loaded ${tickets.length} tickets and ${packages.length} packages`)
         
@@ -493,7 +515,10 @@ const TicketSelectionStep: React.FC = () => {
         attendeeCount: Object.keys(ticketSelectionsPayload).length
       });
       
-      // Call the draft persistence API
+      // Get current metadata from store
+      const storeState = useRegistrationStore.getState();
+      
+      // Call the draft persistence API with enhanced metadata
       const response = await fetch(`/api/registrations/drafts/${draftId}/tickets`, {
         method: 'POST',
         headers: {
@@ -501,7 +526,14 @@ const TicketSelectionStep: React.FC = () => {
         },
         body: JSON.stringify({
           functionId,
-          ticketSelections: ticketSelectionsPayload
+          ticketSelections: ticketSelectionsPayload,
+          // NEW: Include enhanced metadata
+          functionMetadata: storeState.functionMetadata,
+          ticketMetadata: storeState.ticketMetadata,
+          packageMetadata: storeState.packageMetadata,
+          attendeeSelections: storeState.attendeeSelections,
+          orderSummary: storeState.orderSummary,
+          lodgeBulkSelection: storeState.lodgeBulkSelection
         })
       });
       
@@ -561,10 +593,14 @@ const TicketSelectionStep: React.FC = () => {
       try {
         // Persist ticket selections before moving to next step
         await persistTicketSelections();
+        // NEW: Update order summary with all selections
+        updateOrderSummary();
         goToNextStep();
       } catch (error) {
         console.error('Failed to persist tickets, but continuing:', error);
         // Continue even if persistence fails
+        // NEW: Update order summary even if persistence fails
+        updateOrderSummary();
         goToNextStep();
       }
     } else {
@@ -651,6 +687,9 @@ const TicketSelectionStep: React.FC = () => {
         quantity: 1,
         tickets: packageTickets
       });
+      
+      // NEW: Also add to comprehensive metadata
+      addAttendeePackageSelection(attendeeIdentifier, packageId, 1);
     }
   };
 
@@ -705,6 +744,9 @@ const TicketSelectionStep: React.FC = () => {
         ticketId: ticketTypeId,
         quantity: 1
       });
+      
+      // NEW: Also add to comprehensive metadata
+      addAttendeeTicketSelection(attendeeIdentifier, ticketTypeId, 1);
     }
   };
 
@@ -947,6 +989,11 @@ const TicketSelectionStep: React.FC = () => {
                                   ticketDefinitionId: pkg.id, 
                                   selectedEvents: pkg.includes 
                                 });
+                                // NEW: Add lodge bulk package selection metadata
+                                const { addLodgeBulkPackageSelection } = useRegistrationStore.getState();
+                                if (lodgeTicketOrder) {
+                                  addLodgeBulkPackageSelection(pkg.id, lodgeTicketOrder.totalTickets);
+                                }
                               } else {
                                 // Apply to all attendees
                                 allStoreAttendees.forEach(attendee => {

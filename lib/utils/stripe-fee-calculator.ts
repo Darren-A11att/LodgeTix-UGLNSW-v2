@@ -92,13 +92,20 @@ function calculatePlatformFee(
 /**
  * MAIN FUNCTION: Calculate Stripe fees using the correct formula
  * 
- * Formula: stripe_amount = ((connectedAmount + platformFee) + stripeFixedFee) / (1 - stripePercentageFee)
+ * Formula: Total = (ConnectedAmount + PlatformFee + StripeFlatFee) ÷ (1 - StripeRate)
  * 
  * This ensures:
- * - Connected account gets exactly the connectedAmount via transfer_data[amount]
- * - Platform gets the calculated platform fee (capped)
- * - Customer pays the total amount including all fees
- * - Stripe takes their fee from the customer payment
+ * - Connected account gets exactly the subtotal via transfer_data[amount]
+ * - Platform gets exactly their desired percentage (2% capped at $20)
+ * - Customer pays the correct total that covers all fees
+ * - Stripe takes their fee from the total amount
+ * 
+ * For Stripe payment intent:
+ * - amount: total customer payment
+ * - on_behalf_of: connected account ID
+ * - application_fee_amount: platform fee + stripe fee
+ * - transfer_data.amount: exact subtotal (connected account revenue)
+ * - transfer_data.destination: same as on_behalf_of
  */
 export function calculateStripeFees(
   connectedAmount: number,
@@ -116,15 +123,24 @@ export function calculateStripeFees(
   // Calculate platform fee with capping
   const platformFee = calculatePlatformFee(connectedAmount, platformFeePercentage, platformFeeCap);
   
-  // Apply the correct formula
-  const customerPayment = (
-    (connectedAmount + platformFee) + stripeRates.fixed
-  ) / (1 - stripeRates.percentage);
+  // Use the CORRECT formula:
+  // Total = (ConnectedAmount + PlatformFee + StripeFlatFee) ÷ (1 - StripeRate)
   
-  // Calculate actual Stripe fee on customer payment
-  const stripeFee = customerPayment * stripeRates.percentage + stripeRates.fixed;
+  // Step 1: Calculate numerator
+  const numerator = connectedAmount + platformFee + stripeRates.fixed;
+  
+  // Step 2: Calculate denominator
+  const denominator = 1 - stripeRates.percentage;
+  
+  // Step 3: Calculate total customer payment
+  const customerPayment = numerator / denominator;
+  
+  // Step 4: Calculate actual Stripe fee
+  // Stripe takes: (percentage of total) + fixed fee
+  const stripeFee = (customerPayment * stripeRates.percentage) + stripeRates.fixed;
   
   // Processing fees display (what customer sees as "Processing fees")
+  // This is the application_fee_amount that includes both platform fee and stripe fees
   const processingFeesDisplay = customerPayment - connectedAmount;
   
   return {
