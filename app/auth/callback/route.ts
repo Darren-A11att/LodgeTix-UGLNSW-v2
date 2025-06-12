@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/utils/supabase/server'
+import { userRoleService } from '@/lib/services/user-role-service'
 
 export async function GET(request: Request) {
   const requestUrl = new URL(request.url)
@@ -9,8 +10,12 @@ export async function GET(request: Request) {
   if (code) {
     const supabase = await createClient()
     await supabase.auth.exchangeCodeForSession(code)
+    
+    // Determine the appropriate portal for the user
+    const defaultPortal = await userRoleService.getDefaultPortal()
+    return NextResponse.redirect(`${origin}${defaultPortal}`)
   }
 
-  // URL to redirect to after sign in process completes
-  return NextResponse.redirect(`${origin}/organiser`)
+  // Fallback redirect
+  return NextResponse.redirect(`${origin}/portal`)
 }

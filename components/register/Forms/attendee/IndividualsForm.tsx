@@ -60,34 +60,57 @@ export const IndividualsForm: React.FC<IndividualsFormProps> = ({
   }, [primaryAttendees]);
 
   // Helper function to generate dynamic card title
-  const getCardTitle = useCallback((attendee: AttendeeData, index: number, isExpanded: boolean) => {
+  const getCardTitle = useCallback((attendee: AttendeeData, index: number, isExpanded: boolean): React.ReactNode => {
     const isPrimary = index === 0;
     
-    // If expanded, show simple titles
-    if (isExpanded) {
-      return isPrimary ? 'Your Details' : `Attendee ${index + 1}`;
+    // Check if we have enough data to show a personalized title
+    const hasBasicInfo = attendee.firstName && attendee.lastName && attendee.title;
+    const hasMasonicInfo = attendee.attendeeType === 'mason' && attendee.rank;
+    
+    // For masons: show title + name + rank when we have all the info
+    if (attendee.attendeeType === 'mason' && hasBasicInfo && hasMasonicInfo) {
+      const nameAndTitle = `${attendee.title} ${attendee.firstName} ${attendee.lastName}`;
+      
+      // For grand officers (GL rank), use the specific grand rank fields
+      let rankDisplay = '';
+      if (attendee.rank === 'GL') {
+        // For Grand Lodge officers, check for present/past grand officer role first
+        if (attendee.presentGrandOfficerRole) {
+          rankDisplay = attendee.presentGrandOfficerRole;
+        } else if (attendee.otherGrandOfficerRole) {
+          rankDisplay = attendee.otherGrandOfficerRole;
+        } else if (attendee.suffix) {
+          rankDisplay = attendee.suffix;
+        } else {
+          rankDisplay = 'GL';
+        }
+      } else {
+        rankDisplay = attendee.rank;
+      }
+      
+      return (
+        <span>
+          {nameAndTitle}
+          <span className="ml-2 text-sm text-gray-500">{rankDisplay}</span>
+        </span>
+      );
     }
     
-    // If collapsed and has no data, show appropriate default
+    // For guests: show title + name when we have the basic info
+    if (attendee.attendeeType === 'guest' && hasBasicInfo) {
+      return `${attendee.title} ${attendee.firstName} ${attendee.lastName}`;
+    }
+    
+    // Fallback to default titles when we don't have enough data
     if (!attendee.firstName && !attendee.lastName) {
       return isPrimary ? 'Your Details' : 'New Attendee';
     }
     
-    // Build dynamic title based on attendee data
+    // Show what we have for partial data
     const parts: string[] = [];
-    
     if (attendee.title) parts.push(attendee.title);
     if (attendee.firstName) parts.push(attendee.firstName);
     if (attendee.lastName) parts.push(attendee.lastName);
-    
-    // Add rank for masons
-    if (attendee.attendeeType === 'mason' && attendee.rank) {
-      if (attendee.rank === 'GL' && attendee.suffix) {
-        parts.push(attendee.suffix); // Grand Rank
-      } else {
-        parts.push(attendee.rank);
-      }
-    }
     
     return parts.join(' ') || (isPrimary ? 'Your Details' : `Attendee ${index + 1}`);
   }, []);
@@ -234,11 +257,11 @@ export const IndividualsForm: React.FC<IndividualsFormProps> = ({
           return (
             <Card 
               key={attendee.attendeeId} 
-              className="overflow-hidden"
+              className="rounded-lg border bg-card text-card-foreground shadow-sm border-masonic-navy overflow-hidden"
               ref={(el) => { cardRefs.current[attendee.attendeeId] = el; }}
             >
               <CardHeader 
-                className="cursor-pointer py-3 sm:py-4"
+                className={`bg-masonic-lightblue py-3 px-4 cursor-pointer ${isExpanded ? "" : "hover:bg-masonic-lightblue/90"}`}
                 onClick={() => toggleAttendeeExpansion(attendee.attendeeId)}
               >
                 <div className="flex items-center justify-between">

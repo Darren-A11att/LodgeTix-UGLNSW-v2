@@ -485,7 +485,7 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
               grandOfficerStatus: 'Present',
               presentGrandOfficerRole: member.grandOffice,
               grand_lodge_id: Number(selectedGrandLodge),
-              contactPreference: 'PrimaryAttendee',
+              contactPreference: 'primaryattendee',
               isPrimary: index === 0 && !primaryAttendeeId
             });
           } else if (member.type === 'Guest') {
@@ -504,7 +504,7 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
                 firstName: member.firstName,
                 lastName: member.lastName,
                 relationship: member.relationship || 'Wife',
-                contactPreference: 'PrimaryAttendee'
+                contactPreference: 'primaryattendee'
               });
             }
           }

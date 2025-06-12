@@ -46,6 +46,25 @@ export const MasonForm: React.FC<MasonFormProps> = ({ attendeeId, attendeeNumber
     const index = masons.findIndex(a => a.attendeeId === attendeeId);
     return `Mason ${index + 1}`;
   }, [attendeeId, isPrimary]);
+
+  // Generate dynamic header display name
+  const displayHeader = useMemo(() => {
+    if (!attendee) return isPrimary ? 'Your Details' : 'Attendee Details';
+    
+    const { title, firstName, lastName, rank, grandOfficerStatus } = attendee;
+    
+    // Check if we have the required basic info
+    const hasBasicInfo = title && firstName && lastName && rank;
+    
+    if (!hasBasicInfo) {
+      return isPrimary ? 'Your Details' : 'Attendee Details';
+    }
+    
+    // For grand officers (GL rank), show grand officer status if available
+    const displayRank = (rank === 'GL' && grandOfficerStatus) ? grandOfficerStatus : rank;
+    
+    return `${title} ${firstName} ${lastName} (${displayRank})`;
+  }, [attendee?.title, attendee?.firstName, attendee?.lastName, attendee?.rank, attendee?.grandOfficerStatus, isPrimary]);
   
   // Get field errors for this specific attendee
   const attendeeFieldErrors = fieldErrors[attendeeLabel] || {};

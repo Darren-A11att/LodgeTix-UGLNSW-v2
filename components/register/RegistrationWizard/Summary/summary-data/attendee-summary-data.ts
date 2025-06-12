@@ -21,7 +21,7 @@ export function getAttendeeSummaryData({
   
   // Format registration type display
   const getFormattedRegistrationType = () => {
-    if (registrationType === 'individual') return 'Myself & Others';
+    if (registrationType === 'individuals' || registrationType === 'individual') return 'Myself & Others';
     if (registrationType === 'lodge') return 'Lodge';
     if (registrationType === 'delegation') {
       if (delegationType === 'lodge') return 'Lodge Delegation';

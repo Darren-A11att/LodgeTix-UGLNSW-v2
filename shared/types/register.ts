@@ -195,8 +195,8 @@ export interface BillingDetailsType {
   // Add other relevant billing properties
 }
 
-// Define RegistrationType if not already defined
-export type RegistrationType = 'individual' | 'lodge' | 'delegation';
+// Define RegistrationType to match database enum
+export type RegistrationType = 'individuals' | 'lodge' | 'delegation';
 
 // --- Attendee Base Data ---
 // Keep AttendeeData export if it's used elsewhere

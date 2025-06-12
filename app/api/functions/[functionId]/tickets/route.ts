@@ -44,7 +44,7 @@ export async function GET(
     // Transform the view data to match the expected format
     let transformedTickets = (tickets || []).map((ticket: any) => {
       // Extract registration types from eligibility criteria if present
-      let registrationTypes: string[] = ['individual', 'lodge', 'delegation']; // Default to all types
+      let registrationTypes: string[] = ['individuals', 'lodge', 'delegation']; // Default to all types
       
       // If ticket has eligibility criteria, parse it to determine allowed registration types
       if (ticket.ticket_eligibility_criteria && typeof ticket.ticket_eligibility_criteria === 'object') {

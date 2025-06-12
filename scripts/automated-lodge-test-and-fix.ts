@@ -114,8 +114,8 @@ class LodgeRegistrationTester {
       return {
         errorType: 'ENUM_CONTACT_TYPE',
         errorMessage,
-        suggestedFix: 'The contacts.type field only accepts "individual" or "organisation" values',
-        sqlFix: 'UPDATE RPC function to use "individual" instead of "customer" for contact type'
+        suggestedFix: 'The contacts.type field only accepts "person" or "organisation" values',
+        sqlFix: 'UPDATE RPC function to use "person" instead of "customer" for contact type'
       };
     }
 

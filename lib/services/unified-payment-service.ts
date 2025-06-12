@@ -26,6 +26,7 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
 
 export interface UnifiedPaymentRequest {
   registrationId: string;
+  paymentMethodId?: string; // Payment method ID to attach to the PaymentIntent
   billingDetails: {
     name: string;
     email: string;
@@ -339,14 +340,33 @@ export class UnifiedPaymentService {
    * Create a payment intent with correct fee calculations and metadata
    */
   async createPaymentIntent(request: UnifiedPaymentRequest): Promise<UnifiedPaymentResponse> {
-    const { registrationId, billingDetails, sessionId, referrer } = request;
+    const { registrationId, paymentMethodId, billingDetails, sessionId, referrer } = request;
     
     // Fetch complete registration data
+    console.group("💳 PAYMENT SERVICE DEBUGGING");
+    console.log("🔍 Fetching registration data for ID:", registrationId);
+    
     const paymentData = await getRegistrationWithFullContext(registrationId);
     
     if (!paymentData) {
+      console.error("❌ Registration not found in database");
+      console.groupEnd();
       throw new Error('Registration not found');
     }
+    
+    console.log("📊 Retrieved registration data:", {
+      subtotal: paymentData.registration.subtotal,
+      totalAmount: paymentData.registration.total_amount_paid,
+      attendeeCount: paymentData.attendees?.length || 0,
+      ticketsCount: paymentData.tickets?.length || 0,
+      registrationType: paymentData.registration.registration_type,
+      registrationId: paymentData.registration.registration_id
+    });
+    console.log("🏢 Organization data:", {
+      name: paymentData.organization?.name,
+      stripeAccount: paymentData.organization?.stripe_onbehalfof
+    });
+    console.groupEnd();
     
     const { registration, organization } = paymentData;
     
@@ -370,21 +390,17 @@ export class UnifiedPaymentService {
       referrer
     );
     
-    // Create payment intent with correct parameters for Stripe Connect
-    const paymentIntent = await stripe.paymentIntents.create({
+    // Prepare payment intent creation parameters
+    const paymentIntentParams: Stripe.PaymentIntentCreateParams = {
       amount: Math.round(feeCalculation.customerPayment * 100), // Convert to cents
       currency: 'aud',
-      automatic_payment_methods: { enabled: true },
       metadata: metadata as any, // Stripe requires Record<string, string>
       
       // CRITICAL: Set on_behalf_of for the connected account
       on_behalf_of: organization.stripe_onbehalfof,
       
-      // Application fee includes BOTH platform fee AND stripe fee
-      // This is what gets deducted before the connected account receives their funds
-      application_fee_amount: Math.round((feeCalculation.platformFee + feeCalculation.stripeFee) * 100),
-      
       // Transfer data ensures connected account receives EXACT subtotal
+      // The application fee will be automatically calculated as the difference
       transfer_data: {
         destination: organization.stripe_onbehalfof,
         amount: Math.round(registration.subtotal * 100), // Exactly the ticket revenue!
@@ -395,7 +411,48 @@ export class UnifiedPaymentService {
         ?.substring(0, 22)
         .replace(/[^a-zA-Z0-9 ]/g, '')
         .trim(),
-    });
+    };
+    
+    // Configure payment method handling
+    if (paymentMethodId) {
+      console.log("💳 Attaching payment method to PaymentIntent:", paymentMethodId);
+      // Match the successful payment pattern: attach method, manual confirmation, confirm=false
+      paymentIntentParams.payment_method = paymentMethodId;
+      paymentIntentParams.confirmation_method = 'manual';
+      paymentIntentParams.confirm = false; // Create first, confirm separately
+    } else {
+      // When no payment method provided, use automatic payment methods
+      paymentIntentParams.automatic_payment_methods = { enabled: true };
+    }
+    
+    // Create payment intent with correct parameters for Stripe Connect
+    const paymentIntent = await stripe.paymentIntents.create(paymentIntentParams);
+    
+    // If we attached a payment method, confirm it immediately with secret key
+    if (paymentMethodId && paymentIntent.status === 'requires_confirmation') {
+      console.log("💳 Confirming PaymentIntent with secret key:", paymentIntent.id);
+      
+      const confirmedPaymentIntent = await stripe.paymentIntents.confirm(paymentIntent.id, {
+        return_url: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/api/payments/return`
+      });
+      
+      console.log("✅ PaymentIntent confirmed:", confirmedPaymentIntent.status);
+      
+      // Update registration status after successful payment confirmation
+      if (confirmedPaymentIntent.status === 'succeeded') {
+        console.log("💾 Updating registration status to completed");
+        await this.updateRegistrationPaymentStatus(registrationId, confirmedPaymentIntent.id, feeCalculation, paymentData);
+      }
+      return {
+        clientSecret: confirmedPaymentIntent.client_secret!,
+        paymentIntentId: confirmedPaymentIntent.id,
+        totalAmount: feeCalculation.customerPayment,
+        processingFees: feeCalculation.processingFeesDisplay,
+        subtotal: registration.subtotal,
+        platformFee: feeCalculation.platformFee,
+        stripeFee: feeCalculation.stripeFee,
+      };
+    }
     
     return {
       clientSecret: paymentIntent.client_secret!,
@@ -435,6 +492,86 @@ export class UnifiedPaymentService {
     } catch (error) {
       // Non-critical - log but don't throw
       console.error('Failed to update Stripe metadata:', error);
+    }
+  }
+  
+  /**
+   * Update registration status after successful payment
+   */
+  private async updateRegistrationPaymentStatus(
+    registrationId: string, 
+    paymentIntentId: string,
+    feeCalculation?: any,
+    paymentData?: any
+  ): Promise<void> {
+    try {
+      // Import Supabase client
+      const { createClient } = await import('@/utils/supabase/server');
+      const supabase = await createClient();
+      
+      // Prepare update data
+      const updateData: any = {
+        status: 'completed',
+        payment_status: 'completed',
+        stripe_payment_intent_id: paymentIntentId,
+        payment_intent_id: paymentIntentId, // Add payment_intent_id field
+        payment_confirmed_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+      
+      // Add payment amounts if fee calculation is provided
+      if (feeCalculation) {
+        updateData.total_amount_paid = feeCalculation.customerPayment; // What customer's card is charged (includes fees)
+        updateData.total_price_paid = feeCalculation.connectedAmount;   // Subtotal (ticket revenue only)
+        updateData.stripe_fee = feeCalculation.stripeFee;              // Stripe processing fee
+        updateData.platform_fee = feeCalculation.platformFee;          // Platform fee
+      }
+      
+      // Add registration-specific data if provided
+      if (paymentData) {
+        const { registration, organization, attendees } = paymentData;
+        
+        // Add connected account ID
+        if (organization?.stripe_onbehalfof) {
+          updateData.connected_account_id = organization.stripe_onbehalfof;
+        }
+        
+        // For individuals registration, add primary attendee and attendee count
+        if (registration.registration_type === 'individuals' && attendees && attendees.length > 0) {
+          const primaryAttendee = attendees.find(a => a.is_primary_contact) || attendees[0];
+          if (primaryAttendee) {
+            updateData.primary_attendee_id = primaryAttendee.attendee_id;
+          }
+          updateData.attendee_count = attendees.length;
+        }
+      }
+      
+      // Update registration status and payment details
+      const { error } = await supabase
+        .from('registrations')
+        .update(updateData)
+        .eq('registration_id', registrationId);
+      
+      if (error) {
+        console.error('Failed to update registration status:', error);
+        throw error;
+      }
+      
+      console.log(`✅ Registration ${registrationId} marked as completed with data:`, {
+        status: updateData.status,
+        payment_status: updateData.payment_status,
+        total_amount_paid: updateData.total_amount_paid,
+        total_price_paid: updateData.total_price_paid,
+        stripe_fee: updateData.stripe_fee,
+        platform_fee: updateData.platform_fee,
+        connected_account_id: updateData.connected_account_id,
+        primary_attendee_id: updateData.primary_attendee_id,
+        attendee_count: updateData.attendee_count
+      });
+      
+    } catch (error) {
+      console.error('Error updating registration payment status:', error);
+      // Don't throw - we don't want to fail the payment if this update fails
     }
   }
 }

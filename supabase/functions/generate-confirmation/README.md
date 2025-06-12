@@ -94,7 +94,7 @@ curl -X POST http://localhost:54321/functions/v1/generate-confirmation \
       "id": "test-id",
       "status": "completed",
       "payment_status": "completed",
-      "registration_type": "individual",
+      "registration_type": "individuals",
       "confirmation_number": null
     },
     "old_record": {

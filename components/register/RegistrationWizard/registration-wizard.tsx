@@ -443,7 +443,7 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ function
     setAnonymousSessionEstablished(false);
     
     // Start fresh with the current function
-    startNewRegistration('individual');
+    startNewRegistration('individuals');
     if (functionSlug) {
       setFunctionSlug(functionSlug);
     }
@@ -471,7 +471,7 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ function
     setAnonymousSessionEstablished(false);
     
     // No existing draft, so start a new one anyway (just don't show another modal)
-    startNewRegistration('individual');
+    startNewRegistration('individuals');
     if (functionSlug) {
       setFunctionSlug(functionSlug);
     }
@@ -537,7 +537,7 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ function
         
         // Check contact preference
         if (!attendee.contactPreference) {
-          const defaultPreference = attendee.isPrimary ? 'Directly' : 'PrimaryAttendee';
+          const defaultPreference = attendee.isPrimary ? 'directly' : 'primaryattendee';
           // console.log(`SYNC: Setting default contactPreference for ${attendee.attendeeId} to ${defaultPreference}`);
           updates.contactPreference = defaultPreference;
           needsUpdate = true;
@@ -657,10 +657,116 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ function
     goToPrevStep()
   }
 
+  // Function to calculate subtotal from current selections
+  const calculateSubtotal = useCallback(() => {
+    const storeState = useRegistrationStore.getState();
+    const regType = storeState.registrationType;
+    
+    console.log('💰 calculateSubtotal called for registration type:', regType);
+    
+    // REGISTRATION-TYPE-SPECIFIC LOGIC
+    switch (regType) {
+      case 'individuals': {
+        // For individuals: Use orderSummary.subtotal (calculated by ticket selection/order review steps)
+        const orderSubtotal = storeState.orderSummary?.subtotal || 0;
+        if (orderSubtotal > 0) {
+          console.log('✅ [INDIVIDUALS] Using orderSummary.subtotal:', orderSubtotal);
+          return orderSubtotal;
+        }
+        
+        // Fallback: Sum attendee selections
+        const attendeeSubtotal = Object.values(storeState.attendeeSelections)
+          .reduce((sum, selection) => sum + selection.attendeeSubtotal, 0);
+        if (attendeeSubtotal > 0) {
+          console.log('✅ [INDIVIDUALS] Fallback to attendeeSelections subtotal:', attendeeSubtotal);
+          return attendeeSubtotal;
+        }
+        
+        console.warn('⚠️ [INDIVIDUALS] No subtotal found in orderSummary or attendeeSelections');
+        break;
+      }
+      
+      case 'lodge': {
+        // For lodge: Use lodgeBulkSelection.subtotal
+        const lodgeSubtotal = storeState.lodgeBulkSelection?.subtotal || 0;
+        if (lodgeSubtotal > 0) {
+          console.log('✅ [LODGE] Using lodgeBulkSelection.subtotal:', lodgeSubtotal);
+          return lodgeSubtotal;
+        }
+        
+        // Fallback: Check lodge table order
+        const tableOrderTotal = storeState.lodgeTableOrder?.totalPrice || 0;
+        if (tableOrderTotal > 0) {
+          console.log('✅ [LODGE] Fallback to lodgeTableOrder.totalPrice:', tableOrderTotal);
+          return tableOrderTotal;
+        }
+        
+        console.warn('⚠️ [LODGE] No subtotal found in lodgeBulkSelection or lodgeTableOrder');
+        break;
+      }
+      
+      case 'delegation': {
+        // For delegation: Sum all attendeeSelections[].attendeeSubtotal
+        const delegationSubtotal = Object.values(storeState.attendeeSelections)
+          .reduce((sum, selection) => sum + selection.attendeeSubtotal, 0);
+        if (delegationSubtotal > 0) {
+          console.log('✅ [DELEGATION] Using sum of attendeeSelections subtotals:', delegationSubtotal);
+          return delegationSubtotal;
+        }
+        
+        // Fallback: Check orderSummary
+        const orderSubtotal = storeState.orderSummary?.subtotal || 0;
+        if (orderSubtotal > 0) {
+          console.log('✅ [DELEGATION] Fallback to orderSummary.subtotal:', orderSubtotal);
+          return orderSubtotal;
+        }
+        
+        console.warn('⚠️ [DELEGATION] No subtotal found in attendeeSelections or orderSummary');
+        break;
+      }
+      
+      default: {
+        console.warn('⚠️ [UNKNOWN] Unknown registration type:', regType);
+        
+        // Generic fallback: Try any available subtotal
+        const orderSubtotal = storeState.orderSummary?.subtotal || 0;
+        const lodgeSubtotal = storeState.lodgeBulkSelection?.subtotal || 0;
+        const attendeeSubtotal = Object.values(storeState.attendeeSelections)
+          .reduce((sum, selection) => sum + selection.attendeeSubtotal, 0);
+          
+        const fallbackSubtotal = orderSubtotal || lodgeSubtotal || attendeeSubtotal;
+        if (fallbackSubtotal > 0) {
+          console.log('✅ [GENERIC] Using fallback subtotal:', fallbackSubtotal);
+          return fallbackSubtotal;
+        }
+        break;
+      }
+    }
+    
+    // FINAL DEBUG OUTPUT
+    console.log('🔍 Store state debug for registration type', regType, ':', {
+      orderSummary: storeState.orderSummary?.subtotal || 'not available',
+      lodgeBulkSelection: storeState.lodgeBulkSelection?.subtotal || 'not available', 
+      attendeeSelectionsCount: Object.keys(storeState.attendeeSelections).length,
+      attendeeSelectionsTotal: Object.values(storeState.attendeeSelections)
+        .reduce((sum, selection) => sum + selection.attendeeSubtotal, 0),
+      lodgeTableOrder: storeState.lodgeTableOrder?.totalPrice || 'not available',
+      packagesCount: Object.values(storeState.attendeeSelections)
+        .reduce((count, selection) => count + selection.packages.length, 0)
+    });
+    
+    return 0; // Only return 0 if no calculated values are available
+  }, []);
+
   // Function to save registration data
-  const saveRegistrationData = useCallback(async () => {
+  const saveRegistrationData = useCallback(async (passedSubtotal?: number) => {
     try {
       console.log("📝 Saving registration data to server...")
+      if (passedSubtotal !== undefined) {
+        console.log("💰 Using passed subtotal from payment step:", passedSubtotal)
+      } else {
+        console.log("💰 No subtotal passed, calculating from store state")
+      }
       
       // Get the current state from the store
       const storeState = useRegistrationStore.getState()
@@ -690,15 +796,17 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ function
       const allSelectedPackageIds = new Set<string>();
       
       storeState.attendees.forEach(attendee => {
-        const attendeePackage = storeState.packages[attendee.attendeeId];
-        if (attendeePackage) {
-          if (attendeePackage.ticketDefinitionId) {
-            // This is a package selection
-            allSelectedPackageIds.add(attendeePackage.ticketDefinitionId);
-          } else if (attendeePackage.selectedEvents) {
-            // These are individual ticket selections
-            attendeePackage.selectedEvents.forEach(ticketId => allSelectedTicketIds.add(ticketId));
-          }
+        const attendeeSelection = storeState.attendeeSelections[attendee.attendeeId];
+        if (attendeeSelection) {
+          // Collect package IDs from packages
+          attendeeSelection.packages.forEach(packageSelection => {
+            allSelectedPackageIds.add(packageSelection.package.packageId);
+          });
+          
+          // Collect ticket IDs from individual tickets
+          attendeeSelection.individualTickets.forEach(ticketSelection => {
+            allSelectedTicketIds.add(ticketSelection.ticket.ticketId);
+          });
         }
       });
 
@@ -745,6 +853,18 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ function
           
           if (!eventIdForRegistration) {
             console.warn("⚠️ Could not find event_id from selected tickets or packages");
+            console.log("📊 Debug info:", {
+              selectedTicketIds: Array.from(allSelectedTicketIds),
+              selectedPackageIds: Array.from(allSelectedPackageIds),
+              availableTickets: tickets.map(t => ({ id: t.id, event_id: t.event_id })),
+              availablePackages: packages.map(p => ({ id: p.id, includes: p.includes }))
+            });
+            
+            // Fallback: use the first available ticket's event_id
+            if (tickets.length > 0 && tickets[0].event_id) {
+              eventIdForRegistration = tickets[0].event_id;
+              console.log("📅 Using fallback event_id from first available ticket:", eventIdForRegistration);
+            }
           }
         } catch (error) {
           console.error("❌ Error loading ticket data:", error);
@@ -769,45 +889,13 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ function
             // Use enhanced ticket selections
             ticketSelectionsPayload[attendeeId] = enhancedSelections;
           } else {
-            // Fallback: Convert legacy package selections to enhanced format
-            const legacyPackage = storeState.packages[attendeeId];
-            if (legacyPackage) {
-              if (legacyPackage.ticketDefinitionId) {
-                // Package selection
-                ticketSelectionsPayload[attendeeId] = {
-                  packages: [{
-                    packageId: legacyPackage.ticketDefinitionId,
-                    quantity: 1,
-                    tickets: legacyPackage.selectedEvents.map(eventId => ({
-                      ticketId: eventId,
-                      quantity: 1
-                    }))
-                  }],
-                  individualTickets: []
-                };
-              } else if (legacyPackage.selectedEvents.length > 0) {
-                // Individual ticket selections
-                ticketSelectionsPayload[attendeeId] = {
-                  packages: [],
-                  individualTickets: legacyPackage.selectedEvents.map(eventId => ({
-                    ticketId: eventId,
-                    quantity: 1
-                  }))
-                };
-              } else {
-                // Empty selection
-                ticketSelectionsPayload[attendeeId] = {
-                  packages: [],
-                  individualTickets: []
-                };
-              }
-            } else {
-              // No selection at all
-              ticketSelectionsPayload[attendeeId] = {
-                packages: [],
-                individualTickets: []
-              };
-            }
+            // Enhanced system should provide selections - if missing, it's an error
+            console.error(`Enhanced ticket selections missing for attendee ${attendeeId}. Enhanced-only system requires all selections to be in enhanced format.`);
+            // Provide empty selection as fallback
+            ticketSelectionsPayload[attendeeId] = {
+              packages: [],
+              individualTickets: []
+            };
           }
         });
         
@@ -824,32 +912,45 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ function
         additionalAttendees: storeState.attendees.filter(att => !att.isPrimary).map(normalizeAttendeeForAPI),
         // Legacy tickets array (keep for RPC compatibility)
         tickets: storeState.attendees.flatMap(attendee => {
-          const attendeePackage = storeState.packages[attendee.attendeeId];
-          if (!attendeePackage) return []
-          const { ticketDefinitionId, selectedEvents } = attendeePackage
+          const attendeeSelection = storeState.attendeeSelections[attendee.attendeeId];
+          if (!attendeeSelection) return []
           
-          if (ticketDefinitionId) {
-            return [{
-              id: `${attendee.attendeeId}-${ticketDefinitionId}`,
+          const tickets: Array<{
+            id: string;
+            attendeeId: string;
+            event_ticket_id: string;
+            isPackage: boolean;
+            price: number;
+          }> = [];
+          
+          // Add package tickets
+          attendeeSelection.packages.forEach(packageSelection => {
+            tickets.push({
+              id: `${attendee.attendeeId}-${packageSelection.package.packageId}`,
               attendeeId: attendee.attendeeId,
-              ticketDefinitionId,
+              event_ticket_id: packageSelection.package.packageId, // Match database column name
               isPackage: true,
               price: 0 // Will be calculated server-side
-            }]
-          } else if (selectedEvents) {
-            return selectedEvents.map((eventId: string) => ({
-              id: `${attendee.attendeeId}-${eventId}`,
+            });
+          });
+          
+          // Add individual tickets
+          attendeeSelection.individualTickets.forEach(ticketSelection => {
+            tickets.push({
+              id: `${attendee.attendeeId}-${ticketSelection.ticket.ticketId}`,
               attendeeId: attendee.attendeeId,
-              eventTicketId: eventId,
+              event_ticket_id: ticketSelection.ticket.ticketId, // Match database column name
               isPackage: false,
               price: 0 // Will be calculated server-side
-            }))
-          }
-          return []
+            });
+          });
+          
+          return tickets;
         }),
         // NEW: Enhanced ticket selections structure
         ticketSelections: buildTicketSelectionsPayload(),
-        totalAmount: 0, // Will be calculated server-side
+        subtotal: passedSubtotal ?? calculateSubtotal(), // Use passed subtotal if provided, otherwise calculate
+        totalAmount: passedSubtotal ?? calculateSubtotal(), // Set to subtotal for now, fees calculated in payment
         billingDetails: storeState.billingDetails ? {
           ...storeState.billingDetails,
           emailAddress: storeState.billingDetails.email,
@@ -903,7 +1004,7 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ function
       console.error("❌ Error saving registration:", error)
       throw error
     }
-  }, [functionData, selectedEvents])
+  }, [functionData, selectedEvents, calculateSubtotal])
 
   // useEffect to reset agreeToTerms if user goes back from a step after AttendeeDetails
   // This is just an example of managing shared state across steps.

@@ -18,14 +18,14 @@ export const RegistrationTypeSummary: React.FC = () => {
         icon={<UsersRound className="h-4 w-4 text-masonic-navy" />}
       >
         <div className="space-y-3">
-          <div className={`p-2 rounded-md border ${registrationType === 'individual' ? 'border-masonic-gold bg-amber-50' : 'border-gray-200'}`}>
+          <div className={`p-2 rounded-md border ${(registrationType === 'individuals' || registrationType === 'individual') ? 'border-masonic-gold bg-amber-50' : 'border-gray-200'}`}>
             <SummaryItem
               icon={<User className="h-4 w-4 text-blue-600" />}
               label="Individual Registration"
               value={
                 <>
                   <span>Register yourself and partners</span>
-                  {registrationType === 'individual' && (
+                  {(registrationType === 'individuals' || registrationType === 'individual') && (
                     <StatusIndicator status="success" text="Selected" className="mt-1" />
                   )}
                 </>
@@ -72,7 +72,7 @@ export const RegistrationTypeSummary: React.FC = () => {
           className="mt-4"
         >
           <div className="space-y-2">
-            {registrationType === 'individual' && (
+            {(registrationType === 'individuals' || registrationType === 'individual') && (
               <>
                 <SummaryItem
                   icon={<Clock className="h-4 w-4 text-gray-500" />}

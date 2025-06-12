@@ -13,7 +13,7 @@ export default async function FallbackConfirmationPage({ params }: PageProps) {
   return (
     <ConfirmationFallback 
       confirmationNumber={confirmationNumber}
-      registrationType="individual" // Default, can be enhanced with localStorage data
+      registrationType="individuals" // Default, can be enhanced with localStorage data
     />
   );
 }

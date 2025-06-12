@@ -75,51 +75,55 @@ export function resolveTicketPrices(
   });
 
   return ticketsFromStore.map(ticket => {
-    let resolvedPrice = ticket.price; // Fallback to store price
-    let eventTicketId;
+    let resolvedPrice: number;
+    let eventTicketId: string;
     
     if (ticket.isPackage) {
       // For packages, get price from package records
-      // Handle both formats: "attendee-1-package-789" and "package-789"
+      // Handle format: "attendeeId-packageId" where both are UUIDs
       let packageId;
-      if (ticket.id.includes('-') && ticket.id.split('-').length > 2) {
-        packageId = ticket.id.split('-').slice(1).join('-'); // Remove attendeeId prefix
-      } else {
-        packageId = ticket.id; // Already just the package ID
+      
+      // Since both attendeeId and packageId are UUIDs with hyphens,
+      // we need to find the first package that matches any suffix of the ticket ID
+      packageId = packages.find(p => ticket.id.endsWith(`-${p.id}`))?.id;
+      
+      if (!packageId) {
+        // Try the whole ID in case it's already just the package ID
+        packageId = packages.find(p => p.id === ticket.id)?.id;
+      }
+      
+      if (!packageId) {
+        throw new Error(`Could not extract package ID from ticket ID: ${ticket.id}. Available packages: ${packages.map(p => p.id).join(', ')}`);
       }
       
       const packageRecord = packages.find(p => p.id === packageId);
       
-      if (packageRecord) {
-        resolvedPrice = packageRecord.price;
-        console.log(`🎯 ✅ Resolved package price: ${ticket.name} = $${resolvedPrice} (was $${ticket.price})`);
-      } else {
-        console.warn(`🎯 ❌ Package not found for ID: ${packageId}`);
+      if (!packageRecord) {
+        throw new Error(`Package not found for ID: ${packageId}`);
       }
+      
+      resolvedPrice = packageRecord.price;
+      eventTicketId = ticket.id;
+      console.log(`🎯 ✅ Resolved package price: ${ticket.name} = $${resolvedPrice}`);
     } else {
       // For individual tickets, get price from event_tickets records
       // Use eventTicketId if available, otherwise use ticket.id directly
-      if (ticket.eventTicketId) {
-        eventTicketId = ticket.eventTicketId;
-      } else {
-        eventTicketId = ticket.id;
-      }
+      eventTicketId = ticket.eventTicketId || ticket.id;
       
       const eventTicket = eventTickets.find(et => et.id === eventTicketId);
       
-      if (eventTicket) {
-        resolvedPrice = eventTicket.price;
-        console.log(`🎯 ✅ Resolved event ticket price: ${ticket.name} = $${resolvedPrice} (was $${ticket.price})`);
-      } else {
-        console.warn(`🎯 ❌ Event ticket not found for ID: ${eventTicketId}`);
-        console.warn(`🎯 Available event ticket IDs:`, eventTickets.map(et => et.id));
+      if (!eventTicket) {
+        throw new Error(`Event ticket not found for ID: ${eventTicketId}. Available IDs: ${eventTickets.map(et => et.id).join(', ')}`);
       }
+      
+      resolvedPrice = eventTicket.price;
+      console.log(`🎯 ✅ Resolved event ticket price: ${ticket.name} = $${resolvedPrice}`);
     }
     
     return {
       id: ticket.id,
       name: ticket.name,
-      price: resolvedPrice, // Use resolved price from database
+      price: resolvedPrice, // Use resolved price from database (no fallback)
       attendeeId: ticket.attendeeId,
       eventTicketId: eventTicketId,
       isPackage: ticket.isPackage || false,

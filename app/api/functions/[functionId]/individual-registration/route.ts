@@ -176,7 +176,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       paymentStatus = 'completed';
     }
 
-    // Call the upsert RPC
+    // Call the upsert RPC with multiple parameters (second function signature)
     const { data: registrationResult, error: registrationError } = await supabase
       .rpc('upsert_individual_registration', {
         p_function_id: functionId,
@@ -200,9 +200,16 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       
       // Refund the payment if registration fails and payment was made
       if (paymentIntent && paymentIntent.status === 'succeeded') {
+        console.log('[Individual Registration API] Creating refund due to registration failure:', registrationError.message);
         await stripe.refunds.create({
           payment_intent: paymentIntent.id,
-          reason: 'requested_by_customer',
+          reason: 'duplicate',
+          metadata: {
+            refund_reason: 'registration_database_failure',
+            original_error: registrationError.message,
+            registration_type: 'individual',
+            refund_timestamp: new Date().toISOString()
+          }
         });
       }
 
@@ -264,7 +271,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    // Call the upsert RPC to update status
+    // Call the upsert RPC to update status with multiple parameters
     const { data: registrationResult, error: registrationError } = await supabase
       .rpc('upsert_individual_registration', {
         p_function_id: functionId,

@@ -34,7 +34,7 @@ export async function GET(
     // Transform the view data to match the expected format
     const transformedPackages = (packages || []).map((pkg: any) => {
       // Extract registration types from eligibility criteria if present
-      let registrationTypes: string[] = ['individual', 'lodge', 'delegation']; // Default to all types
+      let registrationTypes: string[] = ['individuals', 'lodge', 'delegation']; // Default to all types
       
       // If package has eligibility criteria, parse it to determine allowed registration types
       if (pkg.eligibility_criteria && typeof pkg.eligibility_criteria === 'object') {

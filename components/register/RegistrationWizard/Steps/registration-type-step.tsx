@@ -21,7 +21,7 @@ import {
 } from '@/components/ui/alert-dialog';
 
 interface RegistrationType {
-  id: 'individual' | 'lodge' | 'delegation';
+  id: 'individuals' | 'lodge' | 'delegation';
   title: string;
   description: string;
   icon: React.ElementType;
@@ -32,7 +32,7 @@ interface RegistrationType {
 
 const REGISTRATION_TYPES: RegistrationType[] = [
   {
-    id: 'individual',
+    id: 'individuals',
     title: 'Myself & Others',
     description: 'Register yourself and optional additional attendees',
     icon: User,

@@ -326,7 +326,7 @@ export const GrandLodgesForm: React.FC<GrandLodgesFormProps> = ({
               grandOfficerStatus: 'Present',
               presentGrandOfficerRole: member.grandOffice,
               grand_lodge_id: Number(selectedGrandLodge),
-              contactPreference: 'PrimaryAttendee',
+              contactPreference: 'primaryattendee',
               isPrimary: index === 0 && !primaryAttendeeId
             });
           } else if (member.type === 'Guest') {
@@ -345,7 +345,7 @@ export const GrandLodgesForm: React.FC<GrandLodgesFormProps> = ({
                 firstName: member.firstName,
                 lastName: member.lastName,
                 relationship: member.relationship || 'Wife',
-                contactPreference: 'PrimaryAttendee'
+                contactPreference: 'primaryattendee'
               });
             }
           }

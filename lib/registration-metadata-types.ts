@@ -75,6 +75,7 @@ export interface PackageMetadata {
   // Included items with FULL metadata
   includedTickets: TicketMetadata[]; // Full nested ticket data
   includesDescription: string[] | null;
+  includedTicketNames?: string[]; // Resolved ticket names for display
   
   // Status & timestamps
   status: 'unpaid';

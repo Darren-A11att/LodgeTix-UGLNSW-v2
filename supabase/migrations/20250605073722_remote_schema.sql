@@ -86,7 +86,7 @@ ALTER TYPE "public"."collection_method" OWNER TO "postgres";
 
 
 CREATE TYPE "public"."contact_type" AS ENUM (
-    'individual',
+    'person',
     'organisation'
 );
 

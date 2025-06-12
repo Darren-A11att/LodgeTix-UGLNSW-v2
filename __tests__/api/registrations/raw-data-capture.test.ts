@@ -37,7 +37,7 @@ const completeIndividualRegistrationData = {
   subtotal: 95,
   stripeFee: 5,
   paymentIntentId: null,
-  registrationType: "individual",
+  registrationType: "individuals",
   
   // Billing details
   billingDetails: {

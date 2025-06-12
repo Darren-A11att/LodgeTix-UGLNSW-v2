@@ -60,11 +60,8 @@ export interface AttendeeTicketSelections {
   individualTickets: TicketSelectionItem[];
 }
 
-// Legacy interface for backward compatibility - will be phased out
-export interface PackageSelectionType {
-  ticketDefinitionId: string | null;
-  selectedEvents: string[]; // Array of event IDs
-}
+// Legacy interface for backward compatibility - REMOVED
+// PackageSelectionType has been eliminated in favor of enhanced metadata structures
 
 // Placeholder type for billing details
 // TODO: Define the actual structure needed
@@ -135,9 +132,9 @@ export interface RegistrationState {
   // NEW: Lodge bulk selection (no attendees yet)
   lodgeBulkSelection: LodgeBulkSelection | null;
   
-  // Keep for now - will be removed after migration
+  // Enhanced ticket selections - primary structure
   ticketSelections: Record<string, AttendeeTicketSelections>; // attendeeId -> ticket selections
-  packages: Record<string, PackageSelectionType>;
+  // REMOVED: packages - now using enhanced attendeeSelections structure
   
   billingDetails: BillingDetailsType | null;
   agreeToTerms: boolean; // Add agreeToTerms
@@ -176,8 +173,7 @@ export interface RegistrationState {
   addIndividualTicket: (attendeeId: string, ticket: TicketSelectionItem) => void;
   removeIndividualTicket: (attendeeId: string, ticketId: string) => void;
   clearAttendeeTicketSelections: (attendeeId: string) => void;
-  // Legacy action for backward compatibility
-  updatePackageSelection: (attendeeId: string, selection: PackageSelectionType) => void;
+  // REMOVED: updatePackageSelection - use enhanced actions instead
   updateBillingDetails: (details: BillingDetailsType) => void;
   setAgreeToTerms: (agreed: boolean) => void; // Add action
   _updateStatus: (status: RegistrationState['status'], error?: string | null) => void; // Internal helper
@@ -212,6 +208,18 @@ export interface RegistrationState {
   isLodgeFormValid: () => boolean;
   getLodgeValidationErrors: () => string[];
   
+  // NEW: Enhanced-only migration actions
+  addEnhancedPackageSelection: (attendeeId: string, packageId: string, quantity: number) => boolean;
+  addEnhancedIndividualTicket: (attendeeId: string, ticketId: string, quantity: number) => boolean;
+  removeEnhancedSelection: (attendeeId: string, itemId: string, itemType: 'package' | 'ticket') => boolean;
+  addEnhancedLodgeBulkPackage: (packageId: string, quantity: number) => boolean;
+  addEnhancedLodgeBulkTickets: (selections: Array<{ ticketId: string; quantity: number }>) => boolean;
+  
+  // Enhanced validation functions
+  validateEnhancedStructures: () => { isValid: boolean; errors: string[]; warnings: string[] };
+  isEnhancedDataComplete: (attendeeId?: string) => boolean;
+  
+  
   // NEW: Comprehensive metadata actions
   captureFunctionMetadata: (metadata: Omit<FunctionMetadata, 'captureTimestamp'>) => void;
   captureTicketMetadata: (ticket: FunctionTicketDefinition, eventData?: Partial<{ startDate: string; endDate: string; venue: string; venueAddress: string; description: string; status: string }>) => void;
@@ -226,7 +234,7 @@ export interface RegistrationState {
 }
 
 // --- Initial State ---
-const initialRegistrationState: Omit<RegistrationState, 'startNewRegistration' | 'addPrimaryAttendee' | 'loadDraft' | 'clearRegistration' | 'clearAllAttendees' | 'setRegistrationType' | 'addAttendee' | 'addMasonAttendee' | 'addGuestAttendee' | 'addPartnerAttendee' | 'updateAttendee' | 'removeAttendee' | 'updateTicketSelections' | 'addPackageSelection' | 'removePackageSelection' | 'addIndividualTicket' | 'removeIndividualTicket' | 'clearAttendeeTicketSelections' | 'updatePackageSelection' | 'updateBillingDetails' | 'setAgreeToTerms' | '_updateStatus' | 'setCurrentStep' | 'goToNextStep' | 'goToPrevStep' | 'setConfirmationNumber' | 'setFunctionId' | 'setFunctionSlug' | 'setSelectedEvents' | 'setDraftRecoveryHandled' | 'setAnonymousSessionEstablished' | 'setLodgeTicketOrder' | 'setDelegationType' | 'updateLodgeCustomer' | 'updateLodgeDetails' | 'updateLodgeTableOrder' | 'isLodgeFormValid' | 'getLodgeValidationErrors' | 'captureFunctionMetadata' | 'captureTicketMetadata' | 'capturePackageMetadata' | 'addAttendeeTicketSelection' | 'addAttendeePackageSelection' | 'removeAttendeeSelection' | 'updateOrderSummary' | 'updateRegistrationTableData' | 'addLodgeBulkPackageSelection' | 'addLodgeBulkTicketSelections'> = {
+const initialRegistrationState: Omit<RegistrationState, 'startNewRegistration' | 'addPrimaryAttendee' | 'loadDraft' | 'clearRegistration' | 'clearAllAttendees' | 'setRegistrationType' | 'addAttendee' | 'addMasonAttendee' | 'addGuestAttendee' | 'addPartnerAttendee' | 'updateAttendee' | 'removeAttendee' | 'updateTicketSelections' | 'addPackageSelection' | 'removePackageSelection' | 'addIndividualTicket' | 'removeIndividualTicket' | 'clearAttendeeTicketSelections' | 'updateBillingDetails' | 'setAgreeToTerms' | '_updateStatus' | 'setCurrentStep' | 'goToNextStep' | 'goToPrevStep' | 'setConfirmationNumber' | 'setFunctionId' | 'setFunctionSlug' | 'setSelectedEvents' | 'setDraftRecoveryHandled' | 'setDraftId' | 'setAnonymousSessionEstablished' | 'setLodgeTicketOrder' | 'setDelegationType' | 'updateLodgeCustomer' | 'updateLodgeDetails' | 'updateLodgeTableOrder' | 'isLodgeFormValid' | 'getLodgeValidationErrors' | 'addEnhancedPackageSelection' | 'addEnhancedIndividualTicket' | 'removeEnhancedSelection' | 'addEnhancedLodgeBulkPackage' | 'addEnhancedLodgeBulkTickets' | 'validateEnhancedStructures' | 'isEnhancedDataComplete' | 'captureFunctionMetadata' | 'captureTicketMetadata' | 'capturePackageMetadata' | 'addAttendeeTicketSelection' | 'addAttendeePackageSelection' | 'removeAttendeeSelection' | 'updateOrderSummary' | 'updateRegistrationTableData' | 'addLodgeBulkPackageSelection' | 'addLodgeBulkTicketSelections'> = {
     draftId: null,
     functionId: null, // Initialize functionId as null
     functionSlug: null, // Initialize functionSlug as null
@@ -257,7 +265,7 @@ const initialRegistrationState: Omit<RegistrationState, 'startNewRegistration' |
     lodgeBulkSelection: null,
     
     ticketSelections: {}, // Initialize enhanced ticket selections
-    packages: {}, // Legacy packages for backward compatibility
+    // REMOVED: packages - using enhanced attendeeSelections structure
     billingDetails: null,
     agreeToTerms: false, // Init agreeToTerms
     status: 'idle',
@@ -436,7 +444,7 @@ export const useRegistrationStore = create<RegistrationState>(
           draftId: newDraftId,
           registrationType: type,
           attendees: [], // Start with empty attendees
-          packages: {}, 
+          // REMOVED: packages - using enhanced attendeeSelections structure
           billingDetails: null, 
           agreeToTerms: false, 
           status: 'draft',
@@ -509,15 +517,25 @@ export const useRegistrationStore = create<RegistrationState>(
           registrationTableData: initialRegistrationState.registrationTableData,
           lodgeBulkSelection: null
         }); // Reset to initial state but keep session
+        
+        // Clear stale localStorage data from previous registrations
+        try {
+          localStorage.removeItem('recent_registration');
+          console.log('Cleared stale localStorage data from previous registrations');
+        } catch (error) {
+          console.warn('Could not clear localStorage:', error);
+        }
+        
         console.log('Registration state cleared.');
       },
 
       clearAllAttendees: () => {
         set(state => ({
           attendees: [],
-          packages: {},
+          // REMOVED: packages - using enhanced attendeeSelections structure
+          attendeeSelections: {}, // Clear enhanced selections instead
         }));
-        console.log('[Store] Cleared all attendees and their package selections.');
+        console.log('[Store] Cleared all attendees and their enhanced selections.');
       },
 
       setRegistrationType: (type) => {
@@ -797,14 +815,7 @@ export const useRegistrationStore = create<RegistrationState>(
       },
 
       // Legacy action for backward compatibility
-      updatePackageSelection: (attendeeId, selection) => {
-        set(state => ({
-          packages: {
-            ...state.packages,
-            [attendeeId]: selection,
-          },
-        }));
-      },
+      // REMOVED: updatePackageSelection - use addEnhancedPackageSelection instead
 
       updateBillingDetails: (details) => {
         set({ billingDetails: details });
@@ -961,7 +972,7 @@ export const useRegistrationStore = create<RegistrationState>(
               availableCount: ticket.available_count,
               reservedCount: ticket.reserved_count,
               soldCount: ticket.sold_count,
-              status: 'available'
+              status: determineAvailabilityStatus(ticket.available_count)
             },
             status: 'unpaid',
             selectionTimestamp: new Date().toISOString(),
@@ -978,6 +989,7 @@ export const useRegistrationStore = create<RegistrationState>(
           discount: pkg.discount,
           includedTickets: includedTicketsMetadata,
           includesDescription: pkg.includes_description,
+          includedTicketNames: pkg.includedTicketNames, // Preserve resolved ticket names from service
           status: 'unpaid',
           selectionTimestamp: new Date().toISOString(),
           functionId: pkg.function_id
@@ -1051,12 +1063,26 @@ export const useRegistrationStore = create<RegistrationState>(
           return state;
         }
         
+        // CRITICAL DEBUGGING: Log package metadata structure
+        console.log(`[TICKET EXPANSION DEBUG] Package ${packageId} metadata:`, {
+          packageName: packageMetadata.name,
+          includedTicketsCount: packageMetadata.includedTickets?.length || 0,
+          includedTickets: packageMetadata.includedTickets?.map(t => ({
+            ticketId: t.ticketId,
+            name: t.name,
+            eventId: t.event?.eventId
+          })) || []
+        });
+        
         // Generate ticket records for each included ticket
         const generatedTicketRecords = packageMetadata.includedTickets.map(ticket => ({
           ticketRecordId: uuidv7(),
           eventTicketId: ticket.ticketId,
           fromPackageId: packageId
         }));
+        
+        // CRITICAL DEBUGGING: Log generated ticket records
+        console.log(`[TICKET EXPANSION DEBUG] Generated ${generatedTicketRecords.length} ticket records:`, generatedTicketRecords);
         
         const packageRecord: EnhancedPackageSelection = {
           packageRecordId: uuidv7(),
@@ -1067,6 +1093,14 @@ export const useRegistrationStore = create<RegistrationState>(
           status: 'unpaid',
           generatedTicketRecords
         };
+        
+        // CRITICAL DEBUGGING: Log created package record
+        console.log(`[TICKET EXPANSION DEBUG] Created package record:`, {
+          packageRecordId: packageRecord.packageRecordId,
+          packageName: packageRecord.package.name,
+          generatedTicketRecordsCount: packageRecord.generatedTicketRecords.length,
+          generatedTicketRecords: packageRecord.generatedTicketRecords
+        });
         
         const existingSelection = state.attendeeSelections[attendeeId] || {
           attendeeId,
@@ -1083,6 +1117,14 @@ export const useRegistrationStore = create<RegistrationState>(
           packages: [...existingSelection.packages, packageRecord],
           attendeeSubtotal: existingSelection.attendeeSubtotal + packageRecord.subtotal
         };
+        
+        // CRITICAL DEBUGGING: Log final attendee selection
+        console.log(`[TICKET EXPANSION DEBUG] Updated attendee selection:`, {
+          attendeeId: updatedSelection.attendeeId,
+          attendeeName: updatedSelection.attendeeName,
+          packagesCount: updatedSelection.packages.length,
+          totalGeneratedTickets: updatedSelection.packages.reduce((sum, pkg) => sum + pkg.generatedTicketRecords.length, 0)
+        });
         
         return {
           attendeeSelections: {
@@ -1130,7 +1172,23 @@ export const useRegistrationStore = create<RegistrationState>(
         let totalTickets = 0;
         let totalPackages = 0;
         
-        attendeeSummaries.forEach(summary => {
+        // CRITICAL DEBUGGING: Log ticket counting process
+        console.log(`[ORDER SUMMARY DEBUG] Processing ${attendeeSummaries.length} attendee summaries`);
+        
+        attendeeSummaries.forEach((summary, index) => {
+          const attendeePackageTickets = summary.packages.reduce((sum, pkg) => sum + pkg.generatedTicketRecords.length, 0);
+          const attendeeIndividualTickets = summary.individualTickets.length;
+          
+          console.log(`[ORDER SUMMARY DEBUG] Attendee ${index + 1} (${summary.attendeeName}):`, {
+            packages: summary.packages.length,
+            individualTickets: attendeeIndividualTickets,
+            packageTickets: attendeePackageTickets,
+            packageDetails: summary.packages.map(pkg => ({
+              packageName: pkg.package.name,
+              generatedTickets: pkg.generatedTicketRecords.length
+            }))
+          });
+          
           totalPackages += summary.packages.length;
           totalTickets += summary.individualTickets.length;
           
@@ -1139,6 +1197,8 @@ export const useRegistrationStore = create<RegistrationState>(
             totalTickets += pkg.generatedTicketRecords.length;
           });
         });
+        
+        console.log(`[ORDER SUMMARY DEBUG] Final ticket count - Total: ${totalTickets}, Packages: ${totalPackages}`);
         
         // Add lodge bulk selection if present
         if (state.lodgeBulkSelection) {
@@ -1234,7 +1294,278 @@ export const useRegistrationStore = create<RegistrationState>(
         // Implementation for bulk individual ticket selection (if needed)
         console.log('Lodge bulk ticket selections not fully implemented yet');
         return state;
-      })
+      }),
+
+      // === NEW: Enhanced-only migration actions ===
+      
+      addEnhancedPackageSelection: (attendeeId, packageId, quantity) => {
+        const state = get();
+        
+        // Enhanced-only validation
+        if (!state.packageMetadata[packageId]) {
+          console.error(`[Enhanced Store] Package metadata not found for package ${packageId}. Cannot proceed with enhanced-only operation.`);
+          return false;
+        }
+        
+        if (!state.attendees.find(a => a.attendeeId === attendeeId)) {
+          console.error(`[Enhanced Store] Attendee not found: ${attendeeId}. Cannot proceed with enhanced-only operation.`);
+          return false;
+        }
+        
+        // Use existing enhanced action but with validation and logging
+        console.log(`[Enhanced Store] Adding enhanced package selection - AttendeeId: ${attendeeId}, PackageId: ${packageId}, Quantity: ${quantity}`);
+        
+        const success = (() => {
+          try {
+            // Call existing enhanced action
+            get().addAttendeePackageSelection(attendeeId, packageId, quantity);
+            
+            // Trigger order summary update
+            get().updateOrderSummary();
+            
+            console.log(`[Enhanced Store] Successfully added enhanced package selection - Generated tickets: ${state.packageMetadata[packageId].includedTickets.length * quantity}`);
+            return true;
+          } catch (error) {
+            console.error(`[Enhanced Store] Failed to add enhanced package selection:`, error);
+            return false;
+          }
+        })();
+        
+        // Log validation status
+        const validation = get().validateEnhancedStructures();
+        if (!validation.isValid) {
+          console.warn(`[Enhanced Store] Enhanced structures validation issues after package selection:`, validation.errors);
+        }
+        
+        return success;
+      },
+      
+      addEnhancedIndividualTicket: (attendeeId, ticketId, quantity) => {
+        const state = get();
+        
+        // Enhanced-only validation
+        if (!state.ticketMetadata[ticketId]) {
+          console.error(`[Enhanced Store] Ticket metadata not found for ticket ${ticketId}. Cannot proceed with enhanced-only operation.`);
+          return false;
+        }
+        
+        if (!state.attendees.find(a => a.attendeeId === attendeeId)) {
+          console.error(`[Enhanced Store] Attendee not found: ${attendeeId}. Cannot proceed with enhanced-only operation.`);
+          return false;
+        }
+        
+        console.log(`[Enhanced Store] Adding enhanced individual ticket - AttendeeId: ${attendeeId}, TicketId: ${ticketId}, Quantity: ${quantity}`);
+        
+        const success = (() => {
+          try {
+            // Call existing enhanced action
+            get().addAttendeeTicketSelection(attendeeId, ticketId, quantity);
+            
+            // Trigger order summary update
+            get().updateOrderSummary();
+            
+            console.log(`[Enhanced Store] Successfully added enhanced individual ticket - Subtotal: ${state.ticketMetadata[ticketId].price * quantity}`);
+            return true;
+          } catch (error) {
+            console.error(`[Enhanced Store] Failed to add enhanced individual ticket:`, error);
+            return false;
+          }
+        })();
+        
+        // Log validation status
+        const validation = get().validateEnhancedStructures();
+        if (!validation.isValid) {
+          console.warn(`[Enhanced Store] Enhanced structures validation issues after ticket selection:`, validation.errors);
+        }
+        
+        return success;
+      },
+      
+      removeEnhancedSelection: (attendeeId, itemId, itemType) => {
+        const state = get();
+        
+        if (!state.attendeeSelections[attendeeId]) {
+          console.error(`[Enhanced Store] No selections found for attendee: ${attendeeId}`);
+          return false;
+        }
+        
+        console.log(`[Enhanced Store] Removing enhanced selection - AttendeeId: ${attendeeId}, ItemId: ${itemId}, Type: ${itemType}`);
+        
+        const success = (() => {
+          try {
+            // Call existing enhanced action
+            get().removeAttendeeSelection(attendeeId, itemId, itemType);
+            
+            // Trigger order summary update
+            get().updateOrderSummary();
+            
+            console.log(`[Enhanced Store] Successfully removed enhanced ${itemType} selection`);
+            return true;
+          } catch (error) {
+            console.error(`[Enhanced Store] Failed to remove enhanced selection:`, error);
+            return false;
+          }
+        })();
+        
+        return success;
+      },
+      
+      addEnhancedLodgeBulkPackage: (packageId, quantity) => {
+        const state = get();
+        
+        // Enhanced-only validation
+        if (!state.packageMetadata[packageId]) {
+          console.error(`[Enhanced Store] Package metadata not found for package ${packageId}. Cannot proceed with enhanced lodge bulk operation.`);
+          return false;
+        }
+        
+        if (state.registrationType !== 'lodge') {
+          console.error(`[Enhanced Store] Lodge bulk operations only available for lodge registration type. Current type: ${state.registrationType}`);
+          return false;
+        }
+        
+        console.log(`[Enhanced Store] Adding enhanced lodge bulk package - PackageId: ${packageId}, Quantity: ${quantity}`);
+        
+        const success = (() => {
+          try {
+            // Call existing enhanced action
+            get().addLodgeBulkPackageSelection(packageId, quantity);
+            
+            console.log(`[Enhanced Store] Successfully added enhanced lodge bulk package - Will generate ${state.packageMetadata[packageId].includedTickets.length * quantity} tickets`);
+            return true;
+          } catch (error) {
+            console.error(`[Enhanced Store] Failed to add enhanced lodge bulk package:`, error);
+            return false;
+          }
+        })();
+        
+        // Log validation status
+        const validation = get().validateEnhancedStructures();
+        if (!validation.isValid) {
+          console.warn(`[Enhanced Store] Enhanced structures validation issues after lodge bulk package:`, validation.errors);
+        }
+        
+        return success;
+      },
+      
+      addEnhancedLodgeBulkTickets: (selections) => {
+        const state = get();
+        
+        // Enhanced-only validation
+        for (const selection of selections) {
+          if (!state.ticketMetadata[selection.ticketId]) {
+            console.error(`[Enhanced Store] Ticket metadata not found for ticket ${selection.ticketId}. Cannot proceed with enhanced lodge bulk operation.`);
+            return false;
+          }
+        }
+        
+        if (state.registrationType !== 'lodge') {
+          console.error(`[Enhanced Store] Lodge bulk operations only available for lodge registration type. Current type: ${state.registrationType}`);
+          return false;
+        }
+        
+        console.log(`[Enhanced Store] Adding enhanced lodge bulk tickets - Selections:`, selections);
+        
+        const success = (() => {
+          try {
+            // Call existing action (when implemented)
+            get().addLodgeBulkTicketSelections(selections);
+            
+            console.log(`[Enhanced Store] Successfully added enhanced lodge bulk tickets`);
+            return true;
+          } catch (error) {
+            console.error(`[Enhanced Store] Failed to add enhanced lodge bulk tickets:`, error);
+            return false;
+          }
+        })();
+        
+        return success;
+      },
+      
+      // === Enhanced validation functions ===
+      
+      validateEnhancedStructures: () => {
+        const state = get();
+        const errors: string[] = [];
+        const warnings: string[] = [];
+        
+        // Validate function metadata exists
+        if (!state.functionMetadata) {
+          errors.push('Function metadata not captured');
+        }
+        
+        // Validate attendee selections have corresponding metadata
+        Object.entries(state.attendeeSelections).forEach(([attendeeId, selection]) => {
+          // Validate package selections have metadata
+          selection.packages.forEach((pkg, index) => {
+            if (!state.packageMetadata[pkg.package.packageId]) {
+              errors.push(`Package metadata missing for selection ${index} of attendee ${attendeeId}`);
+            }
+          });
+          
+          // Validate ticket selections have metadata
+          selection.individualTickets.forEach((ticket, index) => {
+            if (!state.ticketMetadata[ticket.ticket.ticketId]) {
+              errors.push(`Ticket metadata missing for selection ${index} of attendee ${attendeeId}`);
+            }
+          });
+          
+          // Validate attendee exists
+          if (!state.attendees.find(a => a.attendeeId === attendeeId)) {
+            errors.push(`Attendee ${attendeeId} has selections but doesn't exist in attendees array`);
+          }
+        });
+        
+        // Validate order summary consistency
+        if (state.orderSummary) {
+          const calculatedAttendees = state.attendees.length;
+          if (state.orderSummary.totalAttendees !== calculatedAttendees) {
+            warnings.push(`Order summary attendee count (${state.orderSummary.totalAttendees}) doesn't match actual attendees (${calculatedAttendees})`);
+          }
+        } else {
+          warnings.push('Order summary not generated');
+        }
+        
+        // Validate lodge bulk selection (if present) has metadata
+        if (state.lodgeBulkSelection) {
+          if (state.lodgeBulkSelection.selectionType === 'package' && state.lodgeBulkSelection.packageId) {
+            if (!state.packageMetadata[state.lodgeBulkSelection.packageId]) {
+              errors.push('Lodge bulk package selection missing metadata');
+            }
+          }
+        }
+        
+        const isValid = errors.length === 0;
+        
+        console.log(`[Enhanced Store] Validation completed - Valid: ${isValid}, Errors: ${errors.length}, Warnings: ${warnings.length}`);
+        
+        return { isValid, errors, warnings };
+      },
+      
+      isEnhancedDataComplete: (attendeeId) => {
+        const state = get();
+        
+        if (attendeeId) {
+          // Check specific attendee
+          const selection = state.attendeeSelections[attendeeId];
+          const attendee = state.attendees.find(a => a.attendeeId === attendeeId);
+          
+          return !!(
+            attendee && 
+            selection && 
+            state.functionMetadata &&
+            (selection.packages.length > 0 || selection.individualTickets.length > 0)
+          );
+        } else {
+          // Check overall registration
+          return !!(
+            state.functionMetadata &&
+            (Object.keys(state.attendeeSelections).length > 0 || state.lodgeBulkSelection) &&
+            state.orderSummary
+          );
+        }
+      },
+      
 
     }),
     {
@@ -1248,7 +1579,6 @@ export const useRegistrationStore = create<RegistrationState>(
         delegationType: state.delegationType, // Persist delegation type
         attendees: state.attendees,
         ticketSelections: state.ticketSelections, // Persist enhanced ticket selections
-        packages: state.packages, // Keep legacy packages for backward compatibility
         billingDetails: state.billingDetails,
         // Don't persist agreeToTerms - it should always default to false
         status: state.status, // Persist status to track completed registrations
@@ -1329,4 +1659,73 @@ export const selectAllAttendeeTicketSelections = (state: RegistrationState) => {
       { packages: [], individualTickets: [] };
   });
   return allSelections;
+};
+
+// === NEW: Enhanced-only selectors ===
+
+export const selectEnhancedAttendeeSelections = (state: RegistrationState) => state.attendeeSelections;
+
+export const selectEnhancedAttendeeSelection = (attendeeId: string) => (state: RegistrationState) => 
+  state.attendeeSelections[attendeeId];
+
+export const selectEnhancedOrderSummary = (state: RegistrationState) => state.orderSummary;
+
+export const selectFunctionMetadata = (state: RegistrationState) => state.functionMetadata;
+
+export const selectTicketMetadata = (state: RegistrationState) => state.ticketMetadata;
+
+export const selectPackageMetadata = (state: RegistrationState) => state.packageMetadata;
+
+export const selectLodgeBulkSelection = (state: RegistrationState) => state.lodgeBulkSelection;
+
+export const selectRegistrationTableData = (state: RegistrationState) => state.registrationTableData;
+
+export const selectEnhancedValidationStatus = (state: RegistrationState) => {
+  // Use the store's validation method
+  const store = useRegistrationStore.getState();
+  return store.validateEnhancedStructures();
+};
+
+export const selectIsEnhancedDataComplete = (attendeeId?: string) => (state: RegistrationState) => {
+  // Use the store's completion check method
+  const store = useRegistrationStore.getState();
+  return store.isEnhancedDataComplete(attendeeId);
+};
+
+export const selectEnhancedTotalValue = (state: RegistrationState) => {
+  if (state.lodgeBulkSelection) {
+    return state.lodgeBulkSelection.subtotal;
+  }
+  
+  return Object.values(state.attendeeSelections).reduce(
+    (total, selection) => total + selection.attendeeSubtotal, 
+    0
+  );
+};
+
+export const selectEnhancedTicketCount = (state: RegistrationState) => {
+  if (state.lodgeBulkSelection) {
+    return state.lodgeBulkSelection.willGenerateTickets;
+  }
+  
+  let totalTickets = 0;
+  Object.values(state.attendeeSelections).forEach(selection => {
+    totalTickets += selection.individualTickets.length;
+    selection.packages.forEach(pkg => {
+      totalTickets += pkg.generatedTicketRecords.length;
+    });
+  });
+  
+  return totalTickets;
+};
+
+export const selectEnhancedPackageCount = (state: RegistrationState) => {
+  if (state.lodgeBulkSelection && state.lodgeBulkSelection.selectionType === 'package') {
+    return 1;
+  }
+  
+  return Object.values(state.attendeeSelections).reduce(
+    (total, selection) => total + selection.packages.length,
+    0
+  );
 }; 

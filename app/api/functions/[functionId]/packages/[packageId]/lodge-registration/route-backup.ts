@@ -205,11 +205,11 @@ export async function POST(
         p_payment_status: paymentStatus,
         p_stripe_payment_intent_id: paymentIntent?.id || null,
         p_registration_id: registrationId || null,
+        p_total_amount: parseFloat((amount / 100).toFixed(2)),        // Convert cents to dollars with 2 decimal places
+        p_subtotal: parseFloat((subtotal / 100).toFixed(2)),          // Convert cents to dollars with 2 decimal places
+        p_stripe_fee: parseFloat((stripeFee / 100).toFixed(2)),       // Convert cents to dollars with 2 decimal places
         p_metadata: {
-          billingDetails,
-          amount: amount / 100,
-          subtotal: subtotal / 100,
-          stripeFee: stripeFee / 100,
+          billingDetails
         }
       });
 
@@ -386,9 +386,16 @@ export async function POST(
           
           // Refund payment if fallback fails
           if (paymentIntent && paymentIntent.status === 'succeeded') {
+            console.log('[Lodge Registration API] Creating refund due to fallback failure:', fallbackError.message);
             await stripe.refunds.create({
               payment_intent: paymentIntent.id,
-              reason: 'requested_by_customer',
+              reason: 'duplicate',
+              metadata: {
+                refund_reason: 'fallback_registration_failure',
+                original_error: fallbackError.message,
+                registration_type: 'lodge_fallback',
+                refund_timestamp: new Date().toISOString()
+              }
             });
           }
           
@@ -401,9 +408,15 @@ export async function POST(
       
       // Refund the payment if registration fails and payment was made
       if (paymentIntent && paymentIntent.status === 'succeeded') {
+        console.log('[Lodge Registration API] Creating refund due to primary registration failure');
         await stripe.refunds.create({
           payment_intent: paymentIntent.id,
-          reason: 'requested_by_customer',
+          reason: 'duplicate',
+          metadata: {
+            refund_reason: 'primary_registration_failure',
+            registration_type: 'lodge_primary',
+            refund_timestamp: new Date().toISOString()
+          }
         });
       }
 

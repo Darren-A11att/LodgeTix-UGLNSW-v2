@@ -88,6 +88,16 @@ export async function POST(
       }
     }
 
+    // Round all amounts to ensure they're whole numbers (Stripe expects integers in cents)
+    const roundedAmount = Math.round(amount);
+    const roundedSubtotal = Math.round(subtotal);
+    const roundedStripeFee = Math.round(stripeFee);
+    
+    console.log('[Lodge Registration API] Amount rounding:', {
+      original: { amount, subtotal, stripeFee },
+      rounded: { amount: roundedAmount, subtotal: roundedSubtotal, stripeFee: roundedStripeFee }
+    });
+
     // If payment method provided, process payment first
     let paymentIntent = null;
     let paymentStatus = 'pending';
@@ -136,7 +146,7 @@ export async function POST(
       
       // Prepare payment intent options
       const paymentIntentOptions: any = {
-        amount,
+        amount: roundedAmount,
         currency: 'aud',
         payment_method: paymentMethodId,
         confirmation_method: 'manual',
@@ -152,9 +162,9 @@ export async function POST(
           registration_type: 'lodge',
           lodge_name: lodgeDetails.lodgeName?.substring(0, 100) || '',
           table_count: tableCount.toString(),
-          subtotal: String(subtotal / 100),
-          stripe_fee: String(stripeFee / 100),
-          platform_fee: String((amount - subtotal - stripeFee) / 100),
+          subtotal: String(roundedSubtotal / 100),
+          stripe_fee: String(roundedStripeFee / 100),
+          platform_fee: String((roundedAmount - roundedSubtotal - roundedStripeFee) / 100),
           created_at: new Date().toISOString(),
           environment: process.env.NODE_ENV || 'development'
         },
@@ -177,7 +187,7 @@ export async function POST(
           // - Platform keeps the difference minus Stripe's processing fee
           paymentIntentOptions.transfer_data = {
             destination: connectedAccountId,
-            amount: subtotal, // Transfer exactly the subtotal to connected account
+            amount: roundedSubtotal, // Transfer exactly the rounded subtotal to connected account
           };
           
           // Add statement descriptor with function name and registration type
@@ -210,7 +220,7 @@ export async function POST(
     }
 
     // Call the upsert RPC - it has SECURITY DEFINER so it bypasses RLS
-    console.log('[Lodge Registration API] Calling upsert_lodge_registration RPC');
+    console.log('[Lodge Registration API] Calling upsert_lodge_registration RPC with financial parameters');
     const { data: registrationResult, error: registrationError } = await supabase
       .rpc('upsert_lodge_registration', {
         p_function_id: functionId,
@@ -221,11 +231,17 @@ export async function POST(
         p_payment_status: paymentStatus,
         p_stripe_payment_intent_id: paymentIntent?.id || null,
         p_registration_id: registrationId || null,
+        p_total_amount: parseFloat((roundedAmount / 100).toFixed(2)),        // Convert rounded cents to dollars with 2 decimal places
+        p_subtotal: parseFloat((roundedSubtotal / 100).toFixed(2)),          // Convert rounded cents to dollars with 2 decimal places
+        p_stripe_fee: parseFloat((roundedStripeFee / 100).toFixed(2)),       // Convert rounded cents to dollars with 2 decimal places
         p_metadata: {
           billingDetails,
-          amount: amount / 100,
-          subtotal: subtotal / 100,
-          stripeFee: stripeFee / 100,
+          originalAmountCents: amount,
+          originalSubtotalCents: subtotal,
+          originalStripFeeCents: stripeFee,
+          roundedAmountCents: roundedAmount,
+          roundedSubtotalCents: roundedSubtotal,
+          roundedStripFeeCents: roundedStripeFee,
         }
       });
 
@@ -239,9 +255,16 @@ export async function POST(
       
       // Refund the payment if registration fails and payment was made
       if (paymentIntent && paymentIntent.status === 'succeeded') {
+        console.log('[Lodge Registration API] Creating refund due to registration failure:', registrationError.message);
         await stripe.refunds.create({
           payment_intent: paymentIntent.id,
-          reason: 'requested_by_customer',
+          reason: 'duplicate',
+          metadata: {
+            refund_reason: 'registration_database_failure',
+            original_error: registrationError.message,
+            registration_type: 'lodge',
+            refund_timestamp: new Date().toISOString()
+          }
         });
       }
 

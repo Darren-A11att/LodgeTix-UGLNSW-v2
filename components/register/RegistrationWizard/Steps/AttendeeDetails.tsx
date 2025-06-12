@@ -187,7 +187,8 @@ const AttendeeDetails: React.FC<AttendeeDetailsProps> = ({
 
   const renderForm = () => {
     switch (registrationType) {
-      case 'individual':
+      case 'individuals':
+      case 'individual': // Backwards compatibility
         return (
           <IndividualsForm
             maxAttendees={10}

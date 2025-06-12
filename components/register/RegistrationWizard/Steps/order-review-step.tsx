@@ -1,18 +1,18 @@
 "use client"
 
-import { useState, useMemo, useEffect } from "react"
-import { useRegistrationStore, UnifiedAttendeeData, PackageSelectionType } from '../../../../lib/registrationStore'
-import { useLocationStore } from '../../../../lib/locationStore'
+import { useState, useMemo } from "react"
+import { useRegistrationStore, UnifiedAttendeeData } from '../../../../lib/registrationStore'
+// Removed unused import: useLocationStore
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { Separator } from "@/components/ui/separator"
 import { Badge } from "@/components/ui/badge"
-import { Check, ChevronRight, CreditCard, Info, Ticket, User, Users, Edit3, Trash2, AlertTriangle, HelpCircle } from "lucide-react"
-import type { Attendee, MasonAttendee, GuestAttendee, PartnerAttendee, PARTNER_RELATIONSHIP_OPTIONS } from "@/lib/registration-types"
-import { PhoneInput } from '@/components/ui/phone-input'
-import { ScrollArea } from "@/components/ui/scroll-area"
+import { ChevronRight, CreditCard, Info, Users, Edit3, Trash2, AlertTriangle } from "lucide-react"
+// Removed unused imports from registration-types
+// Removed unused import: PhoneInput
+// Removed unused import: ScrollArea
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { SectionHeader } from "../Shared/SectionHeader"
+// Removed unused import: SectionHeader
 import { 
   AlertDialog, 
   AlertDialogAction, 
@@ -25,12 +25,11 @@ import {
 } from "@/components/ui/alert-dialog"
 import AttendeeEditModal from "../Attendees/AttendeeEditModal"
 import { TwoColumnStepLayout } from "../Layouts/TwoColumnStepLayout"
-import { getOrderReviewSummaryData } from '../Summary/summary-data/order-review-summary-data';
+import { getEnhancedTicketSummaryData } from '../Summary/summary-data/ticket-summary-data-enhanced';
 import { SummaryRenderer } from '../Summary/SummaryRenderer';
-import { ticketService, EventTicket, TicketPackage } from '@/lib/api/ticketService';
-import { getFunctionTicketsService, type FunctionTicketDefinition, type FunctionPackage } from '@/lib/services/function-tickets-service';
-import { api } from '@/lib/api-logger';
 import { ValidationModal } from '@/components/ui/validation-modal';
+import type { OrderSummary } from '@/lib/registration-metadata-types';
+import { formatCurrency } from '@/lib/formatters';
 
 // Note: Using dynamic function_id from registration store instead of hardcoded parent event ID
 
@@ -38,40 +37,11 @@ function OrderReviewStep() {
   const registrationType = useRegistrationStore((s) => s.registrationType);
   const allStoreAttendees = useRegistrationStore((s) => s.attendees);
   const functionId = useRegistrationStore((s) => s.functionId);
+  const attendeeSelections = useRegistrationStore((s) => s.attendeeSelections);
+  const orderSummary = useRegistrationStore((s) => s.orderSummary);
+  const lodgeBulkSelection = useRegistrationStore((s) => s.lodgeBulkSelection);
   
-  // State for dynamic ticket and package data
-  const [ticketTypesMinimal, setTicketTypesMinimal] = useState<FunctionTicketDefinition[]>([]);
-  const [ticketPackagesMinimal, setTicketPackagesMinimal] = useState<FunctionPackage[]>([]);
-  const [isLoadingTickets, setIsLoadingTickets] = useState(true);
-  
-  // Fetch tickets and packages on component mount
-  useEffect(() => {
-    async function fetchTicketsAndPackages() {
-      try {
-        setIsLoadingTickets(true);
-        
-        if (!functionId) {
-          api.warn('[OrderReviewStep] No functionId available, skipping ticket fetch');
-          return;
-        }
-        
-        const service = getFunctionTicketsService();
-        api.debug(`[OrderReviewStep] Fetching tickets for function: ${functionId}`);
-        
-        const { tickets, packages } = await service.getFunctionTicketsAndPackages(functionId);
-        setTicketTypesMinimal(tickets);
-        setTicketPackagesMinimal(packages);
-        api.debug(`[OrderReviewStep] Loaded ${tickets.length} tickets and ${packages.length} packages`);
-      } catch (error) {
-        api.error('[OrderReviewStep] Error fetching tickets and packages:', error);
-        console.error('[OrderReviewStep] Error fetching tickets and packages:', error);
-      } finally {
-        setIsLoadingTickets(false);
-      }
-    }
-    
-    fetchTicketsAndPackages();
-  }, [functionId]);
+  // Remove the fetchTicketsAndPackages useEffect - no longer needed with enhanced data
   
   const primaryAttendee = useMemo(() => 
     allStoreAttendees.find(att => att.isPrimary) as UnifiedAttendeeData | undefined, 
@@ -86,6 +56,7 @@ function OrderReviewStep() {
   const goToNextStep = useRegistrationStore((s) => s.goToNextStep);
   const goToPrevStep = useRegistrationStore((s) => s.goToPrevStep);
   const updateAttendeeStore = useRegistrationStore((s) => s.updateAttendee);
+  const removeAttendeeSelection = useRegistrationStore((s) => s.removeAttendeeSelection);
 
   // Create an ordering helper outside of any hooks to avoid conditional hook execution
   const getOrderedAttendees = (primary: UnifiedAttendeeData | undefined, others: UnifiedAttendeeData[], allAttendees: UnifiedAttendeeData[]): UnifiedAttendeeData[] => {
@@ -139,71 +110,18 @@ function OrderReviewStep() {
     getOrderedAttendees(primaryAttendee, otherAttendees, allStoreAttendees)
   , [primaryAttendee, otherAttendees, allStoreAttendees]);
 
-  const packages = useRegistrationStore((s) => s.packages);
-  const [currentTickets, setCurrentTickets] = useState<Array<any & { attendeeId: string; price: number; name: string; description?: string; isPackage?: boolean }>>([]);
-
-  useEffect(() => {
-    console.log("[OrderReviewStep] Debug - allStoreAttendees:", allStoreAttendees);
-    console.log("[OrderReviewStep] Debug - packages:", packages);
-    console.log("[OrderReviewStep] Debug - ticketTypesMinimal:", ticketTypesMinimal);
-    console.log("[OrderReviewStep] Debug - ticketPackagesMinimal:", ticketPackagesMinimal);
+  // Use enhanced ticket summary data for rich package content display
+  const enhancedSummaryData = useMemo(() => {
+    console.log("[OrderReviewStep] Debug - attendeeSelections:", attendeeSelections);
+    console.log("[OrderReviewStep] Debug - orderSummary:", orderSummary);
     
-    const derivedTickets = allStoreAttendees.flatMap(attendee => {
-        const attendeePackage = packages[attendee.attendeeId];
-        console.log(`[OrderReviewStep] Debug - Attendee ${attendee.attendeeId} package:`, attendeePackage);
-        
-        if (!attendeePackage) {
-            console.log(`[OrderReviewStep] No package found for attendee ${attendee.attendeeId}`);
-            return [];
-        }
-        
-        const { ticketDefinitionId, selectedEvents } = attendeePackage;
-        const attendeeId = attendee.attendeeId;
-        let tickets: Array<any & { attendeeId: string; price: number; name: string; description?: string; isPackage?: boolean }> = [];
-
-        if (ticketDefinitionId) {
-            console.log(`[OrderReviewStep] Looking for package ${ticketDefinitionId}`);
-            const pkgInfo = ticketPackagesMinimal.find(p => p.id === ticketDefinitionId);
-            if (pkgInfo) {
-                tickets.push({ 
-                    id: `${attendeeId}-${pkgInfo.id}`, 
-                    name: pkgInfo.name, 
-                    price: pkgInfo.price, 
-                    attendeeId, 
-                    isPackage: true,
-                    description: `Package including: ${pkgInfo.includes.map(ticketId => {
-                        const ticket = ticketTypesMinimal.find(t => t.id === ticketId);
-                        return ticket ? ticket.name : ticketId;
-                    }).join(", ")}`
-                });
-            } else {
-                console.log(`[OrderReviewStep] Package ${ticketDefinitionId} not found in ticketPackagesMinimal`);
-            }
-        } else if (selectedEvents && selectedEvents.length > 0) {
-            console.log(`[OrderReviewStep] Processing selected tickets:`, selectedEvents);
-            selectedEvents.forEach(ticketId => {
-                const ticketInfo = ticketTypesMinimal.find(t => t.id === ticketId);
-                if (ticketInfo) {
-                    tickets.push({ 
-                        id: `${attendeeId}-${ticketInfo.id}`, 
-                        name: ticketInfo.name, 
-                        price: ticketInfo.price, 
-                        attendeeId, 
-                        isPackage: false,
-                        description: ticketInfo.description || `Individual ticket`
-                    });
-                } else {
-                    console.log(`[OrderReviewStep] Ticket ${ticketId} not found in ticketTypesMinimal`);
-                }
-            });
-        } else {
-            console.log(`[OrderReviewStep] No tickets selected for attendee ${attendee.attendeeId}`);
-        }
-        return tickets;
+    return getEnhancedTicketSummaryData({
+      attendeeSelections,
+      orderSummary,
+      lodgeBulkSelection,
+      attendees: allStoreAttendees
     });
-    setCurrentTickets(derivedTickets);
-    console.log("[OrderReviewStep] Final derived tickets:", derivedTickets);
-  }, [allStoreAttendees, packages, ticketTypesMinimal, ticketPackagesMinimal]);
+  }, [attendeeSelections, orderSummary, lodgeBulkSelection, allStoreAttendees]);
 
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingAttendee, setEditingAttendee] = useState<{ attendeeData: UnifiedAttendeeData; index: number } | null>(null);
@@ -216,18 +134,54 @@ function OrderReviewStep() {
   
 
   const getAttendeeTickets = (attendeeId: string) => {
-    return currentTickets.filter((ticket) => ticket.attendeeId === attendeeId)
+    const selection = attendeeSelections[attendeeId];
+    if (!selection) return [];
+    
+    // Combine packages and individual tickets for display
+    const tickets = [];
+    
+    // Add packages with their included tickets
+    selection.packages.forEach((pkg, index) => {
+      tickets.push({
+        id: pkg.packageRecordId,
+        name: pkg.package.name,
+        price: pkg.subtotal,
+        attendeeId,
+        isPackage: true,
+        description: `Package including: ${pkg.package.includedTicketNames?.join(", ") || "No items"}`,
+        packageRecordId: pkg.packageRecordId
+      });
+    });
+    
+    // Add individual tickets
+    selection.individualTickets.forEach((ticket, index) => {
+      tickets.push({
+        id: ticket.ticketRecordId,
+        name: ticket.ticket.name,
+        price: ticket.subtotal,
+        attendeeId,
+        isPackage: false,
+        description: ticket.ticket.description || 'Individual ticket',
+        ticketRecordId: ticket.ticketRecordId
+      });
+    });
+    
+    return tickets;
   }
 
   const getAttendeeTotal = (attendeeId: string) => {
-    return getAttendeeTickets(attendeeId).reduce((sum, ticket) => sum + ticket.price, 0)
+    const selection = attendeeSelections[attendeeId];
+    return selection ? selection.attendeeSubtotal : 0;
   }
 
-  const subtotal = currentTickets.reduce((sum, ticket) => sum + ticket.price, 0)
-  const totalAmount = subtotal
-  const totalTickets = currentTickets.length
+  const subtotal = orderSummary?.subtotal || 0
+  const totalAmount = orderSummary?.totalAmount || 0
+  const totalTickets = orderSummary?.totalTickets || 0
+  
+  // Order summary is maintained automatically by enhanced store actions
+  // No manual update needed
 
-  // Check if order is valid
+  // Check if order is valid using enhanced data
   const isOrderValid = attendeesForDisplay.length > 0 && totalTickets > 0;
   
   const handleContinue = () => {
@@ -241,10 +195,11 @@ function OrderReviewStep() {
       errors.push({ field: "Tickets", message: "No tickets selected for any attendees" });
     }
     
-    // Check for attendees without tickets
-    const attendeesWithoutTickets = attendeesForDisplay.filter(attendee => 
-      getAttendeeTickets(attendee.attendeeId).length === 0
-    );
+    // Check for attendees without tickets using enhanced data
+    const attendeesWithoutTickets = attendeesForDisplay.filter(attendee => {
+      const selection = attendeeSelections[attendee.attendeeId];
+      return !selection || (selection.packages.length === 0 && selection.individualTickets.length === 0);
+    });
     
     if (attendeesWithoutTickets.length > 0) {
       attendeesWithoutTickets.forEach(attendee => {
@@ -271,7 +226,7 @@ function OrderReviewStep() {
     if (attendee.isPrimary) return "Primary";
     if (attendee.attendeeType === 'mason') return "Mason";
     if (attendee.isPartner) {
-      return attendee.partnerType === 'lady' ? "Lady Partner" : "Guest Partner";
+      return "Partner";
     }
     if (attendee.attendeeType === 'guest') return "Guest";
     return "Attendee";
@@ -287,11 +242,20 @@ function OrderReviewStep() {
     setIsRemoveConfirmOpen(true);
   }
 
-  const updatePackageSelection = useRegistrationStore((s) => s.updatePackageSelection);
-  
   const handleConfirmRemoveAttendee = () => {
     if (removingAttendeeId) {
-      updatePackageSelection(removingAttendeeId, { ticketDefinitionId: null, selectedEvents: [] });
+      // Remove all attendee selections first, then remove attendee
+      const selection = attendeeSelections[removingAttendeeId];
+      if (selection) {
+        // Remove all packages
+        selection.packages.forEach(pkg => {
+          removeAttendeeSelection(removingAttendeeId, pkg.packageRecordId, 'package');
+        });
+        // Remove all individual tickets
+        selection.individualTickets.forEach(ticket => {
+          removeAttendeeSelection(removingAttendeeId, ticket.ticketRecordId, 'ticket');
+        });
+      }
       removeAttendeeStore(removingAttendeeId);
     }
     setIsRemoveConfirmOpen(false);
@@ -299,50 +263,12 @@ function OrderReviewStep() {
     setEditingAttendee(null);
   }
 
-  // Group tickets by attendee for summary
-  const allTicketsByAttendee = useMemo(() => {
-    const grouped: Record<string, any[]> = {};
-    currentTickets.forEach(ticket => {
-      if (!grouped[ticket.attendeeId]) {
-        grouped[ticket.attendeeId] = [];
-      }
-      grouped[ticket.attendeeId].push(ticket);
-    });
-    return grouped;
-  }, [currentTickets]);
-
-  // Prepare summary content
+  // Prepare summary content using enhanced data
   const renderSummaryContent = () => {
-    const summaryData = getOrderReviewSummaryData({
-      attendees: attendeesForDisplay,
-      registrationType,
-      ticketCount: totalTickets,
-      totalAmount,
-      ticketsByAttendee: allTicketsByAttendee
-    });
-    
-    return <SummaryRenderer {...summaryData} />;
+    return <SummaryRenderer {...enhancedSummaryData} />;
   };
 
-  // Show loading state while tickets are being fetched
-  if (isLoadingTickets) {
-    return (
-      <TwoColumnStepLayout
-        summaryContent={<div className="text-center py-8">Loading ticket information...</div>}
-        summaryTitle="Step Summary"
-        currentStep={4}
-        totalSteps={6}
-        stepName="Order Review"
-      >
-        <div className="flex items-center justify-center py-12">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-masonic-gold mx-auto mb-4"></div>
-            <p className="text-gray-600">Loading ticket information...</p>
-          </div>
-        </div>
-      </TwoColumnStepLayout>
-    );
-  }
+  // No loading state needed - using enhanced data from store
 
   return (
     <TwoColumnStepLayout
@@ -441,21 +367,16 @@ function OrderReviewStep() {
                               {ticket.description && <p className="text-xs text-gray-500">{ticket.description}</p>}
                             </div>
                             <div className="flex items-center gap-2">
-                              <span>${ticket.price.toFixed(2)}</span>
+                              <span>{formatCurrency(ticket.price)}</span>
                               <Button variant="ghost" size="icon" 
-                                  onClick={() => {                                  
-                                    const currentPackage = packages[ticket.attendeeId] || { ticketDefinitionId: null, selectedEvents: [] };
-                                    let updatedTicketSelection: PackageSelectionType;
-                                    if (ticket.isPackage) {
-                                      updatedTicketSelection = { ticketDefinitionId: null, selectedEvents: [] };
-                                    } else {
-                                      const originalTicketTypeId = ticket.id.substring(ticket.attendeeId.length + 1);
-                                      updatedTicketSelection = {
-                                        ticketDefinitionId: null,
-                                        selectedEvents: currentPackage.selectedEvents.filter(id => id !== originalTicketTypeId)
-                                      };
+                                  onClick={() => {
+                                    // Use enhanced removal function with proper item type detection
+                                    const itemType = ticket.isPackage ? 'package' : 'ticket';
+                                    const itemId = ticket.isPackage ? ticket.packageRecordId : ticket.ticketRecordId;
+                                    
+                                    if (itemId) {
+                                      removeAttendeeSelection(ticket.attendeeId, itemId, itemType);
                                     }
-                                    updatePackageSelection(ticket.attendeeId, updatedTicketSelection);
                                   }}
                                   className="h-7 w-7 text-red-500 hover:text-red-700">
                                   <Trash2 className="h-4 w-4" />
@@ -467,7 +388,7 @@ function OrderReviewStep() {
                     )}
                     <Separator className="my-3"/>
                     <div className="flex justify-end items-center font-bold text-masonic-navy">
-                        <span>Attendee Subtotal: ${attendeeSubTotal.toFixed(2)}</span>
+                        <span>Attendee Subtotal: {formatCurrency(attendeeSubTotal)}</span>
                     </div>
                   </CardContent>
                 </Card>
@@ -479,7 +400,7 @@ function OrderReviewStep() {
             <div className="w-full space-y-2 rounded-lg border border-gray-200 bg-white p-4">
               <div className="flex justify-between items-center font-bold">
                 <span>Order Total:</span>
-                <span className="text-lg">${totalAmount.toFixed(2)}</span>
+                <span className="text-lg">{formatCurrency(totalAmount)}</span>
               </div>
             </div>
 

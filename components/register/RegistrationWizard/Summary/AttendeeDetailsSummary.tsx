@@ -51,7 +51,8 @@ export const AttendeeDetailsSummary: React.FC = () => {
   // Get type-specific requirements
   const typeRequirements = useMemo(() => {
     switch (registrationType) {
-      case 'individual':
+      case 'individuals':
+      case 'individual': // backwards compatibility
         return {
           title: 'Individual Registration',
           icon: <User className="h-4 w-4 text-blue-600" />,
@@ -103,7 +104,7 @@ export const AttendeeDetailsSummary: React.FC = () => {
   
   // Determine if attendees can be added (based on registration type limits)
   const canAddAttendee = useMemo(() => {
-    if (registrationType === 'individual' && attendees.length >= 10) return false;
+    if ((registrationType === 'individuals' || registrationType === 'individual') && attendees.length >= 10) return false;
     if (registrationType === 'lodge' && attendees.length >= 20) return false;
     if (registrationType === 'delegation' && attendees.length >= 10) return false;
     return true;

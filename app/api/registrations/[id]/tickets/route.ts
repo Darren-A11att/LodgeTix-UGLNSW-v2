@@ -3,20 +3,21 @@ import { createClient } from '@/utils/supabase/server';
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     console.group("🎫 Registration Ticket Persistence API");
     
+    const { id: registrationId } = await params;
     const { tickets, attendeeUpdates } = await request.json();
     console.log("Received ticket persistence request:", {
-      registrationId: params.id,
+      registrationId,
       ticketCount: tickets?.length || 0,
       attendeeCount: attendeeUpdates?.length || 0
     });
     
     // Validate required fields
-    if (!params.id) {
+    if (!registrationId) {
       console.error("Missing registration ID");
       console.groupEnd();
       return NextResponse.json(
@@ -94,9 +95,10 @@ export async function POST(
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id: registrationId } = await params;
     const supabase = await createClient();
     
     // Get current user
@@ -123,7 +125,7 @@ export async function GET(
         payment_status,
         is_partner_ticket
       `)
-      .eq('registration_id', params.id);
+      .eq('registration_id', registrationId);
     
     if (ticketsError) {
       console.error("Error fetching tickets:", ticketsError);
@@ -137,7 +139,7 @@ export async function GET(
     const { data: attendees, error: attendeesError } = await supabase
       .from('attendees')
       .select('attendee_id, attendee_data')
-      .eq('registration_id', params.id);
+      .eq('registration_id', registrationId);
     
     if (attendeesError) {
       console.error("Error fetching attendees:", attendeesError);
@@ -151,7 +153,7 @@ export async function GET(
       success: true,
       tickets: tickets || [],
       attendees: attendees || [],
-      registration_id: params.id
+      registration_id: registrationId
     });
     
   } catch (error: any) {

@@ -673,7 +673,7 @@ export const LodgeFormSummary: React.FC = () => {
                 <span className="text-sm text-gray-600">Tables Ordered</span>
                 <span className="font-medium">{lodgeTicketOrder.tableCount}</span>
               </div>
-              {/* Dynamic display of included tickets if available, otherwise fallback to legacy */}
+              {/* Display included tickets from enhanced package metadata */}
               {lodgeTicketOrder.includedTickets && lodgeTicketOrder.includedTickets.length > 0 ? (
                 lodgeTicketOrder.includedTickets.map((ticket) => (
                   <div key={ticket.ticketId} className="flex justify-between text-sm">

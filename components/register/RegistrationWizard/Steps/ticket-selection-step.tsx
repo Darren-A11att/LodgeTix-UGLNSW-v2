@@ -70,23 +70,17 @@ function checkEligibilityCriteria(criteria: any, attendee: any): boolean {
 const TicketSelectionStep: React.FC = () => {
   const allStoreAttendees = useRegistrationStore((s) => s.attendees);
   const updateAttendeeStore = useRegistrationStore((s) => s.updateAttendee);
-  const updatePackageSelection = useRegistrationStore((s) => s.updatePackageSelection);
-  const packages = useRegistrationStore((s) => s.packages);
+  const attendeeSelections = useRegistrationStore((s) => s.attendeeSelections);
+  const orderSummary = useRegistrationStore((s) => s.orderSummary);
   const functionId = useRegistrationStore((s) => s.functionId);
   const registrationType = useRegistrationStore((s) => s.registrationType);
   const lodgeTicketOrder = useRegistrationStore((s) => s.lodgeTicketOrder);
   
-  // Enhanced ticket selection store actions
-  const ticketSelections = useRegistrationStore((s) => s.ticketSelections);
-  const updateTicketSelections = useRegistrationStore((s) => s.updateTicketSelections);
-  const addPackageSelection = useRegistrationStore((s) => s.addPackageSelection);
-  const removePackageSelection = useRegistrationStore((s) => s.removePackageSelection);
-  const addIndividualTicket = useRegistrationStore((s) => s.addIndividualTicket);
-  const removeIndividualTicket = useRegistrationStore((s) => s.removeIndividualTicket);
+  // Enhanced ticket selection store actions (now primary)
   const clearAttendeeTicketSelections = useRegistrationStore((s) => s.clearAttendeeTicketSelections);
   const goToNextStep = useRegistrationStore((s) => s.goToNextStep);
   
-  // NEW: Comprehensive metadata capture actions
+  // Enhanced metadata capture actions (primary methods)
   const captureTicketMetadata = useRegistrationStore((s) => s.captureTicketMetadata);
   const capturePackageMetadata = useRegistrationStore((s) => s.capturePackageMetadata);
   const addAttendeeTicketSelection = useRegistrationStore((s) => s.addAttendeeTicketSelection);
@@ -167,7 +161,7 @@ const TicketSelectionStep: React.FC = () => {
         // Pass the registration type to filter appropriately
         const { tickets, packages } = await ticketsService.getFunctionTicketsAndPackages(
           targetFunctionId, 
-          registrationType === 'individuals' ? 'individual' : registrationType
+          registrationType || 'individuals'
         )
         
         // The service already returns data in the correct format
@@ -238,102 +232,87 @@ const TicketSelectionStep: React.FC = () => {
   const primaryAttendee = allStoreAttendees.find(a => a.isPrimary) as unknown as MasonAttendee | GuestAttendee | undefined;
   const additionalAttendees = allStoreAttendees.filter(a => !a.isPrimary) as unknown as (MasonAttendee | GuestAttendee | PartnerAttendee)[];
 
-  // --- Derive currentTickets for UI display from store state (MUTUALLY EXCLUSIVE) ---
+  // --- Derive currentTickets for UI display from enhanced store state ---
   const derivedCurrentTickets: Ticket[] = (() => {
-    // For lodge bulk orders, create tickets based on bulk selection
-    if (registrationType === 'lodge' && lodgeTicketOrder && packages['lodge-bulk']) {
-      const bulkSelection = packages['lodge-bulk'];
+    // For lodge bulk orders, use lodge bulk selection
+    if (registrationType === 'lodge' && lodgeTicketOrder && orderSummary) {
       const tickets: Ticket[] = [];
       
-      // MUTUAL EXCLUSIVITY: Check packages first, then individual tickets
-      if (bulkSelection.ticketDefinitionId) {
-        const packageInfo = ticketPackages.find(p => p.id === bulkSelection.ticketDefinitionId);
-        if (packageInfo) {
-          // Create a bulk ticket for the package
-          tickets.push({
-            id: `lodge-bulk-${packageInfo.id}`,
-            name: `${packageInfo.name} × ${lodgeTicketOrder.totalTickets} attendees`,
-            price: packageInfo.price * lodgeTicketOrder.totalTickets,
-            description: packageInfo.description || "",
-            attendeeId: 'lodge-bulk',
-            isPackage: true,
-            includedTicketTypes: packageInfo.includes,
-          });
-        }
-      } else if (bulkSelection.selectedEvents && bulkSelection.selectedEvents.length > 0) {
-        // Create bulk tickets for individual selections (only if no package selected)
-        bulkSelection.selectedEvents.forEach(eventId => {
-          const ticketTypeInfo = ticketTypes.find(t => t.id === eventId);
-          if (ticketTypeInfo) {
-            tickets.push({
-              id: `lodge-bulk-${ticketTypeInfo.id}`,
-              name: `${ticketTypeInfo.name} × ${lodgeTicketOrder.totalTickets} attendees`,
-              price: ticketTypeInfo.price * lodgeTicketOrder.totalTickets,
-              description: ticketTypeInfo.description || "",
-              attendeeId: 'lodge-bulk',
-              isPackage: false,
-            });
-          }
+      // Check if lodge bulk selection exists in order summary
+      if (orderSummary.totalPackages > 0) {
+        // Lodge selected a package
+        tickets.push({
+          id: `lodge-bulk-package`,
+          name: `Package Selection × ${lodgeTicketOrder.totalTickets} attendees`,
+          price: orderSummary.subtotal,
+          description: "Lodge bulk package selection",
+          attendeeId: 'lodge-bulk',
+          isPackage: true,
+          includedTicketTypes: [],
+        });
+      } else if (orderSummary.totalTickets > 0) {
+        // Lodge selected individual tickets
+        tickets.push({
+          id: `lodge-bulk-tickets`,
+          name: `Individual Tickets × ${lodgeTicketOrder.totalTickets} attendees`,
+          price: orderSummary.subtotal,
+          description: "Lodge bulk ticket selections",
+          attendeeId: 'lodge-bulk',
+          isPackage: false,
         });
       }
       
       return tickets;
     }
     
-    // For individual attendees - MUTUAL EXCLUSIVITY: packages OR individual tickets, not both
+    // For individual attendees - use enhanced attendeeSelections
     return allStoreAttendees.flatMap((attendee) => {
       const attendeeIdentifier = (attendee as any).attendeeId;
       if (!attendeeIdentifier) return [];
 
-      const legacySelection = packages[attendeeIdentifier];
+      const enhancedSelection = attendeeSelections[attendeeIdentifier];
+      if (!enhancedSelection) return [];
 
-      // PRIORITY 1: Check if package is selected (both structures should be in sync)
-      if (legacySelection?.ticketDefinitionId) { 
-        const packageInfo = ticketPackages.find(p => p.id === legacySelection.ticketDefinitionId);
-        if (packageInfo) {
-          // Show only the package - individual tickets are ignored
-          const derivedPackageTicket = {
-            id: packageInfo.id, 
-            name: packageInfo.name,
-            price: packageInfo.price,
-            description: packageInfo.description || "",
+      const tickets: Ticket[] = [];
+      
+      // Add packages (PRIORITY 1: packages take precedence)
+      enhancedSelection.packages.forEach(packageSelection => {
+        tickets.push({
+          id: packageSelection.package.packageId,
+          name: packageSelection.package.name,
+          price: packageSelection.subtotal,
+          description: packageSelection.package.description || "",
+          attendeeId: attendeeIdentifier,
+          isPackage: true,
+          includedTicketTypes: packageSelection.package.includedTickets.map(t => t.ticketId),
+        });
+      });
+      
+      // Add individual tickets (only if no packages)
+      if (enhancedSelection.packages.length === 0) {
+        enhancedSelection.individualTickets.forEach(ticketSelection => {
+          tickets.push({
+            id: ticketSelection.ticket.ticketId,
+            name: ticketSelection.ticket.name,
+            price: ticketSelection.subtotal,
+            description: ticketSelection.ticket.description || "",
             attendeeId: attendeeIdentifier,
-            isPackage: true,
-            includedTicketTypes: packageInfo.includes,
-          };
-          return [derivedPackageTicket];
-        }
+            eventTicketId: ticketSelection.ticket.ticketId,
+            isPackage: false,
+          });
+        });
       }
       
-      // PRIORITY 2: If no package selected, show individual tickets (only if no package)
-      if (!legacySelection?.ticketDefinitionId && legacySelection?.selectedEvents && legacySelection.selectedEvents.length > 0) { 
-        const individualTickets = legacySelection.selectedEvents.map((eventId: string) => {
-          const ticketTypeInfo = ticketTypes.find(t => t.id === eventId);
-          if (ticketTypeInfo) {
-            const derivedIndividualTicket = {
-              id: ticketTypeInfo.id, // Use the event ticket ID directly
-              name: ticketTypeInfo.name,
-              price: ticketTypeInfo.price,
-              description: ticketTypeInfo.description || "",
-              attendeeId: attendeeIdentifier,
-              eventTicketId: ticketTypeInfo.id, // Explicitly set the event ticket ID
-              isPackage: false,
-            };
-            return derivedIndividualTicket;
-          }
-          return null;
-        }).filter(Boolean) as Ticket[];
-        return individualTickets;
-      }
-      
-      // No tickets selected for this attendee
-      return [];
+      return tickets;
     });
   })();
 
   // Main log for the tickets processed for UI rendering
 
   const currentTickets = derivedCurrentTickets;
+
+  // Calculate order total from enhanced structures
+  const orderTotalAmount = orderSummary?.totalAmount || 0;
 
   const goToPrevStep = useRegistrationStore((s) => s.goToPrevStep);
 
@@ -414,10 +393,17 @@ const TicketSelectionStep: React.FC = () => {
     if (eligibleAttendees.length === 0) {
       return false; 
     }
-    return eligibleAttendees.every(attendee => getAttendeeTickets((attendee as any).attendeeId).length > 0);
+    return eligibleAttendees.every(attendee => {
+      const attendeeId = (attendee as any).attendeeId;
+      const enhancedSelection = attendeeSelections[attendeeId];
+      if (enhancedSelection) {
+        return enhancedSelection.packages.length > 0 || enhancedSelection.individualTickets.length > 0;
+      }
+      return false;
+    });
   };
 
-  // Enhanced validation that works with both legacy and new structures
+  // Enhanced validation using only enhanced structures
   const ensureAllAttendeesHaveTicketsEnhanced = (): boolean => {
     if (eligibleAttendees.length === 0) {
       return false; 
@@ -425,16 +411,11 @@ const TicketSelectionStep: React.FC = () => {
     
     return eligibleAttendees.every(attendee => {
       const attendeeId = (attendee as any).attendeeId;
+      const enhancedSelection = attendeeSelections[attendeeId];
       
-      // Check legacy structure
-      const legacyTickets = getAttendeeTickets(attendeeId);
-      if (legacyTickets.length > 0) return true;
-      
-      // Check enhanced structure
-      const enhancedSelections = ticketSelections[attendeeId];
-      if (enhancedSelections) {
-        const hasPackages = enhancedSelections.packages.length > 0;
-        const hasIndividualTickets = enhancedSelections.individualTickets.length > 0;
+      if (enhancedSelection) {
+        const hasPackages = enhancedSelection.packages.length > 0;
+        const hasIndividualTickets = enhancedSelection.individualTickets.length > 0;
         return hasPackages || hasIndividualTickets;
       }
       
@@ -462,50 +443,30 @@ const TicketSelectionStep: React.FC = () => {
       
       allStoreAttendees.forEach(attendee => {
         const attendeeId = attendee.attendeeId;
-        const selections = ticketSelections[attendeeId];
+        const selections = attendeeSelections[attendeeId];
         
         if (selections) {
-          ticketSelectionsPayload[attendeeId] = selections;
+          // Convert enhanced selection to API format
+          ticketSelectionsPayload[attendeeId] = {
+            packages: selections.packages.map(pkg => ({
+              packageId: pkg.package.packageId,
+              quantity: pkg.quantity,
+              tickets: pkg.generatedTicketRecords.map(tr => ({
+                ticketId: tr.eventTicketId,
+                quantity: 1
+              }))
+            })),
+            individualTickets: selections.individualTickets.map(ticket => ({
+              ticketId: ticket.ticket.ticketId,
+              quantity: ticket.quantity
+            }))
+          };
         } else {
-          // Fallback: Check legacy packages for backward compatibility
-          const legacyPackage = packages[attendeeId];
-          if (legacyPackage) {
-            if (legacyPackage.ticketDefinitionId) {
-              // Convert package selection to new format
-              ticketSelectionsPayload[attendeeId] = {
-                packages: [{
-                  packageId: legacyPackage.ticketDefinitionId,
-                  quantity: 1,
-                  tickets: legacyPackage.selectedEvents.map(eventId => ({
-                    ticketId: eventId,
-                    quantity: 1
-                  }))
-                }],
-                individualTickets: []
-              };
-            } else if (legacyPackage.selectedEvents.length > 0) {
-              // Convert individual selections to new format
-              ticketSelectionsPayload[attendeeId] = {
-                packages: [],
-                individualTickets: legacyPackage.selectedEvents.map(eventId => ({
-                  ticketId: eventId,
-                  quantity: 1
-                }))
-              };
-            } else {
-              // Empty selection
-              ticketSelectionsPayload[attendeeId] = {
-                packages: [],
-                individualTickets: []
-              };
-            }
-          } else {
-            // No selection at all
-            ticketSelectionsPayload[attendeeId] = {
-              packages: [],
-              individualTickets: []
-            };
-          }
+          // No enhanced selection - empty selection
+          ticketSelectionsPayload[attendeeId] = {
+            packages: [],
+            individualTickets: []
+          };
         }
       });
 
@@ -569,11 +530,9 @@ const TicketSelectionStep: React.FC = () => {
   };
 
   const handleContinue = async () => {
-    // For lodge registrations with bulk orders, skip individual ticket validation
+    // For lodge registrations with bulk orders, check order summary
     if (registrationType === 'lodge' && lodgeTicketOrder) {
-      // Check if any tickets are selected
-      const hasSelection = packages['lodge-bulk']?.ticketDefinitionId || 
-        (packages['lodge-bulk']?.selectedEvents && packages['lodge-bulk'].selectedEvents.length > 0);
+      const hasSelection = orderSummary && (orderSummary.totalTickets > 0 || orderSummary.totalPackages > 0);
       
       if (hasSelection) {
         await persistTicketSelections();
@@ -588,35 +547,28 @@ const TicketSelectionStep: React.FC = () => {
       return;
     }
     
-    // Use enhanced validation
+    // Use enhanced validation for individual attendees
     if (ensureAllAttendeesHaveTicketsEnhanced()) {
       try {
+        // Update order summary with all selections
+        updateOrderSummary();
         // Persist ticket selections before moving to next step
         await persistTicketSelections();
-        // NEW: Update order summary with all selections
-        updateOrderSummary();
         goToNextStep();
       } catch (error) {
         console.error('Failed to persist tickets, but continuing:', error);
         // Continue even if persistence fails
-        // NEW: Update order summary even if persistence fails
-        updateOrderSummary();
         goToNextStep();
       }
     } else {
-      // Build list of attendees without tickets
+      // Build list of attendees without tickets using enhanced structure
       const attendeesWithoutTickets = eligibleAttendees
         .filter(attendee => {
           const attendeeId = (attendee as any).attendeeId;
-          const legacyTickets = getAttendeeTickets(attendeeId);
-          const enhancedSelections = ticketSelections[attendeeId];
+          const enhancedSelection = attendeeSelections[attendeeId];
           
-          // Check both structures
-          const hasLegacyTickets = legacyTickets.length > 0;
-          const hasEnhancedSelections = enhancedSelections && 
-            (enhancedSelections.packages.length > 0 || enhancedSelections.individualTickets.length > 0);
-            
-          return !hasLegacyTickets && !hasEnhancedSelections;
+          return !enhancedSelection || 
+            (enhancedSelection.packages.length === 0 && enhancedSelection.individualTickets.length === 0);
         })
         .map(attendee => ({
           field: `${attendee.firstName} ${attendee.lastName}`,
@@ -633,13 +585,19 @@ const TicketSelectionStep: React.FC = () => {
   }
 
   const getAttendeeTicketTotal = (attendeeIdentifier: string) => {
-    return getAttendeeTickets(attendeeIdentifier).reduce((sum, ticket) => sum + ticket.price, 0)
+    const enhancedSelection = attendeeSelections[attendeeIdentifier];
+    return enhancedSelection?.attendeeSubtotal || 0;
   }
 
   const isIndividualTicketDirectlySelected = (attendeeIdentifier: string, ticketTypeId: string) => {
-    const packageSelection = packages[attendeeIdentifier];
-    const isSelected = !packageSelection?.ticketDefinitionId && (packageSelection?.selectedEvents || []).includes(ticketTypeId);
-    return isSelected;
+    const enhancedSelection = attendeeSelections[attendeeIdentifier];
+    if (!enhancedSelection) return false;
+    
+    // Only selected if no packages and ticket is in individual tickets
+    const hasPackages = enhancedSelection.packages.length > 0;
+    const hasThisTicket = enhancedSelection.individualTickets.some(t => t.ticket.ticketId === ticketTypeId);
+    
+    return !hasPackages && hasThisTicket;
   };
   
 
@@ -650,47 +608,34 @@ const TicketSelectionStep: React.FC = () => {
     const attendee = allStoreAttendees.find(a => (a as any).attendeeId === attendeeIdentifier);
     if (!attendee) return;
 
-    const isCurrentlySelected = packages[attendeeIdentifier]?.ticketDefinitionId === packageId;
+    const currentSelection = attendeeSelections[attendeeIdentifier];
+    const isCurrentlySelected = currentSelection?.packages.some(p => p.package.packageId === packageId);
 
     if (isCurrentlySelected) {
-      // Deselect package - clear everything
-      updatePackageSelection(attendeeIdentifier, { 
-        ticketDefinitionId: null, 
-        selectedEvents: [] 
-      });
-      
-      // Clear all selections from enhanced structure
-      clearAttendeeTicketSelections(attendeeIdentifier);
+      // Deselect package - remove it from enhanced structure
+      const packageRecord = currentSelection?.packages.find(p => p.package.packageId === packageId);
+      if (packageRecord) {
+        removeAttendeeSelection(attendeeIdentifier, packageRecord.packageRecordId, 'package');
+      }
     } else {
-      // Select package - clear individual tickets first, then add package
+      // Select package - clear existing selections first, then add package
       
-      // 1. Clear any existing individual ticket selections (both structures)
+      // 1. Clear any existing selections
       clearAttendeeTicketSelections(attendeeIdentifier);
-      updatePackageSelection(attendeeIdentifier, { 
-        ticketDefinitionId: null, 
-        selectedEvents: [] 
-      });
       
-      // 2. Add the package to both structures
-      updatePackageSelection(attendeeIdentifier, { 
-        ticketDefinitionId: packageId, 
-        selectedEvents: selectedPackageInfo.includes // Store included events for clarity/consistency
-      });
+      // 2. Capture package metadata if not already captured
+      const includedTickets = selectedPackageInfo.includes
+        .map(ticketId => ticketTypes.find(t => t.id === ticketId))
+        .filter(Boolean) as any[];
       
-      const packageTickets = selectedPackageInfo.includes.map(ticketId => ({
-        ticketId,
-        quantity: 1 // Default quantity
-      }));
+      capturePackageMetadata(selectedPackageInfo, includedTickets);
       
-      addPackageSelection(attendeeIdentifier, {
-        packageId,
-        quantity: 1,
-        tickets: packageTickets
-      });
-      
-      // NEW: Also add to comprehensive metadata
+      // 3. Add package selection to enhanced structure
       addAttendeePackageSelection(attendeeIdentifier, packageId, 1);
     }
+    
+    // Update order summary after any change
+    updateOrderSummary();
   };
 
   const handleToggleIndividualTicket = (attendeeIdentifier: string, ticketTypeId: string) => {
@@ -700,62 +645,42 @@ const TicketSelectionStep: React.FC = () => {
     const attendee = allStoreAttendees.find(a => (a as any).attendeeId === attendeeIdentifier);
     if (!attendee) return;
 
-    const currentSelection = packages[attendeeIdentifier] || { ticketDefinitionId: null, selectedEvents: [] };
-    const currentEnhancedSelection = ticketSelections[attendeeIdentifier];
-    
-    const isCurrentlySelected = !currentSelection.ticketDefinitionId && 
-      currentSelection.selectedEvents.includes(ticketTypeId);
+    const currentSelection = attendeeSelections[attendeeIdentifier];
+    const isCurrentlySelected = currentSelection?.individualTickets.some(t => t.ticket.ticketId === ticketTypeId);
 
     if (isCurrentlySelected) {
       // Deselect individual ticket
-      const newSelectedEvents = currentSelection.selectedEvents.filter(id => id !== ticketTypeId);
-      
-      // Update both structures
-      updatePackageSelection(attendeeIdentifier, { 
-        ticketDefinitionId: null, 
-        selectedEvents: newSelectedEvents 
-      });
-      removeIndividualTicket(attendeeIdentifier, ticketTypeId);
+      const ticketRecord = currentSelection?.individualTickets.find(t => t.ticket.ticketId === ticketTypeId);
+      if (ticketRecord) {
+        removeAttendeeSelection(attendeeIdentifier, ticketRecord.ticketRecordId, 'ticket');
+      }
     } else {
-      // Select individual ticket - clear any packages first
+      // Select individual ticket - clear any packages first if they exist
       
-      // 1. Clear any existing package selections (both structures)
-      if (currentSelection.ticketDefinitionId || currentEnhancedSelection?.packages.length > 0) {
-        // Clear packages from both structures
+      // 1. Clear any existing package selections
+      if (currentSelection?.packages.length > 0) {
         clearAttendeeTicketSelections(attendeeIdentifier);
-        updatePackageSelection(attendeeIdentifier, { 
-          ticketDefinitionId: null, 
-          selectedEvents: [] 
-        });
       }
       
-      // 2. Add the individual ticket
-      const newSelectedEvents = currentSelection.ticketDefinitionId 
-        ? [ticketTypeId] // Start fresh when switching from package
-        : [...currentSelection.selectedEvents.filter(id => id !== ticketTypeId), ticketTypeId]; // Add to existing
+      // 2. Capture ticket metadata if not already captured
+      captureTicketMetadata(ticketTypeInfo);
       
-      // Update both structures
-      updatePackageSelection(attendeeIdentifier, { 
-        ticketDefinitionId: null, 
-        selectedEvents: newSelectedEvents 
-      });
-      
-      addIndividualTicket(attendeeIdentifier, {
-        ticketId: ticketTypeId,
-        quantity: 1
-      });
-      
-      // NEW: Also add to comprehensive metadata
+      // 3. Add individual ticket selection
       addAttendeeTicketSelection(attendeeIdentifier, ticketTypeId, 1);
     }
+    
+    // Update order summary after any change
+    updateOrderSummary();
   };
 
   const isPackageSelectedForAttendee = (attendeeIdentifier: string, packageName: string) => {
     const packageInfo = ticketPackages.find(p => p.name === packageName);
     if (!packageInfo) return false;
-    const packageSelection = packages[attendeeIdentifier];
-    const isSelected = packageSelection?.ticketDefinitionId === packageInfo.id;
-    return isSelected;
+    
+    const enhancedSelection = attendeeSelections[attendeeIdentifier];
+    if (!enhancedSelection) return false;
+    
+    return enhancedSelection.packages.some(p => p.package.packageId === packageInfo.id);
   };
 
   const renderAttendeeHeader = (attendee: any) => {
@@ -768,7 +693,12 @@ const TicketSelectionStep: React.FC = () => {
           <UserPlus className="h-5 w-5 text-masonic-navy" />
           <span>
             {mason.title} {mason.firstName} {mason.lastName}
-            <span className="ml-2 text-sm text-gray-500">{mason.grandRank || mason.rank}</span>
+            <span className="ml-2 text-sm text-gray-500">
+              {mason.rank === 'GL' 
+                ? (mason.presentGrandOfficerRole || mason.otherGrandOfficerRole || mason.suffix || 'GL')
+                : (mason.grandRank || mason.rank)
+              }
+            </span>
           </span>
         </div>
       )
@@ -786,13 +716,10 @@ const TicketSelectionStep: React.FC = () => {
     }
   }
 
-  // Calculate the total order amount
-  const orderTotalAmount = currentTickets.reduce((sum, ticket) => sum + ticket.price, 0);
   
   // For lodge registrations, check if bulk selection has been made
   const hasLodgeBulkSelection = registrationType === 'lodge' && lodgeTicketOrder && 
-    (packages['lodge-bulk']?.ticketDefinitionId || 
-     (packages['lodge-bulk']?.selectedEvents && packages['lodge-bulk'].selectedEvents.length > 0));
+    orderSummary && (orderSummary.totalTickets > 0 || orderSummary.totalPackages > 0);
 
   // Render summary content for right column - using simplified component
   const renderSummaryContent = () => {
@@ -964,9 +891,10 @@ const TicketSelectionStep: React.FC = () => {
                       .map((pkg) => {
                         // Check if this package is selected for bulk order
                         const isSelected = isBulkMode 
-                          ? packages['lodge-bulk']?.ticketDefinitionId === pkg.id
+                          ? orderSummary?.totalPackages > 0 && 
+                            useRegistrationStore.getState().lodgeBulkSelection?.packageId === pkg.id
                           : allStoreAttendees.length > 0 && allStoreAttendees.every(attendee => 
-                              packages[attendee.attendeeId]?.ticketDefinitionId === pkg.id
+                              isPackageSelectedForAttendee(attendee.attendeeId, pkg.name)
                             );
                         
                         return (
@@ -984,14 +912,16 @@ const TicketSelectionStep: React.FC = () => {
                               if (pkg.is_active === false) return;
                               
                               if (isBulkMode) {
-                                // For bulk mode, store selection under a special key
-                                updatePackageSelection('lodge-bulk', { 
-                                  ticketDefinitionId: pkg.id, 
-                                  selectedEvents: pkg.includes 
-                                });
-                                // NEW: Add lodge bulk package selection metadata
-                                const { addLodgeBulkPackageSelection } = useRegistrationStore.getState();
+                                // For bulk mode, use enhanced lodge bulk selection
+                                const { addLodgeBulkPackageSelection, capturePackageMetadata } = useRegistrationStore.getState();
                                 if (lodgeTicketOrder) {
+                                  // Capture package metadata first
+                                  const includedTickets = pkg.includes
+                                    .map(ticketId => ticketTypes.find(t => t.id === ticketId))
+                                    .filter(Boolean) as any[];
+                                  capturePackageMetadata(pkg, includedTickets);
+                                  
+                                  // Add bulk package selection
                                   addLodgeBulkPackageSelection(pkg.id, lodgeTicketOrder.totalTickets);
                                 }
                               } else {
@@ -1018,8 +948,16 @@ const TicketSelectionStep: React.FC = () => {
                               <span>Includes:</span>
                             </div>
                             <ul className="space-y-1 pl-4">
-                              {pkg.includes_description && pkg.includes_description.length > 0 ? (
-                                // Use the descriptive text if available
+                              {pkg.includedTicketNames && pkg.includedTicketNames.length > 0 ? (
+                                // Use the resolved ticket names from service
+                                pkg.includedTicketNames.map((ticketName, idx) => (
+                                  <li key={idx} className="flex items-center gap-1">
+                                    <Check className="h-3 w-3 text-green-600" />
+                                    <span>{ticketName}</span>
+                                  </li>
+                                ))
+                              ) : pkg.includes_description && pkg.includes_description.length > 0 ? (
+                                // Fallback to descriptive text if available
                                 pkg.includes_description.map((desc, idx) => (
                                   <li key={idx} className="flex items-center gap-1">
                                     <Check className="h-3 w-3 text-green-600" />
@@ -1027,7 +965,7 @@ const TicketSelectionStep: React.FC = () => {
                                   </li>
                                 ))
                               ) : (
-                                // Fallback to looking up ticket names
+                                // Final fallback to manual lookup
                                 pkg.includes.map((id) => {
                                   const ticket = ticketTypes.find((t) => t.id === id);
                                   return ticket ? (
@@ -1073,35 +1011,17 @@ const TicketSelectionStep: React.FC = () => {
                                 id={`all-${ticket.id}`}
                                 checked={
                                   isBulkMode 
-                                    ? (packages['lodge-bulk']?.selectedEvents || []).includes(ticket.id)
+                                    ? false // TODO: Implement lodge bulk individual ticket tracking
                                     : allStoreAttendees.length > 0 && allStoreAttendees.every(attendee => 
                                         isIndividualTicketDirectlySelected(attendee.attendeeId, ticket.id)
                                       )
                                 }
                                 onCheckedChange={() => {
                                 if (isBulkMode) {
-                                  // Handle bulk mode selection
-                                  const currentSelection = packages['lodge-bulk'] || { ticketDefinitionId: null, selectedEvents: [] };
-                                  const isCurrentlySelected = currentSelection.selectedEvents.includes(ticket.id);
-                                  
-                                  let newSelectedEvents = currentSelection.ticketDefinitionId 
-                                    ? [] // Clear if switching from package
-                                    : [...currentSelection.selectedEvents];
-                                  
-                                  if (isCurrentlySelected) {
-                                    newSelectedEvents = newSelectedEvents.filter(id => id !== ticket.id);
-                                  } else {
-                                    if (!newSelectedEvents.includes(ticket.id)) {
-                                      newSelectedEvents.push(ticket.id);
-                                    }
-                                  }
-                                  
-                                  updatePackageSelection('lodge-bulk', { 
-                                    ticketDefinitionId: null, 
-                                    selectedEvents: newSelectedEvents 
-                                  });
+                                  // TODO: Implement lodge bulk individual ticket selection
+                                  console.log('Lodge bulk individual ticket selection not implemented yet');
                                 } else {
-                                  // Original logic for individual attendees
+                                  // Logic for individual attendees
                                   const isCurrentlySelected = allStoreAttendees.length > 0 && 
                                     allStoreAttendees.every(attendee => 
                                       isIndividualTicketDirectlySelected(attendee.attendeeId, ticket.id)
@@ -1109,18 +1029,20 @@ const TicketSelectionStep: React.FC = () => {
                                   
                                   allStoreAttendees.forEach(attendee => {
                                     if (isCurrentlySelected) {
-                                      // Deselect for all
-                                      const currentSelection = packages[attendee.attendeeId] || { ticketDefinitionId: null, selectedEvents: [] };
-                                      const newSelectedEvents = currentSelection.selectedEvents.filter(id => id !== ticket.id);
-                                      updatePackageSelection(attendee.attendeeId, { 
-                                        ticketDefinitionId: null, 
-                                        selectedEvents: newSelectedEvents 
-                                      });
+                                      // Deselect for all - remove from enhanced structure
+                                      const enhancedSelection = attendeeSelections[attendee.attendeeId];
+                                      const ticketRecord = enhancedSelection?.individualTickets.find(t => t.ticket.ticketId === ticket.id);
+                                      if (ticketRecord) {
+                                        removeAttendeeSelection(attendee.attendeeId, ticketRecord.ticketRecordId, 'ticket');
+                                      }
                                     } else {
                                       // Select for all
                                       handleToggleIndividualTicket(attendee.attendeeId, ticket.id);
                                     }
                                   });
+                                  
+                                  // Update order summary after changes
+                                  updateOrderSummary();
                                 }
                               }}
                               />
@@ -1240,15 +1162,17 @@ const TicketSelectionStep: React.FC = () => {
                               <div>
                                 <select
                                   className="w-full border rounded-md px-3 py-2 text-sm"
-                                  value={packages[attendee.attendeeId]?.ticketDefinitionId || ''}
+                                  value={(() => {
+                                    const selection = attendeeSelections[attendee.attendeeId];
+                                    return selection?.packages[0]?.package.packageId || '';
+                                  })()} 
                                   onChange={(e) => {
                                     if (e.target.value) {
                                       handleSelectPackage(attendee.attendeeId, e.target.value);
                                     } else {
-                                      updatePackageSelection(attendee.attendeeId, { 
-                                        ticketDefinitionId: null, 
-                                        selectedEvents: [] 
-                                      });
+                                      // Clear selection
+                                      clearAttendeeTicketSelections(attendee.attendeeId);
+                                      updateOrderSummary();
                                     }
                                   }}
                                 >
@@ -1328,12 +1252,12 @@ const TicketSelectionStep: React.FC = () => {
               disabled={isPersisting}
               variant={
                 registrationType === 'lodge' && lodgeTicketOrder
-                  ? (packages['lodge-bulk']?.ticketDefinitionId || (packages['lodge-bulk']?.selectedEvents && packages['lodge-bulk'].selectedEvents.length > 0)) ? "default" : "outline"
+                  ? hasLodgeBulkSelection ? "default" : "outline"
                   : (ensureAllAttendeesHaveTicketsEnhanced() && currentTickets.length > 0) ? "default" : "outline"
               }
               className={`gap-2 ${
                 registrationType === 'lodge' && lodgeTicketOrder
-                  ? (packages['lodge-bulk']?.ticketDefinitionId || (packages['lodge-bulk']?.selectedEvents && packages['lodge-bulk'].selectedEvents.length > 0))
+                  ? hasLodgeBulkSelection
                     ? "bg-masonic-navy hover:bg-masonic-blue text-white"
                     : "border-masonic-navy text-masonic-navy hover:bg-masonic-lightblue"
                   : (ensureAllAttendeesHaveTicketsEnhanced() && currentTickets.length > 0)
@@ -1491,8 +1415,16 @@ const TicketSelectionStep: React.FC = () => {
                                       <span>Includes:</span>
                                     </div>
                                     <ul className="space-y-1 pl-4">
-                                      {pkg.includes_description && pkg.includes_description.length > 0 ? (
-                                        // Use the descriptive text if available
+                                      {pkg.includedTicketNames && pkg.includedTicketNames.length > 0 ? (
+                                        // Use the resolved ticket names from service
+                                        pkg.includedTicketNames.map((ticketName, idx) => (
+                                          <li key={idx} className="flex items-start gap-1">
+                                            <Check className="h-3 w-3 text-green-600 mt-0.5" />
+                                            <span>{ticketName}</span>
+                                          </li>
+                                        ))
+                                      ) : pkg.includes_description && pkg.includes_description.length > 0 ? (
+                                        // Fallback to descriptive text if available
                                         pkg.includes_description.map((desc, idx) => (
                                           <li key={idx} className="flex items-start gap-1">
                                             <Check className="h-3 w-3 text-green-600 mt-0.5" />
@@ -1500,7 +1432,7 @@ const TicketSelectionStep: React.FC = () => {
                                           </li>
                                         ))
                                       ) : (
-                                        // Fallback to looking up ticket names
+                                        // Final fallback to manual lookup
                                         pkg.includes.map((id) => {
                                           const ticket = ticketTypes.find((t) => t.id === id);
                                           return ticket ? (

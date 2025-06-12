@@ -19,12 +19,12 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     console.group("💳 Payment Intent Creation/Confirmation");
     
-    const registrationId = params.id;
+    const registrationId = (await params).id;
     const data = await request.json();
     
     console.log("Request data:", {

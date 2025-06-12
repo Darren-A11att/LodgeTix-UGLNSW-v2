@@ -28,7 +28,7 @@ This checklist provides step-by-step instructions for manually testing the Strip
 ### 2.1 Individual Registration
 1. Navigate to test event page
 2. Click "Register Now"
-3. Select "Individual" registration type
+3. Select "Individuals" registration type
 4. Fill in attendee details:
    - [ ] Enter name, email, phone
    - [ ] Select title and dietary requirements

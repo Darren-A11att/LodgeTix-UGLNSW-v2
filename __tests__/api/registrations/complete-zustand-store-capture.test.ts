@@ -32,7 +32,7 @@ const completeZustandRegistrationStoreState = {
   functionId: "eebddef5-6833-43e3-8d32-700508b1c089",
   functionSlug: "grand-proclamation-2025",
   selectedEvents: ["e842bdb2-aff8-46d8-a347-bf50840fff13"],
-  registrationType: "individual" as const,
+  registrationType: "individuals" as const,
   delegationType: null,
   
   // Attendees (complete UnifiedAttendeeData array)

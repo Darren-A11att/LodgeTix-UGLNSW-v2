@@ -1,213 +1,179 @@
 -- Production data seed file
-  -- Generated on: 2025-06-09
-  BEGIN;
+-- Generated on: 2025-12-06
+-- Execution order: locations, organisations, grand_lodges, lodges, display_scopes, functions, events, event_tickets, packages
+BEGIN;
 
-  -- Locations
-INSERT INTO locations (location_id, place_name, street_address, suburb, state, postal_code, country, description, capacity) VALUES ('90221696-ce68-432d-b2a5-d35451299c55', 'Sydney Harbour', NULL, NULL, NULL, NULL, NULL, NULL, NULL) ON CONFLICT 
-  (location_id) DO NOTHING;
-INSERT INTO locations (location_id, place_name, street_address, suburb, state, postal_code, country, description, capacity) VALUES ('18542763-954b-44ce-845b-5a80fd1c4fc9', 'Sydney Masonic Centre', '66 Goulburn Street', 'Sydney', 'NSW', '2000', 'Australia', NULL, NULL) ON CONFLICT 
-  (location_id) DO NOTHING;
+-- 1. Locations
+INSERT INTO locations (location_id, room_or_area, place_name, street_address, suburb, state, postal_code, country, latitude, longitude, capacity, created_at, updated_at, phone, email, website, description, parking_info, public_transport_info, accessibility_info, image_urls, google_maps_embed_url, google_maps_place_id, operating_hours, venue_features, dress_code) VALUES 
+('01b151e0-679c-4362-a791-7664e4a0d754', NULL, 'Grand Lodge, Sydney Masonic Centre', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, '2025-04-27 04:32:45.385792+00', '2025-05-29 13:38:11.650657+00', NULL, NULL, NULL, NULL, NULL, NULL, NULL, '{}'::jsonb, NULL, NULL, '{}'::jsonb, NULL,  NULL) ON CONFLICT (location_id) DO NOTHING;
 
--- Organisations
-INSERT INTO organisations (organisation_id, name, abbreviation, type, known_as, city, state, country) VALUES ('63709117-f1a2-4167-859a-ce83553e1b6d', 'United Grand Lodge of Victoria', NULL, 'grandlodge', NULL, NULL, NULL, NULL) ON CONFLICT (organisation_id) DO 
-  NOTHING;
-INSERT INTO organisations (organisation_id, name, abbreviation, type, known_as, city, state, country) VALUES ('0ceb5559-cac7-4f52-b518-37a091cef550', 'United Grand Lodge of Queensland', NULL, 'grandlodge', NULL, NULL, NULL, NULL) ON CONFLICT (organisation_id) DO 
-  NOTHING;
-INSERT INTO organisations (organisation_id, name, abbreviation, type, known_as, city, state, country) VALUES ('39864db0-15f8-4faa-8706-8d7c942f8017', 'Grand Lodge of South Australia & Northern Territory', NULL, 'grandlodge', NULL, NULL, NULL, NULL) ON CONFLICT (organisation_id) DO 
-  NOTHING;
-INSERT INTO organisations (organisation_id, name, abbreviation, type, known_as, city, state, country) VALUES ('e0956d32-27ec-47ec-b21a-47ac342473a3', 'Grand Lodge of Western Australia', NULL, 'grandlodge', NULL, NULL, NULL, NULL) ON CONFLICT (organisation_id) DO 
-  NOTHING;
-INSERT INTO organisations (organisation_id, name, abbreviation, type, known_as, city, state, country) VALUES ('316024c6-e8a7-42bc-96ab-3f9532307242', 'Grand Lodge of Tasmania', NULL, 'grandlodge', NULL, NULL, NULL, NULL) ON CONFLICT (organisation_id) DO 
-  NOTHING;
-INSERT INTO organisations (organisation_id, name, abbreviation, type, known_as, city, state, country) VALUES ('1cbc120c-7651-4df9-b73b-77a94e8c93d6', 'Grand Lodge of New Zealand', NULL, 'grandlodge', NULL, NULL, NULL, NULL) ON CONFLICT (organisation_id) DO 
-  NOTHING;
-INSERT INTO organisations (organisation_id, name, abbreviation, type, known_as, city, state, country) VALUES ('0ce8e42a-e50f-46f8-bcee-c5e9eb97086b', 'Most Worshipful Grand Lodge of Philippines', NULL, 'grandlodge', NULL, NULL, NULL, NULL) ON CONFLICT (organisation_id) DO 
-  NOTHING;
-INSERT INTO organisations (organisation_id, name, abbreviation, type, known_as, city, state, country) VALUES ('ba2f613f-8392-4d24-bc32-ab9d25815af0', 'Most Worshipful Grand Lodge of Japan', NULL, 'grandlodge', NULL, NULL, NULL, NULL) ON CONFLICT (organisation_id) DO 
-  NOTHING;
-INSERT INTO organisations (organisation_id, name, abbreviation, type, known_as, city, state, country) VALUES ('c05e862c-0ad7-4456-900a-38ddd54b9b70', 'Provincial Grand Lodge of New Caledonia', NULL, 'grandlodge', NULL, NULL, NULL, NULL) ON CONFLICT (organisation_id) DO 
-  NOTHING;
-INSERT INTO organisations (organisation_id, name, abbreviation, type, known_as, city, state, country) VALUES ('94648869-9947-44b6-a202-40a0d2fe50ea', 'Grand Lodge of Quebec', NULL, 'grandlodge', NULL, NULL, NULL, NULL) ON CONFLICT (organisation_id) DO 
-  NOTHING;
-INSERT INTO organisations (organisation_id, name, abbreviation, type, known_as, city, state, country) VALUES ('9eb35de9-ac57-4938-966e-d50e5bdaf297', 'United Grand Lodge of England', NULL, 'grandlodge', NULL, NULL, NULL, NULL) ON CONFLICT (organisation_id) DO 
-  NOTHING;
-INSERT INTO organisations (organisation_id, name, abbreviation, type, known_as, city, state, country) VALUES ('e3099e8e-c195-4996-a989-c4d181ec148f', 'Grand Lodge of Scotland', NULL, 'grandlodge', NULL, NULL, NULL, NULL) ON CONFLICT (organisation_id) DO 
-  NOTHING;
-INSERT INTO organisations (organisation_id, name, abbreviation, type, known_as, city, state, country) VALUES ('05393618-7e21-434a-b054-73d3d99b247c', 'Grand Lodge of Ireland', NULL, 'grandlodge', NULL, NULL, NULL, NULL) ON CONFLICT (organisation_id) DO 
-  NOTHING;
-INSERT INTO organisations (organisation_id, name, abbreviation, type, known_as, city, state, country) VALUES ('88f99adf-eb30-4a5c-aac9-1dc83c159e0c', 'Grand Lodge of Canada in the Province of Ontario', NULL, 'grandlodge', NULL, NULL, NULL, NULL) ON CONFLICT (organisation_id) DO 
-  NOTHING;
-INSERT INTO organisations (organisation_id, name, abbreviation, type, known_as, city, state, country) VALUES ('4c4d7c78-6dfe-46c6-8b94-a8be0ef6e013', 'Grand Lodge of British Columbia and Yukon', NULL, 'grandlodge', NULL, NULL, NULL, NULL) ON CONFLICT (organisation_id) DO 
-  NOTHING;
-INSERT INTO organisations (organisation_id, name, abbreviation, type, known_as, city, state, country) VALUES ('726ada36-0777-4d21-a766-69dcc6dfd11f', 'Grand Lodge of Alberta', NULL, 'grandlodge', NULL, NULL, NULL, NULL) ON CONFLICT (organisation_id) DO 
-  NOTHING;
-INSERT INTO organisations (organisation_id, name, abbreviation, type, known_as, city, state, country) VALUES ('930f67ef-533b-402c-86fb-b35682b69b1a', 'Grand Lodge of Saskatchewan', NULL, 'grandlodge', NULL, NULL, NULL, NULL) ON CONFLICT (organisation_id) DO 
-  NOTHING;
-INSERT INTO organisations (organisation_id, name, abbreviation, type, known_as, city, state, country) VALUES ('66af1b27-44b5-428c-895d-84a2e82ce2cc', 'Grand Lodge of Manitoba', NULL, 'grandlodge', NULL, NULL, NULL, NULL) ON CONFLICT (organisation_id) DO 
-  NOTHING;
-INSERT INTO organisations (organisation_id, name, abbreviation, type, known_as, city, state, country) VALUES ('5f4fc792-62c9-4e05-a843-d56fba62b2b3', 'Grand Lodge of Nova Scotia', NULL, 'grandlodge', NULL, NULL, NULL, NULL) ON CONFLICT (organisation_id) DO 
-  NOTHING;
-INSERT INTO organisations (organisation_id, name, abbreviation, type, known_as, city, state, country) VALUES ('c890a8e9-ac56-4d12-81f9-49ce3c9e4e01', 'Grand Lodge of New Brunswick', NULL, 'grandlodge', NULL, NULL, NULL, NULL) ON CONFLICT (organisation_id) DO 
-  NOTHING;
-INSERT INTO organisations (organisation_id, name, abbreviation, type, known_as, city, state, country) VALUES ('bc93edb8-2a34-4dc6-a893-b89b95ec10f6', 'Grand Lodge of Prince Edward Island', NULL, 'grandlodge', NULL, NULL, NULL, NULL) ON CONFLICT (organisation_id) DO 
-  NOTHING;
-INSERT INTO organisations (organisation_id, name, abbreviation, type, known_as, city, state, country) VALUES ('c1c3f9a0-e44f-4b5f-9e9f-c8cb56cf2f6f', 'Grand Lodge of Newfoundland and Labrador', NULL, 'grandlodge', NULL, NULL, NULL, NULL) ON CONFLICT (organisation_id) DO 
-  NOTHING;
-INSERT INTO organisations (organisation_id, name, abbreviation, type, known_as, city, state, country) VALUES ('3b0dbacb-3fb6-4a09-9c7c-feb0b2b2f54d', 'Grand Lodge of Connecticut', NULL, 'grandlodge', NULL, NULL, NULL, NULL) ON CONFLICT (organisation_id) DO 
-  NOTHING;
-INSERT INTO organisations (organisation_id, name, abbreviation, type, known_as, city, state, country) VALUES ('3cbee59e-6c21-486f-bb08-01c2b6015bc9', 'Grand Lodge of Delaware', NULL, 'grandlodge', NULL, NULL, NULL, NULL) ON CONFLICT (organisation_id) DO 
-  NOTHING;
-INSERT INTO organisations (organisation_id, name, abbreviation, type, known_as, city, state, country) VALUES ('4fb5b327-1c59-4e95-a16e-7fca95aeb64e', 'Grand Lodge of the District of Columbia', NULL, 'grandlodge', NULL, NULL, NULL, NULL) ON CONFLICT (organisation_id) DO 
-  NOTHING;
-INSERT INTO organisations (organisation_id, name, abbreviation, type, known_as, city, state, country) VALUES ('0ba0c52f-00f6-4bfe-a5e0-01f4a088e0f6', 'Grand Lodge of Florida', NULL, 'grandlodge', NULL, NULL, NULL, NULL) ON CONFLICT (organisation_id) DO 
-  NOTHING;
-INSERT INTO organisations (organisation_id, name, abbreviation, type, known_as, city, state, country) VALUES ('7e7e2e60-e456-46f9-b66e-9fb1b72c2d7f', 'Grand Lodge of Georgia', NULL, 'grandlodge', NULL, NULL, NULL, NULL) ON CONFLICT (organisation_id) DO 
-  NOTHING;
-INSERT INTO organisations (organisation_id, name, abbreviation, type, known_as, city, state, country) VALUES ('e7e29e89-ef30-4e67-90f8-a39f8b7e7e8f', 'Grand Lodge of Hawaii', NULL, 'grandlodge', NULL, NULL, NULL, NULL) ON CONFLICT (organisation_id) DO 
-  NOTHING;
-INSERT INTO organisations (organisation_id, name, abbreviation, type, known_as, city, state, country) VALUES ('6dc6bce1-b89f-4f4e-899e-e8cfbfe7bbfb', 'Grand Lodge of Idaho', NULL, 'grandlodge', NULL, NULL, NULL, NULL) ON CONFLICT (organisation_id) DO 
-  NOTHING;
-INSERT INTO organisations (organisation_id, name, abbreviation, type, known_as, city, state, country) VALUES ('d2d7e5d8-11a0-4fb4-8f1f-bb5f2e5e7b6e', 'Grand Lodge of Illinois', NULL, 'grandlodge', NULL, NULL, NULL, NULL) ON CONFLICT (organisation_id) DO 
-  NOTHING;
-INSERT INTO organisations (organisation_id, name, abbreviation, type, known_as, city, state, country) VALUES ('4b4f5f5f-a456-45f0-a1e7-fc0a1f6f1efc', 'Grand Lodge of Indiana', NULL, 'grandlodge', NULL, NULL, NULL, NULL) ON CONFLICT (organisation_id) DO 
-  NOTHING;
-INSERT INTO organisations (organisation_id, name, abbreviation, type, known_as, city, state, country) VALUES ('f0bf5e4f-b78f-489f-8bc9-a5dfcfce5eff', 'Grand Lodge of Iowa', NULL, 'grandlodge', NULL, NULL, NULL, NULL) ON CONFLICT (organisation_id) DO 
-  NOTHING;
-INSERT INTO organisations (organisation_id, name, abbreviation, type, known_as, city, state, country) VALUES ('f5e5e7c8-af34-40f8-8f9e-6ff9cf0f3efa', 'Grand Lodge of Kansas', NULL, 'grandlodge', NULL, NULL, NULL, NULL) ON CONFLICT (organisation_id) DO 
-  NOTHING;
-INSERT INTO organisations (organisation_id, name, abbreviation, type, known_as, city, state, country) VALUES ('7e8fc5e9-ff89-4f23-b34c-fcc0a0ffbebf', 'Grand Lodge of Kentucky', NULL, 'grandlodge', NULL, NULL, NULL, NULL) ON CONFLICT (organisation_id) DO 
-  NOTHING;
-INSERT INTO organisations (organisation_id, name, abbreviation, type, known_as, city, state, country) VALUES ('e9cf7dcf-bffa-4f80-899f-afca7efcedfa', 'Grand Lodge of Louisiana', NULL, 'grandlodge', NULL, NULL, NULL, NULL) ON CONFLICT (organisation_id) DO 
-  NOTHING;
-INSERT INTO organisations (organisation_id, name, abbreviation, type, known_as, city, state, country) VALUES ('f7fef9fa-ffab-4089-a1fa-f8ba8fdeffff', 'Grand Lodge of Maine', NULL, 'grandlodge', NULL, NULL, NULL, NULL) ON CONFLICT (organisation_id) DO 
-  NOTHING;
-INSERT INTO organisations (organisation_id, name, abbreviation, type, known_as, city, state, country) VALUES ('dcdf5ef7-e4fa-489f-b890-fcca0fffe3fe', 'Grand Lodge of Maryland', NULL, 'grandlodge', NULL, NULL, NULL, NULL) ON CONFLICT (organisation_id) DO 
-  NOTHING;
-INSERT INTO organisations (organisation_id, name, abbreviation, type, known_as, city, state, country) VALUES ('a7b8cdfa-e4f9-4fc0-bf7a-fedffffabfef', 'Grand Lodge of Massachusetts', NULL, 'grandlodge', NULL, NULL, NULL, NULL) ON CONFLICT (organisation_id) DO 
-  NOTHING;
-INSERT INTO organisations (organisation_id, name, abbreviation, type, known_as, city, state, country) VALUES ('ecdfcfaf-bcdb-45f0-8e5e-acdcdfa6fafc', 'Grand Lodge of Michigan', NULL, 'grandlodge', NULL, NULL, NULL, NULL) ON CONFLICT (organisation_id) DO 
-  NOTHING;
-INSERT INTO organisations (organisation_id, name, abbreviation, type, known_as, city, state, country) VALUES ('dfa6faca-b5f0-478f-899f-8faffe8feffd', 'Grand Lodge of Minnesota', NULL, 'grandlodge', NULL, NULL, NULL, NULL) ON CONFLICT (organisation_id) DO 
-  NOTHING;
-INSERT INTO organisations (organisation_id, name, abbreviation, type, known_as, city, state, country) VALUES ('fafef8c0-c9f0-45f8-a456-f8f9ca8f0fcf', 'Grand Lodge of Mississippi', NULL, 'grandlodge', NULL, NULL, NULL, NULL) ON CONFLICT (organisation_id) DO 
-  NOTHING;
-INSERT INTO organisations (organisation_id, name, abbreviation, type, known_as, city, state, country) VALUES ('cf8f0fc9-a6b8-4fc9-bc78-f0bfc3f8cfaf', 'Grand Lodge of Missouri', NULL, 'grandlodge', NULL, NULL, NULL, NULL) ON CONFLICT (organisation_id) DO 
-  NOTHING;
-INSERT INTO organisations (organisation_id, name, abbreviation, type, known_as, city, state, country) VALUES ('f9cfc3f8-b679-4fc0-8f90-acacfc1f0fcf', 'Grand Lodge of Montana', NULL, 'grandlodge', NULL, NULL, NULL, NULL) ON CONFLICT (organisation_id) DO 
-  NOTHING;
-INSERT INTO organisations (organisation_id, name, abbreviation, type, known_as, city, state, country) VALUES ('afc0ffc8-c3fa-45f8-a67c-cfc8cf9fcafe', 'Grand Lodge of Nebraska', NULL, 'grandlodge', NULL, NULL, NULL, NULL) ON CONFLICT (organisation_id) DO 
-  NOTHING;
-INSERT INTO organisations (organisation_id, name, abbreviation, type, known_as, city, state, country) VALUES ('fcf8fc9f-cbf8-45b0-8fc6-f8fc5fc1fcac', 'Grand Lodge of Nevada', NULL, 'grandlodge', NULL, NULL, NULL, NULL) ON CONFLICT (organisation_id) DO 
-  NOTHING;
-INSERT INTO organisations (organisation_id, name, abbreviation, type, known_as, city, state, country) VALUES ('fccfc1fa-f8b9-45f0-8fca-fcacfac9fcff', 'Grand Lodge of New Hampshire', NULL, 'grandlodge', NULL, NULL, NULL, NULL) ON CONFLICT (organisation_id) DO 
-  NOTHING;
-INSERT INTO organisations (organisation_id, name, abbreviation, type, known_as, city, state, country) VALUES ('acfc9fcf-f9af-45fa-8bc5-cffc8fcafccf', 'Grand Lodge of New Jersey', NULL, 'grandlodge', NULL, NULL, NULL, NULL) ON CONFLICT (organisation_id) DO 
-  NOTHING;
-INSERT INTO organisations (organisation_id, name, abbreviation, type, known_as, city, state, country) VALUES ('cffc8fca-b8c9-456f-af78-fcafacacfcfa', 'Grand Lodge of New Mexico', NULL, 'grandlodge', NULL, NULL, NULL, NULL) ON CONFLICT (organisation_id) DO 
-  NOTHING;
-INSERT INTO organisations (organisation_id, name, abbreviation, type, known_as, city, state, country) VALUES ('fcafcacf-a5f9-45fa-8fc0-facafcfafcfc', 'Grand Lodge of New York', NULL, 'grandlodge', NULL, NULL, NULL, NULL) ON CONFLICT (organisation_id) DO 
-  NOTHING;
-INSERT INTO organisations (organisation_id, name, abbreviation, type, known_as, city, state, country) VALUES ('facafcfa-b4fc-45fa-8fc9-afcfacfafcac', 'Grand Lodge of North Carolina', NULL, 'grandlodge', NULL, NULL, NULL, NULL) ON CONFLICT (organisation_id) DO 
-  NOTHING;
-INSERT INTO organisations (organisation_id, name, abbreviation, type, known_as, city, state, country) VALUES ('afcfacfa-c8af-45bc-8fcf-afcafcafafcf', 'Grand Lodge of North Dakota', NULL, 'grandlodge', NULL, NULL, NULL, NULL) ON CONFLICT (organisation_id) DO 
-  NOTHING;
-INSERT INTO organisations (organisation_id, name, abbreviation, type, known_as, city, state, country) VALUES ('afcafcaf-b5fa-45fc-8fc0-facafcfafcca', 'Grand Lodge of Ohio', NULL, 'grandlodge', NULL, NULL, NULL, NULL) ON CONFLICT (organisation_id) DO 
-  NOTHING;
-INSERT INTO organisations (organisation_id, name, abbreviation, type, known_as, city, state, country) VALUES ('facafcfa-f9c8-45fc-8bc0-afcafcafcafc', 'Grand Lodge of Oklahoma', NULL, 'grandlodge', NULL, NULL, NULL, NULL) ON CONFLICT (organisation_id) DO 
-  NOTHING;
-INSERT INTO organisations (organisation_id, name, abbreviation, type, known_as, city, state, country) VALUES ('afcafcaf-a5f8-45fc-8bc9-cafcafacfcfc', 'Grand Lodge of Oregon', NULL, 'grandlodge', NULL, NULL, NULL, NULL) ON CONFLICT (organisation_id) DO 
-  NOTHING;
-INSERT INTO organisations (organisation_id, name, abbreviation, type, known_as, city, state, country) VALUES ('cafcafac-bcfa-45fc-8f90-facafcfafcac', 'Grand Lodge of Pennsylvania', NULL, 'grandlodge', NULL, NULL, NULL, NULL) ON CONFLICT (organisation_id) DO 
-  NOTHING;
-INSERT INTO organisations (organisation_id, name, abbreviation, type, known_as, city, state, country) VALUES ('facafcfa-f8b0-45fc-8fc9-cfacafcfaffc', 'Grand Lodge of Rhode Island', NULL, 'grandlodge', NULL, NULL, NULL, NULL) ON CONFLICT (organisation_id) DO 
-  NOTHING;
-INSERT INTO organisations (organisation_id, name, abbreviation, type, known_as, city, state, country) VALUES ('cfacafcf-a5fc-45fc-8bcf-acafcfafafcc', 'Grand Lodge of South Carolina', NULL, 'grandlodge', NULL, NULL, NULL, NULL) ON CONFLICT (organisation_id) DO 
-  NOTHING;
-INSERT INTO organisations (organisation_id, name, abbreviation, type, known_as, city, state, country) VALUES ('acafcfaf-b9ca-45fc-8fca-fcafcafcfacf', 'Grand Lodge of South Dakota', NULL, 'grandlodge', NULL, NULL, NULL, NULL) ON CONFLICT (organisation_id) DO 
-  NOTHING;
-INSERT INTO organisations (organisation_id, name, abbreviation, type, known_as, city, state, country) VALUES ('fcafcafc-f8bc-45fc-8bc0-afcfacfafacc', 'Grand Lodge of Tennessee', NULL, 'grandlodge', NULL, NULL, NULL, NULL) ON CONFLICT (organisation_id) DO 
-  NOTHING;
-INSERT INTO organisations (organisation_id, name, abbreviation, type, known_as, city, state, country) VALUES ('afcfacfa-f5a9-45fc-8fc9-cafcafcfacfc', 'Grand Lodge of Texas', NULL, 'grandlodge', NULL, NULL, NULL, NULL) ON CONFLICT (organisation_id) DO 
-  NOTHING;
-INSERT INTO organisations (organisation_id, name, abbreviation, type, known_as, city, state, country) VALUES ('cafcafcf-bc8f-45fc-8fc0-facfacfafcac', 'Grand Lodge of Utah', NULL, 'grandlodge', NULL, NULL, NULL, NULL) ON CONFLICT (organisation_id) DO 
-  NOTHING;
-INSERT INTO organisations (organisation_id, name, abbreviation, type, known_as, city, state, country) VALUES ('facfacfa-f9bc-45fc-8bc9-cafcafcfacaf', 'Grand Lodge of Vermont', NULL, 'grandlodge', NULL, NULL, NULL, NULL) ON CONFLICT (organisation_id) DO 
-  NOTHING;
-INSERT INTO organisations (organisation_id, name, abbreviation, type, known_as, city, state, country) VALUES ('cafcafcf-a5f0-45fc-8fc0-afcafcfafcfa', 'Grand Lodge of Virginia', NULL, 'grandlodge', NULL, NULL, NULL, NULL) ON CONFLICT (organisation_id) DO 
-  NOTHING;
-INSERT INTO organisations (organisation_id, name, abbreviation, type, known_as, city, state, country) VALUES ('afcafcfa-b8cf-45fc-8bcf-facafcfafcaf', 'Grand Lodge of Washington', NULL, 'grandlodge', NULL, NULL, NULL, NULL) ON CONFLICT (organisation_id) DO 
-  NOTHING;
-INSERT INTO organisations (organisation_id, name, abbreviation, type, known_as, city, state, country) VALUES ('facafcfa-f9b8-45fc-8fc9-cafcfacfafca', 'Grand Lodge of West Virginia', NULL, 'grandlodge', NULL, NULL, NULL, NULL) ON CONFLICT (organisation_id) DO 
-  NOTHING;
-INSERT INTO organisations (organisation_id, name, abbreviation, type, known_as, city, state, country) VALUES ('cafcfacf-a5bc-45fc-8bc0-afcafcfafacf', 'Grand Lodge of Wisconsin', NULL, 'grandlodge', NULL, NULL, NULL, NULL) ON CONFLICT (organisation_id) DO 
-  NOTHING;
-INSERT INTO organisations (organisation_id, name, abbreviation, type, known_as, city, state, country) VALUES ('afcafcfa-bcf9-45fc-8fc9-facafcfacfaf', 'Grand Lodge of Wyoming', NULL, 'grandlodge', NULL, NULL, NULL, NULL) ON CONFLICT (organisation_id) DO 
-  NOTHING;
-INSERT INTO organisations (organisation_id, name, abbreviation, type, known_as, city, state, country) VALUES ('f8b7e97e-8aea-4e63-bbef-ee5bfcf5f5f0', 'Grand Lodge of Alabama', NULL, 'grandlodge', NULL, NULL, NULL, NULL) ON CONFLICT (organisation_id) DO 
-  NOTHING;
-INSERT INTO organisations (organisation_id, name, abbreviation, type, known_as, city, state, country) VALUES ('8ff2df4f-7fb8-4f2f-8f0a-abfa1bfceebf', 'Grand Lodge of Alaska', NULL, 'grandlodge', NULL, NULL, NULL, NULL) ON CONFLICT (organisation_id) DO 
-  NOTHING;
-INSERT INTO organisations (organisation_id, name, abbreviation, type, known_as, city, state, country) VALUES ('0fbefa9b-f89e-4f8f-9e8e-facbc1cafcf0', 'Grand Lodge of Arizona', NULL, 'grandlodge', NULL, NULL, NULL, NULL) ON CONFLICT (organisation_id) DO 
-  NOTHING;
-INSERT INTO organisations (organisation_id, name, abbreviation, type, known_as, city, state, country) VALUES ('febfcfcf-abfe-4e9f-8bca-afc2bfafafcf', 'Grand Lodge of Arkansas', NULL, 'grandlodge', NULL, NULL, NULL, NULL) ON CONFLICT (organisation_id) DO 
-  NOTHING;
-INSERT INTO organisations (organisation_id, name, abbreviation, type, known_as, city, state, country) VALUES ('c1bf5f1f-cf67-4f56-a1ef-eafcebcfdffe', 'Grand Lodge of California', NULL, 'grandlodge', NULL, NULL, NULL, NULL) ON CONFLICT (organisation_id) DO 
-  NOTHING;
-INSERT INTO organisations (organisation_id, name, abbreviation, type, known_as, city, state, country) VALUES ('aebf8fcf-ef89-45f8-8abc-afa2bfcfccfa', 'Grand Lodge of Colorado', NULL, 'grandlodge', NULL, NULL, NULL, NULL) ON CONFLICT (organisation_id) DO 
-  NOTHING;
-INSERT INTO organisations (organisation_id, name, abbreviation, type, known_as, city, state, country) VALUES ('9b25ab94-d64e-4f46-9a95-88e7fde4c9a6', 'United Grand Lodge of NSW & ACT', 'UGLNSW&ACT', 'grandlodge', 'United Grand Lodge of NSW & ACT', 'Sydney', 'NSW', 'Australia') ON CONFLICT (organisation_id) DO 
-  NOTHING;
+INSERT INTO locations (location_id, room_or_area, place_name, street_address, suburb, state, postal_code, country, latitude, longitude, capacity, created_at, updated_at, phone, email, website, description, parking_info, public_transport_info, accessibility_info, image_urls, google_maps_embed_url, google_maps_place_id, operating_hours, venue_features, dress_code) VALUES 
+('18542763-954b-44ce-845b-5a80fd1c4fc9', NULL, 'Sydney Masonic Centre', '66 Goulburn Street', 'Sydney', 'NSW', '2000', 'Australia', NULL, NULL, NULL, '2025-05-29 12:05:11.87594+00', '2025-05-29 13:38:11.650657+00', NULL, NULL, NULL, NULL, NULL, NULL, NULL, '{}'::jsonb, NULL, NULL, '{}'::jsonb, NULL,  NULL) ON CONFLICT (location_id) DO NOTHING;
 
--- Functions
-INSERT INTO functions (function_id, name, slug, description, start_date, end_date, location_id, organiser_id, is_published, image_url) VALUES ('eebddef5-6833-43e3-8d32-700508b1c089', 'Grand Proclamation 2025', 'grand-proclamation-2025', 'Celebrate and witness the Grand Proclamation of the Grand Master and his Installation. It is an honour and privilege to join together for this momentous occasion which occurs once every 2 years.', '2025-09-18 10:00:00+00', '2025-09-21 15:00:00+00', '18542763-954b-44ce-845b-5a80fd1c4fc9', '9b25ab94-d64e-4f46-9a95-88e7fde4c9a6', 't', 
-  'https://group.schindler.com/content/dam/website/global/images/references/sydney-masonic-centre/sydney-masonic-centre-australia-building-exterior.jpg/_jcr_content/renditions/original./sydney-masonic-centre-australia-building-exterior.jpg') ON CONFLICT (function_id) DO NOTHING;
+INSERT INTO locations (location_id, room_or_area, place_name, street_address, suburb, state, postal_code, country, latitude, longitude, capacity, created_at, updated_at, phone, email, website, description, parking_info, public_transport_info, accessibility_info, image_urls, google_maps_embed_url, google_maps_place_id, operating_hours, venue_features, dress_code) VALUES 
+('19b672ff-c313-4ff8-a150-0ed9a7ccc9f4', 'Grand Lodge Room', 'Sydney Masonic Centre', '66 Goulburn Street', 'Sydney', 'NSW', '2000', 'Australia', NULL, NULL, NULL, '2025-06-02 01:49:48.292011+00', '2025-06-02 01:49:48.292011+00', NULL, NULL, NULL, NULL, NULL, NULL, NULL, '{}'::jsonb, NULL, NULL, '{}'::jsonb, NULL,  NULL) ON CONFLICT (location_id) DO NOTHING;
 
--- Events with subtitles
-INSERT INTO events (event_id, function_id, location_id, title, subtitle, slug, description, event_start, event_end, type, is_published) VALUES ('a1b2c3d4-e5f6-7890-abcd-ef1234567890', 'eebddef5-6833-43e3-8d32-700508b1c089', '18542763-954b-44ce-845b-5a80fd1c4fc9', 'Ladies Brunch', 'A morning of fellowship for the ladies', 'ladies-brunch', 'A delightful morning event for the ladies during the Grand Proclamation weekend. Enjoy good company and conversation in a relaxed setting.', '2025-09-20 10:15:00+00', '2025-09-20 12:00:00+00', 
-  'Social', 't') ON CONFLICT (event_id) DO NOTHING;
-INSERT INTO events (event_id, function_id, location_id, title, subtitle, slug, description, event_start, event_end, type, is_published) VALUES ('d19d0c78-bf04-48a3-b8c5-7b9724079451', 'eebddef5-6833-43e3-8d32-700508b1c089', '18542763-954b-44ce-845b-5a80fd1c4fc9', 'Quarterly Communication', 'September 2025 Quarterly Communication', 'september-quarterly-communication', 'The Quarterly Communication of the United Grand Lodge of NSW & ACT. This formal meeting includes reports, business matters, and important announcements for the jurisdiction.', '2025-09-20 13:00:00+00', '2025-09-20 14:00:00+00', 
-  'Meeting', 't') ON CONFLICT (event_id) DO NOTHING;
-INSERT INTO events (event_id, function_id, location_id, title, subtitle, slug, description, event_start, event_end, type, is_published) VALUES ('6c12952b-7cf3-4d6a-81bd-1ac3b7ff7076', 'eebddef5-6833-43e3-8d32-700508b1c089', '18542763-954b-44ce-845b-5a80fd1c4fc9', 'Grand Proclamation Ceremony', 'Installation of the Grand Master and Officers', 'grand-proclamation-ceremony', 'The formal ceremony for the Proclamation of the Grand Master and his officers. This is the main event of the weekend featuring traditional Masonic ritual and pageantry.', '2025-09-20 14:45:00+00', '2025-09-20 17:00:00+00', 
-  'Ceremony', 't') ON CONFLICT (event_id) DO NOTHING;
-INSERT INTO events (event_id, function_id, location_id, title, subtitle, slug, description, event_start, event_end, type, is_published) VALUES ('e842bdb2-aff8-46d8-a347-bf50840fff13', 'eebddef5-6833-43e3-8d32-700508b1c089', '90221696-ce68-432d-b2a5-d35451299c55', 'Meet & Greet Cocktail Party', 'An evening of fellowship and friendship', 'welcome-reception', 'Start your Grand Proclamation weekend with a casual welcome reception. Meet and greet fellow attendees from around the world in a relaxed atmosphere.', '2025-09-19 19:00:00+00', '2025-09-19 21:00:00+00', 
-  'Social', 't') ON CONFLICT (event_id) DO NOTHING;
-INSERT INTO events (event_id, function_id, location_id, title, subtitle, slug, description, event_start, event_end, type, is_published) VALUES ('03a51924-1606-47c9-838d-9dc32657cd59', 'eebddef5-6833-43e3-8d32-700508b1c089', '18542763-954b-44ce-845b-5a80fd1c4fc9', 'Grand Proclamation Banquet', 'A night of celebration and fine dining', 'grand-proclamation-gala-dinner', 'A formal black-tie dinner celebrating the Grand Proclamation. The evening will include fine dining, entertainment, and addresses from distinguished guests.', '2025-09-20 18:30:00+00', '2025-09-20 23:00:00+00', 
-  'Social', 't') ON CONFLICT (event_id) DO NOTHING;
-INSERT INTO events (event_id, function_id, location_id, title, subtitle, slug, description, event_start, event_end, type, is_published) VALUES ('567fa008-40de-4f87-89f5-900933f898b2', 'eebddef5-6833-43e3-8d32-700508b1c089', '18542763-954b-44ce-845b-5a80fd1c4fc9', 'Farewell Cruise Luncheon', 'Scenic harbour cruise with farewell luncheon', 'farewell-lunch', 'Conclude your Grand Proclamation weekend with a relaxed lunch. Share memories and farewells with new and old friends before departing.', '2025-09-21 11:00:00+00', '2025-09-21 15:00:00+00', 
-  'Social', 't') ON CONFLICT (event_id) DO NOTHING;
+INSERT INTO locations (location_id, room_or_area, place_name, street_address, suburb, state, postal_code, country, latitude, longitude, capacity, created_at, updated_at, phone, email, website, description, parking_info, public_transport_info, accessibility_info, image_urls, google_maps_embed_url, google_maps_place_id, operating_hours, venue_features, dress_code) VALUES 
+('2ab91f9f-a2e7-412f-a03c-bbfc5b33d625', NULL, 'Grand Ballroom, Sydney Masonic Centre', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, '2025-04-26 02:44:11.182692+00', '2025-05-29 13:38:11.650657+00', NULL, NULL, NULL, NULL, NULL, NULL, NULL, '{}'::jsonb, NULL, NULL, '{}'::jsonb, NULL,  NULL) ON CONFLICT (location_id) DO NOTHING;
 
--- Event Tickets
-INSERT INTO event_tickets (event_ticket_id, event_id, name, description, price, total_capacity, available_count, status, is_active, eligibility_criteria) VALUES ('a1b2c3d4-e5f6-2890-bcde-f12345678901', 'e842bdb2-aff8-46d8-a347-bf50840fff13', 'Meet & Greet Cocktail Party', NULL, 
-  '135', '250', '250', 'Active', 't', '{"rules": []}') ON CONFLICT (event_ticket_id) DO NOTHING;
-INSERT INTO event_tickets (event_ticket_id, event_id, name, description, price, total_capacity, available_count, status, is_active, eligibility_criteria) VALUES ('e5f6a7b8-c9d0-3234-efab-345678901234', 'd19d0c78-bf04-48a3-b8c5-7b9724079451', 'Quarterly Communication', NULL, 
-  '20', '500', '500', 'Active', 't', '{"rules": [{"type": "attendee_type", "value": "mason", "operator": "equals"}, {"type": "grand_lodge", "value": "UGLNSWACT", "operator": "equals"}], "operator": "AND"}') ON CONFLICT (event_ticket_id) DO NOTHING;
-INSERT INTO event_tickets (event_ticket_id, event_id, name, description, price, total_capacity, available_count, status, is_active, eligibility_criteria) VALUES ('f6a7b8c9-d0e1-4345-fabc-456789012345', '6c12952b-7cf3-4d6a-81bd-1ac3b7ff7076', 'Grand Proclamation Ceremony - 4th Floor', NULL, 
-  '0', '100', '100', 'Active', 't', '{"rules": []}') ON CONFLICT (event_ticket_id) DO NOTHING;
-INSERT INTO event_tickets (event_ticket_id, event_id, name, description, price, total_capacity, available_count, status, is_active, eligibility_criteria) VALUES ('a7b8c9d0-e1f2-5456-abcd-567890123456', '6c12952b-7cf3-4d6a-81bd-1ac3b7ff7076', 'Grand Proclamation Ceremony - Mezzanine', NULL, 
-  '0', '100', '100', 'Active', 't', '{"rules": []}') ON CONFLICT (event_ticket_id) DO NOTHING;
-INSERT INTO event_tickets (event_ticket_id, event_id, name, description, price, total_capacity, available_count, status, is_active, eligibility_criteria) VALUES ('b8c9d0e1-f2a3-6567-bcde-678901234567', '6c12952b-7cf3-4d6a-81bd-1ac3b7ff7076', 'Grand Proclamation Ceremony - 3rd Floor', NULL, 
-  '0', '100', '100', 'Active', 't', '{"rules": []}') ON CONFLICT (event_ticket_id) DO NOTHING;
-INSERT INTO event_tickets (event_ticket_id, event_id, name, description, price, total_capacity, available_count, status, is_active, eligibility_criteria) VALUES ('c9d0e1f2-a3b4-7678-cdef-789012345678', '567fa008-40de-4f87-89f5-900933f898b2', 'Farewell Cruise Luncheon', NULL, 
-  '145', '200', '200', 'Active', 't', '{"rules": []}') ON CONFLICT (event_ticket_id) DO NOTHING;
-INSERT INTO event_tickets (event_ticket_id, event_id, name, description, price, total_capacity, available_count, status, is_active, eligibility_criteria) VALUES ('a1b2c3d4-e5f6-3890-bcde-f12345678901', '03a51924-1606-47c9-838d-9dc32657cd59', 'Grand Proclamation Banquet - 4th Floor', NULL, 
-  '115', '30', '30', 'Active', 't', '{"rules": []}') ON CONFLICT (event_ticket_id) DO NOTHING;
-INSERT INTO event_tickets (event_ticket_id, event_id, name, description, price, total_capacity, available_count, status, is_active, eligibility_criteria) VALUES ('b2c3d4e5-f6a7-4891-bcde-f23456789012', '03a51924-1606-47c9-838d-9dc32657cd59', 'Grand Proclamation Banquet - Mezzanine', NULL, 
-  '115', '30', '30', 'Active', 't', '{"rules": []}') ON CONFLICT (event_ticket_id) DO NOTHING;
-INSERT INTO event_tickets (event_ticket_id, event_id, name, description, price, total_capacity, available_count, status, is_active, eligibility_criteria) VALUES ('c3d4e5f6-a7b8-4923-cdef-345678901234', '03a51924-1606-47c9-838d-9dc32657cd59', 'Grand Proclamation Banquet - 3rd Floor', NULL, 
-  '115', '30', '30', 'Active', 't', '{"rules": []}') ON CONFLICT (event_ticket_id) DO NOTHING;
-INSERT INTO event_tickets (event_ticket_id, event_id, name, description, price, total_capacity, available_count, status, is_active, eligibility_criteria) VALUES ('d4e5f6a7-b8c9-4567-def0-456789012345', 'a1b2c3d4-e5f6-7890-abcd-ef1234567890', 'Ladies Brunch', NULL, 
-  '50', '100', '100', 'Active', 't', '{"rules": []}') ON CONFLICT (event_ticket_id) DO NOTHING;
+INSERT INTO locations (location_id, room_or_area, place_name, street_address, suburb, state, postal_code, country, latitude, longitude, capacity, created_at, updated_at, phone, email, website, description, parking_info, public_transport_info, accessibility_info, image_urls, google_maps_embed_url, google_maps_place_id, operating_hours, venue_features, dress_code) VALUES 
+('6d49f34a-e0cc-4652-91eb-7cf161cd4a25', NULL, 'King Street Wharf Sydney', 'King Street Wharf', 'Sydney', 'NSW', '2000', 'Australia', NULL, NULL, NULL, '2025-06-02 01:49:48.292011+00', '2025-06-02 01:49:48.292011+00', NULL, NULL, NULL, NULL, NULL, NULL, NULL, '{}'::jsonb, NULL, NULL, '{}'::jsonb, NULL,  NULL) ON CONFLICT (location_id) DO NOTHING;
 
--- Packages
-INSERT INTO packages (package_id, function_id, name, description, package_price, is_active, eligibility_criteria, registration_types) VALUES ('08c77893-85a3-46a5-a04a-99e5fa896662', 'eebddef5-6833-43e3-8d32-700508b1c089', 'Communication, Ceremony & Banquet', 'Quarterly Communication, Grand Proclamation Ceremony and Banquet', '135.00', 't', '{"rules": [{"type": "attendee_type", "value": "mason", "operator": "equals"}, {"type": "grand_lodge", "value": "UGLNSWACT", "operator": "equals"}], "operator": "AND"}', '{individuals,delegations}') ON 
-  CONFLICT (package_id) DO NOTHING;
-INSERT INTO packages (package_id, function_id, name, description, package_price, is_active, eligibility_criteria, registration_types) VALUES ('46c2dbe0-708e-47be-9046-a4ff597a8158', 'eebddef5-6833-43e3-8d32-700508b1c089', 'Ceremony & Banquet', 'Grand Proclamation Ceremony and Banquet', '135.00', 't', '{"rules": []}', '{individuals,delegations}') ON 
-  CONFLICT (package_id) DO NOTHING;
-INSERT INTO packages (package_id, function_id, name, description, package_price, is_active, eligibility_criteria, registration_types) VALUES ('88567b9c-9675-4ee2-b572-eace1c580eb4', 'eebddef5-6833-43e3-8d32-700508b1c089', 'All Events', 'Complete Grand Proclamation 2025 experience including all events', '280.00', 't', '{"rules": []}', '{individuals,delegations}') ON 
-  CONFLICT (package_id) DO NOTHING;
-INSERT INTO packages (package_id, function_id, name, description, package_price, is_active, eligibility_criteria, registration_types) VALUES ('e7f8a9b0-c1d2-4e5f-9876-543210fedcba', 'eebddef5-6833-43e3-8d32-700508b1c089', 'Ladies Brunch, Ceremony & Banquet', 'Ladies Brunch, Grand Proclamation Ceremony and Banquet Package for Guests', '185.00', 't', '{"rules": [{"type": "attendee_type", "value": "guest", "operator": "equals"}]}', '{individuals}') ON 
-  CONFLICT (package_id) DO NOTHING;
-INSERT INTO packages (package_id, function_id, name, description, package_price, is_active, eligibility_criteria, registration_types) VALUES ('794841e4-5f04-4899-96e2-c0afece4d5f2', 'eebddef5-6833-43e3-8d32-700508b1c089', 'Lodge Package', 'Package for Lodges - 10 tickets for Banquet', '1150.00', 't', '{"rules": [{"type": "registration_type", "value": "lodges", "operator": "equals"}]}', '{lodges}') ON 
-  CONFLICT (package_id) DO NOTHING;
+INSERT INTO locations (location_id, room_or_area, place_name, street_address, suburb, state, postal_code, country, latitude, longitude, capacity, created_at, updated_at, phone, email, website, description, parking_info, public_transport_info, accessibility_info, image_urls, google_maps_embed_url, google_maps_place_id, operating_hours, venue_features, dress_code) VALUES 
+('90221696-ce68-432d-b2a5-d35451299c55', NULL, 'Sydney Harbour', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, '2025-04-26 02:44:11.182692+00', '2025-05-29 13:38:11.650657+00', NULL, NULL, NULL, NULL, NULL, NULL, NULL, '{}'::jsonb, NULL, NULL, '{}'::jsonb, NULL,  NULL) ON CONFLICT (location_id) DO NOTHING;
 
-  COMMIT;
+INSERT INTO locations (location_id, room_or_area, place_name, street_address, suburb, state, postal_code, country, latitude, longitude, capacity, created_at, updated_at, phone, email, website, description, parking_info, public_transport_info, accessibility_info, image_urls, google_maps_embed_url, google_maps_place_id, operating_hours, venue_features, dress_code) VALUES 
+('9765bc9c-b498-4199-a87f-d453b4dc1a21', NULL, 'Sydney Masonic Centre, Sydney', NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, '2025-04-26 02:42:48.800566+00', '2025-05-29 13:38:11.650657+00', NULL, NULL, NULL, NULL, NULL, NULL, NULL, '{}'::jsonb, NULL, NULL, '{}'::jsonb, NULL,  NULL) ON CONFLICT (location_id) DO NOTHING;
+
+INSERT INTO locations (location_id, room_or_area, place_name, street_address, suburb, state, postal_code, country, latitude, longitude, capacity, created_at, updated_at, phone, email, website, description, parking_info, public_transport_info, accessibility_info, image_urls, google_maps_embed_url, google_maps_place_id, operating_hours, venue_features, dress_code) VALUES 
+('aa2a3779-1faf-44ac-8561-bba18525231c', 'Grand Ball Room', 'Sydney Masonic Centre', '66 Goulburn Street', 'Sydney', 'NSW', '2000', 'Australia', NULL, NULL, NULL, '2025-06-02 01:49:48.292011+00', '2025-06-02 01:49:48.292011+00', NULL, NULL, NULL, NULL, NULL, NULL, NULL, '{}'::jsonb, NULL, NULL, '{}'::jsonb, NULL,  NULL) ON CONFLICT (location_id) DO NOTHING;
+
+-- 2. Organisations
+INSERT INTO organisations (organisation_id, name, type, street_address, city, state, postal_code, country, website, created_at, updated_at, known_as, abbreviation, stripe_onbehalfof, stripe_account_status, stripe_payouts_enabled, stripe_details_submitted, stripe_capabilities) VALUES 
+('3e893fa6-2cc2-448c-be9c-e3858cc90e11', 'United Grand Lodge of NSW & ACT', 'grandlodge', 'Sydney Masonic Centre
+279 Castlereagh Street', 'Sydney', 'NSW', '2000', 'Australia', 'www.masons.au', '2025-05-01 12:51:16.416138+00', '2025-05-01 12:51:16.416138+00', 'Freemasons NSW & ACT', 'UGL NSW & ACT', 'acct_1RYbQCQaqFdfJRMI', 'connected', true, true,  NULL) ON CONFLICT (organisation_id) DO NOTHING;
+
+INSERT INTO organisations (organisation_id, name, type, street_address, city, state, postal_code, country, website, created_at, updated_at, known_as, abbreviation, stripe_onbehalfof, stripe_account_status, stripe_payouts_enabled, stripe_details_submitted, stripe_capabilities) VALUES 
+('072d4e35-d6db-4fb4-b39f-22b3c9643c9a', 'Grand Lodge of South Africa', 'grandlodge', NULL, NULL, NULL, NULL, NULL, NULL, '2025-05-01 12:51:16.416138+00', '2025-05-01 12:51:16.416138+00', NULL, NULL, NULL, 'pending', false, false,  NULL) ON CONFLICT (organisation_id) DO NOTHING;
+
+INSERT INTO organisations (organisation_id, name, type, street_address, city, state, postal_code, country, website, created_at, updated_at, known_as, abbreviation, stripe_onbehalfof, stripe_account_status, stripe_payouts_enabled, stripe_details_submitted, stripe_capabilities) VALUES 
+('0ceb5559-cac7-4f52-b518-37a091cef550', 'United Grand Lodge of Queensland', 'grandlodge', NULL, NULL, NULL, NULL, NULL, NULL, '2025-05-01 12:51:16.416138+00', '2025-05-01 12:51:16.416138+00', NULL, NULL, NULL, 'pending', false, false,  NULL) ON CONFLICT (organisation_id) DO NOTHING;
+
+INSERT INTO organisations (organisation_id, name, type, street_address, city, state, postal_code, country, website, created_at, updated_at, known_as, abbreviation, stripe_onbehalfof, stripe_account_status, stripe_payouts_enabled, stripe_details_submitted, stripe_capabilities) VALUES 
+('39864db0-15f8-4faa-8706-8d7c942f8017', 'Grand Lodge of South Australia & Northern Territory', 'grandlodge', NULL, NULL, NULL, NULL, NULL, NULL, '2025-05-01 12:51:16.416138+00', '2025-05-01 12:51:16.416138+00', NULL, NULL, NULL, 'pending', false, false,  NULL) ON CONFLICT (organisation_id) DO NOTHING;
+
+INSERT INTO organisations (organisation_id, name, type, street_address, city, state, postal_code, country, website, created_at, updated_at, known_as, abbreviation, stripe_onbehalfof, stripe_account_status, stripe_payouts_enabled, stripe_details_submitted, stripe_capabilities) VALUES 
+('e0956d32-27ec-47ec-b21a-47ac342473a3', 'Grand Lodge of Western Australia', 'grandlodge', NULL, NULL, NULL, NULL, NULL, NULL, '2025-05-01 12:51:16.416138+00', '2025-05-01 12:51:16.416138+00', NULL, NULL, NULL, 'pending', false, false,  NULL) ON CONFLICT (organisation_id) DO NOTHING;
+
+INSERT INTO organisations (organisation_id, name, type, street_address, city, state, postal_code, country, website, created_at, updated_at, known_as, abbreviation, stripe_onbehalfof, stripe_account_status, stripe_payouts_enabled, stripe_details_submitted, stripe_capabilities) VALUES 
+('316024c6-e8a7-42bc-96ab-3f9532307242', 'Grand Lodge of Tasmania', 'grandlodge', NULL, NULL, NULL, NULL, NULL, NULL, '2025-05-01 12:51:16.416138+00', '2025-05-01 12:51:16.416138+00', NULL, NULL, NULL, 'pending', false, false,  NULL) ON CONFLICT (organisation_id) DO NOTHING;
+
+INSERT INTO organisations (organisation_id, name, type, street_address, city, state, postal_code, country, website, created_at, updated_at, known_as, abbreviation, stripe_onbehalfof, stripe_account_status, stripe_payouts_enabled, stripe_details_submitted, stripe_capabilities) VALUES 
+('1cbc120c-7651-4df9-b73b-77a94e8c93d6', 'Grand Lodge of New Zealand', 'grandlodge', NULL, NULL, NULL, NULL, NULL, NULL, '2025-05-01 12:51:16.416138+00', '2025-05-01 12:51:16.416138+00', NULL, NULL, NULL, 'pending', false, false,  NULL) ON CONFLICT (organisation_id) DO NOTHING;
+
+INSERT INTO organisations (organisation_id, name, type, street_address, city, state, postal_code, country, website, created_at, updated_at, known_as, abbreviation, stripe_onbehalfof, stripe_account_status, stripe_payouts_enabled, stripe_details_submitted, stripe_capabilities) VALUES 
+('0ce8e42a-e50f-46f8-bcee-c5e9eb97086b', 'Most Worshipful Grand Lodge of Philippines', 'grandlodge', NULL, NULL, NULL, NULL, NULL, NULL, '2025-05-01 12:51:16.416138+00', '2025-05-01 12:51:16.416138+00', NULL, NULL, NULL, 'pending', false, false,  NULL) ON CONFLICT (organisation_id) DO NOTHING;
+
+INSERT INTO organisations (organisation_id, name, type, street_address, city, state, postal_code, country, website, created_at, updated_at, known_as, abbreviation, stripe_onbehalfof, stripe_account_status, stripe_payouts_enabled, stripe_details_submitted, stripe_capabilities) VALUES 
+('05393618-7e21-434a-b054-73d3d99b247c', 'Grand Lodge of Ireland', 'grandlodge', NULL, NULL, NULL, NULL, NULL, NULL, '2025-05-01 12:51:16.416138+00', '2025-05-01 12:51:16.416138+00', NULL, NULL, NULL, 'pending', false, false,  NULL) ON CONFLICT (organisation_id) DO NOTHING;
+
+-- Lodge Organisations
+INSERT INTO organisations (organisation_id, name, type, street_address, city, state, postal_code, country, website, created_at, updated_at, known_as, abbreviation, stripe_onbehalfof, stripe_account_status, stripe_payouts_enabled, stripe_details_submitted, stripe_capabilities) VALUES 
+('01eac6b6-f27b-8349-8971-cb087b2b9606', 'Lodge of Truth', 'lodge', NULL, NULL, NULL, NULL, NULL, NULL, '2025-04-25 16:08:01.328405+00', '2025-04-25 16:08:01.328405+00', NULL, NULL, NULL, 'pending', false, false,  NULL) ON CONFLICT (organisation_id) DO NOTHING;
+
+INSERT INTO organisations (organisation_id, name, type, street_address, city, state, postal_code, country, website, created_at, updated_at, known_as, abbreviation, stripe_onbehalfof, stripe_account_status, stripe_payouts_enabled, stripe_details_submitted, stripe_capabilities) VALUES 
+('02ed8316-d27b-0081-be2a-2329cf91a456', 'Lodge Bega Remembrance', 'lodge', NULL, NULL, NULL, NULL, NULL, NULL, '2025-04-25 16:08:01.328405+00', '2025-04-25 16:08:01.328405+00', NULL, NULL, NULL, 'pending', false, false,  NULL) ON CONFLICT (organisation_id) DO NOTHING;
+
+INSERT INTO organisations (organisation_id, name, type, street_address, city, state, postal_code, country, website, created_at, updated_at, known_as, abbreviation, stripe_onbehalfof, stripe_account_status, stripe_payouts_enabled, stripe_details_submitted, stripe_capabilities) VALUES 
+('0a632c89-798f-3f76-92cd-5d3d4aa764c8', 'Wellington Lodge', 'lodge', NULL, NULL, NULL, NULL, NULL, NULL, '2025-04-25 16:08:01.328405+00', '2025-04-25 16:08:01.328405+00', NULL, NULL, NULL, 'pending', false, false,  NULL) ON CONFLICT (organisation_id) DO NOTHING;
+
+INSERT INTO organisations (organisation_id, name, type, street_address, city, state, postal_code, country, website, created_at, updated_at, known_as, abbreviation, stripe_onbehalfof, stripe_account_status, stripe_payouts_enabled, stripe_details_submitted, stripe_capabilities) VALUES 
+('367bec85-fe0a-98fb-cb62-a290c4c2bf86', 'Manila Lodge', 'lodge', NULL, NULL, NULL, NULL, NULL, NULL, '2025-04-25 16:08:01.328405+00', '2025-04-25 16:08:01.328405+00', NULL, NULL, NULL, 'pending', false, false,  NULL) ON CONFLICT (organisation_id) DO NOTHING;
+
+-- 3. Grand Lodges
+INSERT INTO grand_lodges (grand_lodge_id, name, country, abbreviation, created_at, country_code_iso3, state_region, state_region_code, organisation_id) VALUES 
+('05393618-7e21-434a-b054-73d3d99b247c', 'Grand Lodge of Ireland', 'Ireland', 'GLI', '2025-04-25 16:06:03.817487+00', 'IRL', NULL, NULL, '05393618-7e21-434a-b054-73d3d99b247c') ON CONFLICT (grand_lodge_id) DO NOTHING;
+
+INSERT INTO grand_lodges (grand_lodge_id, name, country, abbreviation, created_at, country_code_iso3, state_region, state_region_code, organisation_id) VALUES 
+('072d4e35-d6db-4fb4-b39f-22b3c9643c9a', 'Grand Lodge of South Africa', 'South Africa', 'GLSA', '2025-04-25 16:06:03.817487+00', 'ZAF', NULL, NULL, '072d4e35-d6db-4fb4-b39f-22b3c9643c9a') ON CONFLICT (grand_lodge_id) DO NOTHING;
+
+INSERT INTO grand_lodges (grand_lodge_id, name, country, abbreviation, created_at, country_code_iso3, state_region, state_region_code, organisation_id) VALUES 
+('0ce8e42a-e50f-46f8-bcee-c5e9eb97086b', 'Most Worshipful Grand Lodge of Philippines', 'Philippines', 'GLP', '2025-04-25 16:06:03.817487+00', 'PHL', NULL, NULL, '0ce8e42a-e50f-46f8-bcee-c5e9eb97086b') ON CONFLICT (grand_lodge_id) DO NOTHING;
+
+INSERT INTO grand_lodges (grand_lodge_id, name, country, abbreviation, created_at, country_code_iso3, state_region, state_region_code, organisation_id) VALUES 
+('0ceb5559-cac7-4f52-b518-37a091cef550', 'United Grand Lodge of Queensland', 'Australia', 'UGLQ', '2025-04-25 16:06:03.817487+00', 'AUS', 'Queensland', 'QLD', '0ceb5559-cac7-4f52-b518-37a091cef550') ON CONFLICT (grand_lodge_id) DO NOTHING;
+
+INSERT INTO grand_lodges (grand_lodge_id, name, country, abbreviation, created_at, country_code_iso3, state_region, state_region_code, organisation_id) VALUES 
+('3e893fa6-2cc2-448c-be9c-e3858cc90e11', 'United Grand Lodge of NSW & ACT', 'Australia', 'UGLNSWACT', '2025-04-25 16:06:03.817487+00', 'AUS', 'New South Wales and Australian Capital Territory', 'NSW/ACT', '3e893fa6-2cc2-448c-be9c-e3858cc90e11') ON CONFLICT (grand_lodge_id) DO NOTHING;
+
+INSERT INTO grand_lodges (grand_lodge_id, name, country, abbreviation, created_at, country_code_iso3, state_region, state_region_code, organisation_id) VALUES 
+('1cbc120c-7651-4df9-b73b-77a94e8c93d6', 'Grand Lodge of New Zealand', 'New Zealand', 'GLNZ', '2025-04-25 16:06:03.817487+00', 'NZL', NULL, NULL, '1cbc120c-7651-4df9-b73b-77a94e8c93d6') ON CONFLICT (grand_lodge_id) DO NOTHING;
+
+-- 4. Lodges (sample - first 10 lodges)
+INSERT INTO lodges (lodge_id, name, number, display_name, district, meeting_place, area_type, created_at, grand_lodge_id, state_region, organisation_id) VALUES 
+('01eac6b6-f27b-8349-8971-cb087b2b9606', 'Lodge of Truth', '26', 'Lodge of Truth No. 26', '48', 'Braidwood Masonic Centre', 'COUNTRY', '2025-04-25 16:08:01.328405+00', '3e893fa6-2cc2-448c-be9c-e3858cc90e11', 'NSW', '01eac6b6-f27b-8349-8971-cb087b2b9606') ON CONFLICT (lodge_id) DO NOTHING;
+
+INSERT INTO lodges (lodge_id, name, number, display_name, district, meeting_place, area_type, created_at, grand_lodge_id, state_region, organisation_id) VALUES 
+('02ed8316-d27b-0081-be2a-2329cf91a456', 'Lodge Bega Remembrance', '220', 'Lodge Bega Remembrance No. 220', '49B', 'Bega Masonic Centre', 'COUNTRY', '2025-04-25 16:08:01.328405+00', '3e893fa6-2cc2-448c-be9c-e3858cc90e11', 'NSW', '02ed8316-d27b-0081-be2a-2329cf91a456') ON CONFLICT (lodge_id) DO NOTHING;
+
+INSERT INTO lodges (lodge_id, name, number, display_name, district, meeting_place, area_type, created_at, grand_lodge_id, state_region, organisation_id) VALUES 
+('0a632c89-798f-3f76-92cd-5d3d4aa764c8', 'Wellington Lodge', '21', 'Wellington Lodge No 21', NULL, NULL, NULL, '2025-04-25 16:08:01.328405+00', '1cbc120c-7651-4df9-b73b-77a94e8c93d6', NULL, '0a632c89-798f-3f76-92cd-5d3d4aa764c8') ON CONFLICT (lodge_id) DO NOTHING;
+
+INSERT INTO lodges (lodge_id, name, number, display_name, district, meeting_place, area_type, created_at, grand_lodge_id, state_region, organisation_id) VALUES 
+('367bec85-fe0a-98fb-cb62-a290c4c2bf86', 'Manila Lodge', '1', 'Manila Lodge No 1', NULL, NULL, NULL, '2025-04-25 16:08:01.328405+00', '0ce8e42a-e50f-46f8-bcee-c5e9eb97086b', NULL, '367bec85-fe0a-98fb-cb62-a290c4c2bf86') ON CONFLICT (lodge_id) DO NOTHING;
+
+-- 5. Display Scopes
+INSERT INTO display_scopes (id, name, created_at) VALUES 
+('2a5e3b6d-cc0f-494e-8b2f-57608b1324f5', 'authenticated', '2025-04-27 04:25:04.365529+00') ON CONFLICT (id) DO NOTHING;
+
+INSERT INTO display_scopes (id, name, created_at) VALUES 
+('5cd95867-3a19-4f26-a3c4-6e160f816e9d', 'anonymous', '2025-04-27 04:25:04.365529+00') ON CONFLICT (id) DO NOTHING;
+
+-- 6. Functions
+INSERT INTO functions (function_id, name, slug, description, image_url, start_date, end_date, location_id, organiser_id, metadata, is_published, created_at, updated_at, function_events) VALUES 
+('eebddef5-6833-43e3-8d32-700508b1c089', 'Grand Proclamation 2025', 'grand-proclamation-2025', 'The formal Proclamation ceremony of the Grand Master and officers of the United Grand Lodge of NSW & ACT. This prestigious weekend brings together Freemasons from around the world for a series of ceremonial and social events.', 'https://group.schindler.com/content/dam/website/global/images/references/sydney-masonic-centre/sydney-masonic-centre-australia-building-exterior.jpg/_jcr_content/renditions/original./sydney-masonic-centre-australia-building-exterior.jpg', '2025-09-19 12:00:00+00', '2025-09-21 00:00:00+00', '9765bc9c-b498-4199-a87f-d453b4dc1a21', '3e893fa6-2cc2-448c-be9c-e3858cc90e11', '{"regalia": "Full regalia according to rank", "featured": null, "sections": {"about": "The formal Proclamation ceremony of the Grand Master and officers of the United Grand Lodge of NSW & ACT. This prestigious weekend brings together Freemasons from around the world for a series of ceremonial and social events.", "details": [{"title": "Dress Code", "content": "Grand Proclamation Ceremony: Morning Suit or Dark Lounge Suit with Full Regalia according to rank.\\n\\nGrand Proclamation Gala Dinner: Black Tie with Miniature Jewels only.\\n\\nFarewell Lunch: Smart Casual, no regalia."}, {"title": "Regalia Requirements", "content": "Grand Officers: Full dress regalia with chain collars (if applicable).\\n\\nPast Grand Officers: Full dress regalia with appropriate past rank jewels.\\n\\nWorshipful Masters: Full dress regalia with collar and jewel of office.\\n\\nMaster Masons: Craft regalia (apron, collar, and jewel)."}, {"title": "Visitors from Other Jurisdictions", "content": "Visitors from other Grand Lodges are most welcome and should wear the regalia of their own jurisdiction. Please bring your Grand Lodge certificate for registration."}]}}', true, '2025-06-01 04:51:02.679686+00', '2025-06-07 15:01:34.215365+00',  NULL) ON CONFLICT (function_id) DO NOTHING;
+
+-- 7. Events
+INSERT INTO events (event_id, title, description, type, is_purchasable_individually, max_attendees, featured, image_url, event_includes, important_information, created_at, is_multi_day, registration_availability_id, display_scope_id, slug, event_start, event_end, location_id, subtitle, is_published, regalia, regalia_description, dress_code, degree_type, sections, attendance, documents, related_events, organiser_id, reserved_count, sold_count, stripe_product_id, function_id) VALUES 
+('03a51924-1606-47c9-838d-9dc32657cd59', 'Grand Proclamation Banquet', 'A formal black-tie dinner celebrating the Grand Proclamation. The evening will include fine dining, entertainment, and addresses from distinguished guests.', 'Social', true, 482, true, 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80', ARRAY['Pre-dinner drinks and canapés','Three-course gourmet dinner','Premium beverage package','Live entertainment and dancing','Distinguished guest speakers','Commemorative menu card'], ARRAY['Pre-dinner drinks from 6:00pm','Guests seated by 6:45pm','Dinner service commences at 7:00pm','Dietary requirements must be advised in advance','Table allocations will be provided','Formal toasts and speeches during dinner'], '2025-04-26 02:44:11.182692+00', false, NULL, '5cd95867-3a19-4f26-a3c4-6e160f816e9d', 'grand-proclamation-gala-dinner', '2025-09-20 08:30:00+00', '2025-09-21 01:00:00+00', 'aa2a3779-1faf-44ac-8561-bba18525231c', 'A night of celebration and fine dining', true, NULL, NULL, 'Formal: Grand Officers (tails), Masons & Gentlemen (tuxedo), Ladies (formal)', NULL, NULL, NULL, NULL, NULL, '3e893fa6-2cc2-448c-be9c-e3858cc90e11', 30, 0, NULL, 'eebddef5-6833-43e3-8d32-700508b1c089') ON CONFLICT (event_id) DO NOTHING;
+
+INSERT INTO events (event_id, title, description, type, is_purchasable_individually, max_attendees, featured, image_url, event_includes, important_information, created_at, is_multi_day, registration_availability_id, display_scope_id, slug, event_start, event_end, location_id, subtitle, is_published, regalia, regalia_description, dress_code, degree_type, sections, attendance, documents, related_events, organiser_id, reserved_count, sold_count, stripe_product_id, function_id) VALUES 
+('567fa008-40de-4f87-89f5-900933f898b2', 'Farewell Cruise Luncheon', 'Conclude your Grand Proclamation weekend with a relaxed lunch. Share memories and farewells with new and old friends before departing.', 'Social', true, 150, false, 'https://images.unsplash.com/photo-1414235077428-338989a2e8c0?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80', ARRAY['Sydney Harbour cruise','Buffet luncheon','Beverages included','Commentary on harbour landmarks','Indoor and outdoor deck access'], ARRAY['Boarding commences at 10:30am','Vessel departs promptly at 11:00am','Returns to King Street Wharf at 3:00pm','Comfortable flat shoes recommended','Sun protection advised for outdoor decks','Limited mobility access - please advise requirements'], '2025-04-26 02:44:11.182692+00', false, NULL, '5cd95867-3a19-4f26-a3c4-6e160f816e9d', 'farewell-lunch', '2025-09-21 01:00:00+00', '2025-09-21 05:00:00+00', '6d49f34a-e0cc-4652-91eb-7cf161cd4a25', 'Scenic harbour cruise with farewell luncheon', true, NULL, NULL, 'Smart Casual', NULL, NULL, NULL, NULL, NULL, '3e893fa6-2cc2-448c-be9c-e3858cc90e11', 0, 0, NULL, 'eebddef5-6833-43e3-8d32-700508b1c089') ON CONFLICT (event_id) DO NOTHING;
+
+INSERT INTO events (event_id, title, description, type, is_purchasable_individually, max_attendees, featured, image_url, event_includes, important_information, created_at, is_multi_day, registration_availability_id, display_scope_id, slug, event_start, event_end, location_id, subtitle, is_published, regalia, regalia_description, dress_code, degree_type, sections, attendance, documents, related_events, organiser_id, reserved_count, sold_count, stripe_product_id, function_id) VALUES 
+('6c12952b-7cf3-4d6a-81bd-1ac3b7ff7076', 'Grand Proclamation Ceremony', 'The formal ceremony for the Proclamation of the Grand Master and his officers. This is the main event of the weekend featuring traditional Masonic ritual and pageantry.', 'Ceremony', true, 600, true, 'https://images.unsplash.com/photo-1531973576160-7125cd663d86?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80', ARRAY['Formal ceremonial proceedings','Installation of Grand Master','Investiture of Grand Officers','Musical interludes','Commemorative program booklet'], ARRAY['Doors open at 2:15pm','Please be seated by 2:30pm','Ceremony commences at 2:45pm sharp','Photography permitted only during designated times','Reserved seating for Grand Officers and dignitaries'], '2025-04-27 04:32:45.385792+00', false, NULL, '5cd95867-3a19-4f26-a3c4-6e160f816e9d', 'grand-proclamation-ceremony', '2025-09-20 04:45:00+00', '2025-09-20 07:00:00+00', '19b672ff-c313-4ff8-a150-0ed9a7ccc9f4', 'Installation of the Grand Master and Officers', true, 'Required', 'Grand Officers: Regalia according to rank. Members of Lodges: Craft Regalia according to degree. Masters & Wardens of Lodges: Only Worshipful Masters and Wardens of Lodges may wear the Collars & Jewels of their office.', 'Formal: Grand Officers (tails), Masons & Gentlemen (tuxedo), Ladies (formal)', NULL, NULL, NULL, NULL, NULL, '3e893fa6-2cc2-448c-be9c-e3858cc90e11', 0, 0, NULL, 'eebddef5-6833-43e3-8d32-700508b1c089') ON CONFLICT (event_id) DO NOTHING;
+
+INSERT INTO events (event_id, title, description, type, is_purchasable_individually, max_attendees, featured, image_url, event_includes, important_information, created_at, is_multi_day, registration_availability_id, display_scope_id, slug, event_start, event_end, location_id, subtitle, is_published, regalia, regalia_description, dress_code, degree_type, sections, attendance, documents, related_events, organiser_id, reserved_count, sold_count, stripe_product_id, function_id) VALUES 
+('a1b2c3d4-e5f6-7890-abcd-ef1234567890', 'Ladies Brunch', 'A delightful morning event for the ladies during the Grand Proclamation weekend. Enjoy good company and conversation in a relaxed setting.', 'Social', true, 100, false, 'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80', ARRAY['Morning brunch buffet','Tea and coffee service','Light entertainment','Networking opportunities','Welcome gift'], ARRAY['Doors open at 10:00am','Brunch service commences at 10:15am','Event concludes at 12:00pm','Dietary requirements must be advised in advance','Smart casual dress code'], '2025-06-07 12:00:00+00', false, NULL, '5cd95867-3a19-4f26-a3c4-6e160f816e9d', 'ladies-brunch', '2025-09-20 00:15:00+00', '2025-09-20 02:00:00+00', 'aa2a3779-1faf-44ac-8561-bba18525231c', 'A morning of fellowship for the ladies', true, NULL, NULL, 'Smart Casual', NULL, NULL, NULL, NULL, NULL, '3e893fa6-2cc2-448c-be9c-e3858cc90e11', 0, 0, NULL, 'eebddef5-6833-43e3-8d32-700508b1c089') ON CONFLICT (event_id) DO NOTHING;
+
+INSERT INTO events (event_id, title, description, type, is_purchasable_individually, max_attendees, featured, image_url, event_includes, important_information, created_at, is_multi_day, registration_availability_id, display_scope_id, slug, event_start, event_end, location_id, subtitle, is_published, regalia, regalia_description, dress_code, degree_type, sections, attendance, documents, related_events, organiser_id, reserved_count, sold_count, stripe_product_id, function_id) VALUES 
+('d19d0c78-bf04-48a3-b8c5-7b9724079451', 'Quarterly Communication', 'The Quarterly Communication of the United Grand Lodge of NSW & ACT. This formal meeting includes reports, business matters, and important announcements for the jurisdiction.', 'Meeting', true, 500, false, 'https://pwwpcjbbxotmiqrisjvf.supabase.co/storage/v1/object/public/public-events/website/elegant-gift-bag-stockcake.jpg', ARRAY['Formal business session','Reports and announcements','Voting on motions (if applicable)','Light refreshments during break'], ARRAY['Doors open at 12:30pm for registration','Meeting commences promptly at 1:00pm','Valid membership required for entry','No photography during the meeting'], '2025-06-02 01:53:52.303977+00', false, NULL, '5cd95867-3a19-4f26-a3c4-6e160f816e9d', 'september-quarterly-communication', '2025-09-20 03:00:00+00', '2025-09-20 04:00:00+00', '19b672ff-c313-4ff8-a150-0ed9a7ccc9f4', 'September 2025 Quarterly Communication', true, 'Required', 'Grand Officers: Regalia according to rank. Members of Lodges: Craft Regalia according to degree. Masters & Wardens of Lodges: Only Worshipful Masters and Wardens of Lodges may wear the Collars & Jewels of their office.', 'Formal: Grand Officers (tails), Masons & Gentlemen (tuxedo), Ladies (formal)', NULL, NULL, NULL, NULL, NULL, '3e893fa6-2cc2-448c-be9c-e3858cc90e11', 0, 0, NULL, 'eebddef5-6833-43e3-8d32-700508b1c089') ON CONFLICT (event_id) DO NOTHING;
+
+INSERT INTO events (event_id, title, description, type, is_purchasable_individually, max_attendees, featured, image_url, event_includes, important_information, created_at, is_multi_day, registration_availability_id, display_scope_id, slug, event_start, event_end, location_id, subtitle, is_published, regalia, regalia_description, dress_code, degree_type, sections, attendance, documents, related_events, organiser_id, reserved_count, sold_count, stripe_product_id, function_id) VALUES 
+('e842bdb2-aff8-46d8-a347-bf50840fff13', 'Meet & Greet Cocktail Party', 'Start your Grand Proclamation weekend with a casual welcome reception. Meet and greet fellow attendees from around the world in a relaxed atmosphere.', 'Social', true, 200, true, 'https://images.unsplash.com/photo-1511795409834-ef04bbd61622?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&q=80', ARRAY['Welcome drinks and canapés','Cash bar available','Light entertainment','Networking opportunities'], ARRAY['Registration opens at 6:30pm','Name badges will be provided at entry','Partners and guests welcome','Parking available at Sydney Masonic Centre'], '2025-04-26 02:44:11.182692+00', false, NULL, '5cd95867-3a19-4f26-a3c4-6e160f816e9d', 'welcome-reception', '2025-09-19 09:00:00+00', '2025-09-19 11:00:00+00', '18542763-954b-44ce-845b-5a80fd1c4fc9', 'An evening of fellowship and friendship', true, NULL, NULL, 'Cocktail', NULL, NULL, NULL, NULL, NULL, '3e893fa6-2cc2-448c-be9c-e3858cc90e11', 0, 0, NULL, 'eebddef5-6833-43e3-8d32-700508b1c089') ON CONFLICT (event_id) DO NOTHING;
+
+-- 8. Event Tickets
+INSERT INTO event_tickets (event_ticket_id, event_id, name, description, price, total_capacity, available_count, reserved_count, sold_count, status, is_active, created_at, updated_at, eligibility_criteria, stripe_price_id) VALUES 
+('bce41292-3662-44a7-85da-eeb1a1e89d8a', '567fa008-40de-4f87-89f5-900933f898b2', 'Farewell Cruise Luncheon', NULL, '75', '150', '150', '0', '0', 'Active', true, '2025-06-02 02:00:17.585068+00', '2025-06-07 12:00:00+00', '{"rules": []}',  NULL) ON CONFLICT (event_ticket_id) DO NOTHING;
+
+INSERT INTO event_tickets (event_ticket_id, event_id, name, description, price, total_capacity, available_count, reserved_count, sold_count, status, is_active, created_at, updated_at, eligibility_criteria, stripe_price_id) VALUES 
+('c3d4e5f6-a7b8-4923-cdef-345678901234', '03a51924-1606-47c9-838d-9dc32657cd59', 'Grand Proclamation Banquet - 3rd Floor', NULL, '115', '30', '30', '0', '0', 'Active', true, '2025-06-07 12:00:00+00', '2025-06-07 12:00:00+00', '{"rules": []}',  NULL) ON CONFLICT (event_ticket_id) DO NOTHING;
+
+INSERT INTO event_tickets (event_ticket_id, event_id, name, description, price, total_capacity, available_count, reserved_count, sold_count, status, is_active, created_at, updated_at, eligibility_criteria, stripe_price_id) VALUES 
+('fd12d7f0-f346-49bf-b1eb-0682ad226216', '03a51924-1606-47c9-838d-9dc32657cd59', 'Grand Proclamation Banquet - Banquet Hall', NULL, '115', '320', '320', '0', '0', 'Active', true, '2025-06-02 01:54:23.077909+00', '2025-06-07 12:00:00+00', '{"rules": []}',  NULL) ON CONFLICT (event_ticket_id) DO NOTHING;
+
+INSERT INTO event_tickets (event_ticket_id, event_id, name, description, price, total_capacity, available_count, reserved_count, sold_count, status, is_active, created_at, updated_at, eligibility_criteria, stripe_price_id) VALUES 
+('a1b2c3d4-e5f6-4789-abcd-ef1234567890', '03a51924-1606-47c9-838d-9dc32657cd59', 'Grand Proclamation Banquet - Marble Foyer', NULL, '115', '102', '102', '0', '0', 'Active', true, '2025-06-07 12:00:00+00', '2025-06-07 12:00:00+00', '{"rules": []}',  NULL) ON CONFLICT (event_ticket_id) DO NOTHING;
+
+INSERT INTO event_tickets (event_ticket_id, event_id, name, description, price, total_capacity, available_count, reserved_count, sold_count, status, is_active, created_at, updated_at, eligibility_criteria, stripe_price_id) VALUES 
+('b2c3d4e5-f6a7-4891-bcde-f23456789012', '03a51924-1606-47c9-838d-9dc32657cd59', 'Grand Proclamation Banquet - Mezzanine', NULL, '115', '30', '30', '0', '0', 'Active', true, '2025-06-07 12:00:00+00', '2025-06-07 12:00:00+00', '{"rules": []}',  NULL) ON CONFLICT (event_ticket_id) DO NOTHING;
+
+INSERT INTO event_tickets (event_ticket_id, event_id, name, description, price, total_capacity, available_count, reserved_count, sold_count, status, is_active, created_at, updated_at, eligibility_criteria, stripe_price_id) VALUES 
+('7196514b-d4b8-4fe0-93ac-deb4c205dd09', '6c12952b-7cf3-4d6a-81bd-1ac3b7ff7076', 'Grand Proclamation Ceremony', NULL, '20', '600', '600', '0', '0', 'Active', true, '2025-06-02 01:54:23.077909+00', '2025-06-07 12:00:00+00', '{"rules": []}',  NULL) ON CONFLICT (event_ticket_id) DO NOTHING;
+
+INSERT INTO event_tickets (event_ticket_id, event_id, name, description, price, total_capacity, available_count, reserved_count, sold_count, status, is_active, created_at, updated_at, eligibility_criteria, stripe_price_id) VALUES 
+('d4e5f6a7-b8c9-4567-def0-456789012345', 'a1b2c3d4-e5f6-7890-abcd-ef1234567890', 'Ladies Brunch', NULL, '50', '100', '100', '0', '0', 'Active', true, '2025-06-07 12:00:00+00', '2025-06-07 12:00:00+00', '{"rules": []}',  NULL) ON CONFLICT (event_ticket_id) DO NOTHING;
+
+INSERT INTO event_tickets (event_ticket_id, event_id, name, description, price, total_capacity, available_count, reserved_count, sold_count, status, is_active, created_at, updated_at, eligibility_criteria, stripe_price_id) VALUES 
+('d586ecc1-e410-4ef3-a59c-4a53a866bc33', 'e842bdb2-aff8-46d8-a347-bf50840fff13', 'Meet & Greet Cocktail Party', NULL, '70', '200', '200', '0', '0', 'Active', true, '2025-06-02 01:54:23.077909+00', '2025-06-07 12:00:00+00', '{"rules": []}',  NULL) ON CONFLICT (event_ticket_id) DO NOTHING;
+
+INSERT INTO event_tickets (event_ticket_id, event_id, name, description, price, total_capacity, available_count, reserved_count, sold_count, status, is_active, created_at, updated_at, eligibility_criteria, stripe_price_id) VALUES 
+('be94ef03-6647-48d5-97ea-f98c862e30e6', 'd19d0c78-bf04-48a3-b8c5-7b9724079451', 'Quarterly Communication', NULL, '0', '500', '500', '0', '0', 'Active', true, '2025-06-02 01:54:23.077909+00', '2025-06-07 12:00:00+00', '{"rules": [{"type": "attendee_type", "value": "mason", "operator": "equals"}, {"type": "grand_lodge", "value": "UGLNSWACT", "operator": "equals"}], "operator": "AND"}',  NULL) ON CONFLICT (event_ticket_id) DO NOTHING;
+
+-- 9. Packages
+INSERT INTO packages (package_id, event_id, name, description, original_price, discount, package_price, is_active, includes_description, qty, included_items, created_at, updated_at, eligibility_criteria, function_id, registration_types) VALUES 
+('08c77893-85a3-46a5-a04a-99e5fa896662', NULL, 'Communication, Ceremony & Banquet', 'Quarterly Communication, Grand Proclamation Ceremony and Banquet', '135.00', '0.00', '135.00', true, NULL, '1', ARRAY[ROW('be94ef03-6647-48d5-97ea-f98c862e30e6'::uuid, 1)::package_item, ROW('7196514b-d4b8-4fe0-93ac-deb4c205dd09'::uuid, 1)::package_item, ROW('fd12d7f0-f346-49bf-b1eb-0682ad226216'::uuid, 1)::package_item], '2025-06-02 02:01:17.392325+00', '2025-06-02 02:01:17.392325+00', '{"rules": [{"type": "attendee_type", "value": "mason", "operator": "equals"}, {"type": "grand_lodge", "value": "UGLNSWACT", "operator": "equals"}], "operator": "AND"}', 'eebddef5-6833-43e3-8d32-700508b1c089', ARRAY['individuals','delegations']) ON CONFLICT (package_id) DO NOTHING;
+
+INSERT INTO packages (package_id, event_id, name, description, original_price, discount, package_price, is_active, includes_description, qty, included_items, created_at, updated_at, eligibility_criteria, function_id, registration_types) VALUES 
+('46c2dbe0-708e-47be-9046-a4ff597a8158', NULL, 'Ceremony & Banquet', 'Grand Proclamation Ceremony and Banquet', '135.00', '0.00', '135.00', true, NULL, '1', ARRAY[ROW('7196514b-d4b8-4fe0-93ac-deb4c205dd09'::uuid, 1)::package_item, ROW('fd12d7f0-f346-49bf-b1eb-0682ad226216'::uuid, 1)::package_item], '2025-06-02 02:01:17.392325+00', '2025-06-02 02:01:17.392325+00', '{"rules": []}', 'eebddef5-6833-43e3-8d32-700508b1c089', ARRAY['individuals','delegations']) ON CONFLICT (package_id) DO NOTHING;
+
+INSERT INTO packages (package_id, event_id, name, description, original_price, discount, package_price, is_active, includes_description, qty, included_items, created_at, updated_at, eligibility_criteria, function_id, registration_types) VALUES 
+('794841e4-5f04-4899-96e2-c0afece4d5f2', NULL, 'Lodge Package', 'Package for Lodges - 10 tickets for Banquet', '1150.00', '0.00', '1150.00', true, NULL, '10', ARRAY[ROW('fd12d7f0-f346-49bf-b1eb-0682ad226216'::uuid, 10)::package_item], '2025-06-02 02:01:17.392325+00', '2025-06-02 02:01:17.392325+00', '{"rules": [{"type": "registration_type", "value": "lodges", "operator": "equals"}]}', 'eebddef5-6833-43e3-8d32-700508b1c089', ARRAY['lodges']) ON CONFLICT (package_id) DO NOTHING;
+
+INSERT INTO packages (package_id, event_id, name, description, original_price, discount, package_price, is_active, includes_description, qty, included_items, created_at, updated_at, eligibility_criteria, function_id, registration_types) VALUES 
+('88567b9c-9675-4ee2-b572-eace1c580eb4', NULL, 'All Events', 'Complete Grand Proclamation 2025 experience including all events', '280.00', '0.00', '280.00', true, NULL, '1', ARRAY[ROW('d586ecc1-e410-4ef3-a59c-4a53a866bc33'::uuid, 1)::package_item, ROW('be94ef03-6647-48d5-97ea-f98c862e30e6'::uuid, 1)::package_item, ROW('7196514b-d4b8-4fe0-93ac-deb4c205dd09'::uuid, 1)::package_item, ROW('fd12d7f0-f346-49bf-b1eb-0682ad226216'::uuid, 1)::package_item, ROW('bce41292-3662-44a7-85da-eeb1a1e89d8a'::uuid, 1)::package_item], '2025-06-02 02:01:17.392325+00', '2025-06-02 02:01:17.392325+00', '{"rules": []}', 'eebddef5-6833-43e3-8d32-700508b1c089', ARRAY['individuals','delegations']) ON CONFLICT (package_id) DO NOTHING;
+
+INSERT INTO packages (package_id, event_id, name, description, original_price, discount, package_price, is_active, includes_description, qty, included_items, created_at, updated_at, eligibility_criteria, function_id, registration_types) VALUES 
+('e7f8a9b0-c1d2-4e5f-9876-543210fedcba', NULL, 'Ladies Brunch, Ceremony & Banquet', 'Ladies Brunch, Grand Proclamation Ceremony and Banquet Package for Guests', '185.00', '0.00', '185.00', true, NULL, '1', ARRAY[ROW('d4e5f6a7-b8c9-4567-def0-456789012345'::uuid, 1)::package_item, ROW('7196514b-d4b8-4fe0-93ac-deb4c205dd09'::uuid, 1)::package_item, ROW('fd12d7f0-f346-49bf-b1eb-0682ad226216'::uuid, 1)::package_item], '2025-06-07 12:00:00+00', '2025-06-07 12:00:00+00', '{"rules": [{"type": "attendee_type", "value": "guest", "operator": "equals"}]}', 'eebddef5-6833-43e3-8d32-700508b1c089', ARRAY['individuals']) ON CONFLICT (package_id) DO NOTHING;
+
+COMMIT;

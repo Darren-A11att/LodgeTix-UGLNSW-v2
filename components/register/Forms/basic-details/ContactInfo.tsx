@@ -77,9 +77,9 @@ export const ContactInfo: React.FC<ContactInfoProps> = React.memo(({
       {/* Contact preference - only show for non-primary attendees */}
       {!isPrimary && (
         <>
-          {/* Desktop Layout - narrower field */}
+          {/* Desktop Layout - 4 columns to match name field layout */}
           <div className="hidden md:grid grid-cols-12 gap-4">
-            <div className="col-span-2">
+            <div className="col-span-4">
               <SelectField
                 label="Contact"
                 name="contactPreference"
@@ -155,9 +155,9 @@ export const ContactInfo: React.FC<ContactInfoProps> = React.memo(({
       {/* Show contact fields for non-primary attendees who selected "directly" */}
       {!isPrimary && contactPreference === 'directly' && (
         <>
-          {/* Desktop Layout (md and above) */}
-          <div className="hidden md:grid grid-cols-12 gap-4 mt-4">
-            <div className="col-span-5">
+          {/* Desktop Layout (md and above) - email and mobile on same line */}
+          <div className="hidden md:grid grid-cols-12 gap-4">
+            <div className="col-span-4">
               <EmailField
                 label="Email Address"
                 name="primaryEmail"
@@ -166,7 +166,7 @@ export const ContactInfo: React.FC<ContactInfoProps> = React.memo(({
                 required={true}
               />
             </div>
-            <div className="col-span-5">
+            <div className="col-span-4">
               <PhoneField
                 label="Phone Number"
                 name="primaryPhone"

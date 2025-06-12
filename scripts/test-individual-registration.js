@@ -26,7 +26,7 @@ function generateTestPayload() {
   const registrationId = uuidv4();
   
   return {
-    registrationType: "individual",
+    registrationType: "individuals",
     functionId: "eebddef5-6833-43e3-8d32-700508b1c089",
     functionSlug: "grand-proclamation-2025",
     selectedEvents: [],

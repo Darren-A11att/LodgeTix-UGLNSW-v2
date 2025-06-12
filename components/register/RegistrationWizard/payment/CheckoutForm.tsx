@@ -6,6 +6,7 @@ import { CardElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import { CreditCard, ShieldCheck, Loader2 } from "lucide-react";
 import { CARD_ELEMENT_OPTIONS } from "./CardElementOptions";
 import { CheckoutFormProps, StripeBillingDetailsForClient } from "./types";
+import { useRouter } from 'next/navigation';
 
 export interface CheckoutFormHandle {
   createPaymentMethod: () => Promise<{ paymentMethodId?: string; error?: string }>;
@@ -25,10 +26,53 @@ export const CheckoutForm = forwardRef<CheckoutFormHandle, CheckoutFormProps>(
   ) {
     const stripe = useStripe();
     const elements = useElements();
+    const router = useRouter();
     const [cardError, setCardError] = useState<string | null>(null);
     const [isCardComplete, setIsCardComplete] = useState(false);
     const [isProcessingLocal, setIsProcessingLocal] = useState(false);
     
+    // STEP 2: Check for completed registration & payment before starting payment
+    const checkForCompletedRegistration = (): boolean => {
+      console.log("🔍 STEP 2: Checking localStorage for completed registration & payment...");
+      
+      try {
+        const recentRegistration = localStorage.getItem('recent_registration');
+        if (recentRegistration) {
+          const registrationData = JSON.parse(recentRegistration);
+          
+          console.log("📋 Found localStorage data:", {
+            confirmationNumber: registrationData.confirmationNumber,
+            registrationId: registrationData.registrationId,
+            hasPaymentCompleted: !!registrationData.confirmationNumber
+          });
+          
+          // Only redirect if this registration has a confirmation number (payment completed)
+          if (registrationData.confirmationNumber) {
+            console.log("✅ Found completed registration with confirmation:", registrationData.confirmationNumber);
+            console.log("🚀 Redirecting to confirmation page to prevent duplicate payment");
+            
+            // Get the function slug from the current URL
+            const pathSegments = window.location.pathname.split('/');
+            const functionSlugIndex = pathSegments.indexOf('functions') + 1;
+            const functionSlug = pathSegments[functionSlugIndex] || '';
+            
+            // Redirect to confirmation page
+            router.push(`/functions/${functionSlug}/register/confirmation/fallback/${registrationData.confirmationNumber}`);
+            return true; // Payment should be blocked
+          } else {
+            console.log("ℹ️ Found registration data but no confirmation number - proceeding with payment");
+          }
+        } else {
+          console.log("ℹ️ No localStorage registration data found - proceeding with fresh payment");
+        }
+      } catch (error) {
+        console.warn("⚠️ Error checking localStorage:", error);
+        // Continue with payment if localStorage check fails
+      }
+      
+      return false; // Proceed with payment
+    };
+
     // Helper function to format billing details for Stripe
     const getBillingDetailsForStripe = (): StripeBillingDetailsForClient => {
       return {
@@ -120,6 +164,17 @@ export const CheckoutForm = forwardRef<CheckoutFormHandle, CheckoutFormProps>(
 
     // Handle direct button click
     const handleButtonClick = async () => {
+      console.log("💳 STEP 1: User clicks Pay Now");
+      
+      // STEP 2: Check for completed registration & payment before starting payment processing
+      const shouldBlockPayment = checkForCompletedRegistration();
+      if (shouldBlockPayment) {
+        console.log("🚫 Payment blocked - redirecting to existing confirmation");
+        return; // Stop here, redirect already happened
+      }
+      
+      console.log("✅ No completed registration found - proceeding with payment");
+      // STEP 3: Proceed with payment method creation
       await createPaymentMethod();
     };
 

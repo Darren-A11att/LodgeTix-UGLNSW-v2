@@ -1,5 +1,5 @@
-// Registration Types - updated to match store values
-export type RegistrationType = "individual" | "lodge" | "delegation"
+// Registration Types - updated to match database enum values
+export type RegistrationType = "individuals" | "lodge" | "delegation"
 
 export type MasonicTitle = "Bro" | "W Bro" | "VW Bro" | "RW Bro" | "MW Bro"
 export type MasonicRank = "EAF" | "FCF" | "MM" | "IM" | "GL"

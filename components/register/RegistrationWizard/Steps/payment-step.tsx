@@ -62,13 +62,12 @@ function PaymentStep(props: PaymentStepProps) {
   const {
     attendees: allStoreAttendees,
     registrationType,
-    packages,
     billingDetails: storeBillingDetails,
     updateBillingDetails: updateStoreBillingDetails,
     setConfirmationNumber: setStoreConfirmationNumber,
     draftId: storeDraftId,
     functionId: storeFunctionId,
-    // New metadata structures
+    // Enhanced metadata structures (primary)
     attendeeSelections,
     orderSummary,
     lodgeBulkSelection,
@@ -233,7 +232,7 @@ function PaymentStep(props: PaymentStepProps) {
       count: allStoreAttendees.length,
       ids: allStoreAttendees.map(a => ({ id: a.attendeeId, name: `${a.firstName} ${a.lastName}` }))
     });
-    console.log("2️⃣ Packages from store:", packages);
+    console.log("2️⃣ Attendee selections from store:", attendeeSelections);
     console.log("3️⃣ Ticket types loaded:", {
       count: ticketTypes.length,
       types: ticketTypes.map(t => ({ id: t.id, name: t.name, price: t.price }))
@@ -243,16 +242,20 @@ function PaymentStep(props: PaymentStepProps) {
       packages: ticketPackages.map(p => ({ id: p.id, name: p.name, price: p.price }))
     });
     
-    // Check each attendee's selection
+    // Check each attendee's selection using enhanced structure
     allStoreAttendees.forEach(attendee => {
-      const selection = packages[attendee.attendeeId];
+      const selection = attendeeSelections?.[attendee.attendeeId];
       console.log(`5️⃣ Attendee ${attendee.firstName} ${attendee.lastName} (${attendee.attendeeId}):`, {
         hasSelection: !!selection,
-        selection,
+        packageCount: selection?.packages.length || 0,
+        ticketCount: selection?.individualTickets.length || 0,
+        subtotal: selection?.attendeeSubtotal || 0,
         calculatedTickets: selection ? (
-          selection.ticketDefinitionId 
-            ? `Package: ${selection.ticketDefinitionId}`
-            : `Individual tickets: ${selection.selectedEvents?.join(', ') || 'none'}`
+          selection.packages.length > 0
+            ? `Packages: ${selection.packages.map(p => p.package.name).join(', ')}`
+            : selection.individualTickets.length > 0
+            ? `Individual tickets: ${selection.individualTickets.map(t => t.ticket.name).join(', ')}`
+            : 'NO TICKETS'
         ) : 'NO SELECTION'
       });
     });
@@ -275,49 +278,50 @@ function PaymentStep(props: PaymentStepProps) {
       return [];
     }
     
-    // Additional checks to ensure data is loaded
-    const hasPackageSelections = Object.values(packages).some(p => p.ticketDefinitionId);
-    const hasEventSelections = Object.values(packages).some(p => p.selectedEvents && p.selectedEvents.length > 0);
+    // Additional checks to ensure data is loaded using enhanced structures
+    const attendeeSummaries = Object.values(attendeeSelections || {});
+    const hasPackageSelections = attendeeSummaries.some(summary => summary.packages.length > 0);
+    const hasTicketSelections = attendeeSummaries.some(summary => summary.individualTickets.length > 0);
     
     if (hasPackageSelections && ticketPackages.length === 0) {
       console.warn("🎫 WARNING: Have package selections but ticketPackages not loaded yet");
       return [];
     }
     
-    if (hasEventSelections && ticketTypes.length === 0) {
-      console.warn("🎫 WARNING: Have event selections but ticketTypes not loaded yet");
+    if (hasTicketSelections && ticketTypes.length === 0) {
+      console.warn("🎫 WARNING: Have ticket selections but ticketTypes not loaded yet");
       return [];
     }
     
-    // Check if packages object is empty - might indicate store not hydrated yet
-    const hasPackages = Object.keys(packages).length > 0;
-    if (!hasPackages && allStoreAttendees.length > 0) {
-      console.warn("🎫 WARNING: No packages found but attendees exist - store might not be hydrated");
+    // Check if attendee selections exist - might indicate store not hydrated yet
+    const hasSelections = attendeeSummaries.length > 0;
+    if (!hasSelections && allStoreAttendees.length > 0) {
+      console.warn("🎫 WARNING: No selections found but attendees exist - store might not be hydrated");
     }
     
     console.log("🎫 Calculating tickets for summary with price resolution:", {
       attendeeCount: allStoreAttendees.length,
       attendeeIds: allStoreAttendees.map(a => a.attendeeId),
-      packagesData: packages,
-      packagesKeys: Object.keys(packages),
-      hasPackages,
+      attendeeSelectionsCount: attendeeSummaries.length,
+      hasSelections,
+      hasPackageSelections,
+      hasTicketSelections,
       ticketTypesCount: ticketTypes.length,
       ticketPackagesCount: ticketPackages.length,
       ticketPrices: ticketTypes.map(t => ({ id: t.id, name: t.name, price: t.price })),
       packagePrices: ticketPackages.map(p => ({ id: p.id, name: p.name, price: p.price }))
     });
     
-    // Build tickets with Zustand store state first
+    // Build tickets using enhanced attendee selections
     const ticketsFromStore = allStoreAttendees.flatMap(attendee => {
       const attendeeId = attendee.attendeeId;
-      const selection = packages[attendeeId];
+      const selection = attendeeSelections?.[attendeeId];
       
       console.log(`🎫 Processing attendee ${attendeeId}:`, {
         hasSelection: !!selection,
-        selection,
-        packagesObject: packages,
-        attendeeIdType: typeof attendeeId,
-        packageKeys: Object.keys(packages)
+        packageCount: selection?.packages.length || 0,
+        ticketCount: selection?.individualTickets.length || 0,
+        subtotal: selection?.attendeeSubtotal || 0
       });
       
       if (!selection) {
@@ -327,43 +331,33 @@ function PaymentStep(props: PaymentStepProps) {
       
       let tickets: Array<{ id: string; name: string; price: number; attendeeId: string; isPackage?: boolean; eventTicketId?: string }> = [];
 
-      if (selection.ticketDefinitionId) {
-        console.log(`🎫 Looking for package ${selection.ticketDefinitionId} in ${ticketPackages.length} packages`);
-        console.log(`🎫 Available packages:`, ticketPackages.map(p => ({ id: p.id, name: p.name })));
-        const pkgInfo = ticketPackages.find(p => p.id === selection.ticketDefinitionId);
-        if (pkgInfo) {
-          tickets.push({ 
-            id: `${attendeeId}-${pkgInfo.id}`,
-            name: pkgInfo.name, 
-            price: pkgInfo.price, // Store price - will be resolved from database
-            attendeeId, 
-            isPackage: true
-          });
-          console.log(`🎫 ✅ Added package ticket: ${pkgInfo.name} - $${pkgInfo.price}`);
-        } else {
-          console.warn(`🎫 ❌ Package ${selection.ticketDefinitionId} not found in ticketPackages`);
-          console.warn(`🎫 This likely means packages haven't loaded yet`);
-        }
-      } else if (selection.selectedEvents && selection.selectedEvents.length > 0) {
-        console.log(`🎫 Processing ${selection.selectedEvents.length} individual tickets`);
-        selection.selectedEvents.forEach(ticketId => {
-          const ticketInfo = ticketTypes.find(t => t.id === ticketId);
-          console.log(`🎫 Looking for ticket ${ticketId}:`, ticketInfo);
-          if (ticketInfo) {
-            tickets.push({ 
-              id: `${attendeeId}-${ticketInfo.id}`,
-              name: ticketInfo.name, 
-              price: ticketInfo.price, // Store price - will be resolved from database
-              attendeeId, 
-              isPackage: false,
-              eventTicketId: ticketInfo.id
-            });
-            console.log(`🎫 Added individual ticket: ${ticketInfo.name} - $${ticketInfo.price}`);
-          } else {
-            console.warn(`🎫 Ticket ${ticketId} not found in ticketTypes`);
-          }
+      // Add packages
+      selection.packages.forEach(packageSelection => {
+        const pkg = packageSelection.package;
+        tickets.push({ 
+          id: packageSelection.packageRecordId,
+          name: pkg.name, 
+          price: packageSelection.subtotal,
+          attendeeId, 
+          isPackage: true
         });
-      }
+        console.log(`🎫 ✅ Added package: ${pkg.name} - $${packageSelection.subtotal}`);
+      });
+
+      // Add individual tickets
+      selection.individualTickets.forEach(ticketSelection => {
+        const ticket = ticketSelection.ticket;
+        tickets.push({
+          id: ticketSelection.ticketRecordId,
+          name: ticket.name,
+          price: ticketSelection.subtotal,
+          attendeeId,
+          isPackage: false,
+          eventTicketId: ticket.ticketId
+        });
+        console.log(`🎫 ✅ Added individual ticket: ${ticket.name} - $${ticketSelection.subtotal}`);
+      });
+      
       return tickets;
     });
 
@@ -414,48 +408,24 @@ function PaymentStep(props: PaymentStepProps) {
       isPackage: ticket.isPackage,
       description: ticket.description
     }));
-  }, [allStoreAttendees, packages, ticketTypes, ticketPackages, isLoadingTickets, functionId, storeFunctionId]);
+  }, [allStoreAttendees, attendeeSelections, ticketTypes, ticketPackages, isLoadingTickets, functionId, storeFunctionId]);
 
-  // Calculate subtotal from orderSummary or fallback to legacy calculation
+  // Use enhanced orderSummary subtotal directly
   const subtotal = useMemo(() => {
-    // Prefer orderSummary if available
     if (orderSummary && orderSummary.subtotal > 0) {
-      console.log("💰 Using orderSummary for subtotal:", orderSummary.subtotal);
+      console.log("💰 Using enhanced orderSummary subtotal:", orderSummary.subtotal);
       return orderSummary.subtotal;
     }
     
-    // Fallback to legacy calculation
-    const total = currentTicketsForSummary.reduce((sum, ticket) => {
-      const price = ticket.price || 0;
-      if (price === 0) {
-        console.warn(`⚠️ Ticket has $0 price:`, ticket);
-      }
-      return sum + price;
-    }, 0);
-    
-    console.log("💰 Subtotal calculation (legacy):", {
-      subtotal: total,
-      ticketCount: currentTicketsForSummary.length,
-      tickets: currentTicketsForSummary.map(t => ({ 
-        name: t.name, 
-        price: t.price,
-        attendeeId: t.attendeeId,
-        isPackage: t.isPackage 
-      })),
+    // Enhanced system should always provide subtotal - if missing, it's an error
+    console.error("⚠️ Enhanced orderSummary subtotal missing or zero:", {
+      orderSummary,
       attendeeCount: allStoreAttendees.length,
-      packages: Object.keys(packages).length,
-      ticketTypesLoaded: ticketTypes.length,
-      ticketPackagesLoaded: ticketPackages.length
+      hasOrderSummary: !!orderSummary
     });
     
-    // If total is 0 but we have attendees, run debug
-    if (total === 0 && allStoreAttendees.length > 0) {
-      console.warn("⚠️ Subtotal is $0 but attendees exist - running debug");
-      debugTicketCalculation();
-    }
-    
-    return total;
-  }, [orderSummary, currentTicketsForSummary]);
+    return 0;
+  }, [orderSummary, allStoreAttendees.length]);
 
   // We'll calculate fees after form is defined - no default, will be set based on form value or geolocation
   const [billingCountry, setBillingCountry] = useState<{ isoCode: string; name: string } | null>(null);
@@ -535,32 +505,7 @@ function PaymentStep(props: PaymentStepProps) {
 
   // Handle payment method creation from CheckoutForm
   const handlePaymentMethodCreated = async (paymentMethodId: string, stripeBillingDetails: StripeBillingDetailsForClient) => {
-    console.log("💳 Payment method created, processing payment:", paymentMethodId);
-    
-    // Check for existing confirmation in localStorage first
-    console.log("🔍 Checking for existing confirmation in localStorage...");
-    try {
-      const recentRegistration = localStorage.getItem('recent_registration');
-      if (recentRegistration) {
-        const registrationData = JSON.parse(recentRegistration);
-        if (registrationData.confirmationNumber) {
-          console.log("✅ Found existing confirmation number:", registrationData.confirmationNumber);
-          console.log("🚀 Redirecting to fallback confirmation page immediately");
-          
-          // Get the function slug from the current URL
-          const pathSegments = window.location.pathname.split('/');
-          const functionSlugIndex = pathSegments.indexOf('functions') + 1;
-          const functionSlug = pathSegments[functionSlugIndex] || '';
-          
-          // Immediate redirect to fallback confirmation page
-          router.push(`/functions/${functionSlug}/register/confirmation/fallback/${registrationData.confirmationNumber}`);
-          return;
-        }
-      }
-    } catch (error) {
-      console.warn("⚠️ Could not check localStorage for existing confirmation:", error);
-      // Continue with normal payment process if localStorage check fails
-    }
+    console.log("💳 STEP 3: Payment method created, processing payment:", paymentMethodId);
     
     if (!anonymousSessionEstablished) {
       setPaymentError("Session expired. Please return to the registration type page to complete verification.");
@@ -579,8 +524,60 @@ function PaymentStep(props: PaymentStepProps) {
     });
 
     try {
+      // Initialize supabase client and get session ONCE for consistency
+      const supabaseClient = getBrowserClient();
+      const sessionResult = await supabaseClient.auth.getSession();
+      const session = sessionResult.data.session;
+      const user = session?.user || null;
+      
+      console.log('🔐 Session consistency check:', {
+        hasSession: !!session,
+        hasUser: !!user,
+        userId: user?.id,
+        sessionId: session?.access_token?.substring(0, 20) + '...'
+      });
+      
       // Step 1: Save registration if not already saved
       let registrationId = currentRegistrationId;
+      
+      console.log("🔍 Registration creation decision:", {
+        currentRegistrationId: currentRegistrationId,
+        hasOnSaveData: !!props.onSaveData,
+        willSkipCreation: !!registrationId
+      });
+      
+      // CRITICAL: Verify that the existing registration actually has valid data
+      if (registrationId) {
+        console.log("🔍 Verifying existing registration:", registrationId);
+        try {
+          const verifyResponse = await fetch(`/api/registrations/individuals?registrationId=${registrationId}`, {
+            headers: session?.access_token ? {
+              'Authorization': `Bearer ${session.access_token}`
+            } : {}
+          });
+          
+          if (verifyResponse.ok) {
+            const verifyResult = await verifyResponse.json();
+            console.log("✅ Registration verification successful:", {
+              subtotal: verifyResult.registration?.subtotal,
+              attendeeCount: verifyResult.registration?.attendee_count,
+              hasValidData: !!(verifyResult.registration?.subtotal > 0)
+            });
+            
+            // If registration has no subtotal, force recreation
+            if (!verifyResult.registration?.subtotal || verifyResult.registration.subtotal === 0) {
+              console.warn("⚠️ Existing registration has invalid subtotal, forcing recreation");
+              registrationId = null; // Force recreation
+            }
+          } else {
+            console.warn("⚠️ Registration verification failed, forcing recreation");
+            registrationId = null; // Force recreation
+          }
+        } catch (error) {
+          console.warn("⚠️ Registration verification error, forcing recreation:", error);
+          registrationId = null; // Force recreation
+        }
+      }
       
       if (!registrationId) {
         console.log("📨 Saving registration");
@@ -593,13 +590,8 @@ function PaymentStep(props: PaymentStepProps) {
           }
           registrationId = result.registrationId;
         } else {
-          // Direct API call
-          const supabase = getBrowserClient();
-          const { data: { user } } = await supabase.auth.getUser();
-          
-          if (!user) {
-            throw new Error('User authentication required');
-          }
+          // Use the session we already retrieved for consistency
+          console.log('📝 Using consistent session for registration creation');
 
           const billingData = form.getValues();
           // Expand packages into individual tickets for registration
@@ -708,10 +700,33 @@ function PaymentStep(props: PaymentStepProps) {
           };
 
           // Prepare data for the new individuals registration API with complete Zustand store state
+          console.group("🚀 REGISTRATION DATA DEBUGGING");
+          console.log("💰 Frontend calculated values:", {
+            subtotal,
+            totalAmount,
+            stripeFee: feeCalculation.stripeFee,
+            expandedTicketsCount: expandedTickets.length,
+            attendeesCount: transformedAttendees.length,
+            currentTicketsForSummaryCount: currentTicketsForSummary.length
+          });
+          console.log("🎫 Expanded tickets for registration:", expandedTickets.map(t => ({
+            name: t.name,
+            price: t.price,
+            attendeeId: t.attendeeId,
+            eventTicketId: t.eventTicketId,
+            isFromPackage: t.isFromPackage
+          })));
+          console.log("👥 Transformed attendees:", transformedAttendees.map(a => ({
+            firstName: a.firstName,
+            lastName: a.lastName,
+            isPrimary: a.isPrimary,
+            attendeeId: a.attendeeId
+          })));
+          
           const registrationData = {
             functionId: functionId || storeFunctionId,
             eventId: undefined, // Will be determined from tickets
-            customerId: user.id,
+            customerId: user?.id || 'anonymous', // Use 'anonymous' placeholder for anonymous users
             primaryAttendee: transformedAttendees.find(a => a.isPrimary),
             additionalAttendees: transformedAttendees.filter(a => !a.isPrimary),
             tickets: expandedTickets.map(ticket => ({
@@ -779,16 +794,38 @@ function PaymentStep(props: PaymentStepProps) {
             }
           };
 
+          console.log("📤 Final registration data being sent to API:", {
+            subtotal: registrationData.subtotal,
+            totalAmount: registrationData.totalAmount,
+            ticketsCount: registrationData.tickets.length,
+            attendeesCount: (registrationData.primaryAttendee ? 1 : 0) + registrationData.additionalAttendees.length,
+            functionId: registrationData.functionId,
+            customerId: registrationData.customerId
+          });
+          console.groupEnd();
+          
+          // Prepare headers - use the consistent session we retrieved earlier
+          const headers: Record<string, string> = {
+            'Content-Type': 'application/json'
+          };
+          
+          if (session?.access_token) {
+            headers['Authorization'] = `Bearer ${session.access_token}`;
+          }
+          
+          console.log("📡 Sending registration API call...");
           const response = await fetch('/api/registrations/individuals', {
             method: 'POST',
-            headers: { 
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
-            },
+            headers,
             body: JSON.stringify(registrationData)
           });
 
           const result = await response.json();
+          
+          console.group("📥 Registration API Response");
+          console.log("Response status:", response.status);
+          console.log("Response data:", result);
+          console.groupEnd();
           
           if (!response.ok || !result.registrationId) {
             throw new Error(result.error || 'Failed to save registration');
@@ -809,16 +846,22 @@ function PaymentStep(props: PaymentStepProps) {
         return newSteps;
       });
 
-      // Step 2: Process payment using unified payment service
+      // Step 2: Process payment using unified payment service - use same consistent session
+      console.log('💳 Using consistent session for payment creation');
+      const paymentHeaders: Record<string, string> = {
+        'Content-Type': 'application/json'
+      };
+      
+      if (session?.access_token) {
+        paymentHeaders['Authorization'] = `Bearer ${session.access_token}`;
+      }
+      
       const response = await fetch('/api/payments/create-intent', {
         method: 'POST',
-        headers: { 
-          "Content-Type": "application/json",
-          'Authorization': `Bearer ${(await getBrowserClient().auth.getSession()).data.session?.access_token}`
-        },
+        headers: paymentHeaders,
         body: JSON.stringify({
           registrationId,
-          paymentMethodId,
+          paymentMethodId: paymentMethodId, // ✅ Pass the payment method ID
           billingDetails: stripeBillingDetails,
           sessionId: storeDraftId, // Include session ID for tracking
           referrer: window.location.href
@@ -833,12 +876,12 @@ function PaymentStep(props: PaymentStepProps) {
 
       console.log("✅ Payment intent created:", result);
       
-      // Handle 3D Secure if needed
+      // Handle 3D Secure if needed (backend auto-confirms, but may require action)
       if (result.requiresAction && result.clientSecret) {
         console.log("🔐 3D Secure required");
         const stripe = (window as any).Stripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY);
         
-        // The payment intent already has the payment method attached
+        // Handle any required actions (like 3D Secure)
         const { error: confirmError, paymentIntent } = await stripe.confirmCardPayment(result.clientSecret);
         
         if (confirmError) {
@@ -859,12 +902,17 @@ function PaymentStep(props: PaymentStepProps) {
       // Wait for confirmation number using polling endpoint
       console.log("⏳ Polling for confirmation number...");
       
-      // Poll the confirmation endpoint
+      // Poll the confirmation endpoint - use same consistent session
+      console.log('🔍 Using consistent session for confirmation polling');
+      const confirmationHeaders: Record<string, string> = {};
+      
+      if (session?.access_token) {
+        confirmationHeaders['Authorization'] = `Bearer ${session.access_token}`;
+      }
+      
       const confirmationResponse = await fetch(`/api/registrations/${registrationId}/confirmation`, {
         method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${(await getBrowserClient().auth.getSession()).data.session?.access_token}`
-        }
+        headers: confirmationHeaders
       });
       
       const confirmationResult = await confirmationResponse.json();

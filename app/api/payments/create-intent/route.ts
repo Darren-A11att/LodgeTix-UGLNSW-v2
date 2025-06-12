@@ -13,6 +13,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { unifiedPaymentService } from '@/lib/services/unified-payment-service';
 import { createClient } from '@/utils/supabase/server';
+import { createClientWithToken } from '@/utils/supabase/server-with-token';
 import type { UnifiedPaymentRequest } from '@/lib/services/unified-payment-service';
 
 export async function POST(request: NextRequest) {
@@ -21,7 +22,7 @@ export async function POST(request: NextRequest) {
     
     // Parse request body
     const body = await request.json();
-    const { registrationId, billingDetails, sessionId, referrer } = body as UnifiedPaymentRequest;
+    const { registrationId, paymentMethodId, billingDetails, sessionId, referrer } = body as UnifiedPaymentRequest;
     
     // Validate required fields
     if (!registrationId) {
@@ -29,6 +30,15 @@ export async function POST(request: NextRequest) {
       console.groupEnd();
       return NextResponse.json(
         { error: 'Registration ID is required' },
+        { status: 400 }
+      );
+    }
+    
+    if (!paymentMethodId) {
+      console.error('Missing payment method ID');
+      console.groupEnd();
+      return NextResponse.json(
+        { error: 'Payment method ID is required' },
         { status: 400 }
       );
     }
@@ -53,20 +63,49 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    // Verify user authentication and ownership
-    const supabase = await createClient();
-    const { data: { user }, error: authError } = await supabase.auth.getUser();
+    // Authenticate user using same dual pattern as registration API
+    const authHeader = request.headers.get('authorization');
+    console.log("Payment API - Auth header present:", !!authHeader);
     
-    if (authError || !user) {
-      console.error('Authentication failed:', authError);
-      console.groupEnd();
-      return NextResponse.json(
-        { error: 'Authentication required' },
-        { status: 401 }
-      );
+    let user = null;
+    let supabase = null;
+    
+    // Try auth header first (matches registration API pattern)
+    if (authHeader) {
+      console.log("Payment API - Attempting authentication with Authorization header");
+      try {
+        const result = await createClientWithToken(authHeader);
+        supabase = result.supabase;
+        user = result.user;
+        console.log("Payment API - Successfully authenticated with Authorization header:", user.id);
+      } catch (headerAuthError) {
+        console.log("Payment API - Authorization header auth failed:", headerAuthError);
+      }
     }
     
-    // Verify user owns this registration
+    // Fall back to cookie auth (matches registration API pattern)
+    if (!user) {
+      console.log("Payment API - Attempting cookie-based authentication");
+      supabase = await createClient();
+      
+      const { data: { user: cookieUser }, error: authError } = await supabase.auth.getUser();
+      console.log("Payment API - Cookie auth result:", { user: cookieUser?.id, error: authError?.message });
+      
+      if (!authError && cookieUser) {
+        user = cookieUser;
+      }
+    }
+    
+    // Handle authentication - support both authenticated and anonymous users
+    const isAnonymousPayment = !user;
+    
+    if (isAnonymousPayment) {
+      console.log('Payment API - Processing payment without authenticated user (anonymous registration)');
+    } else {
+      console.log('Payment API - Processing payment for authenticated user:', user.id);
+    }
+    
+    // Verify user owns this registration (handle both authenticated and anonymous)
     const { data: registration, error: regError } = await supabase
       .from('registrations')
       .select('auth_user_id, status, payment_status')
@@ -82,13 +121,35 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    if (registration.auth_user_id !== user.id) {
-      console.error('User does not own this registration');
+    // For authenticated users, verify ownership
+    // For anonymous registrations (auth_user_id is null), allow payment
+    // For anonymous payment attempts, only allow if registration is also anonymous
+    if (user && registration.auth_user_id !== null && registration.auth_user_id !== user.id) {
+      console.error('User does not own this registration:', {
+        currentUserId: user.id,
+        registrationAuthUserId: registration.auth_user_id,
+        registrationId: registrationId
+      });
       console.groupEnd();
       return NextResponse.json(
         { error: 'Unauthorized' },
         { status: 403 }
       );
+    }
+    
+    // If no authenticated user but registration has an auth_user_id, block it
+    if (!user && registration.auth_user_id !== null) {
+      console.error('Anonymous user cannot pay for authenticated registration');
+      console.groupEnd();
+      return NextResponse.json(
+        { error: 'Authentication required for this registration' },
+        { status: 401 }
+      );
+    }
+    
+    // Log if this is an anonymous registration
+    if (registration.auth_user_id === null) {
+      console.log('Processing payment for anonymous registration');
     }
     
     // Check if already paid
@@ -110,6 +171,7 @@ export async function POST(request: NextRequest) {
     // Create payment intent using unified service
     const paymentResponse = await unifiedPaymentService.createPaymentIntent({
       registrationId,
+      paymentMethodId, // ✅ Pass the payment method ID to the service
       billingDetails,
       sessionId,
       referrer

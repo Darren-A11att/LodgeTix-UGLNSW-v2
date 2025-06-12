@@ -70,11 +70,14 @@ export interface FunctionPackage {
   function_id: string
   is_active: boolean | null
   qty: number | null
-  includes: string[]
+  includes: string[] // UUIDs of included tickets
   includes_description: string[] | null
   eligibility_criteria: any | null
   eligibleAttendeeTypes: string[]
   eligibleRegistrationTypes: string[]
+  // New fields for enhanced display
+  includedTicketNames?: string[] // Resolved ticket names for display
+  includedTicketsCount?: number // Count of included tickets
 }
 
 export interface FunctionTicketsAndPackages {
@@ -238,6 +241,41 @@ class FunctionTicketsService {
    * @param functionId - The function UUID
    * @param registrationType - Optional registration type filter
    */
+  /**
+   * Parse included_items array format like ["(uuid,1)","(uuid,1)"] to extract UUIDs
+   * @param includedItems - Raw included_items from database
+   * @returns Array of event ticket UUIDs
+   */
+  private parseIncludedItems(includedItems: any[]): string[] {
+    if (!Array.isArray(includedItems)) return [];
+    
+    return includedItems
+      .map(item => {
+        // Convert to string if needed
+        const itemStr = typeof item === 'string' ? item : String(item);
+        
+        // Parse format "(uuid,quantity)" to extract UUID
+        const match = itemStr.match(/^\(([^,]+),\d+\)$/);
+        return match ? match[1] : null;
+      })
+      .filter((uuid): uuid is string => uuid !== null);
+  }
+
+  /**
+   * Resolve ticket names for UUIDs
+   * @param ticketIds - Array of event ticket UUIDs
+   * @param allTickets - All available tickets for the function
+   * @returns Array of ticket names
+   */
+  private resolveTicketNames(ticketIds: string[], allTickets: FunctionTicketDefinition[]): string[] {
+    return ticketIds
+      .map(ticketId => {
+        const ticket = allTickets.find(t => t.id === ticketId);
+        return ticket ? ticket.name : null;
+      })
+      .filter((name): name is string => name !== null);
+  }
+
   async getFunctionTicketsAndPackages(functionId: string, registrationType?: string): Promise<FunctionTicketsAndPackages> {
     try {
       if (!functionId) {
@@ -247,10 +285,32 @@ class FunctionTicketsService {
       
       api.debug(`Fetching tickets and packages for function: ${functionId}, registrationType: ${registrationType}`)
       
-      const [tickets, packages] = await Promise.all([
+      const [tickets, rawPackages] = await Promise.all([
         this.getFunctionTickets(functionId, registrationType),
         this.getFunctionPackages(functionId, registrationType)
       ])
+
+      // Process packages to resolve included ticket names
+      const packages = rawPackages.map(pkg => {
+        // Parse the included_items to get ticket UUIDs
+        const includedTicketIds = this.parseIncludedItems(pkg.includes);
+        
+        // Resolve ticket names for the UUIDs
+        const includedTicketNames = this.resolveTicketNames(includedTicketIds, tickets);
+        
+        api.debug(`Package "${pkg.name}" includes tickets:`, {
+          rawIncludes: pkg.includes,
+          parsedIds: includedTicketIds,
+          ticketNames: includedTicketNames
+        });
+
+        return {
+          ...pkg,
+          includes: includedTicketIds, // Keep UUIDs for backend processing
+          includedTicketNames, // Add resolved names for display
+          includedTicketsCount: includedTicketIds.length
+        };
+      });
 
       return {
         functionId,

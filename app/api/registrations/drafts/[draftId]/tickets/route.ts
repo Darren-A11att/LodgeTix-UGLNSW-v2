@@ -3,10 +3,13 @@ import { createClient } from '@/utils/supabase/server';
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { draftId: string } }
+  { params }: { params: Promise<{ draftId: string }> }
 ) {
   try {
     console.group("💾 Draft Ticket Persistence API");
+    
+    // Await params before using
+    const { draftId } = await params;
     
     const { 
       functionId, 
@@ -21,7 +24,7 @@ export async function POST(
     } = await request.json();
     
     console.log("Received draft ticket persistence request:", {
-      draftId: params.draftId,
+      draftId,
       functionId,
       attendeeCount: Object.keys(ticketSelections || {}).length,
       hasMetadata: !!(functionMetadata || ticketMetadata || packageMetadata),
@@ -30,7 +33,7 @@ export async function POST(
     });
     
     // Validate required fields
-    if (!params.draftId) {
+    if (!draftId) {
       console.error("Missing draft ID");
       console.groupEnd();
       return NextResponse.json(
@@ -93,7 +96,7 @@ export async function POST(
     
     // Store the draft data in a JSON format that can be easily retrieved
     const draftData = {
-      draftId: params.draftId,
+      draftId,
       functionId,
       ticketSelections,
       // NEW: Enhanced metadata storage
@@ -140,7 +143,7 @@ export async function POST(
     return NextResponse.json({
       success: true,
       message: "Draft ticket selections saved successfully",
-      draftId: params.draftId,
+      draftId,
       attendeeCount: Object.keys(ticketSelections).length
     });
     
@@ -157,9 +160,10 @@ export async function POST(
 // Optional: GET endpoint to retrieve draft ticket selections
 export async function GET(
   request: NextRequest,
-  { params }: { params: { draftId: string } }
+  { params }: { params: Promise<{ draftId: string }> }
 ) {
   try {
+    const { draftId } = await params;
     const supabase = await createClient();
     
     // Get or create anonymous session (same pattern as lodge registration API)
@@ -190,7 +194,7 @@ export async function GET(
       .from('raw_registrations')
       .select('raw_data')
       .eq('registration_type', 'draft_tickets')
-      .eq('raw_data->draft_data->draftId', params.draftId)
+      .eq('raw_data->draft_data->draftId', draftId)
       .eq('raw_data->draft_data->userId', user.id)
       .order('created_at', { ascending: false })
       .limit(1)

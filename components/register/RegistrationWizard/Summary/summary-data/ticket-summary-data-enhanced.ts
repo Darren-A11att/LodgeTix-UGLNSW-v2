@@ -90,9 +90,9 @@ export function getEnhancedTicketSummaryData({
           });
           
           // Show included tickets
-          pkg.package.includedTickets.forEach(ticket => {
+          pkg.package.includedTicketNames?.forEach(ticketName => {
             items.push({
-              label: `  • ${ticket.name}`,
+              label: `  • ${ticketName}`,
               value: 'Included',
               isSubItem: true
             });

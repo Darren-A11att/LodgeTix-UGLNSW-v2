@@ -154,7 +154,7 @@ export async function POST(request: Request) {
           }
           
           // Extract registration data
-          registrationType = registration.registration_type || 'individual';
+          registrationType = registration.registration_type || 'individuals';
           confirmationNumber = registration.confirmation_number || `REG-${registrationId.substring(0, 8).toUpperCase()}`;
           
           // Extract attendee data
@@ -253,6 +253,13 @@ export async function POST(request: Request) {
       // Update the total amount to what customer should actually pay
       amount = Math.round(calculatedFees.customerPayment * 100); // Convert to cents
       
+      // IMPORTANT: If there's nothing to transfer (free tickets), don't use Stripe Connect
+      if (transferAmount === 0) {
+        console.log('🆓 Free tickets detected - disabling Stripe Connect for this payment');
+        connectedAccountId = null;
+        transferAmount = 0;
+      }
+      
       console.log(`Fee calculation:`, {
         connectedAmount: calculatedFees.connectedAmount,
         platformFee: calculatedFees.platformFee,
@@ -315,7 +322,7 @@ export async function POST(request: Request) {
       comprehensiveMetadata = buildPaymentIntentMetadata({
         // Registration
         registrationId: registrationId,
-        registrationType: registrationType as 'individual' | 'lodge' | 'delegation',
+        registrationType: registrationType as 'individuals' | 'lodge' | 'delegation',
         confirmationNumber: confirmationNumber,
         
         // Function (replaces Event)
@@ -406,7 +413,7 @@ export async function POST(request: Request) {
     let receiptEmail = null;
     if (registrationId) {
       // For full registrations, we have registration data with billing details
-      if (registrationType === 'individual') {
+      if (registrationType === 'individuals' || registrationType === 'individual') {
         // For individual registrations, use billing details email
         // This should come from the billing form the user filled out
         receiptEmail = metadata?.billingEmail || primaryAttendee?.email;
@@ -470,7 +477,7 @@ export async function POST(request: Request) {
       }
     }
 
-    // Only add Connect parameters if we have a valid connected account
+    // Only add Connect parameters if we have a valid connected account AND something to transfer
     if (connectedAccountId && transferAmount > 0) {
       // NEW: Use transfer_data instead of application_fee_amount for correct fee handling
       paymentIntentOptions.transfer_data = {

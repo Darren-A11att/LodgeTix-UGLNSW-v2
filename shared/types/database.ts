@@ -2783,7 +2783,7 @@ export type Database = {
         | "quote_accept"
       billing_scheme: "per_unit" | "tiered"
       collection_method: "charge_automatically" | "send_invoice"
-      contact_type: "individual" | "organisation"
+      contact_type: "person" | "organisation"
       customer_type: "booking_contact" | "sponsor" | "donor"
       invoice_status: "draft" | "open" | "paid" | "void" | "uncollectible"
       organisation_type:
@@ -2962,7 +2962,7 @@ export const Constants = {
       ],
       billing_scheme: ["per_unit", "tiered"],
       collection_method: ["charge_automatically", "send_invoice"],
-      contact_type: ["individual", "organisation"],
+      contact_type: ["person", "organisation"],
       customer_type: ["booking_contact", "sponsor", "donor"],
       invoice_status: ["draft", "open", "paid", "void", "uncollectible"],
       organisation_type: [

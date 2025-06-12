@@ -20,9 +20,11 @@ export function getOrderReviewSummaryData({
   
   // Registration Info section
   const getFormattedRegistrationType = () => {
-    if (registrationType === 'individual') return 'Myself & Others';
+    if (registrationType === 'individuals') return 'Myself & Others';
     if (registrationType === 'lodge') return 'Lodge';
     if (registrationType === 'delegation') return 'Official Delegation';
+    // Support legacy value during transition
+    if (registrationType === 'individual') return 'Myself & Others'; // backwards compatibility
     return registrationType || 'Not selected';
   };
   

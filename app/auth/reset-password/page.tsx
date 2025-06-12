@@ -10,6 +10,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { KeyRound, Loader2, AlertCircle, CheckCircle } from 'lucide-react'
 import Link from 'next/link'
 import { getBrowserClient } from '@/lib/supabase-singleton'
+import { userRoleServiceClient } from '@/lib/services/user-role-service-client'
 
 export default function ResetPasswordPage() {
   const [password, setPassword] = useState('')
@@ -21,14 +22,43 @@ export default function ResetPasswordPage() {
   const supabase = getBrowserClient()
 
   useEffect(() => {
-    // Check if we have a valid recovery token in the URL
-    const hashParams = new URLSearchParams(window.location.hash.substring(1))
-    const accessToken = hashParams.get('access_token')
-    const type = hashParams.get('type')
+    const handlePasswordReset = async () => {
+      // Check if we have a valid recovery token in the URL
+      const hashParams = new URLSearchParams(window.location.hash.substring(1))
+      const accessToken = hashParams.get('access_token')
+      const refreshToken = hashParams.get('refresh_token')
+      const type = hashParams.get('type')
 
-    if (!accessToken || type !== 'recovery') {
-      setError('Invalid or missing password reset link. Please request a new one.')
+      if (!accessToken || type !== 'recovery') {
+        setError('Invalid or missing password reset link. Please request a new one.')
+        return
+      }
+
+      try {
+        // Set the session using the tokens from the URL
+        const { data, error } = await supabase.auth.setSession({
+          access_token: accessToken,
+          refresh_token: refreshToken || ''
+        })
+
+        if (error) {
+          console.error('Session setup error:', error)
+          setError('Invalid or expired password reset link. Please request a new one.')
+          return
+        }
+
+        // Clear the hash from the URL for security
+        if (window.history.replaceState) {
+          window.history.replaceState(null, '', window.location.pathname)
+        }
+
+      } catch (err) {
+        console.error('Auth setup error:', err)
+        setError('Failed to establish auth session. Please try again.')
+      }
     }
+
+    handlePasswordReset()
   }, [])
 
   const handleResetPassword = async (e: React.FormEvent) => {
@@ -61,10 +91,21 @@ export default function ResetPasswordPage() {
 
       setSuccess(true)
       
-      // Redirect to login after 3 seconds
-      setTimeout(() => {
-        router.push('/login')
-      }, 3000)
+      // Check if user is now authenticated and redirect appropriately
+      const { data: { user } } = await supabase.auth.getUser()
+      
+      if (user) {
+        // User is authenticated, determine their default portal
+        const defaultPortal = await userRoleServiceClient.getDefaultPortal()
+        setTimeout(() => {
+          router.push(defaultPortal)
+        }, 3000)
+      } else {
+        // Fallback to login page
+        setTimeout(() => {
+          router.push('/login')
+        }, 3000)
+      }
     } catch (err) {
       setError('An unexpected error occurred. Please try again.')
     } finally {
@@ -87,10 +128,10 @@ export default function ResetPasswordPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <p className="text-sm text-center text-muted-foreground">
-              You will be redirected to the login page in a few seconds...
+              You will be redirected automatically in a few seconds...
             </p>
             <Button asChild variant="default" className="w-full">
-              <Link href="/login">Go to Login Now</Link>
+              <Link href="/portal">Go to Portal Now</Link>
             </Button>
           </CardContent>
         </Card>

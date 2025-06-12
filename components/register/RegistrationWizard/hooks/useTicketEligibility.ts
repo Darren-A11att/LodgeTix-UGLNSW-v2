@@ -7,7 +7,7 @@ export const useTicketEligibility = () => {
   const getGroupDiscountEligibility = useCallback(() => {
     // Group tickets available for lodge registrations or 10+ individuals
     if (registrationType === 'lodge') return true;
-    if (registrationType === 'individual' && attendees.length >= 10) return true;
+    if ((registrationType === 'individuals' || registrationType === 'individual') && attendees.length >= 10) return true;
     return false;
   }, [attendees.length, registrationType]);
 
