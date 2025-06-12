@@ -103,7 +103,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         payment_method: paymentMethodId,
         confirmation_method: 'manual',
         confirm: true,
-        return_url: `${process.env.NEXT_PUBLIC_APP_URL}/functions/${functionData.slug || functionId}/register/success`,
+        return_url: `${process.env.NODE_ENV === 'production' ? 'https://lodgetix.io' : 'http://localhost:3000'}/functions/${functionData.slug || functionId}/register/success`,
         receipt_email: bookingContact?.email || primaryAttendee?.email, // Use billing email, not attendee email
         metadata: {
           // Function (consistent with create-payment-intent)
@@ -144,8 +144,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           paymentIntentOptions.on_behalf_of = connectedAccountId;
           paymentIntentOptions.application_fee_amount = applicationFeeAmount;
           
-          // Add statement descriptor with function name and registration type
-          const descriptorText = `${functionData.name} individual`.trim();
+          // Add statement descriptor with function slug and registration type
+          const descriptorText = `${functionData.slug} individual`.trim();
           const statementDescriptor = descriptorText
             ?.substring(0, 22)
             .replace(/[^a-zA-Z0-9 ]/g, '')

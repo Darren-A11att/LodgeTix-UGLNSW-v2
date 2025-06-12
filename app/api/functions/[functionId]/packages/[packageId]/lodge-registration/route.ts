@@ -98,46 +98,47 @@ export async function POST(
       rounded: { amount: roundedAmount, subtotal: roundedSubtotal, stripeFee: roundedStripeFee }
     });
 
+    // Fetch function for Stripe Connect details (needed for both payment and registration)
+    const { data: functionData } = await supabase
+      .from('functions')
+      .select(`
+        function_id,
+        name,
+        slug,
+        organiser_id,
+        organisations!functions_organiser_id_fkey(
+          organisation_id,
+          name,
+          stripe_onbehalfof
+        )
+      `)
+      .eq('function_id', functionId)
+      .single();
+      
+    if (!functionData) {
+      return NextResponse.json(
+        { success: false, error: 'Function not found' },
+        { status: 404 }
+      );
+    }
+    
+    // Check for connected account (define outside payment block so it's accessible later)
+    const connectedAccountId = functionData.organisations?.stripe_onbehalfof;
+    const organisationName = functionData.organisations?.name;
+
     // If payment method provided, process payment first
     let paymentIntent = null;
     let paymentStatus = 'pending';
     
     if (paymentMethodId) {
-      // Fetch function for Stripe Connect details
-      const { data: functionData } = await supabase
-        .from('functions')
-        .select(`
-          function_id,
-          name,
-          slug,
-          organiser_id,
-          organisations!functions_organiser_id_fkey(
-            organisation_id,
-            name,
-            stripe_onbehalfof
-          )
-        `)
-        .eq('function_id', functionId)
-        .single();
-        
-      if (!functionData) {
-        return NextResponse.json(
-          { success: false, error: 'Function not found' },
-          { status: 404 }
-        );
-      }
-      
-      // Check for connected account
-      const connectedAccountId = functionData.organisations?.stripe_onbehalfof;
-      const organisationName = functionData.organisations?.name;
       
       // Platform fee is handled by the difference between customer payment and transfer amount
       // Customer pays: amount (includes all fees)
       // Connected account receives: subtotal
       // Platform keeps: amount - subtotal - stripe_processing_fee
       
-      // Get base URL with fallback
-      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+      // Get base URL with fallback - use production URL for return URL
+      const baseUrl = process.env.NODE_ENV === 'production' ? 'https://lodgetix.io' : 'http://localhost:3000';
       console.log('[Lodge Registration API] Base URL:', baseUrl);
       
       // Determine receipt email
@@ -190,8 +191,8 @@ export async function POST(
             amount: roundedSubtotal, // Transfer exactly the rounded subtotal to connected account
           };
           
-          // Add statement descriptor with function name and registration type
-          const descriptorText = `${functionData.name} lodge`.trim();
+          // Add statement descriptor with function slug and registration type
+          const descriptorText = `${functionData.slug} lodge`.trim();
           const statementDescriptor = descriptorText
             ?.substring(0, 22)
             .replace(/[^a-zA-Z0-9 ]/g, '')
@@ -242,7 +243,8 @@ export async function POST(
           roundedAmountCents: roundedAmount,
           roundedSubtotalCents: roundedSubtotal,
           roundedStripFeeCents: roundedStripeFee,
-        }
+        },
+        p_connected_account_id: connectedAccountId || null  // Add the missing parameter
       });
 
     console.log('[Lodge Registration API] RPC Result:', {
@@ -438,6 +440,11 @@ export async function PUT(
         p_payment_status: paymentStatus,
         p_stripe_payment_intent_id: stripePaymentIntentId,
         p_registration_id: registrationId,
+        p_total_amount: 0, // Not updating amounts for status changes
+        p_subtotal: 0,
+        p_stripe_fee: 0,
+        p_metadata: {},
+        p_connected_account_id: null
       });
 
     if (registrationError) {
