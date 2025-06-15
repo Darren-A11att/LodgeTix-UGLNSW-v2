@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
@@ -27,22 +27,8 @@ export function ClientConfirmationPage({ confirmationNumber, fallbackData }: Cli
   const localData = useConfirmationData(confirmationNumber);
   const rawRegistration = localData || fallbackData;
 
-  if (!rawRegistration) {
-    return (
-      <div className="min-h-screen bg-gray-50 py-8">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-          <Card>
-            <CardContent className="p-8 text-center">
-              <p className="text-gray-600">Loading confirmation data...</p>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-    );
-  }
-
   // Normalize data structure to handle both localStorage and database formats
-  const registration = {
+  const registration = rawRegistration ? {
     ...rawRegistration,
     // Normalize function data structure
     functionData: rawRegistration.functionData || {
@@ -88,7 +74,7 @@ export function ClientConfirmationPage({ confirmationNumber, fallbackData }: Cli
       postcode: rawRegistration.billing_postal_code,
       country: { name: rawRegistration.billing_country }
     }
-  };
+  } : null;
 
   // Format date
   const formatDate = (dateString: string) => {
@@ -103,9 +89,78 @@ export function ClientConfirmationPage({ confirmationNumber, fallbackData }: Cli
   };
 
   // Calculate totals from local data - handle both field name formats
-  const subtotal = registration.subtotal || 0;
-  const stripeFee = registration.stripeFee || registration.stripe_fee || 0;
-  const totalAmount = registration.totalAmount || registration.total_amount_paid || 0;
+  const subtotal = registration?.subtotal || 0;
+  const stripeFee = registration?.stripeFee || registration?.stripe_fee || 0;
+  const totalAmount = registration?.totalAmount || registration?.total_amount_paid || 0;
+
+  // Silent email sending - trigger once when data is loaded
+  useEffect(() => {
+    const sendConfirmationEmail = async () => {
+      // Only send if we have all required data and haven't sent before
+      if (!rawRegistration || !registration || !confirmationNumber || !registration.billingDetails?.emailAddress) {
+        return;
+      }
+
+      // Check if email was already sent (using localStorage to prevent duplicate sends)
+      const emailSentKey = `email-sent-${confirmationNumber}`;
+      if (localStorage.getItem(emailSentKey)) {
+        return;
+      }
+
+      try {
+        console.log('📧 Sending confirmation email silently...');
+        
+        const emailData = {
+          confirmationNumber,
+          functionData: registration.functionData,
+          billingDetails: registration.billingDetails,
+          attendees: registration.attendees || [],
+          tickets: registration.tickets || [],
+          subtotal,
+          stripeFee,
+          totalAmount,
+        };
+
+        const response = await fetch('/api/emails/individual-confirmation', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(emailData),
+        });
+
+        const result = await response.json();
+
+        if (result.success) {
+          console.log('✅ Confirmation email sent successfully:', result.emailId);
+          // Mark as sent to prevent duplicate sends
+          localStorage.setItem(emailSentKey, 'true');
+        } else {
+          console.error('❌ Failed to send confirmation email:', result.error);
+        }
+      } catch (error) {
+        console.error('❌ Error sending confirmation email:', error);
+      }
+    };
+
+    // Small delay to ensure component is fully hydrated
+    const timer = setTimeout(sendConfirmationEmail, 1000);
+    return () => clearTimeout(timer);
+  }, [rawRegistration, registration, confirmationNumber, subtotal, stripeFee, totalAmount]);
+
+  if (!rawRegistration) {
+    return (
+      <div className="min-h-screen bg-gray-50 py-8">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+          <Card>
+            <CardContent className="p-8 text-center">
+              <p className="text-gray-600">Loading confirmation data...</p>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
