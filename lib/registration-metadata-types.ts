@@ -194,7 +194,6 @@ export interface RegistrationTableData {
   stripe_fee: number;
   status: 'draft' | 'pending' | 'completed' | 'cancelled';
   payment_status: 'unpaid' | 'paid' | 'failed' | 'refunded';
-  payment_intent_id: string | null;
   stripe_payment_intent_id: string | null;
   organization_id: string | null;
 }

@@ -298,9 +298,15 @@ export async function POST(
       );
     }
 
-    // Generate confirmation number if payment was successful
-    let confirmationNumber = registrationResult?.confirmationNumber || registrationResult?.confirmation_number;
-    const finalRegistrationId = registrationResult?.registrationId || registrationResult?.registration_id || registrationId;
+    // Extract confirmation number and registration ID from result
+    let confirmationNumber = registrationResult?.[0]?.confirmation_number || registrationResult?.confirmationNumber || registrationResult?.confirmation_number;
+    const finalRegistrationId = registrationResult?.[0]?.registration_id || registrationResult?.registrationId || registrationResult?.registration_id || registrationId;
+    
+    console.log('[Lodge Registration API] Extracted values:', {
+      confirmationNumber,
+      finalRegistrationId,
+      registrationResult: registrationResult?.[0] || registrationResult
+    });
     
     if (paymentStatus === 'completed' && !confirmationNumber) {
       console.log('[Lodge Registration API] Generating confirmation number directly...');

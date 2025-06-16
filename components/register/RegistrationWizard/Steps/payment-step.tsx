@@ -1014,7 +1014,6 @@ function PaymentStep(props: PaymentStepProps) {
               status: 'completed',
               payment_status: 'completed',
               stripe_payment_intent_id: result.paymentIntentId,
-              payment_intent_id: result.paymentIntentId,
               total_amount_paid: result.totalAmount,
               stripe_fee: result.processingFees
             })

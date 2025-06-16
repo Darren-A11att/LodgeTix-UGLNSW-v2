@@ -39,7 +39,10 @@ export default async function LodgeConfirmationRoute({ params }: LodgeConfirmati
   
   // Verify payment is completed
   if (registration.payment_status !== 'completed' || registration.status !== 'completed') {
-    console.error('[LodgeConfirmationRoute] Payment not completed');
+    console.error('[LodgeConfirmationRoute] Payment not completed', {
+      payment_status: registration.payment_status,
+      status: registration.status
+    });
     redirect(`/functions/${slug}?error=payment_not_completed`);
   }
   

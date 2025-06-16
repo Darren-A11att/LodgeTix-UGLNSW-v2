@@ -530,7 +530,6 @@ export class UnifiedPaymentService {
         status: 'completed',
         payment_status: 'completed',
         stripe_payment_intent_id: paymentIntentId,
-        payment_intent_id: paymentIntentId, // Add payment_intent_id field
         updated_at: new Date().toISOString()
       };
       

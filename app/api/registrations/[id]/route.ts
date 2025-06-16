@@ -194,6 +194,12 @@ export async function PATCH(
       }
     }
     
+    // Map payment_intent_id to stripe_payment_intent_id for database compatibility
+    if (enhancedUpdateData.payment_intent_id && !enhancedUpdateData.stripe_payment_intent_id) {
+      enhancedUpdateData.stripe_payment_intent_id = enhancedUpdateData.payment_intent_id;
+      delete enhancedUpdateData.payment_intent_id;
+    }
+    
     // Update registration with enhanced data
     const { data: updatedRegistration, error: updateError } = await supabase
       .from("registrations")

@@ -277,7 +277,6 @@ const initialRegistrationState: Omit<RegistrationState, 'startNewRegistration' |
       stripe_fee: 0,
       status: 'draft',
       payment_status: 'unpaid',
-      payment_intent_id: null,
       stripe_payment_intent_id: null,
       organization_id: null
     },
