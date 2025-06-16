@@ -111,9 +111,9 @@ describe('Stripe Fee Calculator - Complete Overhaul', () => {
       const result = calculateStripeFees(0, { isDomestic: true });
       
       expect(result.connectedAmount).toBe(0);
-      expect(result.platformFee).toBe(0);
-      expect(result.customerPayment).toBeCloseTo(0.31, 2); // Just the fixed fee
-      expect(result.stripeFee).toBeCloseTo(0.31, 2);
+      expect(result.platformFee).toBe(1); // $1 minimum platform fee
+      expect(result.customerPayment).toBeCloseTo(1.32, 2); // $1 minimum + stripe percentage and fixed fee
+      expect(result.stripeFee).toBeCloseTo(0.32, 2);
       
       const validation = validateFeeCalculation(result);
       expect(validation.isValid).toBe(true);
@@ -121,6 +121,30 @@ describe('Stripe Fee Calculator - Complete Overhaul', () => {
   });
 
   describe('Platform Fee Capping', () => {
+    it('applies minimum platform fee for very small amounts', () => {
+      // For $25 order: 2% = $0.50, but minimum is $1
+      const result = calculateStripeFees(25, { isDomestic: true });
+      
+      expect(result.connectedAmount).toBe(25);
+      expect(result.platformFee).toBe(1); // $1 minimum (higher than 2% of $25 = $0.50)
+      expect(result.customerPayment).toBeGreaterThan(25);
+      
+      const validation = validateFeeCalculation(result);
+      expect(validation.isValid).toBe(true);
+    });
+
+    it('applies platform fee percentage when above minimum', () => {
+      // For $100 order: 2% = $2.00, which is above $1 minimum
+      const result = calculateStripeFees(100, { isDomestic: true });
+      
+      expect(result.connectedAmount).toBe(100);
+      expect(result.platformFee).toBe(2); // 2% of $100 = $2.00 (above $1 minimum)
+      expect(result.customerPayment).toBeGreaterThan(100);
+      
+      const validation = validateFeeCalculation(result);
+      expect(validation.isValid).toBe(true);
+    });
+
     it('applies platform fee percentage for small amounts', () => {
       const amounts = [100, 500, 750]; // All should be under $20 cap
       
@@ -254,7 +278,7 @@ describe('Stripe Fee Calculator - Complete Overhaul', () => {
       const validation = validateFeeCalculation(result);
       
       expect(validation.isValid).toBe(false);
-      expect(validation.errors.some(error => error.includes('exceeds cap'))).toBe(true);
+      expect(validation.errors.some(error => error.includes('calculation mismatch'))).toBe(true);
     });
   });
 
@@ -369,7 +393,7 @@ describe('Stripe Fee Calculator - Complete Overhaul', () => {
       const result = calculateStripeFees(1, { isDomestic: true });
       
       expect(result.connectedAmount).toBe(1);
-      expect(result.platformFee).toBeCloseTo(0.02, 2); // 2% of $1
+      expect(result.platformFee).toBe(1); // $1 minimum (higher than 2% of $1 = $0.02)
       expect(result.customerPayment).toBeGreaterThan(1);
       
       const validation = validateFeeCalculation(result);

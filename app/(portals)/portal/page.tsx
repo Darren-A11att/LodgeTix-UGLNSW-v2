@@ -15,26 +15,36 @@ const iconMap = {
 export default async function PortalHub() {
   const supabase = await createClient()
   
-  // Check if user is authenticated
+  // Check if user is authenticated and permanent (not anonymous)
   const { data: { user } } = await supabase.auth.getUser()
   
-  if (!user) {
+  console.log('[Portal] User check:', user ? { id: user.id, anonymous: user.is_anonymous } : 'No user')
+  
+  if (!user || user.is_anonymous) {
+    console.log('[Portal] Redirecting to login - no user or anonymous user')
     redirect('/login')
   }
+  
+  console.log('[Portal] User authenticated, showing portal hub')
 
   // Get available personas for the user
   const personas = await userRoleService.getAvailablePersonas()
   const availablePersonas = personas.filter(p => p.available)
 
-  // If user has only one available persona, redirect them directly
-  if (availablePersonas.length === 1) {
-    redirect(availablePersonas[0].path)
-  }
-
-  // If user has no available personas, they're a new user
-  if (availablePersonas.length === 0) {
-    redirect('/customer')
-  }
+  // Always show portal hub to authenticated users - let them choose their portal
+  // This ensures all authenticated users can access the base portal regardless of permissions
+  
+  // If no personas are available, ensure customer portal is always available for new users
+  const displayPersonas = availablePersonas.length > 0 ? availablePersonas : [
+    {
+      role: 'customer',
+      title: 'Customer Portal',
+      description: 'Register for events and manage your bookings',
+      path: '/customer',
+      icon: 'ticket',
+      available: true
+    }
+  ]
 
   return (
     <div className="min-h-screen bg-gray-50 flex items-center justify-center px-4">
@@ -52,7 +62,7 @@ export default async function PortalHub() {
 
         {/* Available Personas Grid */}
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {availablePersonas.map((persona) => {
+          {displayPersonas.map((persona) => {
             const Icon = iconMap[persona.icon as keyof typeof iconMap] || User
             
             return (

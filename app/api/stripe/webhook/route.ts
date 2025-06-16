@@ -9,9 +9,19 @@ import {
   calculatePlatformFees 
 } from '@/lib/utils/stripe-connect-helpers';
 
-// Initialize Stripe client lazily
+// Initialize Stripe client lazily with proper error handling
 function getStripeClient() {
-  return new Stripe(process.env.STRIPE_SECRET_KEY!, {
+  const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
+  
+  if (!stripeSecretKey) {
+    throw new Error('STRIPE_SECRET_KEY environment variable is not configured');
+  }
+  
+  if (!stripeSecretKey.startsWith('sk_')) {
+    throw new Error('Invalid STRIPE_SECRET_KEY format');
+  }
+  
+  return new Stripe(stripeSecretKey, {
     apiVersion: '2024-11-20.acacia',
   });
 }

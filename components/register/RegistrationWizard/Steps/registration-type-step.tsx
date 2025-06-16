@@ -9,16 +9,6 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Users, Building, Award, Check, User, Shield } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { OneColumnStepLayout } from '../Layouts/OneColumnStepLayout';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from '@/components/ui/alert-dialog';
 
 interface RegistrationType {
   id: 'individuals' | 'lodge' | 'delegation';
@@ -75,7 +65,11 @@ const REGISTRATION_TYPES: RegistrationType[] = [
   },
 ];
 
-export function RegistrationTypeStep() {
+interface RegistrationTypeStepProps {
+  onTriggerDraftModal?: () => void;
+}
+
+export function RegistrationTypeStep({ onTriggerDraftModal }: RegistrationTypeStepProps) {
   const { 
     registrationType: storeRegistrationType,
     setRegistrationType: storeSetRegistrationType,
@@ -92,8 +86,6 @@ export function RegistrationTypeStep() {
   // Ensure we properly initialize the selected type from the store
   // This is important for recognizing existing drafts, especially for 'individual' type
   const [selectedType, setSelectedType] = useState<RegistrationType['id'] | null>(storeRegistrationType);
-  const [showDraftModal, setShowDraftModal] = useState(false);
-  const [pendingRegistrationType, setPendingRegistrationType] = useState<RegistrationType['id'] | null>(null);
   
   // Session state is now handled by SessionGuard wrapper
 
@@ -271,9 +263,24 @@ export function RegistrationTypeStep() {
     });
     
     if (hasIncompleteDraft) {
-      console.log("Showing draft modal - incomplete registration detected");
-      setPendingRegistrationType(type);
-      setShowDraftModal(true);
+      console.log("Draft detected - triggering modal at wizard level");
+      // Store the pending type selection and trigger the modal
+      if (onTriggerDraftModal) {
+        onTriggerDraftModal();
+        // Store the type they were trying to select so the modal handlers can use it
+        // We'll store this in the registration store temporarily
+        const storeTempType = useRegistrationStore.getState().setDraftId;
+        // Use a temporary storage mechanism
+        (window as any).__pendingRegistrationType__ = type;
+      } else {
+        // Fallback if modal trigger not available
+        console.warn("No modal trigger available, proceeding with type change");
+        setSelectedType(type);
+        storeSetRegistrationType(type);
+        initializeAttendees(type);
+        const goToNextStep = useRegistrationStore.getState().goToNextStep;
+        goToNextStep();
+      }
     } else if (isSelectingCurrentType && (hasExistingAttendees || hasLodgeData)) {
       // If selecting the same type and we have attendees OR lodge data, just proceed without reinitializing
       console.log("Selecting current type with existing data - proceeding without reinitializing");
@@ -307,80 +314,6 @@ export function RegistrationTypeStep() {
     }
   }, [storeSetRegistrationType, initializeAttendees, setDraftRecoveryHandled, storeClearRegistration]);
 
-  const handleContinueDraft = () => {
-    setShowDraftModal(false);
-    setDraftRecoveryHandled(true);
-    
-    // When continuing with a draft, go to step 2 (attendee details)
-    const currentState = useRegistrationStore.getState();
-    const registrationType = currentState.registrationType;
-    const hasAttendees = currentState.attendees && currentState.attendees.length > 0;
-    
-    // Check lodge store data from unified store
-    const hasLodgeData = registrationType === 'lodge' && (
-      currentState.lodgeCustomer.firstName || 
-      currentState.lodgeCustomer.email || 
-      currentState.lodgeDetails.lodge_id ||
-      currentState.lodgeTableOrder.tableCount > 0
-    );
-    
-    console.log("Continuing with existing draft - detailed info:", {
-      registrationType,
-      attendeesCount: currentState.attendees.length,
-      attendees: currentState.attendees,
-      hasLodgeData,
-      lodgeData: registrationType === 'lodge' ? {
-        customer: currentState.lodgeCustomer,
-        lodgeDetails: currentState.lodgeDetails,
-        tableOrder: currentState.lodgeTableOrder
-      } : null
-    });
-    
-    // Make sure the registration type is properly set in the UI state
-    setSelectedType(registrationType);
-    
-    // Extra verification step - check if we need to reinitialize attendees
-    // For lodge registrations, we don't need attendees
-    if (!hasAttendees && registrationType && registrationType !== 'lodge') {
-      console.log("No attendees found for draft, reinitializing");
-      initializeAttendees(registrationType);
-    }
-    
-    // Always go to step 2 (attendee details) when continuing a draft
-    const goToNextStep = useRegistrationStore.getState().goToNextStep;
-    goToNextStep();
-    console.log(`Moving to ${registrationType === 'lodge' ? 'lodge registration' : 'attendee details'} for existing draft`);
-    
-    setPendingRegistrationType(null);
-  };
-
-  const handleStartNew = () => {
-    setShowDraftModal(false);
-    setDraftRecoveryHandled(true);
-    console.log("Starting new registration - clearing existing data");
-    storeClearRegistration();
-    
-    // Lodge registration data is now part of the unified store and will be cleared by storeClearRegistration()
-    console.log("Lodge registration data cleared as part of unified store");
-    
-    if (pendingRegistrationType) {
-      console.log("Setting new registration type:", pendingRegistrationType);
-      setSelectedType(pendingRegistrationType);
-      storeSetRegistrationType(pendingRegistrationType);
-      initializeAttendees(pendingRegistrationType);
-      
-      // For lodge registration, go to step 2 directly
-      if (pendingRegistrationType === 'lodge') {
-        const setCurrentStep = useRegistrationStore.getState().setCurrentStep;
-        setCurrentStep(2);
-      } else {
-        // Explicitly go to step 2 (attendee details)
-        const goToNextStep = useRegistrationStore.getState().goToNextStep;
-        goToNextStep();
-      }
-    }
-    setPendingRegistrationType(null);
-  };
 
 
   return (
@@ -467,38 +400,6 @@ export function RegistrationTypeStep() {
       </RadioGroup>
 
 
-      {showDraftModal && (
-        <AlertDialog open={showDraftModal} onOpenChange={setShowDraftModal}>
-          <AlertDialogContent className="w-[90%] max-w-md sm:w-full rounded-lg">
-            <AlertDialogHeader className="space-y-3">
-              <AlertDialogTitle className="text-xl text-center">Draft Registration Found</AlertDialogTitle>
-              <AlertDialogDescription className="text-center text-base">
-                You have a registration in progress. Would you like to continue with your current draft or start a new registration?
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter className="flex-col sm:flex-row gap-3 pt-4">
-              <AlertDialogCancel 
-                onClick={() => setPendingRegistrationType(null)}
-                className="w-full text-base font-normal"
-              >
-                Cancel
-              </AlertDialogCancel>
-              <AlertDialogAction
-                onClick={handleStartNew}
-                className="w-full bg-red-600 hover:bg-red-700 text-white p-3 text-base font-medium"
-              >
-                Start New
-              </AlertDialogAction>
-              <AlertDialogAction
-                onClick={handleContinueDraft}
-                className="w-full bg-masonic-navy hover:bg-masonic-blue text-white p-3 text-base font-medium"
-              >
-                Continue Draft
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-      )}
 
     </OneColumnStepLayout>
   );

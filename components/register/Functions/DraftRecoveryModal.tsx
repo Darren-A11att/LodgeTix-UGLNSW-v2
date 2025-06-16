@@ -1,14 +1,14 @@
 import React from 'react';
-import { Save, AlertTriangle } from 'lucide-react';
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 interface DraftRecoveryModalProps {
   isOpen: boolean;
@@ -30,48 +30,41 @@ const DraftRecoveryModal: React.FC<DraftRecoveryModalProps> = ({
   attendeeCount = 0,
 }) => {
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle className="text-center">
+    <AlertDialog open={isOpen} onOpenChange={onClose}>
+      <AlertDialogContent className="w-[90%] max-w-md sm:w-full rounded-lg">
+        <AlertDialogHeader className="space-y-3">
+          <AlertDialogTitle className="text-xl text-center">
             Draft Registration Found
-          </DialogTitle>
-          <DialogDescription className="text-center pt-2">
-            You have a registration in progress. Would you like to
-            continue with your current draft or start a new
-            registration?
-          </DialogDescription>
-        </DialogHeader>
+          </AlertDialogTitle>
+          <AlertDialogDescription className="text-center text-base">
+            You have a registration in progress. Would you like to continue with your current draft or start a new registration?
+          </AlertDialogDescription>
+        </AlertDialogHeader>
         
-        <DialogFooter className="flex flex-col sm:flex-row gap-2 sm:gap-0 w-full justify-center">
-          <div className="flex flex-col sm:flex-row gap-2 justify-center w-full">
-            <Button 
-              variant="outline"
-              className="flex-1"
-              onClick={onClose}
-            >
-              Cancel
-            </Button>
-            
-            <Button 
-              variant="destructive"
-              className="flex-1"
-              onClick={onStartNew}
-            >
-              Start New
-            </Button>
-            
-            <Button 
-              variant="default"
-              className="flex-1"
-              onClick={onContinue}
-            >
-              Continue Draft
-            </Button>
-          </div>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+        <AlertDialogFooter className="flex-col sm:flex-row gap-3 pt-4">
+          <AlertDialogCancel 
+            onClick={onClose}
+            className="w-full text-base font-normal"
+          >
+            Cancel
+          </AlertDialogCancel>
+          
+          <AlertDialogAction
+            onClick={onStartNew}
+            className="w-full bg-red-600 hover:bg-red-700 text-white p-3 text-base font-medium"
+          >
+            Start New
+          </AlertDialogAction>
+          
+          <AlertDialogAction
+            onClick={onContinue}
+            className="w-full bg-masonic-navy hover:bg-masonic-blue text-white p-3 text-base font-medium"
+          >
+            Continue Draft
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 };
 

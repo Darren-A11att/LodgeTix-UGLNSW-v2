@@ -15,9 +15,19 @@ import { calculateStripeFees } from '@/lib/utils/stripe-fee-calculator';
 import { getRegistrationWithFullContext } from '@/lib/api/stripe-queries-fixed';
 import type { StripeFeeCalculation } from '@/lib/utils/stripe-fee-calculator';
 
-// Initialize Stripe client lazily
+// Initialize Stripe client lazily with proper error handling
 function getStripeClient() {
-  return new Stripe(process.env.STRIPE_SECRET_KEY!, {
+  const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
+  
+  if (!stripeSecretKey) {
+    throw new Error('STRIPE_SECRET_KEY environment variable is not configured');
+  }
+  
+  if (!stripeSecretKey.startsWith('sk_')) {
+    throw new Error('Invalid STRIPE_SECRET_KEY format');
+  }
+  
+  return new Stripe(stripeSecretKey, {
     apiVersion: '2024-11-20.acacia',
   });
 }
@@ -81,6 +91,7 @@ interface BaseMetadata {
   cardCountry: string;
   platformFeePercentage: string;
   platformFeeCap: string;
+  platformFeeMinimum: string;
   
   // Session tracking
   sessionId: string;
@@ -220,6 +231,7 @@ function buildPaymentIntentMetadata(
     cardCountry: billingDetails.address.country,
     platformFeePercentage: feeCalculation.breakdown.platformFeePercentage.toString(),
     platformFeeCap: feeCalculation.breakdown.platformFeeCap.toString(),
+    platformFeeMinimum: feeCalculation.breakdown.platformFeeMinimum.toString(),
     
     // Session tracking
     sessionId: sessionId || '',
@@ -519,7 +531,6 @@ export class UnifiedPaymentService {
         payment_status: 'completed',
         stripe_payment_intent_id: paymentIntentId,
         payment_intent_id: paymentIntentId, // Add payment_intent_id field
-        payment_confirmed_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       };
       

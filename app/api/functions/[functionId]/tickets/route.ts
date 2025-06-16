@@ -89,6 +89,10 @@ export async function GET(
       };
     });
 
+    // Filter out inactive tickets
+    transformedTickets = transformedTickets.filter(ticket => ticket.is_active === true);
+    console.log(`[API] Filtered to ${transformedTickets.length} active tickets`);
+
     // Filter by registration type if requested
     if (registrationType) {
       transformedTickets = transformedTickets.filter(ticket => 

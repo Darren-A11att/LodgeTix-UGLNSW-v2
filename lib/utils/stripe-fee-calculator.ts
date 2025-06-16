@@ -59,13 +59,15 @@ const STRIPE_RATES = {
 /**
  * Get platform fee configuration from environment variables
  */
-function getPlatformFeeConfig(): { percentage: number; cap: number } {
+function getPlatformFeeConfig(): { percentage: number; cap: number; minimum: number } {
   const percentage = parseFloat(process.env.STRIPE_PLATFORM_FEE_PERCENTAGE || '0.02');
   const cap = parseFloat(process.env.STRIPE_PLATFORM_FEE_CAP || '20');
+  const minimum = parseFloat(process.env.STRIPE_PLATFORM_FEE_MINIMUM || '1');
   
   return { 
     percentage: isNaN(percentage) ? 0.02 : percentage,
-    cap: isNaN(cap) ? 20 : cap
+    cap: isNaN(cap) ? 20 : cap,
+    minimum: isNaN(minimum) ? 1 : minimum
   };
 }
 
@@ -78,15 +80,16 @@ function isDomesticCard(userCountry?: string): boolean {
 }
 
 /**
- * Calculate platform fee with capping
+ * Calculate platform fee with minimum and maximum capping
  */
 function calculatePlatformFee(
   connectedAmount: number, 
   percentage: number, 
-  cap: number
+  cap: number,
+  minimum: number
 ): number {
   const calculatedFee = connectedAmount * percentage;
-  return Math.min(calculatedFee, cap);
+  return Math.max(minimum, Math.min(calculatedFee, cap));
 }
 
 /**
@@ -96,7 +99,7 @@ function calculatePlatformFee(
  * 
  * This ensures:
  * - Connected account gets exactly the subtotal via transfer_data[amount]
- * - Platform gets exactly their desired percentage (2% capped at $20)
+ * - Platform gets exactly their desired fee (2% with $1 minimum, capped at $20)
  * - Customer pays the correct total that covers all fees
  * - Stripe takes their fee from the total amount
  * 
@@ -115,13 +118,14 @@ export function calculateStripeFees(
   const platformConfig = getPlatformFeeConfig();
   const platformFeePercentage = options.platformFeePercentage ?? platformConfig.percentage;
   const platformFeeCap = options.platformFeeCap ?? platformConfig.cap;
+  const platformFeeMinimum = platformConfig.minimum;
   
   // Determine if domestic or international
   const isDomestic = options.isDomestic ?? isDomesticCard(options.userCountry);
   const stripeRates = isDomestic ? STRIPE_RATES.domestic : STRIPE_RATES.international;
   
-  // Calculate platform fee with capping
-  const platformFee = calculatePlatformFee(connectedAmount, platformFeePercentage, platformFeeCap);
+  // Calculate platform fee with minimum and maximum capping
+  const platformFee = calculatePlatformFee(connectedAmount, platformFeePercentage, platformFeeCap, platformFeeMinimum);
   
   // Use the CORRECT formula:
   // Total = (ConnectedAmount + PlatformFee + StripeFlatFee) ÷ (1 - StripeRate)
@@ -153,6 +157,7 @@ export function calculateStripeFees(
     breakdown: {
       platformFeePercentage,
       platformFeeCap,
+      platformFeeMinimum,
       stripePercentage: stripeRates.percentage,
       stripeFixed: stripeRates.fixed,
     }
@@ -233,11 +238,12 @@ export function validateFeeCalculation(calculation: StripeFeeCalculation): {
     errors.push(`Processing fees display mismatch`);
   }
   
-  // Check platform fee cap
-  const { percentage, cap } = getPlatformFeeConfig();
-  const maxAllowedPlatformFee = Math.min(calculation.connectedAmount * percentage, cap);
-  if (calculation.platformFee > maxAllowedPlatformFee + tolerance) {
-    errors.push(`Platform fee exceeds cap: ${calculation.platformFee} > ${maxAllowedPlatformFee}`);
+  // Check platform fee cap and minimum
+  const { percentage, cap, minimum } = getPlatformFeeConfig();
+  const calculatedFee = calculation.connectedAmount * percentage;
+  const expectedPlatformFee = Math.max(minimum, Math.min(calculatedFee, cap));
+  if (Math.abs(calculation.platformFee - expectedPlatformFee) > tolerance) {
+    errors.push(`Platform fee calculation mismatch: expected ${expectedPlatformFee}, got ${calculation.platformFee}`);
   }
   
   return {
@@ -252,6 +258,7 @@ export function validateFeeCalculation(calculation: StripeFeeCalculation): {
 export function getFeeConfiguration(): {
   platformFeePercentage: number;
   platformFeeCap: number;
+  platformFeeMinimum: number;
   domesticRates: typeof STRIPE_RATES.domestic;
   internationalRates: typeof STRIPE_RATES.international;
 } {
@@ -259,6 +266,7 @@ export function getFeeConfiguration(): {
   return {
     platformFeePercentage: config.percentage,
     platformFeeCap: config.cap,
+    platformFeeMinimum: config.minimum,
     domesticRates: STRIPE_RATES.domestic,
     internationalRates: STRIPE_RATES.international
   };

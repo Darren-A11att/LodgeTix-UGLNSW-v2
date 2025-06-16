@@ -36,19 +36,13 @@ export default function LoginPage() {
       }
 
       if (data.user) {
-        // Check if user is an organiser
-        const { data: orgUser } = await supabase
-          .from('organisation_users')
-          .select('organisation_id')
-          .eq('user_id', data.user.id)
-          .single()
-
-        if (orgUser) {
-          router.push('/organiser')
-        } else {
-          setError('You do not have access to the organiser portal.')
-          await supabase.auth.signOut()
-        }
+        console.log('Login successful, user:', data.user.id, 'anonymous:', data.user.is_anonymous)
+        console.log('Redirecting to portal...')
+        // Use window.location.href for a full page reload to ensure cookies are properly set
+        window.location.href = '/portal'
+      } else {
+        console.log('No user data returned after login')
+        setError('Login failed - no user data received')
       }
     } catch (err) {
       setError('An unexpected error occurred. Please try again.')
@@ -64,9 +58,9 @@ export default function LoginPage() {
           <div className="mx-auto mb-4 h-12 w-12 text-primary">
             <Building2 className="h-full w-full" />
           </div>
-          <CardTitle className="text-2xl">Organiser Portal</CardTitle>
+          <CardTitle className="text-2xl">LodgeTix Portal</CardTitle>
           <CardDescription>
-            Sign in to manage your events and registrations
+            Sign in to access your account and available portals
           </CardDescription>
         </CardHeader>
         <form onSubmit={handleLogin}>
@@ -130,13 +124,13 @@ export default function LoginPage() {
         </form>
         <CardFooter className="flex flex-col gap-2 text-sm text-center">
           <p className="text-muted-foreground">
-            Access to the organiser portal is restricted to authorized users only.
+            Sign in to access your available portals and account features.
           </p>
           <Link 
             href="/contact" 
             className="text-primary underline-offset-4 hover:underline"
           >
-            Need access? Contact support
+            Need help? Contact support
           </Link>
         </CardFooter>
       </Card>

@@ -2,9 +2,19 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 import Stripe from 'stripe';
 
-// Initialize Stripe client lazily
+// Initialize Stripe client lazily with proper error handling
 function getStripeClient() {
-  return new Stripe(process.env.STRIPE_SECRET_KEY!, {
+  const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
+  
+  if (!stripeSecretKey) {
+    throw new Error('STRIPE_SECRET_KEY environment variable is not configured');
+  }
+  
+  if (!stripeSecretKey.startsWith('sk_')) {
+    throw new Error('Invalid STRIPE_SECRET_KEY format');
+  }
+  
+  return new Stripe(stripeSecretKey, {
     apiVersion: '2024-12-18.acacia',
   });
 }
@@ -90,6 +100,13 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         const platformFeePercentage = parseFloat(process.env.STRIPE_PLATFORM_FEE_PERCENTAGE || '0.05');
         applicationFeeAmount = Math.round(totalAmount * 100 * platformFeePercentage);
       }
+      
+      console.log('[Individual Registration API] Platform fee calculation:', {
+        totalAmount,
+        connectedAccountId: !!connectedAccountId,
+        applicationFeeAmount,
+        platformFeeInDollars: applicationFeeAmount / 100
+      });
       
       // Build metadata for payment intent
       const primaryAttendee = attendees.find((a: any) => a.isPrimary) || attendees[0];
@@ -181,22 +198,25 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       paymentStatus = 'completed';
     }
 
-    // Call the upsert RPC with multiple parameters (second function signature)
+    // Call the upsert RPC with multiple parameters including platform fee
     const { data: registrationResult, error: registrationError } = await supabase
       .rpc('upsert_individual_registration', {
         p_function_id: functionId,
+        p_customer_data: bookingContact,
         p_attendees: attendees,
-        p_selected_tickets: selectedTickets,
-        p_booking_contact: bookingContact,
+        p_tickets: selectedTickets,
         p_payment_status: paymentStatus,
         p_stripe_payment_intent_id: paymentIntent?.id || null,
         p_registration_id: registrationId || null,
-        p_total_amount: totalAmount || 0,
-        p_subtotal: subtotal || 0,
-        p_stripe_fee: stripeFee || 0,
+        p_total_amount: totalAmount || 0,                    // Total charged to customer (including all fees)
+        p_total_price_paid: subtotal || 0,                   // Subtotal (amount without fees)
+        p_platform_fee_amount: applicationFeeAmount / 100,   // Platform commission (convert from cents)
+        p_stripe_fee: stripeFee || 0,                        // Stripe processing fee only
         p_metadata: {
           source: 'individual-registration-api',
-          created_at: new Date().toISOString()
+          created_at: new Date().toISOString(),
+          applicationFeeAmountCents: applicationFeeAmount,
+          platformFeeAmountDollars: applicationFeeAmount / 100
         }
       });
 
@@ -289,7 +309,8 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
         p_registration_id: registrationId,
         p_total_amount: totalAmount || 0,
         p_subtotal: subtotal || 0,
-        p_stripe_fee: stripeFee || 0
+        p_stripe_fee: stripeFee || 0,
+        p_platform_fee_amount: 0  // Not updating platform fee for status changes
       });
 
     if (registrationError) {

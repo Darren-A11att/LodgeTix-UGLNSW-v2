@@ -31,7 +31,7 @@ INSERT INTO locations (location_id, room_or_area, place_name, street_address, su
 -- 2. Organisations
 INSERT INTO organisations (organisation_id, name, type, street_address, city, state, postal_code, country, website, created_at, updated_at, known_as, abbreviation, stripe_onbehalfof, stripe_account_status, stripe_payouts_enabled, stripe_details_submitted, stripe_capabilities) VALUES 
 ('3e893fa6-2cc2-448c-be9c-e3858cc90e11', 'United Grand Lodge of NSW & ACT', 'grandlodge', 'Sydney Masonic Centre
-279 Castlereagh Street', 'Sydney', 'NSW', '2000', 'Australia', 'www.masons.au', '2025-05-01 12:51:16.416138+00', '2025-05-01 12:51:16.416138+00', 'Freemasons NSW & ACT', 'UGL NSW & ACT', 'acct_1RYbQCQaqFdfJRMI', 'connected', true, true, '') ON CONFLICT (organisation_id) DO NOTHING;
+279 Castlereagh Street', 'Sydney', 'NSW', '2000', 'Australia', 'www.masons.au', '2025-05-01 12:51:16.416138+00', '2025-05-01 12:51:16.416138+00', 'Freemasons NSW & ACT', 'UGL NSW & ACT', 'acct_1RYVoWQhArn4bVGV', 'connected', true, true, '') ON CONFLICT (organisation_id) DO NOTHING;
 
 INSERT INTO organisations (organisation_id, name, type, street_address, city, state, postal_code, country, website, created_at, updated_at, known_as, abbreviation, stripe_onbehalfof, stripe_account_status, stripe_payouts_enabled, stripe_details_submitted, stripe_capabilities) VALUES 
 ('072d4e35-d6db-4fb4-b39f-22b3c9643c9a', 'Grand Lodge of South Africa', 'grandlodge', '', '', '', '', '', '', '2025-05-01 12:51:16.416138+00', '2025-05-01 12:51:16.416138+00', '', '', '', 'pending', false, false, '') ON CONFLICT (organisation_id) DO NOTHING;
