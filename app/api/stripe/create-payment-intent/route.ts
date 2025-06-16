@@ -10,24 +10,18 @@ import {
 import { createOrUpdateStripeCustomer } from '@/lib/services/stripe-sync-service';
 import { getAppVersion } from '@/lib/config/app-version';
 
-// Validate environment variable exists at the module scope
-if (!process.env.STRIPE_SECRET_KEY) {
-  // This error will be thrown when the serverless function initializes if the key is missing
-  console.error("FATAL ERROR: STRIPE_SECRET_KEY is not set in environment variables.");
+// Initialize Stripe client lazily
+function getStripeClient() {
+  const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
+  
+  if (!stripeSecretKey) {
+    throw new Error("STRIPE_SECRET_KEY environment variable is required");
+  }
+  
+  return new Stripe(stripeSecretKey, {
+    apiVersion: '2025-04-30.basil', // Using the version suggested by the linter for stripe@18.1.0
+  });
 }
-
-// Initialize Stripe with your secret key
-const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
-
-if (!stripeSecretKey) {
-  throw new Error("STRIPE_SECRET_KEY environment variable is required");
-}
-
-// Stripe key validation successful
-
-const stripe = new Stripe(stripeSecretKey, {
-  apiVersion: '2025-04-30.basil', // Using the version suggested by the linter for stripe@18.1.0
-});
 
 export async function POST(request: Request) {
   try {
@@ -452,6 +446,7 @@ export async function POST(request: Request) {
     if (connectedAccountId) {
       // Validate connected account is active
       try {
+        const stripe = getStripeClient();
         const account = await stripe.accounts.retrieve(connectedAccountId);
         if (!account.charges_enabled) {
           console.error(`Connected account ${connectedAccountId} cannot accept charges`);
@@ -506,7 +501,8 @@ export async function POST(request: Request) {
       apiOptions.idempotencyKey = idempotencyKey;
     }
 
-    // Create a PaymentIntent with the order amount and currency
+    // Create a PaymentIntent with the order amount and currency  
+    const stripe = getStripeClient();
     const paymentIntent = await stripe.paymentIntents.create(
       paymentIntentOptions,
       apiOptions

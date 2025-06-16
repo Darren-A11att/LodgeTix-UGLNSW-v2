@@ -3,7 +3,10 @@ import { Resend } from 'resend';
 import React from 'react';
 import { IndividualConfirmationEmail } from '@/components/emails/individual-confirmation-email';
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+// Initialize Resend client lazily
+function getResendClient() {
+  return new Resend(process.env.RESEND_API_KEY);
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -26,6 +29,7 @@ export async function POST(request: NextRequest) {
     const subject = `Confirmation Code - ${functionName} ${organiserName}`;
 
     // Send email using Resend
+    const resend = getResendClient();
     const { data: emailResult, error } = await resend.emails.send({
       from: 'LodgeTix <bookings@m.lodgetix.io>',
       to: [data.billingDetails.emailAddress],

@@ -9,10 +9,12 @@ import {
   calculatePlatformFees 
 } from '@/lib/utils/stripe-connect-helpers';
 
-// Initialize Stripe
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2024-11-20.acacia',
-});
+// Initialize Stripe client lazily
+function getStripeClient() {
+  return new Stripe(process.env.STRIPE_SECRET_KEY!, {
+    apiVersion: '2024-11-20.acacia',
+  });
+}
 
 const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
 const connectWebhookSecret = process.env.STRIPE_CONNECT_WEBHOOK_SECRET;
@@ -45,6 +47,7 @@ export async function POST(request: NextRequest) {
       // Use different webhook secrets for platform vs connected accounts
       const secret = accountId && connectWebhookSecret ? connectWebhookSecret : webhookSecret;
       
+      const stripe = getStripeClient();
       event = stripe.webhooks.constructEvent(
         body,
         signature,

@@ -17,13 +17,11 @@ export interface UserPersona {
 }
 
 export class UserRoleService {
-  private supabase = createClient()
-
   /**
    * Get all roles for the current authenticated user
    */
   async getUserRoles(): Promise<UserRole[]> {
-    const supabase = await this.supabase
+    const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
     
     if (!user) {
@@ -55,7 +53,7 @@ export class UserRoleService {
    * Check if user is an organiser (has organisation)
    */
   async isOrganiser(): Promise<boolean> {
-    const supabase = await this.supabase
+    const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
     
     if (!user) return false
@@ -73,7 +71,7 @@ export class UserRoleService {
    * Check if user is a customer (has registrations or tickets)
    */
   async isCustomer(): Promise<boolean> {
-    const supabase = await this.supabase
+    const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
     
     if (!user) return false
@@ -103,7 +101,7 @@ export class UserRoleService {
    * Check if user is an attendee (has attendee records)
    */
   async isAttendee(): Promise<boolean> {
-    const supabase = await this.supabase
+    const supabase = await createClient()
     const { data: { user } } = await supabase.auth.getUser()
     
     if (!user) return false

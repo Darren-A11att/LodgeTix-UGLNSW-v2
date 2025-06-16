@@ -15,10 +15,12 @@ import { calculateStripeFees } from '@/lib/utils/stripe-fee-calculator';
 import { getRegistrationWithFullContext } from '@/lib/api/stripe-queries-fixed';
 import type { StripeFeeCalculation } from '@/lib/utils/stripe-fee-calculator';
 
-// Initialize Stripe
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2024-11-20.acacia',
-});
+// Initialize Stripe client lazily
+function getStripeClient() {
+  return new Stripe(process.env.STRIPE_SECRET_KEY!, {
+    apiVersion: '2024-11-20.acacia',
+  });
+}
 
 // ============================================
 // TYPE DEFINITIONS
@@ -426,6 +428,7 @@ export class UnifiedPaymentService {
     }
     
     // Create payment intent with correct parameters for Stripe Connect
+    const stripe = getStripeClient();
     const paymentIntent = await stripe.paymentIntents.create(paymentIntentParams);
     
     // If we attached a payment method, confirm it immediately with secret key
@@ -476,6 +479,7 @@ export class UnifiedPaymentService {
     }
   ): Promise<void> {
     try {
+      const stripe = getStripeClient();
       // Fetch existing metadata to preserve it
       const paymentIntent = await stripe.paymentIntents.retrieve(paymentIntentId);
       

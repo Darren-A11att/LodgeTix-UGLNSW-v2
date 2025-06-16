@@ -13,15 +13,17 @@ type EventTicket = Database['public']['Tables']['event_tickets']['Row'];
 type Attendee = Database['public']['Tables']['attendees']['Row'];
 type Organisation = Database['public']['Tables']['organisations']['Row'];
 
-// Initialize Stripe
-const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
-if (!stripeSecretKey) {
-  throw new Error("STRIPE_SECRET_KEY environment variable is required");
+// Initialize Stripe client lazily
+function getStripeClient() {
+  const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
+  if (!stripeSecretKey) {
+    throw new Error("STRIPE_SECRET_KEY environment variable is required");
+  }
+  
+  return new Stripe(stripeSecretKey, {
+    apiVersion: '2025-04-30.basil',
+  });
 }
-
-const stripe = new Stripe(stripeSecretKey, {
-  apiVersion: '2025-04-30.basil',
-});
 
 // Client will be created in each function to ensure proper authentication
 
@@ -39,6 +41,7 @@ export async function syncEventToStripeProduct(
     if (event.stripe_product_id) {
       try {
         // Try to retrieve the existing product
+        const stripe = getStripeClient();
         await stripe.products.retrieve(
           event.stripe_product_id,
           { stripeAccount: connectedAccountId }
@@ -76,6 +79,7 @@ export async function syncEventToStripeProduct(
     }
     
     // Create new product
+    const stripe = getStripeClient();
     const product = await stripe.products.create(
       {
         name: event.title,
@@ -142,6 +146,7 @@ export async function syncTicketToStripePrice(
     if (ticket.stripe_price_id) {
       try {
         // Try to retrieve the existing price
+        const stripe = getStripeClient();
         const existingPrice = await stripe.prices.retrieve(
           ticket.stripe_price_id,
           { stripeAccount: connectedAccountId }
@@ -183,7 +188,8 @@ export async function syncTicketToStripePrice(
     }
     
     // Create new price
-    const price = await stripe.prices.create(
+    const stripe2 = getStripeClient();
+    const price = await stripe2.prices.create(
       {
         product: productId,
         currency: 'aud',
@@ -258,6 +264,7 @@ export async function createOrUpdateStripeCustomer(
     
     // Check if customer exists by email
     if (attendee.email) {
+      const stripe = getStripeClient();
       const existingCustomers = await stripe.customers.list(
         {
           email: attendee.email,
@@ -280,7 +287,8 @@ export async function createOrUpdateStripeCustomer(
     }
     
     // Create new customer
-    const newCustomer = await stripe.customers.create(
+    const stripe3 = getStripeClient();
+    const newCustomer = await stripe3.customers.create(
       customerData as Stripe.CustomerCreateParams,
       { stripeAccount: connectedAccountId }
     );

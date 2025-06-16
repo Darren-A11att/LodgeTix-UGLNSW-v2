@@ -2,9 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 import Stripe from 'stripe';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2024-12-18.acacia',
-});
+// Initialize Stripe client lazily
+function getStripeClient() {
+  return new Stripe(process.env.STRIPE_SECRET_KEY!, {
+    apiVersion: '2024-12-18.acacia',
+  });
+}
 
 interface RouteParams {
   params: {
@@ -174,6 +177,7 @@ export async function POST(
       // Add Stripe Connect parameters if connected account exists
       if (connectedAccountId) {
         try {
+          const stripe = getStripeClient();
           const account = await stripe.accounts.retrieve(connectedAccountId);
           if (!account.charges_enabled) {
             return NextResponse.json(
@@ -208,6 +212,7 @@ export async function POST(
       }
       
       // Create payment intent
+      const stripe = getStripeClient();
       paymentIntent = await stripe.paymentIntents.create(paymentIntentOptions);
 
       if (paymentIntent.status !== 'succeeded' && paymentIntent.status !== 'processing') {
@@ -258,6 +263,7 @@ export async function POST(
       // Refund the payment if registration fails and payment was made
       if (paymentIntent && paymentIntent.status === 'succeeded') {
         console.log('[Lodge Registration API] Creating refund due to registration failure:', registrationError.message);
+        const stripe = getStripeClient();
         await stripe.refunds.create({
           payment_intent: paymentIntent.id,
           reason: 'duplicate',

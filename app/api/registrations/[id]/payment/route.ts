@@ -13,9 +13,12 @@ import { createClient } from '@/utils/supabase/server';
 import { unifiedPaymentService } from '@/lib/services/unified-payment-service';
 import Stripe from 'stripe';
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-  apiVersion: '2024-11-20.acacia',
-});
+// Initialize Stripe client lazily
+function getStripeClient() {
+  return new Stripe(process.env.STRIPE_SECRET_KEY!, {
+    apiVersion: '2024-11-20.acacia',
+  });
+}
 
 export async function POST(
   request: NextRequest,
