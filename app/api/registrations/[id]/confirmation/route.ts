@@ -9,6 +9,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 import { createClientWithToken } from '@/utils/supabase/server-with-token';
+import { generateConfirmationNumber } from '@/lib/services/confirmation-number-service';
 
 export async function GET(
   request: NextRequest,
@@ -180,17 +181,23 @@ export async function GET(
         }
       }
       
-      // Generate confirmation number with INDV- prefix on poll attempt 7 if none exists
+      // Generate confirmation number with IND- prefix on poll attempt 7 if none exists
       if (attempt === 6 && !data?.confirmation_number) {
-        console.log('Poll attempt 7/10 - Generating confirmation number with INDV- prefix');
+        console.log('Poll attempt 7/10 - Generating confirmation number with IND- prefix');
         
         try {
-          const confirmationNumber = `INDV-${registrationId.substring(0, 8).toUpperCase()}`;
+          const result = generateConfirmationNumber('individual');
+          
+          if (!result.isValid) {
+            console.error('Failed to generate confirmation number:', result.error);
+            // Continue to next poll attempt
+            continue;
+          }
           
           const { error: confirmationError } = await supabase
             .from('registrations')
             .update({
-              confirmation_number: confirmationNumber,
+              confirmation_number: result.confirmationNumber,
               confirmation_generated_at: new Date().toISOString(),
               updated_at: new Date().toISOString()
             })
@@ -199,11 +206,11 @@ export async function GET(
           if (confirmationError) {
             console.error('Error generating confirmation number:', confirmationError);
           } else {
-            console.log(`✅ Generated confirmation number: ${confirmationNumber}`);
+            console.log(`✅ Generated confirmation number: ${result.confirmationNumber}`);
             console.groupEnd();
             
             return NextResponse.json({
-              confirmationNumber: confirmationNumber,
+              confirmationNumber: result.confirmationNumber,
               registrationType: data.registration_type
             });
           }
@@ -233,15 +240,23 @@ export async function GET(
     console.error(`Confirmation number generation timeout for ${registrationId}`);
     console.groupEnd();
     
-    // Fallback: Generate a confirmation number with INDV- prefix and save to database
-    const fallbackConfirmation = `INDV-${registrationId.substring(0, 8).toUpperCase()}`;
+    // Fallback: Generate a confirmation number using the centralized service
+    const fallbackResult = generateConfirmationNumber('individual');
+    
+    if (!fallbackResult.isValid) {
+      console.error('Failed to generate fallback confirmation number:', fallbackResult.error);
+      return NextResponse.json(
+        { error: 'Failed to generate confirmation number' },
+        { status: 500 }
+      );
+    }
     
     try {
       // Save the fallback confirmation number to the database
       const { error: fallbackError } = await supabase
         .from('registrations')
         .update({
-          confirmation_number: fallbackConfirmation,
+          confirmation_number: fallbackResult.confirmationNumber,
           confirmation_generated_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
         })
@@ -250,14 +265,14 @@ export async function GET(
       if (fallbackError) {
         console.error('Error saving fallback confirmation number:', fallbackError);
       } else {
-        console.log(`✅ Saved fallback confirmation number: ${fallbackConfirmation}`);
+        console.log(`✅ Saved fallback confirmation number: ${fallbackResult.confirmationNumber}`);
       }
     } catch (fallbackSaveError) {
       console.error('Error saving fallback confirmation number:', fallbackSaveError);
     }
     
     return NextResponse.json({
-      confirmationNumber: fallbackConfirmation,
+      confirmationNumber: fallbackResult.confirmationNumber,
       isTemporary: false,
       message: 'Confirmation number generated. Check your email for the official confirmation.'
     });
