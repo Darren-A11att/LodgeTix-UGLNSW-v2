@@ -8,10 +8,11 @@ import { OneColumnStepLayout } from '../Layouts/OneColumnStepLayout';
 import { LodgesForm } from '../../Forms/attendee/LodgesForm';
 import { CheckoutForm, CheckoutFormHandle } from '../payment/CheckoutForm';
 import { StripeErrorBoundary } from '../payment/StripeErrorBoundary';
+import { PaymentProcessing } from '../payment/PaymentProcessing';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Loader2, CreditCard, ShieldCheck, AlertCircle, ArrowLeft, Check } from 'lucide-react';
+import { Loader2, CreditCard, ShieldCheck, AlertCircle, ArrowLeft } from 'lucide-react';
 import { useRegistrationStore } from '@/lib/registrationStore';
 import { StripeBillingDetailsForClient } from '../payment/types';
 import { getFunctionTicketsService, FunctionPackage } from '@/lib/services/function-tickets-service';
@@ -82,9 +83,9 @@ export const LodgeRegistrationStep: React.FC<LodgeRegistrationStepProps> = ({
   // Processing steps state (same as payment step)
   const [showProcessingSteps, setShowProcessingSteps] = useState(false);
   const [processingSteps, setProcessingSteps] = useState([
-    { id: 'save', label: 'Saving registration...', status: 'pending' as const },
-    { id: 'payment', label: 'Processing payment...', status: 'pending' as const },
-    { id: 'confirm', label: 'Generating confirmation...', status: 'pending' as const },
+    { name: 'Saving registration', description: 'Creating your registration record', status: 'upcoming' as const },
+    { name: 'Processing payment', description: 'Securely processing your payment', status: 'upcoming' as const },
+    { name: 'Confirming order', description: 'Finalizing your registration', status: 'upcoming' as const },
   ]);
   
   // Dynamic pricing state
@@ -199,7 +200,7 @@ export const LodgeRegistrationStep: React.FC<LodgeRegistrationStepProps> = ({
       // Step 1: Complete - Registration validation
       setProcessingSteps(prev => {
         const newSteps = [...prev];
-        newSteps[0] = { ...newSteps[0], status: 'completed' };
+        newSteps[0] = { ...newSteps[0], status: 'complete' };
         newSteps[1] = { ...newSteps[1], status: 'current' };
         return newSteps;
       });
@@ -255,7 +256,7 @@ export const LodgeRegistrationStep: React.FC<LodgeRegistrationStepProps> = ({
         // Step 2: Complete - Payment processed
         setProcessingSteps(prev => {
           const newSteps = [...prev];
-          newSteps[1] = { ...newSteps[1], status: 'completed' };
+          newSteps[1] = { ...newSteps[1], status: 'complete' };
           newSteps[2] = { ...newSteps[2], status: 'current' };
           return newSteps;
         });
@@ -268,7 +269,7 @@ export const LodgeRegistrationStep: React.FC<LodgeRegistrationStepProps> = ({
         // Step 3: Complete - Confirmation ready
         setProcessingSteps(prev => {
           const newSteps = [...prev];
-          newSteps[2] = { ...newSteps[2], status: 'completed' };
+          newSteps[2] = { ...newSteps[2], status: 'complete' };
           return newSteps;
         });
 
@@ -297,6 +298,17 @@ export const LodgeRegistrationStep: React.FC<LodgeRegistrationStepProps> = ({
       console.error('Registration error:', err);
       setError(err.message || 'Failed to complete registration');
       setIsProcessing(false);
+      setShowProcessingSteps(false);
+      
+      // Update processing steps to show error
+      setProcessingSteps(prev => {
+        const newSteps = [...prev];
+        const currentStepIndex = newSteps.findIndex(step => step.status === 'current');
+        if (currentStepIndex >= 0) {
+          newSteps[currentStepIndex] = { ...newSteps[currentStepIndex], status: 'error' };
+        }
+        return newSteps;
+      });
     }
   };
 
@@ -304,6 +316,14 @@ export const LodgeRegistrationStep: React.FC<LodgeRegistrationStepProps> = ({
   const handlePaymentError = (error: string) => {
     console.error('Payment error:', error);
     setError(error);
+    setIsProcessing(false);
+    setShowProcessingSteps(false);
+  };
+
+  // Handle back to payment (for processing page)
+  const handleBackToPayment = () => {
+    setShowProcessingSteps(false);
+    setError(null);
     setIsProcessing(false);
   };
 
@@ -338,6 +358,19 @@ export const LodgeRegistrationStep: React.FC<LodgeRegistrationStepProps> = ({
       setIsProcessing(false);
     }
   };
+
+  // Show processing page when payment is being processed
+  if (showProcessingSteps) {
+    return (
+      <OneColumnStepLayout className="max-w-5xl mx-auto">
+        <PaymentProcessing 
+          steps={processingSteps}
+          error={error}
+          onBackToPayment={handleBackToPayment}
+        />
+      </OneColumnStepLayout>
+    );
+  }
 
   return (
     <OneColumnStepLayout className="max-w-5xl mx-auto">
@@ -412,45 +445,6 @@ export const LodgeRegistrationStep: React.FC<LodgeRegistrationStepProps> = ({
             </Alert>
           )}
 
-          {/* Processing Steps UI (same as payment step) */}
-          {showProcessingSteps && (
-            <Card className="border-2 border-primary/20 bg-primary/5">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-primary">
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                  Processing Registration
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {processingSteps.map((step, index) => (
-                  <div key={step.id} className="flex items-center gap-3">
-                    <div className={`
-                      w-6 h-6 rounded-full flex items-center justify-center text-sm font-medium
-                      ${step.status === 'completed' ? 'bg-green-500 text-white' : 
-                        step.status === 'current' ? 'bg-primary text-white animate-pulse' : 
-                        'bg-gray-200 text-gray-500'}
-                    `}>
-                      {step.status === 'completed' ? (
-                        <Check className="w-3 h-3" />
-                      ) : (
-                        index + 1
-                      )}
-                    </div>
-                    <span className={`
-                      ${step.status === 'completed' ? 'text-green-600 line-through' : 
-                        step.status === 'current' ? 'text-primary font-medium' : 
-                        'text-gray-500'}
-                    `}>
-                      {step.label}
-                    </span>
-                    {step.status === 'current' && (
-                      <Loader2 className="w-4 h-4 animate-spin text-primary ml-auto" />
-                    )}
-                  </div>
-                ))}
-              </CardContent>
-            </Card>
-          )}
 
           {/* Navigation - Only Back Button */}
           <div className="flex justify-between pt-4">

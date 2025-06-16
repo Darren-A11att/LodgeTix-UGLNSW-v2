@@ -2,9 +2,19 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 import Stripe from 'stripe';
 
-// Initialize Stripe client lazily
+// Initialize Stripe client lazily with proper error handling
 function getStripeClient() {
-  return new Stripe(process.env.STRIPE_SECRET_KEY!, {
+  const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
+  
+  if (!stripeSecretKey) {
+    throw new Error('STRIPE_SECRET_KEY environment variable is not configured');
+  }
+  
+  if (!stripeSecretKey.startsWith('sk_')) {
+    throw new Error('Invalid STRIPE_SECRET_KEY format');
+  }
+  
+  return new Stripe(stripeSecretKey, {
     apiVersion: '2024-12-18.acacia',
   });
 }
@@ -96,9 +106,13 @@ export async function POST(
     const roundedSubtotal = Math.round(subtotal);
     const roundedStripeFee = Math.round(stripeFee);
     
-    console.log('[Lodge Registration API] Amount rounding:', {
+    // Calculate platform fee: total amount - subtotal - stripe fee
+    const platformFeeAmount = roundedAmount - roundedSubtotal - roundedStripeFee;
+    
+    console.log('[Lodge Registration API] Amount calculation and rounding:', {
       original: { amount, subtotal, stripeFee },
-      rounded: { amount: roundedAmount, subtotal: roundedSubtotal, stripeFee: roundedStripeFee }
+      rounded: { amount: roundedAmount, subtotal: roundedSubtotal, stripeFee: roundedStripeFee },
+      calculated: { platformFeeAmount }
     });
 
     // Fetch function for Stripe Connect details (needed for both payment and registration)
@@ -226,7 +240,7 @@ export async function POST(
     }
 
     // Call the upsert RPC - it has SECURITY DEFINER so it bypasses RLS
-    console.log('[Lodge Registration API] Calling upsert_lodge_registration RPC with financial parameters');
+    console.log('[Lodge Registration API] Calling upsert_lodge_registration RPC with financial parameters including platform fee');
     const { data: registrationResult, error: registrationError } = await supabase
       .rpc('upsert_lodge_registration', {
         p_function_id: functionId,
@@ -237,9 +251,10 @@ export async function POST(
         p_payment_status: paymentStatus,
         p_stripe_payment_intent_id: paymentIntent?.id || null,
         p_registration_id: registrationId || null,
-        p_total_amount: parseFloat((roundedAmount / 100).toFixed(2)),        // Convert rounded cents to dollars with 2 decimal places
-        p_subtotal: parseFloat((roundedSubtotal / 100).toFixed(2)),          // Convert rounded cents to dollars with 2 decimal places
-        p_stripe_fee: parseFloat((roundedStripeFee / 100).toFixed(2)),       // Convert rounded cents to dollars with 2 decimal places
+        p_total_amount: parseFloat((roundedAmount / 100).toFixed(2)),        // Total charged to customer (including all fees)
+        p_total_price_paid: parseFloat((roundedSubtotal / 100).toFixed(2)),  // Subtotal (amount without fees)
+        p_platform_fee_amount: parseFloat((platformFeeAmount / 100).toFixed(2)), // Platform commission
+        p_stripe_fee: parseFloat((roundedStripeFee / 100).toFixed(2)),       // Stripe processing fee only
         p_metadata: {
           billingDetails,
           originalAmountCents: amount,
@@ -248,6 +263,7 @@ export async function POST(
           roundedAmountCents: roundedAmount,
           roundedSubtotalCents: roundedSubtotal,
           roundedStripFeeCents: roundedStripeFee,
+          platformFeeAmountCents: platformFeeAmount,
         },
         p_connected_account_id: connectedAccountId || null  // Add the missing parameter
       });
@@ -287,90 +303,33 @@ export async function POST(
     const finalRegistrationId = registrationResult?.registrationId || registrationResult?.registration_id || registrationId;
     
     if (paymentStatus === 'completed' && !confirmationNumber) {
-      console.log('[Lodge Registration API] Triggering confirmation number generation...');
+      console.log('[Lodge Registration API] Generating confirmation number directly...');
       
       try {
-        // Invoke the confirmation generation edge function
-        const { data: edgeFunctionData, error: edgeFunctionError } = await supabase.functions.invoke('generate-confirmation', {
-          body: {
-            type: 'UPDATE',
-            table: 'registrations',
-            schema: 'public',
-            record: {
-              id: finalRegistrationId,
-              registration_id: finalRegistrationId,
-              status: 'completed',
-              payment_status: 'completed',
-              confirmation_number: null,
-              registration_type: 'lodge',
-              function_id: functionId,
-              customer_id: '',
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString()
-            },
-            old_record: {
-              id: finalRegistrationId,
-              registration_id: finalRegistrationId,
-              status: 'pending',
-              payment_status: 'pending',
-              confirmation_number: null,
-              registration_type: 'lodge',
-              function_id: functionId,
-              customer_id: '',
-              created_at: new Date().toISOString(),
-              updated_at: new Date().toISOString()
-            }
-          },
-        });
-
-        if (edgeFunctionError) {
-          console.error('[Lodge Registration API] Edge function error:', edgeFunctionError);
-        } else {
-          console.log('[Lodge Registration API] Edge function invoked successfully:', edgeFunctionData);
-        }
-      } catch (edgeError) {
-        console.error('[Lodge Registration API] Failed to invoke edge function:', edgeError);
-      }
-      
-      // Poll for confirmation number after triggering edge function
-      console.log('[Lodge Registration API] Polling for confirmation number...');
-      
-      const maxPolls = 5;
-      const pollInterval = 3000; // 3 seconds
-      
-      for (let i = 0; i < maxPolls; i++) {
-        // Wait for poll interval (except on first iteration)
-        if (i > 0) {
-          await new Promise(resolve => setTimeout(resolve, pollInterval));
-        }
-        
-        console.log(`[Lodge Registration API] Poll attempt ${i + 1}/${maxPolls}`);
-        
-        // Query the confirmation view
+        // Use the database function directly instead of edge function
         const { data: confirmationData, error: confirmationError } = await supabase
-          .from('lodge_registration_confirmation_view')
-          .select('confirmation_number')
-          .eq('registration_id', finalRegistrationId)
-          .single();
-        
-        if (confirmationData?.confirmation_number) {
-          confirmationNumber = confirmationData.confirmation_number;
-          console.log('[Lodge Registration API] Confirmation number found:', confirmationNumber);
-          break;
+          .rpc('generate_confirmation_number', {
+            registration_type: 'lodge',
+            registration_id: finalRegistrationId
+          });
+
+        if (confirmationError) {
+          console.error('[Lodge Registration API] Confirmation generation error:', confirmationError);
+          throw new Error(confirmationError.message);
         }
-        
-        if (confirmationError && confirmationError.code !== 'PGRST116') {
-          console.error('[Lodge Registration API] Error polling for confirmation:', confirmationError);
+
+        if (confirmationData) {
+          confirmationNumber = confirmationData;
+          console.log('[Lodge Registration API] Confirmation number generated:', confirmationNumber);
+        } else {
+          throw new Error('No confirmation number returned from database function');
         }
-      }
-      
-      // If no confirmation number after polling, return error
-      if (!confirmationNumber) {
-        console.error('[Lodge Registration API] Confirmation number generation timeout');
+      } catch (confirmationError) {
+        console.error('[Lodge Registration API] Failed to generate confirmation number:', confirmationError);
         return NextResponse.json(
           { 
             success: false, 
-            error: 'Confirmation number generation timeout. Registration was successful but confirmation is pending.',
+            error: 'Failed to generate confirmation number. Registration was successful but confirmation is pending.',
             registrationId: finalRegistrationId
           },
           { status: 500 }
@@ -551,6 +510,7 @@ export async function PUT(
         p_total_amount: 0, // Not updating amounts for status changes
         p_subtotal: 0,
         p_stripe_fee: 0,
+        p_platform_fee_amount: 0, // Not updating platform fee for status changes
         p_metadata: {},
         p_connected_account_id: null
       });
