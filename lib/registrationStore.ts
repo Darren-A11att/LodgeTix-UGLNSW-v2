@@ -19,6 +19,16 @@ import type {
 import { determineAvailabilityStatus } from './registration-metadata-types';
 import type { FunctionTicketDefinition, FunctionPackage } from './services/function-tickets-service';
 
+// Preloaded tickets data interface
+export interface PreloadedTicketsData {
+  tickets: FunctionTicketDefinition[];
+  packages: FunctionPackage[];
+  functionId: string;
+  registrationType: RegistrationType;
+  timestamp: number; // When the data was preloaded
+  isValid: boolean; // Whether the data is still valid/fresh
+}
+
 // Re-export UnifiedAttendeeData for backward compatibility
 export type { UnifiedAttendeeData };
 
@@ -148,6 +158,9 @@ export interface RegistrationState {
   anonymousSessionEstablished: boolean; // Track if Turnstile verification and anonymous session is complete
   lodgeTicketOrder: LodgeTicketOrder | null; // Lodge bulk ticket order details
   
+  // Preloaded tickets data for performance optimization
+  preloadedTicketsData: PreloadedTicketsData | null;
+  
   // Lodge-specific state
   lodgeCustomer: LodgeCustomer;
   lodgeDetails: LodgeDetails;
@@ -231,6 +244,12 @@ export interface RegistrationState {
   updateRegistrationTableData: (data: Partial<RegistrationTableData>) => void;
   addLodgeBulkPackageSelection: (packageId: string, quantity: number) => void;
   addLodgeBulkTicketSelections: (selections: Array<{ ticketId: string; quantity: number }>) => void;
+  
+  // Preloaded tickets data actions
+  setPreloadedTicketsData: (data: Omit<PreloadedTicketsData, 'timestamp' | 'isValid'>) => void;
+  getPreloadedTicketsData: () => PreloadedTicketsData | null;
+  clearPreloadedTicketsData: () => void;
+  isPreloadedDataValid: (functionId: string, registrationType: RegistrationType) => boolean;
 }
 
 // --- Initial State ---
@@ -277,6 +296,9 @@ const initialRegistrationState: Omit<RegistrationState, 'startNewRegistration' |
     draftRecoveryHandled: false, // Initialize draft recovery flag
     anonymousSessionEstablished: false, // Initialize anonymous session flag
     lodgeTicketOrder: null, // Initialize lodge ticket order
+    
+    // Preloaded tickets data initialization
+    preloadedTicketsData: null,
     
     // Lodge-specific initial state
     lodgeCustomer: {
@@ -1566,6 +1588,63 @@ export const useRegistrationStore = create<RegistrationState>(
         }
       },
       
+      // === Preloaded tickets data actions ===
+      
+      setPreloadedTicketsData: (data) => set(state => {
+        const now = Date.now();
+        const preloadedData: PreloadedTicketsData = {
+          ...data,
+          timestamp: now,
+          isValid: true
+        };
+        
+        console.log(`[Store] Preloaded tickets data set for function ${data.functionId}, type ${data.registrationType}`);
+        console.log(`[Store] Preloaded ${data.tickets.length} tickets and ${data.packages.length} packages`);
+        
+        return {
+          preloadedTicketsData: preloadedData
+        };
+      }),
+      
+      getPreloadedTicketsData: () => {
+        const state = get();
+        const data = state.preloadedTicketsData;
+        
+        if (!data) {
+          return null;
+        }
+        
+        // Check if data is still valid (within 5 minutes)
+        const now = Date.now();
+        const maxAge = 5 * 60 * 1000; // 5 minutes
+        const isStale = (now - data.timestamp) > maxAge;
+        
+        if (isStale) {
+          console.log(`[Store] Preloaded tickets data is stale (${(now - data.timestamp) / 1000}s old), returning null`);
+          // Clear stale data
+          get().clearPreloadedTicketsData();
+          return null;
+        }
+        
+        return data;
+      },
+      
+      clearPreloadedTicketsData: () => set(state => {
+        console.log(`[Store] Clearing preloaded tickets data`);
+        return {
+          preloadedTicketsData: null
+        };
+      }),
+      
+      isPreloadedDataValid: (functionId, registrationType) => {
+        const data = get().getPreloadedTicketsData();
+        return !!(
+          data && 
+          data.functionId === functionId && 
+          data.registrationType === registrationType &&
+          data.isValid
+        );
+      },
 
     }),
     {

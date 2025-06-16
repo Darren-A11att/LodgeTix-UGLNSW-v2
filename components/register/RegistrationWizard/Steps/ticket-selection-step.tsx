@@ -143,17 +143,53 @@ const TicketSelectionStep: React.FC = () => {
   useEffect(() => {
     async function fetchTicketsAndPackages() {
       try {
-        setIsLoadingTickets(true)
-        setTicketsError(null)
-        
         // Wait for functionId to be available - don't proceed if it's not set yet
         if (!functionId) {
           api.debug('Function ID not yet available, waiting...')
-          setIsLoadingTickets(false) // Don't show loading if we're waiting for functionId
+          // Keep loading state true while waiting for functionId to prevent race condition
+          setIsLoadingTickets(true)
+          setTicketsError(null)
           return
         }
         
         const targetFunctionId = functionId
+        const targetRegistrationType = registrationType || 'individuals'
+        
+        // Check for preloaded data first
+        const store = useRegistrationStore.getState()
+        const preloadedData = store.getPreloadedTicketsData()
+        
+        if (preloadedData && 
+            preloadedData.functionId === targetFunctionId && 
+            preloadedData.registrationType === targetRegistrationType) {
+          
+          console.log(`[TicketSelection] Using preloaded data - ${preloadedData.tickets.length} tickets, ${preloadedData.packages.length} packages`)
+          
+          // Use preloaded data immediately - no loading state needed
+          setTicketTypes(preloadedData.tickets)
+          setTicketPackages(preloadedData.packages)
+          setIsLoadingTickets(false)
+          setTicketsError(null)
+          
+          // Still capture metadata for consistency
+          preloadedData.tickets.forEach(ticket => {
+            captureTicketMetadata(ticket, {});
+          });
+          
+          preloadedData.packages.forEach(pkg => {
+            const includedTickets = preloadedData.tickets.filter(t => pkg.includes.includes(t.id));
+            capturePackageMetadata(pkg, includedTickets);
+          });
+          
+          api.debug(`Successfully used preloaded data for function ${targetFunctionId}`)
+          return
+        }
+        
+        // Fallback: Fetch data if no valid preloaded data
+        console.log(`[TicketSelection] No valid preloaded data, fetching from API`)
+        setIsLoadingTickets(true)
+        setTicketsError(null)
+        
         api.debug(`Fetching tickets for function: ${targetFunctionId} (attempt ${retryCount + 1})`)
         
         // Use the FunctionTicketsService to fetch tickets and packages
@@ -161,7 +197,7 @@ const TicketSelectionStep: React.FC = () => {
         // Pass the registration type to filter appropriately
         const { tickets, packages } = await ticketsService.getFunctionTicketsAndPackages(
           targetFunctionId, 
-          registrationType || 'individuals'
+          targetRegistrationType
         )
         
         // The service already returns data in the correct format

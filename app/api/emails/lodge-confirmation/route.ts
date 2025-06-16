@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { Resend } from 'resend';
 import React from 'react';
-import { IndividualConfirmationEmail } from '@/components/emails/individual-confirmation-email';
+import { LodgeConfirmationEmail } from '@/components/emails/lodge-confirmation-email';
 
 // Initialize Resend client lazily
 function getResendClient() {
@@ -12,21 +12,30 @@ export async function POST(request: NextRequest) {
   try {
     const data = await request.json();
     
-    console.log('📧 Sending individual confirmation email for:', data.confirmationNumber);
+    console.log('📧 Sending lodge confirmation email for:', data.confirmationNumber);
     
     // Validate required data
     if (!data.confirmationNumber || !data.billingDetails?.emailAddress || !data.functionData?.name) {
-      console.error('❌ Missing required email data');
+      console.error('❌ Missing required lodge email data');
       return NextResponse.json(
-        { success: false, error: 'Missing required email data' },
+        { success: false, error: 'Missing required lodge email data' },
+        { status: 400 }
+      );
+    }
+
+    // Validate lodge-specific data
+    if (!data.lodgeDetails?.lodgeName) {
+      console.error('❌ Missing lodge details');
+      return NextResponse.json(
+        { success: false, error: 'Missing lodge details' },
         { status: 400 }
       );
     }
 
     // Generate subject line
     const functionName = data.functionData.name;
-    const organiserName = data.functionData.organiser?.name || 'United Grand Lodge of NSW & ACT';
-    const subject = `Confirmation ${data.confirmationNumber} - ${functionName}`;
+    const lodgeName = data.lodgeDetails.lodgeName;
+    const subject = `Lodge Confirmation ${data.confirmationNumber} - ${functionName}`;
 
     // Send email using Resend
     const resend = getResendClient();
@@ -35,27 +44,28 @@ export async function POST(request: NextRequest) {
       to: [data.billingDetails.emailAddress],
       bcc: ['bookings@lodgetix.io'],
       subject: subject,
-      react: React.createElement(IndividualConfirmationEmail, data),
+      react: React.createElement(LodgeConfirmationEmail, data),
     });
 
     if (error) {
-      console.error('❌ Resend error:', error);
+      console.error('❌ Resend error for lodge confirmation:', error);
       return NextResponse.json(
-        { success: false, error: 'Failed to send email' },
+        { success: false, error: 'Failed to send lodge confirmation email' },
         { status: 500 }
       );
     }
 
-    console.log('✅ Email sent successfully:', emailResult.id);
+    console.log('✅ Lodge confirmation email sent successfully:', emailResult.id);
     
     return NextResponse.json({
       success: true,
       emailId: emailResult.id,
-      recipient: data.billingDetails.emailAddress
+      recipient: data.billingDetails.emailAddress,
+      lodgeName: lodgeName
     });
 
   } catch (error: any) {
-    console.error('❌ Email API error:', error);
+    console.error('❌ Lodge confirmation email API error:', error);
     return NextResponse.json(
       { success: false, error: 'Internal server error' },
       { status: 500 }

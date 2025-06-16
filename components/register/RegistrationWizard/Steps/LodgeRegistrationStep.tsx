@@ -7,6 +7,7 @@ import { Elements } from '@stripe/react-stripe-js';
 import { OneColumnStepLayout } from '../Layouts/OneColumnStepLayout';
 import { LodgesForm } from '../../Forms/attendee/LodgesForm';
 import { CheckoutForm, CheckoutFormHandle } from '../payment/CheckoutForm';
+import { StripeErrorBoundary } from '../payment/StripeErrorBoundary';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
@@ -16,9 +17,21 @@ import { StripeBillingDetailsForClient } from '../payment/types';
 import { getFunctionTicketsService, FunctionPackage } from '@/lib/services/function-tickets-service';
 import { calculateStripeFees, STRIPE_RATES, getFeeModeFromEnv, getPlatformFeePercentage } from '@/lib/utils/stripe-fee-calculator';
 
-// Get Stripe publishable key
-const stripePublishableKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!;
-const stripePromise = loadStripe(stripePublishableKey);
+// Validate and get Stripe publishable key
+const getStripeKey = () => {
+  const key = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
+  if (!key) {
+    console.error('NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY is not defined');
+    return null;
+  }
+  if (!key.startsWith('pk_')) {
+    console.error('Invalid Stripe publishable key format:', key);
+    return null;
+  }
+  return key;
+};
+
+const stripePublishableKey = getStripeKey();
 
 interface LodgeRegistrationStepProps {
   functionId: string;
@@ -34,6 +47,19 @@ export const LodgeRegistrationStep: React.FC<LodgeRegistrationStepProps> = ({
 }) => {
   const router = useRouter();
   const checkoutFormRef = useRef<CheckoutFormHandle>(null);
+  
+  // Create Stripe promise with error handling
+  const stripePromise = useMemo(() => {
+    if (!stripePublishableKey) {
+      return null;
+    }
+    try {
+      return loadStripe(stripePublishableKey);
+    } catch (error) {
+      console.error('Failed to load Stripe:', error);
+      return null;
+    }
+  }, []);
   
   // Store hooks from unified store
   const { 
@@ -352,19 +378,29 @@ export const LodgeRegistrationStep: React.FC<LodgeRegistrationStepProps> = ({
                 No lodge package is available for this function. Please contact support.
               </AlertDescription>
             </Alert>
+          ) : !stripePromise ? (
+            /* Stripe Error */
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                Payment processing is currently unavailable. Please contact support or try again later.
+              </AlertDescription>
+            </Alert>
           ) : (
             /* Stripe Elements */
-            <Elements stripe={stripePromise}>
-              <CheckoutForm
-                ref={checkoutFormRef}
-                totalAmount={totalAmount}
-                onPaymentSuccess={handlePaymentSuccess}
-                onPaymentError={handlePaymentError}
-                setIsProcessingPayment={setIsProcessing}
-                billingDetails={getBillingDetails()}
-                isProcessing={isProcessing}
-              />
-            </Elements>
+            <StripeErrorBoundary>
+              <Elements stripe={stripePromise}>
+                <CheckoutForm
+                  ref={checkoutFormRef}
+                  totalAmount={totalAmount}
+                  onPaymentSuccess={handlePaymentSuccess}
+                  onPaymentError={handlePaymentError}
+                  setIsProcessingPayment={setIsProcessing}
+                  billingDetails={getBillingDetails()}
+                  isProcessing={isProcessing}
+                />
+              </Elements>
+            </StripeErrorBoundary>
           )}
 
 

@@ -1,5 +1,5 @@
--- Production data seed file
--- Generated on: 2025-12-06
+-- Local development seed file
+-- Includes essential data for Grand Proclamation 2025
 -- Execution order: locations, organisations, grand_lodges, lodges, display_scopes, functions, events, event_tickets, packages
 BEGIN;
 

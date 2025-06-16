@@ -348,14 +348,56 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ function
     }
     
     if (functionSlug) {
+      // If functionId is provided as prop, set it immediately and skip async fetching
+      if (providedFunctionId) {
+        console.log(`Using provided functionId: ${providedFunctionId} for ${functionSlug}`);
+        
+        const storeState = useRegistrationStore.getState();
+        const hasCompletedRegistration = storeState.confirmationNumber !== null || storeState.status === 'completed';
+        
+        // Check if there's a completed registration (confirmationNumber exists or status is completed)
+        // According to requirements: if status is paid/completed then always start a new registration
+        // UNLESS we're explicitly showing the confirmation step
+        if (hasCompletedRegistration && initialStep !== 6) {
+          console.log('Detected completed registration - clearing to start fresh');
+          clearRegistration();
+        } else if (initialStep === 6) {
+          console.log('Showing confirmation step for completed registration');
+          // If we have confirmation data, set the registration type from it
+          if (confirmationData?.registrationType) {
+            setRegistrationType(confirmationData.registrationType);
+          }
+        }
+        
+        // Set current step - use initialStep if provided, otherwise default to 1
+        setCurrentStep(initialStep || 1);
+        
+        setFunctionSlug(functionSlug);
+        // Store the function ID in the registration store immediately
+        setFunctionId(providedFunctionId);
+        setResolvedFunctionId(providedFunctionId);
+        
+        // Set the registrationId as the draftId if provided
+        if (registrationId) {
+          console.log(`Using registrationId as draftId: ${registrationId}`);
+          setDraftId(registrationId);
+        }
+        
+        // Set initializing to false to proceed to the registration type step
+        setIsInitializing(false);
+        setShowDraftRecoveryModal(false);
+        
+        return; // Skip async function loading
+      }
+      
+      // Fallback: Only fetch function data if functionId not provided
       const loadFunction = async () => {
         try {
-          // Resolve function ID if not provided
-          let functionId = providedFunctionId;
-          if (!functionId) {
-            functionId = await resolveFunctionSlug(functionSlug); // client-side
-            setResolvedFunctionId(functionId);
-          }
+          console.log(`No functionId provided, resolving from slug: ${functionSlug}`);
+          
+          // Resolve function ID from slug
+          const functionId = await resolveFunctionSlug(functionSlug); // client-side
+          setResolvedFunctionId(functionId);
           
           // Import FunctionService dynamically
           const { FunctionService } = await import('@/lib/services/function-service');
@@ -422,8 +464,9 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ function
     if (functionSlug) {
       setFunctionSlug(functionSlug);
     }
-    if (resolvedFunctionId) {
-      setFunctionId(resolvedFunctionId);
+    const functionIdToUse = providedFunctionId || resolvedFunctionId;
+    if (functionIdToUse) {
+      setFunctionId(functionIdToUse);
     }
     
     // Reset to step 1 or initialStep if provided
@@ -447,8 +490,9 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ function
     if (functionSlug) {
       setFunctionSlug(functionSlug);
     }
-    if (resolvedFunctionId) {
-      setFunctionId(resolvedFunctionId);
+    const functionIdToUse = providedFunctionId || resolvedFunctionId;
+    if (functionIdToUse) {
+      setFunctionId(functionIdToUse);
     }
     
     // Reset to step 1 (Registration Type)
@@ -474,6 +518,10 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ function
     startNewRegistration('individuals');
     if (functionSlug) {
       setFunctionSlug(functionSlug);
+    }
+    const functionIdToUse = providedFunctionId || resolvedFunctionId;
+    if (functionIdToUse) {
+      setFunctionId(functionIdToUse);
     }
     setCurrentStep(1);
     setDraftRecoveryHandled(true);

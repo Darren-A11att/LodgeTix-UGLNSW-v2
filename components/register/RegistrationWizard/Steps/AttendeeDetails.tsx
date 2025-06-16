@@ -1,6 +1,7 @@
 import React, { useState, useCallback, useMemo, useRef } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useRegistrationStore } from '@/lib/registrationStore';
+import { useTicketsPreloader } from '@/hooks/use-tickets-preloader';
 // Lodge registration store is now part of the unified store
 import { IndividualsForm } from '../../Forms/attendee/IndividualsForm';
 import { LodgesForm } from '../../Forms/attendee/LodgesForm';
@@ -44,6 +45,18 @@ const AttendeeDetails: React.FC<AttendeeDetailsProps> = ({
   const [showErrors, setShowErrors] = useState(false);
   const [showValidationModal, setShowValidationModal] = useState(false);
   const [attemptedSubmit, setAttemptedSubmit] = useState(false);
+  
+  // Preload tickets data in the background for better UX on next step
+  // Trigger after a delay to allow attendee details to fully load
+  const preloaderStatus = useTicketsPreloader({
+    enabled: true,
+    delay: 1000 // Start preloading 1 second after component loads
+  });
+  
+  // Debug preloader status in development
+  if (process.env.NODE_ENV === 'development' && preloaderStatus.hasPreloaded) {
+    console.log('[AttendeeDetails] Tickets preloaded in background - next step will be instant');
+  }
   
   // Check if form is valid
   const isFormValid = useMemo(() => {

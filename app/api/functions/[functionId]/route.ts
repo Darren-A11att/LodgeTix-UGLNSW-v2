@@ -21,33 +21,41 @@ export async function GET(
       );
     }
 
-    if (!data || data.length === 0) {
+    if (!data) {
       return NextResponse.json(
         { error: 'Function not found' },
         { status: 404 }
       );
     }
 
-    // The RPC returns an array, but we expect a single function
-    const functionData = data[0];
+    // The RPC returns a structured object with function, events, packages, location, organiser
+    const functionInfo = data.function;
+    
+    if (!functionInfo) {
+      return NextResponse.json(
+        { error: 'Function not found' },
+        { status: 404 }
+      );
+    }
 
-    // Transform the data to match the FunctionType interface
+    // Return data in the format expected by FunctionType interface (snake_case)
     const transformedFunction = {
-      id: functionData.function_id,
-      name: functionData.name,
-      slug: functionData.slug,
-      description: functionData.description,
-      imageUrl: functionData.image_url,
-      startDate: functionData.start_date,
-      endDate: functionData.end_date,
-      locationId: functionData.location_id,
-      organiserId: functionData.organiser_id,
-      events: functionData.events || [],
-      packages: functionData.packages || [],
-      location: functionData.location,
-      registrationCount: functionData.registration_count || 0,
-      metadata: functionData.metadata || {},
-      isPublished: functionData.is_published
+      function_id: functionInfo.function_id,
+      name: functionInfo.name,
+      slug: functionInfo.slug,
+      description: functionInfo.description,
+      image_url: functionInfo.image_url,
+      start_date: functionInfo.start_date,
+      end_date: functionInfo.end_date,
+      location_id: functionInfo.location_id,
+      organiser_id: functionInfo.organiser_id,
+      events: data.events || [],
+      packages: data.packages || [],
+      location: data.location,
+      organiser: data.organiser,
+      registrationCount: 0,
+      metadata: functionInfo.metadata || {},
+      is_published: functionInfo.is_published
     };
 
     return NextResponse.json(transformedFunction);

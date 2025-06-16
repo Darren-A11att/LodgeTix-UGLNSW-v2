@@ -15,7 +15,7 @@ import {
   Img,
 } from '@react-email/components';
 
-interface IndividualConfirmationEmailProps {
+interface LodgeConfirmationEmailProps {
   confirmationNumber: string;
   functionData: {
     name: string;
@@ -44,36 +44,28 @@ interface IndividualConfirmationEmailProps {
     postcode?: string;
     country?: { name: string };
   };
-  attendees: Array<{
-    attendeeId?: string;
-    title?: string;
-    firstName: string;
-    lastName: string;
-    attendeeType: string;
-    primaryEmail?: string;
-    primaryPhone?: string;
-    dietaryRequirements?: string;
-    specialNeeds?: string;
-    contactPreference?: string;
-    suffix?: string;
-    isPrimary?: boolean;
-  }>;
-  tickets: Array<{
-    ticketName: string;
-    ticketPrice: number;
-    attendeeId: string;
+  lodgeDetails: {
+    lodgeName: string;
+    grandLodgeName: string;
+    lodgeNumber?: string;
+  };
+  packages: Array<{
+    packageName: string;
+    packagePrice: number;
+    quantity: number;
+    totalPrice: number;
   }>;
   subtotal: number;
   stripeFee: number;
   totalAmount: number;
 }
 
-export const IndividualConfirmationEmail: React.FC<IndividualConfirmationEmailProps> = ({
+export const LodgeConfirmationEmail: React.FC<LodgeConfirmationEmailProps> = ({
   confirmationNumber,
   functionData,
   billingDetails,
-  attendees,
-  tickets,
+  lodgeDetails,
+  packages,
   subtotal,
   stripeFee,
   totalAmount,
@@ -89,10 +81,21 @@ export const IndividualConfirmationEmail: React.FC<IndividualConfirmationEmailPr
     }).format(date);
   };
 
+  const formatCurrency = (amount: number) => {
+    return new Intl.NumberFormat('en-AU', {
+      style: 'currency',
+      currency: 'AUD',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(amount);
+  };
+
+  const totalPackages = packages.reduce((sum, pkg) => sum + pkg.quantity, 0);
+
   return (
     <Html>
       <Head />
-      <Preview>Registration confirmed for {functionData.name}</Preview>
+      <Preview>Lodge registration confirmed for {functionData.name}</Preview>
       <Body style={main}>
         <Container style={container}>
           {/* Header */}
@@ -110,8 +113,8 @@ export const IndividualConfirmationEmail: React.FC<IndividualConfirmationEmailPr
           {/* Success Header */}
           <Section style={successSection}>
             <Text style={successIcon}>✅</Text>
-            <Heading style={mainHeading}>Registration Confirmed</Heading>
-            <Text style={subtitle}>Thank you for your registration</Text>
+            <Heading style={mainHeading}>Lodge Registration Confirmed</Heading>
+            <Text style={subtitle}>Thank you for your lodge registration</Text>
           </Section>
 
           {/* Main Card */}
@@ -192,93 +195,56 @@ export const IndividualConfirmationEmail: React.FC<IndividualConfirmationEmailPr
 
               <Hr style={divider} />
 
-              {/* Registration Details */}
+              {/* Lodge Registration Details */}
               <Section>
-                <Heading style={sectionHeading}>👥 Registration Details</Heading>
+                <Heading style={sectionHeading}>🏛️ Lodge Registration Details</Heading>
                 
-                {attendees.map((attendee, index) => {
-                  const attendeeTickets = tickets.filter(ticket => ticket.attendeeId === attendee.attendeeId) || [];
-                  const attendeeTotal = attendeeTickets.reduce((sum, ticket) => sum + (ticket.ticketPrice || 0), 0);
-
-                  return (
-                    <Section key={index} style={attendeeCard}>
-                      <Section style={attendeeHeader}>
-                        <Text style={attendeeName}>
-                          {attendee.title} {attendee.firstName} {attendee.lastName}
-                          {attendee.attendeeType === 'mason' && attendee.suffix && (
-                            <span> ({attendee.suffix})</span>
-                          )}
-                          {attendee.isPrimary && (
-                            <span style={primaryBadge}> Primary Attendee</span>
-                          )}
-                        </Text>
-                      </Section>
-
-                      <Section style={attendeeDetails}>
-                        <Row>
-                          <Column>
-                            <Text style={attendeeDetail}>
-                              Type: <strong>{attendee.attendeeType}</strong>
-                            </Text>
-                            {attendee.primaryEmail && (
-                              <Text style={attendeeDetail}>
-                                Email: <strong>{attendee.primaryEmail}</strong>
-                              </Text>
-                            )}
-                            {attendee.primaryPhone && (
-                              <Text style={attendeeDetail}>
-                                Phone: <strong>{attendee.primaryPhone}</strong>
-                              </Text>
-                            )}
-                          </Column>
-                          <Column>
-                            {attendee.dietaryRequirements && (
-                              <Text style={attendeeDetail}>
-                                Dietary: <strong>{attendee.dietaryRequirements}</strong>
-                              </Text>
-                            )}
-                            {attendee.specialNeeds && (
-                              <Text style={attendeeDetail}>
-                                Special Needs: <strong>{attendee.specialNeeds}</strong>
-                              </Text>
-                            )}
-                            {attendee.contactPreference && (
-                              <Text style={attendeeDetail}>
-                                Contact Preference: <strong>{attendee.contactPreference}</strong>
-                              </Text>
-                            )}
-                          </Column>
-                        </Row>
-                      </Section>
-
-                      {/* Tickets */}
-                      {attendeeTickets.length > 0 && (
-                        <Section style={ticketSection}>
-                          <Text style={ticketHeader}>Tickets:</Text>
-                          {attendeeTickets.map((ticket, ticketIndex) => (
-                            <Row key={ticketIndex} style={ticketRow}>
-                              <Column>
-                                <Text style={ticketName}>{ticket.ticketName}</Text>
-                              </Column>
-                              <Column style={{ textAlign: 'right' }}>
-                                <Text style={ticketPrice}>${ticket.ticketPrice.toFixed(2)}</Text>
-                              </Column>
-                            </Row>
-                          ))}
-                          <Hr style={ticketDivider} />
-                          <Row>
-                            <Column>
-                              <Text style={attendeeTotal}>Attendee Total:</Text>
-                            </Column>
-                            <Column style={{ textAlign: 'right' }}>
-                              <Text style={attendeeTotal}>${attendeeTotal.toFixed(2)}</Text>
-                            </Column>
-                          </Row>
-                        </Section>
+                <Section style={lodgeCard}>
+                  <Section style={lodgeHeader}>
+                    <Text style={lodgeName}>
+                      {lodgeDetails.lodgeName}
+                      {lodgeDetails.lodgeNumber && (
+                        <span> (No. {lodgeDetails.lodgeNumber})</span>
                       )}
-                    </Section>
-                  );
-                })}
+                    </Text>
+                    <Text style={grandLodgeName}>
+                      {lodgeDetails.grandLodgeName}
+                    </Text>
+                  </Section>
+
+                  {/* Important Message */}
+                  <Section style={messageBox}>
+                    <Text style={messageText}>
+                      <strong>Important:</strong> Lodges will need to provide the details of the Attendees who will be assigned the tickets closer to the event.
+                    </Text>
+                    <Text style={messageText}>
+                      Please ensure your attendees have registered directly for the Proclamation Ceremony.
+                    </Text>
+                  </Section>
+                </Section>
+              </Section>
+
+              <Hr style={divider} />
+
+              {/* Package Details */}
+              <Section>
+                <Heading style={sectionHeading}>📦 Package Details</Heading>
+                <Section style={packageSection}>
+                  {packages.map((pkg, index) => (
+                    <Row key={index} style={packageRow}>
+                      <Column>
+                        <Text style={packageName}>{pkg.packageName}</Text>
+                        <Text style={packageQuantity}>Quantity: {pkg.quantity}</Text>
+                      </Column>
+                      <Column style={{ textAlign: 'right' }}>
+                        <Text style={packagePrice}>{formatCurrency(pkg.totalPrice)}</Text>
+                        <Text style={packageUnitPrice}>
+                          ({formatCurrency(pkg.packagePrice)} each)
+                        </Text>
+                      </Column>
+                    </Row>
+                  ))}
+                </Section>
               </Section>
 
               <Hr style={divider} />
@@ -289,10 +255,10 @@ export const IndividualConfirmationEmail: React.FC<IndividualConfirmationEmailPr
                 <Section style={orderSummary}>
                   <Row style={summaryRow}>
                     <Column>
-                      <Text style={summaryLabel}>Subtotal ({tickets.length} tickets)</Text>
+                      <Text style={summaryLabel}>Subtotal ({totalPackages} packages)</Text>
                     </Column>
                     <Column style={{ textAlign: 'right' }}>
-                      <Text style={summaryValue}>${subtotal.toFixed(2)}</Text>
+                      <Text style={summaryValue}>{formatCurrency(subtotal)}</Text>
                     </Column>
                   </Row>
                   {stripeFee > 0 && (
@@ -301,7 +267,7 @@ export const IndividualConfirmationEmail: React.FC<IndividualConfirmationEmailPr
                         <Text style={summaryLabel}>Processing Fee</Text>
                       </Column>
                       <Column style={{ textAlign: 'right' }}>
-                        <Text style={summaryValue}>${stripeFee.toFixed(2)}</Text>
+                        <Text style={summaryValue}>{formatCurrency(stripeFee)}</Text>
                       </Column>
                     </Row>
                   )}
@@ -311,7 +277,7 @@ export const IndividualConfirmationEmail: React.FC<IndividualConfirmationEmailPr
                       <Text style={totalLabel}>Total Paid</Text>
                     </Column>
                     <Column style={{ textAlign: 'right' }}>
-                      <Text style={totalValue}>${totalAmount.toFixed(2)}</Text>
+                      <Text style={totalValue}>{formatCurrency(totalAmount)}</Text>
                     </Column>
                   </Row>
                 </Section>
@@ -350,7 +316,7 @@ export const IndividualConfirmationEmail: React.FC<IndividualConfirmationEmailPr
   );
 };
 
-// Styles
+// Styles (reusing from individual confirmation email with some additions)
 const main = {
   backgroundColor: '#f3f4f6',
   fontFamily: '-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Oxygen-Sans,Ubuntu,Cantarell,"Helvetica Neue",sans-serif',
@@ -504,80 +470,78 @@ const divider = {
   margin: '24px 0',
 };
 
-const attendeeCard = {
+const lodgeCard = {
   backgroundColor: '#f9fafb',
   padding: '16px',
   borderRadius: '8px',
-  marginBottom: '16px',
   border: '1px solid #e5e7eb',
 };
 
-const attendeeHeader = {
-  marginBottom: '12px',
+const lodgeHeader = {
+  marginBottom: '16px',
 };
 
-const attendeeName = {
-  fontSize: '16px',
+const lodgeName = {
+  fontSize: '18px',
   fontWeight: '600',
   color: '#111827',
+  margin: '0 0 4px',
+};
+
+const grandLodgeName = {
+  fontSize: '16px',
+  color: '#6b7280',
   margin: '0',
 };
 
-const primaryBadge = {
-  backgroundColor: '#e5e7eb',
-  color: '#374151',
-  padding: '2px 8px',
-  borderRadius: '12px',
-  fontSize: '12px',
-  fontWeight: '500',
+const messageBox = {
+  backgroundColor: '#fef3c7',
+  border: '1px solid #fbbf24',
+  borderRadius: '8px',
+  padding: '12px',
 };
 
-const attendeeDetails = {
-  marginBottom: '12px',
-};
-
-const attendeeDetail = {
+const messageText = {
   fontSize: '14px',
-  color: '#6b7280',
+  color: '#92400e',
   margin: '4px 0',
 };
 
-const ticketSection = {
-  marginTop: '12px',
+const packageSection = {
+  backgroundColor: '#f9fafb',
+  borderRadius: '8px',
+  padding: '16px',
 };
 
-const ticketHeader = {
-  fontSize: '14px',
+const packageRow = {
+  marginBottom: '12px',
+  paddingBottom: '12px',
+  borderBottom: '1px solid #e5e7eb',
+};
+
+const packageName = {
+  fontSize: '16px',
   fontWeight: '500',
-  color: '#111827',
-  margin: '0 0 8px',
+  margin: '0 0 4px',
 };
 
-const ticketRow = {
-  marginBottom: '4px',
-};
-
-const ticketName = {
+const packageQuantity = {
   fontSize: '14px',
   color: '#6b7280',
   margin: '0',
 };
 
-const ticketPrice = {
-  fontSize: '14px',
-  fontWeight: '500',
+const packagePrice = {
+  fontSize: '16px',
+  fontWeight: '600',
+  color: '#1e3a8a',
   margin: '0',
 };
 
-const ticketDivider = {
-  borderColor: '#d1d5db',
-  margin: '8px 0',
-};
-
-const attendeeTotal = {
-  fontSize: '14px',
-  fontWeight: '500',
-  margin: '0',
+const packageUnitPrice = {
+  fontSize: '12px',
+  color: '#6b7280',
+  margin: '4px 0 0',
 };
 
 const orderSummary = {
@@ -648,4 +612,4 @@ const appFooterText = {
   margin: '0',
 };
 
-export default IndividualConfirmationEmail;
+export default LodgeConfirmationEmail;

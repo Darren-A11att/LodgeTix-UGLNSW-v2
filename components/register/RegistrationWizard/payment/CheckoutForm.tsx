@@ -96,7 +96,7 @@ export const CheckoutForm = forwardRef<CheckoutFormHandle, CheckoutFormProps>(
       
       if (!stripe || !elements) {
         const error = "Payment system not ready. Please refresh and try again.";
-        console.error("Stripe not initialized");
+        console.error("Stripe not initialized", { stripe: !!stripe, elements: !!elements });
         setCardError(error);
         return { error };
       }
@@ -177,6 +177,19 @@ export const CheckoutForm = forwardRef<CheckoutFormHandle, CheckoutFormProps>(
       // STEP 3: Proceed with payment method creation
       await createPaymentMethod();
     };
+
+    // Guard against Stripe not being available
+    if (!stripe || !elements) {
+      return (
+        <div className="space-y-6">
+          <div className="p-4 border border-red-300 rounded-md bg-red-50">
+            <p className="text-sm text-red-700">
+              Payment system is initializing. Please wait a moment and try again.
+            </p>
+          </div>
+        </div>
+      );
+    }
 
     return (
       <div className="space-y-6">

@@ -20,6 +20,7 @@ import { ChevronRight } from 'lucide-react';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements } from '@stripe/react-stripe-js';
 import { CheckoutForm, CheckoutFormHandle } from '../../RegistrationWizard/payment/CheckoutForm';
+import { StripeErrorBoundary } from '../../RegistrationWizard/payment/StripeErrorBoundary';
 import { StripeBillingDetailsForClient } from '../../RegistrationWizard/payment/types';
 import { useRouter } from 'next/navigation';
 import { getFunctionTicketsService, FunctionTicketDefinition, FunctionPackage } from '@/lib/services/function-tickets-service';
@@ -56,9 +57,21 @@ const EVENT_IDS = {
 // Table package configuration (10 tickets per table)
 const TABLE_SIZE = 10;
 
-// Get Stripe publishable key
-const stripePublishableKey = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY!;
-const stripePromise = loadStripe(stripePublishableKey);
+// Validate and get Stripe publishable key
+const getStripeKey = () => {
+  const key = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
+  if (!key) {
+    console.error('NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY is not defined');
+    return null;
+  }
+  if (!key.startsWith('pk_')) {
+    console.error('Invalid Stripe publishable key format:', key);
+    return null;
+  }
+  return key;
+};
+
+const stripePublishableKey = getStripeKey();
 const TABLE_PRICE = 1950; // $195 per ticket x 10 = $1950 per table
 
 interface GrandLodgesFormProps {
@@ -106,6 +119,19 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
 }, ref) => {
   const router = useRouter();
   const checkoutFormRef = useRef<CheckoutFormHandle>(null);
+  
+  // Create Stripe promise with error handling
+  const stripePromise = useMemo(() => {
+    if (!stripePublishableKey) {
+      return null;
+    }
+    try {
+      return loadStripe(stripePublishableKey);
+    } catch (error) {
+      console.error('Failed to load Stripe:', error);
+      return null;
+    }
+  }, []);
   
   const { 
     attendees, 
@@ -912,17 +938,19 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
                   )}
 
                   {/* Stripe Elements */}
-                  <Elements stripe={stripePromise}>
-                    <CheckoutForm
-                      ref={checkoutFormRef}
-                      totalAmount={calculateStripeFees(ticketCount * ticketPrice, { isDomesticCard: true }).customerPayment}
-                      onPaymentSuccess={handlePaymentSuccess}
-                      onPaymentError={handlePaymentError}
-                      setIsProcessingPayment={setIsProcessingPayment}
-                      billingDetails={getBillingDetails()}
-                      isProcessing={isProcessingPayment}
-                    />
-                  </Elements>
+                  <StripeErrorBoundary>
+                    <Elements stripe={stripePromise}>
+                      <CheckoutForm
+                        ref={checkoutFormRef}
+                        totalAmount={calculateStripeFees(ticketCount * ticketPrice, { isDomesticCard: true }).customerPayment}
+                        onPaymentSuccess={handlePaymentSuccess}
+                        onPaymentError={handlePaymentError}
+                        setIsProcessingPayment={setIsProcessingPayment}
+                        billingDetails={getBillingDetails()}
+                        isProcessing={isProcessingPayment}
+                      />
+                    </Elements>
+                  </StripeErrorBoundary>
 
                   {/* Purchase Button */}
                   <div className="mt-6">

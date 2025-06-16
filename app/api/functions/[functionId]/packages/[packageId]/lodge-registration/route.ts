@@ -378,6 +378,108 @@ export async function POST(
       }
     }
 
+    // Send lodge confirmation email
+    console.log('[Lodge Registration API] Sending lodge confirmation email');
+    try {
+      // Fetch complete function data for email
+      const { data: fullFunctionData } = await supabase
+        .from('functions')
+        .select(`
+          function_id,
+          name,
+          slug,
+          start_date,
+          end_date,
+          organisations!functions_organiser_id_fkey(
+            name
+          ),
+          locations(
+            place_name,
+            street_address,
+            suburb,
+            state,
+            postal_code,
+            country
+          )
+        `)
+        .eq('function_id', functionId)
+        .single();
+
+      // Fetch package data for email
+      const { data: packageData } = await supabase
+        .from('packages')
+        .select('name, price_per_person')
+        .eq('package_id', packageId)
+        .single();
+
+      // Prepare email data
+      const emailData = {
+        confirmationNumber: confirmationNumber,
+        functionData: {
+          name: fullFunctionData?.name || 'Event',
+          startDate: fullFunctionData?.start_date,
+          endDate: fullFunctionData?.end_date,
+          organiser: {
+            name: fullFunctionData?.organisations?.name || 'United Grand Lodge of NSW & ACT'
+          },
+          location: fullFunctionData?.locations ? {
+            place_name: fullFunctionData.locations.place_name,
+            street_address: fullFunctionData.locations.street_address,
+            suburb: fullFunctionData.locations.suburb,
+            state: fullFunctionData.locations.state,
+            postal_code: fullFunctionData.locations.postal_code,
+            country: fullFunctionData.locations.country
+          } : undefined
+        },
+        billingDetails: {
+          firstName: bookingContact.firstName,
+          lastName: bookingContact.lastName,
+          emailAddress: bookingContact.email,
+          mobileNumber: bookingContact.mobile,
+          addressLine1: billingDetails?.addressLine1,
+          suburb: billingDetails?.suburb,
+          stateTerritory: billingDetails?.stateTerritory,
+          postcode: billingDetails?.postcode,
+          country: billingDetails?.country
+        },
+        lodgeDetails: {
+          lodgeName: lodgeDetails.lodgeName,
+          grandLodgeName: lodgeDetails.grandLodgeName || 'United Grand Lodge of NSW & ACT',
+          lodgeNumber: lodgeDetails.lodgeNumber
+        },
+        packages: [{
+          packageName: packageData?.name || 'Lodge Package',
+          packagePrice: (packageData?.price_per_person || (subtotal / tableCount)) / 100, // Convert from cents to dollars
+          quantity: tableCount,
+          totalPrice: subtotal / 100 // Convert from cents to dollars
+        }],
+        subtotal: subtotal / 100, // Convert from cents to dollars
+        stripeFee: stripeFee / 100, // Convert from cents to dollars
+        totalAmount: amount / 100 // Convert from cents to dollars
+      };
+
+      // Send email via our lodge confirmation API
+      const emailResponse = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/emails/lodge-confirmation`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(emailData),
+      });
+
+      if (emailResponse.ok) {
+        const emailResult = await emailResponse.json();
+        console.log('[Lodge Registration API] Lodge confirmation email sent successfully:', emailResult.emailId);
+      } else {
+        const emailError = await emailResponse.text();
+        console.error('[Lodge Registration API] Failed to send lodge confirmation email:', emailError);
+        // Don't fail the registration if email fails
+      }
+    } catch (emailError) {
+      console.error('[Lodge Registration API] Error sending lodge confirmation email:', emailError);
+      // Don't fail the registration if email fails
+    }
+
     return NextResponse.json({
       success: true,
       registrationId: finalRegistrationId,

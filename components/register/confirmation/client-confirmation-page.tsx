@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { PrintButton } from '@/components/register/confirmation/print-button';
 import { useConfirmationData } from './confirmation-data-provider';
+import { useFeaturedFunctionDetails } from '@/contexts/featured-function-context';
 
 interface ClientConfirmationPageProps {
   confirmationNumber: string;
@@ -26,34 +27,71 @@ interface ClientConfirmationPageProps {
 export function ClientConfirmationPage({ confirmationNumber, fallbackData }: ClientConfirmationPageProps) {
   const localData = useConfirmationData(confirmationNumber);
   const rawRegistration = localData || fallbackData;
+  const { function: featuredFunction, isLoading: functionLoading, error: functionError } = useFeaturedFunctionDetails();
+
+  // Debug logging
+  console.log('🔍 Featured function data:', featuredFunction);
+  console.log('🔍 Function loading:', functionLoading);
+  console.log('🔍 Function error:', functionError);
+  console.log('🔍 Raw registration data:', rawRegistration);
+
+  // Function to get function data with multiple fallback sources
+  const getFunctionData = () => {
+    // 1. Try featured function data first (if available)
+    if (featuredFunction && featuredFunction.name) {
+      console.log('📍 Using featured function data for function info');
+      return {
+        name: featuredFunction.name,
+        slug: featuredFunction.slug,
+        description: featuredFunction.description,
+        startDate: featuredFunction.start_date,
+        endDate: featuredFunction.end_date,
+        imageUrl: featuredFunction.image_url,
+        location: featuredFunction.location,
+        organiser: featuredFunction.organiser
+      };
+    }
+    
+    // 2. Try rawRegistration.functionData (from localStorage)
+    if (rawRegistration?.functionData && rawRegistration.functionData.name) {
+      console.log('📍 Using rawRegistration.functionData for function info');
+      return rawRegistration.functionData;
+    }
+    
+    // 3. Fallback to constructing from individual fields in registration data
+    console.log('📍 Constructing function data from individual registration fields');
+    const constructedData = {
+      name: rawRegistration?.function_name || rawRegistration?.functionName || 'Event',
+      slug: rawRegistration?.function_slug || rawRegistration?.functionSlug,
+      description: rawRegistration?.function_description || rawRegistration?.functionDescription,
+      startDate: rawRegistration?.function_start_date || rawRegistration?.functionStartDate,
+      endDate: rawRegistration?.function_end_date || rawRegistration?.functionEndDate,
+      imageUrl: rawRegistration?.function_image_url || rawRegistration?.functionImageUrl,
+      location: {
+        place_name: rawRegistration?.function_location_name,
+        street_address: rawRegistration?.function_location_address,
+        suburb: rawRegistration?.function_location_city,
+        state: rawRegistration?.function_location_state,
+        country: rawRegistration?.function_location_country,
+        postal_code: rawRegistration?.function_location_postal_code
+      },
+      organiser: {
+        id: rawRegistration?.function_organiser_id,
+        name: rawRegistration?.organiser_name || 'United Grand Lodge of NSW & ACT',
+        knownAs: rawRegistration?.organiser_known_as,
+        abbreviation: rawRegistration?.organiser_abbreviation,
+        website: rawRegistration?.organiser_website
+      }
+    };
+    console.log('📍 Constructed function data:', constructedData);
+    return constructedData;
+  };
 
   // Normalize data structure to handle both localStorage and database formats
   const registration = rawRegistration ? {
     ...rawRegistration,
-    // Normalize function data structure
-    functionData: rawRegistration.functionData || {
-      name: rawRegistration.function_name,
-      slug: rawRegistration.function_slug,
-      description: rawRegistration.function_description,
-      startDate: rawRegistration.function_start_date,
-      endDate: rawRegistration.function_end_date,
-      imageUrl: rawRegistration.function_image_url,
-      location: {
-        place_name: rawRegistration.function_location_name,
-        street_address: rawRegistration.function_location_address,
-        suburb: rawRegistration.function_location_city,
-        state: rawRegistration.function_location_state,
-        country: rawRegistration.function_location_country,
-        postal_code: rawRegistration.function_location_postal_code
-      },
-      organiser: {
-        id: rawRegistration.function_organiser_id,
-        name: rawRegistration.organiser_name || 'United Grand Lodge of NSW & ACT',
-        knownAs: rawRegistration.organiser_known_as,
-        abbreviation: rawRegistration.organiser_abbreviation,
-        website: rawRegistration.organiser_website
-      }
-    },
+    // Use the robust function data getter
+    functionData: getFunctionData(),
     // Normalize tickets array - fix price field mapping
     tickets: (rawRegistration.tickets || []).map((ticket: any) => ({
       ...ticket,
@@ -64,10 +102,10 @@ export function ClientConfirmationPage({ confirmationNumber, fallbackData }: Cli
     attendees: rawRegistration.attendees || [],
     // Normalize billing details
     billingDetails: rawRegistration.billingDetails || {
-      firstName: rawRegistration.billing_first_name || rawRegistration.customer_first_name,
-      lastName: rawRegistration.billing_last_name || rawRegistration.customer_last_name,
-      emailAddress: rawRegistration.billing_email || rawRegistration.customer_email,
-      mobileNumber: rawRegistration.billing_phone || rawRegistration.customer_phone,
+      firstName: rawRegistration.billing_first_name || rawRegistration.customer_first_name || rawRegistration.firstName,
+      lastName: rawRegistration.billing_last_name || rawRegistration.customer_last_name || rawRegistration.lastName,
+      emailAddress: rawRegistration.billing_email || rawRegistration.customer_email || rawRegistration.emailAddress || rawRegistration.email,
+      mobileNumber: rawRegistration.billing_phone || rawRegistration.customer_phone || rawRegistration.phone || rawRegistration.mobileNumber,
       addressLine1: rawRegistration.billing_street_address,
       suburb: rawRegistration.billing_city,
       stateTerritory: { name: rawRegistration.billing_state },
@@ -120,6 +158,16 @@ export function ClientConfirmationPage({ confirmationNumber, fallbackData }: Cli
           stripeFee,
           totalAmount,
         };
+        
+        // Final validation before sending
+        if (!emailData.confirmationNumber || !emailData.billingDetails?.emailAddress || !emailData.functionData?.name) {
+          console.error('❌ Cannot send email - missing required data:', {
+            confirmationNumber: !!emailData.confirmationNumber,
+            emailAddress: !!emailData.billingDetails?.emailAddress,
+            functionName: !!emailData.functionData?.name
+          });
+          return;
+        }
 
         const response = await fetch('/api/emails/individual-confirmation', {
           method: 'POST',
@@ -384,6 +432,14 @@ export function ClientConfirmationPage({ confirmationNumber, fallbackData }: Cli
             <div className="text-center text-sm text-gray-600 pt-4">
               <p>A confirmation email has been sent to {registration.billingDetails?.emailAddress}</p>
               <p className="mt-1">Please save or print this confirmation for your records</p>
+            </div>
+
+            {/* App Footer */}
+            <div className="bg-masonic-navy text-white text-center p-4 mt-6 rounded-b-lg text-sm">
+              <p className="font-semibold">Thank you for using LodgeTix!</p>
+              <p className="mt-1">LodgeTix is a ticket agent for United Grand Lodge of NSW & ACT</p>
+              <p className="mt-1">Please contact support@lodgetix.io or phone 0438 871 124</p>
+              <p className="mt-2 text-xs">Copyright LodgeTix.io</p>
             </div>
           </CardContent>
         </Card>

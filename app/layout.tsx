@@ -5,6 +5,7 @@ import '@/styles/globals.css'
 import './disableFastRefreshLogs'
 import { LocationInitializer } from '@/components/location-initializer'
 import { AuthProvider } from '@/contexts/auth-provider'
+import { FeaturedFunctionProvider } from '@/contexts/featured-function-context'
 import { LayoutWithFooter } from '@/components/ui/layout-with-footer'
 import { Toaster } from '@/components/ui/sonner'
 
@@ -28,11 +29,13 @@ export default function RootLayout({
       </head>
       <body>
         <AuthProvider>
-          <LocationInitializer />
-          <LayoutWithFooter>
-            {children}
-          </LayoutWithFooter>
-          <Toaster />
+          <FeaturedFunctionProvider>
+            <LocationInitializer />
+            <LayoutWithFooter>
+              {children}
+            </LayoutWithFooter>
+            <Toaster />
+          </FeaturedFunctionProvider>
         </AuthProvider>
         
         {/* Crisp Chat Widget */}

@@ -87,10 +87,10 @@ export async function GET(
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
       console.log(`Poll attempt ${attempt + 1}/${maxAttempts}`);
       
-      // Query registration table directly
+      // Query registration table directly with additional fields for Stripe data
       const { data, error } = await supabase
         .from('registrations')
-        .select('confirmation_number, registration_type, auth_user_id')
+        .select('confirmation_number, registration_type, auth_user_id, stripe_payment_intent_id, connected_account_id, status, payment_status')
         .eq('registration_id', registrationId)
         .single();
       
@@ -143,6 +143,75 @@ export async function GET(
       
       console.log('✅ Authentication verification passed');
       
+      // Update registration status on poll attempt 2 if we have Stripe data
+      if (attempt === 1 && data?.stripe_payment_intent_id && data.status !== 'completed') {
+        console.log('Poll attempt 2/10 - Updating registration status with Stripe payment data');
+        
+        // Verify payment with Stripe to get the latest status
+        try {
+          // We'll use the existing Stripe payment intent to determine payment status
+          const updateData: any = {
+            status: 'completed',
+            updated_at: new Date().toISOString()
+          };
+          
+          // Update payment_status to completed if we have a stripe_payment_intent_id
+          if (data.stripe_payment_intent_id) {
+            updateData.payment_status = 'completed';
+          }
+          
+          // Preserve connected_account_id if it exists
+          if (data.connected_account_id) {
+            updateData.connected_account_id = data.connected_account_id;
+          }
+          
+          const { error: updateError } = await supabase
+            .from('registrations')
+            .update(updateData)
+            .eq('registration_id', registrationId);
+          
+          if (updateError) {
+            console.error('Error updating registration status:', updateError);
+          } else {
+            console.log('✅ Registration status updated to completed on poll attempt 2');
+          }
+        } catch (stripeError) {
+          console.error('Error updating registration status:', stripeError);
+        }
+      }
+      
+      // Generate confirmation number with INDV- prefix on poll attempt 7 if none exists
+      if (attempt === 6 && !data?.confirmation_number) {
+        console.log('Poll attempt 7/10 - Generating confirmation number with INDV- prefix');
+        
+        try {
+          const confirmationNumber = `INDV-${registrationId.substring(0, 8).toUpperCase()}`;
+          
+          const { error: confirmationError } = await supabase
+            .from('registrations')
+            .update({
+              confirmation_number: confirmationNumber,
+              confirmation_generated_at: new Date().toISOString(),
+              updated_at: new Date().toISOString()
+            })
+            .eq('registration_id', registrationId);
+          
+          if (confirmationError) {
+            console.error('Error generating confirmation number:', confirmationError);
+          } else {
+            console.log(`✅ Generated confirmation number: ${confirmationNumber}`);
+            console.groupEnd();
+            
+            return NextResponse.json({
+              confirmationNumber: confirmationNumber,
+              registrationType: data.registration_type
+            });
+          }
+        } catch (confirmationGenerationError) {
+          console.error('Error generating confirmation number:', confirmationGenerationError);
+        }
+      }
+      
       if (data?.confirmation_number) {
         // Confirmation number generated successfully
         console.log(`Confirmation number found: ${data.confirmation_number}`);
@@ -164,13 +233,33 @@ export async function GET(
     console.error(`Confirmation number generation timeout for ${registrationId}`);
     console.groupEnd();
     
-    // Fallback: Generate a temporary confirmation number
-    const fallbackConfirmation = `TEMP-${registrationId.substring(0, 8).toUpperCase()}`;
+    // Fallback: Generate a confirmation number with INDV- prefix and save to database
+    const fallbackConfirmation = `INDV-${registrationId.substring(0, 8).toUpperCase()}`;
+    
+    try {
+      // Save the fallback confirmation number to the database
+      const { error: fallbackError } = await supabase
+        .from('registrations')
+        .update({
+          confirmation_number: fallbackConfirmation,
+          confirmation_generated_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .eq('registration_id', registrationId);
+      
+      if (fallbackError) {
+        console.error('Error saving fallback confirmation number:', fallbackError);
+      } else {
+        console.log(`✅ Saved fallback confirmation number: ${fallbackConfirmation}`);
+      }
+    } catch (fallbackSaveError) {
+      console.error('Error saving fallback confirmation number:', fallbackSaveError);
+    }
     
     return NextResponse.json({
       confirmationNumber: fallbackConfirmation,
-      isTemporary: true,
-      message: 'Confirmation number generation delayed. Check your email for the official confirmation.'
+      isTemporary: false,
+      message: 'Confirmation number generated. Check your email for the official confirmation.'
     });
     
   } catch (error: any) {

@@ -6,6 +6,7 @@ import { TicketIcon } from "lucide-react"
 import { WizardShellLayout } from "@/components/register/RegistrationWizard/Layouts/WizardShellLayout"
 import { useParams } from 'next/navigation'
 import { useRegistrationStore } from '@/lib/registrationStore'
+import { useFunctionOrganiser } from '@/hooks/useFunctionOrganiser'
 
 export default function ConfirmationLayout({
   children,
@@ -14,6 +15,7 @@ export default function ConfirmationLayout({
 }) {
   const params = useParams()
   const slug = params.slug as string
+  const { organiserName } = useFunctionOrganiser(slug)
   
   // For confirmation pages, we always show the footer
   const hideFooterOnMobile = false
@@ -49,7 +51,8 @@ export default function ConfirmationLayout({
         hideFooterOnMobile ? 'hidden sm:block' : ''
       }`}>
         <div className="container mx-auto px-4 text-center">
-          <p>&copy; {new Date().getFullYear()} United Grand Lodge of NSW & ACT. All rights reserved.</p>
+          <p className="text-sm mb-2">Need help? Use the Instant Message Bubble, Email: support@lodgetix.io or Phone: 0438871124</p>
+          <p>&copy; {new Date().getFullYear()} LodgeTix as agent for {organiserName}</p>
         </div>
       </footer>
     </div>

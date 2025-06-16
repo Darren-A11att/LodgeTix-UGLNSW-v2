@@ -996,6 +996,40 @@ function PaymentStep(props: PaymentStepProps) {
         
         console.log("💾 Saved registration data to localStorage:", confirmationData);
         
+        // Update registration status to completed after successful payment
+        console.log("🔄 Updating registration status to completed...");
+        const updateHeaders: Record<string, string> = {
+          'Content-Type': 'application/json'
+        };
+        
+        if (session?.access_token) {
+          updateHeaders['Authorization'] = `Bearer ${session.access_token}`;
+        }
+        
+        try {
+          const updateResponse = await fetch(`/api/registrations/${registrationId}`, {
+            method: 'PATCH',
+            headers: updateHeaders,
+            body: JSON.stringify({
+              status: 'completed',
+              payment_status: 'completed',
+              stripe_payment_intent_id: result.paymentIntentId,
+              payment_intent_id: result.paymentIntentId,
+              payment_confirmed_at: new Date().toISOString(),
+              total_amount_paid: result.totalAmount,
+              stripe_fee: result.processingFees
+            })
+          });
+          
+          if (updateResponse.ok) {
+            console.log("✅ Registration status updated to completed");
+          } else {
+            console.warn("⚠️ Failed to update registration status, but proceeding with confirmation");
+          }
+        } catch (updateError) {
+          console.warn("⚠️ Error updating registration status:", updateError);
+        }
+        
         // Get the function slug from the current URL or props
         const pathSegments = window.location.pathname.split('/');
         const functionSlugIndex = pathSegments.indexOf('functions') + 1;
