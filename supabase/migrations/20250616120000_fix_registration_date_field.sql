@@ -33,7 +33,7 @@ DECLARE
   v_total_attendees INTEGER;
   v_confirmation_number TEXT;
   v_organisation_name TEXT;
-  v_status registration_status;
+  v_status TEXT;
   v_enhanced_registration_data JSONB;
   v_package_name TEXT;
   v_created_tickets INTEGER := 0;
@@ -275,7 +275,7 @@ DECLARE
   v_customer_id UUID;
   v_total_attendees INTEGER;
   v_confirmation_number TEXT;
-  v_status registration_status;
+  v_status TEXT;
   v_enhanced_registration_data JSONB;
   v_attendee_record JSONB;
   v_attendee_id UUID;
