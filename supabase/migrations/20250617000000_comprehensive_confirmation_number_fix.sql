@@ -50,7 +50,7 @@ SET confirmation_number =
         WHEN registration_type = 'lodge' THEN
           'LDG-' || LPAD((RANDOM() * 999999)::INTEGER::TEXT, 6, '0') ||
           CHR(65 + (RANDOM() * 25)::INTEGER) || CHR(65 + (RANDOM() * 25)::INTEGER)
-        WHEN registration_type = 'individual' OR registration_type = 'individuals' THEN
+        WHEN registration_type = 'individuals' THEN
           'IND-' || LPAD((RANDOM() * 999999)::INTEGER::TEXT, 6, '0') ||
           CHR(65 + (RANDOM() * 25)::INTEGER) || CHR(65 + (RANDOM() * 25)::INTEGER)
         WHEN registration_type = 'delegation' THEN
@@ -70,7 +70,7 @@ SET confirmation_number =
     WHEN registration_type = 'lodge' THEN
       'LDG-' || LPAD((RANDOM() * 999999)::INTEGER::TEXT, 6, '0') ||
       CHR(65 + (RANDOM() * 25)::INTEGER) || CHR(65 + (RANDOM() * 25)::INTEGER)
-    WHEN registration_type = 'individual' OR registration_type = 'individuals' THEN
+    WHEN registration_type = 'individuals' THEN
       'IND-' || LPAD((RANDOM() * 999999)::INTEGER::TEXT, 6, '0') ||
       CHR(65 + (RANDOM() * 25)::INTEGER) || CHR(65 + (RANDOM() * 25)::INTEGER)
     WHEN registration_type = 'delegation' THEN
