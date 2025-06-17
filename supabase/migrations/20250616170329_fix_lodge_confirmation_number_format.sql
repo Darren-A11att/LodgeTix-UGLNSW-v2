@@ -5,6 +5,17 @@
 -- Drop the existing constraint
 ALTER TABLE registrations DROP CONSTRAINT IF EXISTS registrations_confirmation_number_format;
 
+-- Update existing confirmation numbers to match new format with hyphens
+UPDATE registrations 
+SET confirmation_number = 
+  CASE 
+    WHEN confirmation_number ~ '^(IND|LDG|DEL)[0-9]{6}[A-Z]{2}$' THEN
+      SUBSTR(confirmation_number, 1, 3) || '-' || SUBSTR(confirmation_number, 4)
+    ELSE confirmation_number
+  END
+WHERE confirmation_number IS NOT NULL 
+  AND confirmation_number ~ '^(IND|LDG|DEL)[0-9]{6}[A-Z]{2}$';
+
 -- Add the updated constraint that allows hyphens
 ALTER TABLE registrations ADD CONSTRAINT registrations_confirmation_number_format 
 CHECK (
