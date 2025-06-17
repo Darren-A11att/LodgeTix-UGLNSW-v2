@@ -6,7 +6,7 @@ import { loadStripe } from "@stripe/stripe-js";
 import { CheckoutForm, CheckoutFormHandle } from "./CheckoutForm";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { CreditCard, AlertCircle } from "lucide-react";
+import { CreditCard, AlertCircle, ShieldCheck } from "lucide-react";
 import { StripeErrorBoundary } from "./StripeErrorBoundary";
 
 // Validate Stripe key before attempting to load
@@ -83,17 +83,22 @@ export const PaymentMethod = forwardRef<CheckoutFormHandle, PaymentMethodProps>(
 
     return (
       <StripeErrorBoundary>
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center">
-              <CreditCard className="mr-2 h-5 w-5" />
-              Payment Method
+        <Card className="border-2 border-primary/20">
+          <CardHeader className="bg-primary/5 border-b border-primary/10">
+            <CardTitle className="flex items-center gap-2 text-primary">
+              <CreditCard className="w-5 h-5" />
+              Payment Details
             </CardTitle>
           </CardHeader>
-          <CardContent>
-            <p className="text-sm text-gray-600 mb-4">
-              Complete your registration by providing your payment details below.
-            </p>
+          <CardContent className="space-y-6 pt-6">
+            {/* Security Note */}
+            <Alert className="border-blue-200 bg-blue-50">
+              <ShieldCheck className="h-4 w-4 text-blue-600" />
+              <AlertDescription className="text-sm text-blue-800">
+                Your payment information is securely processed by Stripe. We never store your card details.
+              </AlertDescription>
+            </Alert>
+
             <Elements stripe={stripePromise}>
               <CheckoutForm
                 ref={ref}

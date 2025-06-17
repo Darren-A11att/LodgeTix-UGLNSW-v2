@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { cn } from "@/lib/utils";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ChevronDown, ChevronUp } from 'lucide-react';
+import { ChevronDown, ChevronUp, BarChart3 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { StepSummary } from '../Summary/StepSummary';
 
@@ -49,11 +49,14 @@ export const TwoColumnStepLayout: React.FC<TwoColumnStepLayoutProps> = ({
         {/* Summary Sidebar - 30% width on desktop, hidden on mobile */}
         <div className={cn("hidden lg:block lg:col-span-3", summaryColumnClassName)}>
           <div className="sticky top-4">
-            <Card>
-              <CardHeader>
-                <CardTitle>{summaryTitle}</CardTitle>
+            <Card className="border-2 border-primary/20">
+              <CardHeader className="bg-primary/5 border-b border-primary/10">
+                <CardTitle className="flex items-center gap-2 text-primary">
+                  <BarChart3 className="w-5 h-5" />
+                  {summaryTitle}
+                </CardTitle>
               </CardHeader>
-              <CardContent>
+              <CardContent className="space-y-6 pt-6">
                 <StepSummary currentStep={currentStep} totalSteps={totalSteps} stepName={stepName}>
                   {summaryContent}
                 </StepSummary>

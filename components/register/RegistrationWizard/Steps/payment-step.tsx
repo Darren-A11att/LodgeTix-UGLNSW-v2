@@ -12,7 +12,8 @@ import { getBrowserClient } from '@/lib/supabase-singleton';
 
 import { Button } from "@/components/ui/button";
 import { Form } from "@/components/ui/form";
-import { ArrowLeft, Loader2 } from "lucide-react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ArrowLeft, Loader2, Receipt } from "lucide-react";
 import { SummaryRenderer } from '../Summary/SummaryRenderer';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { StripeBillingDetailsForClient } from "../payment/types";
@@ -1140,9 +1141,8 @@ function PaymentStep(props: PaymentStepProps) {
       <Form {...form}>
         <form onSubmit={onSubmit}>
           <div className="flex flex-col md:flex-row gap-6 md:gap-8">
-            {/* Left Column - Billing Details (60%) */}
+            {/* Left Column - Billing Details and Payment (60%) */}
             <div className="flex-1 space-y-6 md:flex-none md:w-[60%]">
-              <h3 className="text-lg font-semibold">Booking Contact</h3>
               <BillingDetailsForm form={form} primaryAttendee={primaryAttendee ? {
                 firstName: primaryAttendee.firstName || undefined,
                 lastName: primaryAttendee.lastName || undefined,
@@ -1151,15 +1151,30 @@ function PaymentStep(props: PaymentStepProps) {
                 grand_lodge_id: primaryAttendee.grand_lodge_id || undefined,
                 attendeeType: primaryAttendee.attendeeType || undefined
               } : null} />
+              
+              {/* Payment Method */}
+              <PaymentMethod 
+                ref={paymentMethodRef}
+                totalAmount={totalAmount}
+                onPaymentSuccess={handlePaymentMethodCreated}
+                onPaymentError={setPaymentError}
+                setIsProcessingPayment={setIsProcessingPayment}
+                billingDetails={form.getValues()}
+                isProcessing={isProcessingPayment}
+              />
             </div>
             
-            {/* Right Column - Order Summary and Payment (40%) */}
+            {/* Right Column - Order Summary (40%) */}
             <div className="flex-1 space-y-6 md:flex-none md:w-[40%]">
-              <h3 className="text-lg font-semibold">Order Summary & Payment</h3>
-              
               {/* Order Summary */}
-              <div className="bg-gray-50 p-4 md:p-6 rounded-lg space-y-4">
-                <h4 className="font-medium text-gray-900">Order Details</h4>
+              <Card className="border-2 border-primary/20">
+                <CardHeader className="bg-primary/5 border-b border-primary/10">
+                  <CardTitle className="flex items-center gap-2 text-primary">
+                    <Receipt className="w-5 h-5" />
+                    Order Summary
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-6 pt-6">
                 
                 {/* Use enhanced summary data if available, otherwise fall back to basic display */}
                 {enhancedSummaryData.sections.length > 0 ? (
@@ -1268,18 +1283,8 @@ function PaymentStep(props: PaymentStepProps) {
                     </div>
                   </div>
                 )}
-              </div>
-              
-              {/* Payment Method */}
-              <PaymentMethod 
-                ref={paymentMethodRef}
-                totalAmount={totalAmount}
-                onPaymentSuccess={handlePaymentMethodCreated}
-                onPaymentError={setPaymentError}
-                setIsProcessingPayment={setIsProcessingPayment}
-                billingDetails={form.getValues()}
-                isProcessing={isProcessingPayment}
-              />
+                </CardContent>
+              </Card>
             </div>
           </div>
           

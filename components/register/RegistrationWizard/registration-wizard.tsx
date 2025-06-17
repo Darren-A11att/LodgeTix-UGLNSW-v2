@@ -1281,7 +1281,7 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ function
         currentStep={currentStep}
         sectionTitle={title}
         sectionDescription={description}
-        showStepIndicator={currentStep === 1 || currentStep === 4} // Hide for steps using TwoColumnStepLayout and confirmation
+        showStepIndicator={currentStep === 1} // Hide for steps using TwoColumnStepLayout and confirmation
       >
         {/* Use a consistent wrapper for all steps */}
         <div className="w-full">

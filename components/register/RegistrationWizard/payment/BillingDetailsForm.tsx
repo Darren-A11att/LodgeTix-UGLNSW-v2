@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { Controller, UseFormReturn } from "react-hook-form";
 import { GetCountries, GetState } from 'react-country-state-city';
-import { User } from "lucide-react";
+import { User, ShieldCheck } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
@@ -316,11 +316,14 @@ export const BillingDetailsForm: React.FC<BillingDetailsFormProps> = ({
   }, [selectedCountry]);
 
   return (
-    <Card className="border-masonic-navy shadow-md">
-      <CardHeader className="bg-masonic-navy text-white">
-        <CardTitle className="flex items-center"><User className="mr-2 h-5 w-5" /> Booking Contact</CardTitle>
+    <Card className="border-2 border-primary/20">
+      <CardHeader className="bg-primary/5 border-b border-primary/10">
+        <CardTitle className="flex items-center gap-2 text-primary">
+          <User className="w-5 h-5" />
+          Booking Contact
+        </CardTitle>
       </CardHeader>
-      <CardContent className="pt-6 space-y-6">
+      <CardContent className="space-y-6 pt-6">
         {/* Row 1: Bill To Primary & Names */}
         <div>
           <FormField
