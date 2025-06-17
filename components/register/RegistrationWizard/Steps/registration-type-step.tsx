@@ -20,6 +20,12 @@ interface RegistrationType {
   features: string[];
 }
 
+// Check if running on localhost
+const isLocalhost = typeof window !== 'undefined' && 
+  (window.location.hostname === 'localhost' || 
+   window.location.hostname === '127.0.0.1' ||
+   window.location.hostname.includes('localhost'));
+
 const REGISTRATION_TYPES: RegistrationType[] = [
   {
     id: 'individuals',
@@ -49,20 +55,20 @@ const REGISTRATION_TYPES: RegistrationType[] = [
       'Special lodge group pricing available',
     ],
   },
-  {
-    id: 'delegation',
+  ...(isLocalhost ? [{
+    id: 'delegation' as const,
     title: 'Official Delegation',
     description: 'Register as part of an official Grand Lodge or Provincial delegation',
     icon: Shield,
     minAttendees: 1,
-    defaultAttendeeType: 'Mason',
+    defaultAttendeeType: 'Mason' as const,
     features: [
       'Register as part of an official delegation',
       'Coordinate with other delegation members',
       'Access special delegation seating arrangements',
       'Formal delegation requirements',
     ],
-  },
+  }] : []),
 ];
 
 interface RegistrationTypeStepProps {
