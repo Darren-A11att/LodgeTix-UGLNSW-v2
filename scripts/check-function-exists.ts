@@ -6,8 +6,18 @@
 
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = 'https://pwwpcjbbxotmiqrisjvf.supabase.co';
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+
+if (!supabaseUrl) {
+  console.error('❌ NEXT_PUBLIC_SUPABASE_URL environment variable is required')
+  process.exit(1)
+}
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.PROD_SUPABASE_SERVICE_ROLE_KEY
+
+if (!supabaseServiceKey) {
+  console.error('❌ SUPABASE_SERVICE_ROLE_KEY environment variable is required')
+  process.exit(1)
+}
 
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
@@ -45,7 +55,13 @@ async function checkFunction() {
     
     // Test with anon role
     console.log('\n2. Testing with ANON ROLE:');
-    const supabaseAnon = createClient(supabaseUrl, 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB3d3BjamJieG90bWlxcmlzanZmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDU1NDg1NjgsImV4cCI6MjA2MTEyNDU2OH0.Ep3pzGlPgXbnTrcE84dIIbBxk-OsnXq7BSwL7vG-p3Q');
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    
+    if (!supabaseAnonKey) {
+      console.error('❌ NEXT_PUBLIC_SUPABASE_ANON_KEY environment variable is required')
+      return
+    }
+    const supabaseAnon = createClient(supabaseUrl, supabaseAnonKey);
     
     const { data: anonAuthData, error: anonAuthError } = await supabaseAnon.auth.signInAnonymously();
     if (anonAuthError) throw anonAuthError;

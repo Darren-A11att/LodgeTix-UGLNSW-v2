@@ -5,14 +5,25 @@
 echo "=== Setting Up Supabase Development Branch ==="
 echo ""
 
-# Set access token
-export SUPABASE_ACCESS_TOKEN=[your-supabase-access-token]
+# Check for required environment variables
+if [ -z "$SUPABASE_ACCESS_TOKEN" ]; then
+  echo "❌ SUPABASE_ACCESS_TOKEN environment variable is required"
+  exit 1
+fi
 
-# Development branch details from 'supabase branches get development'
-DEV_BRANCH_ID="ufkrpmtrirxrebztmwkc"
+if [ -z "$DEV_BRANCH_ID" ]; then
+  echo "❌ DEV_BRANCH_ID environment variable is required"
+  exit 1
+fi
+
+if [ -z "$DEV_DB_PASSWORD" ]; then
+  echo "❌ DEV_DB_PASSWORD environment variable is required"
+  exit 1
+fi
+
+# Development branch details from environment variables
 DEV_BRANCH_URL="https://${DEV_BRANCH_ID}.supabase.co"
 DEV_DB_HOST="db.${DEV_BRANCH_ID}.supabase.co"
-DEV_DB_PASSWORD="rSByIQLJHYNRLvAypUxWlgXqQZoEpkAb"
 
 echo "Development Branch Details:"
 echo "- Branch ID: ${DEV_BRANCH_ID}"
@@ -38,7 +49,7 @@ DATABASE_URL=postgresql://postgres:${DEV_DB_PASSWORD}@${DEV_DB_HOST}:5432/postgr
 DIRECT_URL=postgresql://postgres:${DEV_DB_PASSWORD}@${DEV_DB_HOST}:5432/postgres
 
 # Copy other necessary variables from production
-NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_51RHeDLKBASow5NsWZ7rLKWR1Ebz1nOpzNchOdwhc2Bvkb3SZDGHA5X3vRO50wUwTtlMzmYOWXqpdFBgWfdb3cu1g00npSvJ5Gp
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=[your-stripe-publishable-key]
 STRIPE_SECRET_KEY=[your-stripe-secret-key]
 
 # Stripe platform fee configuration
@@ -59,9 +70,9 @@ NEXT_PUBLIC_USE_RPC_REGISTRATION=true
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 
 # Cloudflare Turnstile
-NEXT_PUBLIC_CLOUDFLARE_TURNSTILE_SITE_KEY=0x4AAAAAABeMR07-MySm4Xlb
-CLOUDFLARE_TURNSTILE_SECRET_KEY=0x4AAAAAABeMRzQnJ8Gy5fhS-FhNjtZMWBE
-NEXT_CLOUDFLARE_TURNSTILE_SECRET_KEY=0x4AAAAAABeMRzQnJ8Gy5fhS-FhNjtZMWBE
+NEXT_PUBLIC_CLOUDFLARE_TURNSTILE_SITE_KEY=[your-turnstile-site-key]
+CLOUDFLARE_TURNSTILE_SECRET_KEY=[your-turnstile-secret-key]
+NEXT_CLOUDFLARE_TURNSTILE_SECRET_KEY=[your-turnstile-secret-key]
 
 # Note: We need to get the anon key and service role key for the development branch
 # These will be added once retrieved from the Supabase dashboard

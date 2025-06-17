@@ -2,13 +2,25 @@
 
 const https = require('https');
 
-const SUPABASE_URL = 'https://pwwpcjbbxotmiqrisjvf.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB3d3BjamJieG90bWlxcmlzanZmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDU1NDg1NjgsImV4cCI6MjA2MTEyNDU2OH0.Ep3pzGlPgXbnTrcE84dIIbBxk-OsnXq7BSwL7vG-p3Q';
+require('dotenv').config();
+
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
+
+if (!SUPABASE_URL) {
+  console.error('❌ NEXT_PUBLIC_SUPABASE_URL environment variable is required')
+  process.exit(1)
+}
+const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+
+if (!SUPABASE_ANON_KEY) {
+  console.error('❌ NEXT_PUBLIC_SUPABASE_ANON_KEY environment variable is required')
+  process.exit(1)
+}
 
 function makeRequest(path) {
   return new Promise((resolve, reject) => {
     const options = {
-      hostname: 'pwwpcjbbxotmiqrisjvf.supabase.co',
+      hostname: new URL(SUPABASE_URL).hostname,
       port: 443,
       path: path,
       method: 'GET',

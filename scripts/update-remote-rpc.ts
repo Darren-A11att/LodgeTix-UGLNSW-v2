@@ -7,7 +7,12 @@
 import { createClient } from '@supabase/supabase-js';
 import fs from 'fs';
 
-const supabaseUrl = 'https://pwwpcjbbxotmiqrisjvf.supabase.co';
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+
+if (!supabaseUrl) {
+  console.error('❌ NEXT_PUBLIC_SUPABASE_URL environment variable is required')
+  process.exit(1)
+};
 const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 const supabase = createClient(supabaseUrl, supabaseKey);

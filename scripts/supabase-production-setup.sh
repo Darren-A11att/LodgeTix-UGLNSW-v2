@@ -6,11 +6,19 @@
 echo "=== Supabase Production Database Setup ==="
 echo ""
 
-# Production database URL with SSL mode
-PROD_DB_URL="postgresql://postgres.pwwpcjbbxotmiqrisjvf:VkLOwjeRErVm1aCd@aws-0-ap-southeast-2.pooler.supabase.com:6543/postgres?sslmode=require"
+# Production database URL with SSL mode - set via environment variable
+if [ -z "$PROD_DB_URL" ]; then
+  echo "❌ PROD_DB_URL environment variable is required"
+  exit 1
+fi
 
 # Direct connection URL (bypassing pooler)
-DIRECT_DB_URL="postgresql://postgres:VkLOwjeRErVm1aCd@db.pwwpcjbbxotmiqrisjvf.supabase.co:5432/postgres"
+# Set database URL via environment variable
+if [ -z "$DATABASE_URL" ]; then
+  echo "❌ DATABASE_URL environment variable is required"
+  exit 1
+fi
+DIRECT_DB_URL="$DATABASE_URL"
 
 echo "1. First, let's check the current migration status..."
 supabase migration list --db-url "$DIRECT_DB_URL"

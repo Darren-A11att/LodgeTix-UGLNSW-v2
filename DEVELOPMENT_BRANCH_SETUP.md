@@ -29,10 +29,10 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=[copy-from-dashboard]
 SUPABASE_SERVICE_ROLE_KEY=[copy-from-dashboard]
 
 # Development Database URL
-DATABASE_URL=postgresql://postgres:rSByIQLJHYNRLvAypUxWlgXqQZoEpkAb@db.ufkrpmtrirxrebztmwkc.supabase.co:5432/postgres
+DATABASE_URL=[get-from-supabase-dashboard]
 
 # Keep your existing Stripe and other configs
-NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_51RHeDLKBASow5NsWZ7rLKWR1Ebz1nOpzNchOdwhc2Bvkb3SZDGHA5X3vRO50wUwTtlMzmYOWXqpdFBgWfdb3cu1g00npSvJ5Gp
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=[your-stripe-publishable-key]
 STRIPE_SECRET_KEY=[your-stripe-secret-key]
 ```
 
@@ -83,7 +83,7 @@ npm run dev
 ```bash
 # Use the local configuration in .env.local
 NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321
-NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+NEXT_PUBLIC_SUPABASE_ANON_KEY=[local-anon-key-from-supabase-start]
 ```
 
 ### For Development Branch:
@@ -107,7 +107,7 @@ To automatically deploy to development branch on push:
 1. Add these GitHub secrets:
    - `SUPABASE_ACCESS_TOKEN`: [your-supabase-access-token]
    - `SUPABASE_PROJECT_REF`: pwwpcjbbxotmiqrisjvf
-   - `SUPABASE_DB_PASSWORD`: rSByIQLJHYNRLvAypUxWlgXqQZoEpkAb
+   - `SUPABASE_DB_PASSWORD`: [get-from-supabase-dashboard]
 
 2. Create `.github/workflows/supabase-development.yml`:
    ```yaml
@@ -125,7 +125,7 @@ To automatically deploy to development branch on push:
          - uses: supabase/setup-cli@v1
          - run: |
              supabase link --project-ref ${{ secrets.SUPABASE_PROJECT_REF }}
-             supabase db push --db-url "postgresql://postgres:${{ secrets.SUPABASE_DB_PASSWORD }}@db.ufkrpmtrirxrebztmwkc.supabase.co:5432/postgres"
+             supabase db push --db-url "postgresql://postgres:${{ secrets.SUPABASE_DB_PASSWORD }}@db.[dev-branch-id].supabase.co:5432/postgres"
            env:
              SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
    ```
