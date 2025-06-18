@@ -48,7 +48,7 @@ function DesktopLayout({ children }: { children: React.ReactNode }) {
       </main>
       <footer className="border-t bg-gray-100 py-8 dark:border-gray-800 dark:bg-gray-950">
         <div className="container mx-auto px-4 text-center text-sm text-gray-600 dark:text-gray-400">
-          <p>&copy; {new Date().getFullYear()} United Grand Lodge of NSW & ACT. All rights reserved.</p>
+          <p>&copy; {new Date().getFullYear()} LodgeTix. All rights reserved.</p>
           <div className="mt-2 space-x-4">
             <NextLink href="/terms" className="hover:underline">Terms</NextLink>
             <NextLink href="/privacy" className="hover:underline">Privacy</NextLink>

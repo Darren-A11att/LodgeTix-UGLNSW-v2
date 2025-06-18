@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Mail, Phone, MapPin, Send, CheckCircle, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
+import { LifebuoyIcon, NewspaperIcon, PhoneIcon } from '@heroicons/react/20/solid'
 
 interface SupportFormData {
   name: string;
@@ -17,6 +18,24 @@ interface SupportFormData {
   message: string;
   priority: 'low' | 'medium' | 'high';
 }
+
+const supportCards = [
+  {
+    name: 'General Support',
+    description: 'Registration assistance, account management, platform guidance, and lodge member support.',
+    icon: LifebuoyIcon,
+  },
+  {
+    name: 'Technical Support',
+    description: 'Technical issues, payment problems, troubleshooting, and platform functionality support.',
+    icon: PhoneIcon,
+  },
+  {
+    name: 'Event Inquiries',
+    description: 'Masonic event questions, lodge protocols, guest arrangements, and ceremonial requirements.',
+    icon: NewspaperIcon,
+  },
+]
 
 export default function SupportPage() {
   const [formData, setFormData] = useState<SupportFormData>({
@@ -86,38 +105,106 @@ export default function SupportPage() {
 
   if (isSubmitted) {
     return (
-      <div className="min-h-screen bg-gray-50">
-        <div className="container mx-auto px-4 py-12">
-          <Card className="max-w-2xl mx-auto">
-            <CardContent className="pt-6">
-              <div className="text-center space-y-4">
-                <CheckCircle className="h-16 w-16 text-green-500 mx-auto" />
-                <h2 className="text-2xl font-bold">Request Sent Successfully!</h2>
-                <p className="text-gray-600">
-                  Thank you for contacting us. We've received your support request and will respond within 24 hours.
-                </p>
-                <Button onClick={() => setIsSubmitted(false)} className="mt-4">
-                  Send Another Request
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
+      <div>
+        {/* Header Section */}
+        <div className="relative isolate overflow-hidden bg-gray-900 py-24 sm:py-32">
+          <img
+            alt=""
+            src="https://images.unsplash.com/photo-1521737604893-d14cc237f11d?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&crop=focalpoint&fp-y=.8&w=2830&h=1500&q=80&blend=111827&sat=-100&exp=15&blend-mode=multiply"
+            className="absolute inset-0 -z-10 size-full object-cover object-right md:object-center"
+          />
+          <div className="mx-auto max-w-7xl px-6 lg:px-8">
+            <div className="mx-auto max-w-2xl lg:mx-0">
+              <h2 className="text-5xl font-semibold tracking-tight text-white sm:text-7xl">Support</h2>
+              <p className="mt-8 text-lg font-medium text-pretty text-gray-400 sm:text-xl/8">
+                Your support request has been received successfully. We'll respond within 24 hours during business days.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-white px-6 py-32 lg:px-8">
+          <div className="mx-auto max-w-2xl">
+            <Card>
+              <CardContent className="pt-6">
+                <div className="text-center space-y-4">
+                  <CheckCircle className="h-16 w-16 text-green-500 mx-auto" />
+                  <h2 className="text-2xl font-bold">Request Sent Successfully!</h2>
+                  <p className="text-gray-600">
+                    Thank you for contacting us. We've received your support request and will respond within 24 hours during business days (Mon-Fri, 9 AM - 5 PM AEST).
+                  </p>
+                  <Button onClick={() => setIsSubmitted(false)} className="mt-4">
+                    Send Another Request
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <div className="container mx-auto px-4 py-12">
-        <div className="grid lg:grid-cols-3 gap-8">
+    <div>
+      {/* Header Section */}
+      <div className="relative isolate overflow-hidden bg-gray-900 py-24 sm:py-32">
+        <img
+          alt=""
+          src="https://images.unsplash.com/photo-1521737604893-d14cc237f11d?ixlib=rb-4.0.3&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&crop=focalpoint&fp-y=.8&w=2830&h=1500&q=80&blend=111827&sat=-100&exp=15&blend-mode=multiply"
+          className="absolute inset-0 -z-10 size-full object-cover object-right md:object-center"
+        />
+        <div className="hidden sm:absolute sm:-top-10 sm:right-1/2 sm:-z-10 sm:mr-10 sm:block sm:transform-gpu sm:blur-3xl">
+          <div
+            style={{
+              clipPath:
+                'polygon(74.1% 44.1%, 100% 61.6%, 97.5% 26.9%, 85.5% 0.1%, 80.7% 2%, 72.5% 32.5%, 60.2% 62.4%, 52.4% 68.1%, 47.5% 58.3%, 45.2% 34.5%, 27.5% 76.7%, 0.1% 64.9%, 17.9% 100%, 27.6% 76.8%, 76.1% 97.7%, 74.1% 44.1%)',
+            }}
+            className="aspect-1097/845 w-274.25 bg-linear-to-tr from-[#ff4694] to-[#776fff] opacity-20"
+          />
+        </div>
+        <div className="absolute -top-52 left-1/2 -z-10 -translate-x-1/2 transform-gpu blur-3xl sm:top-[-28rem] sm:ml-16 sm:translate-x-0 sm:transform-gpu">
+          <div
+            style={{
+              clipPath:
+                'polygon(74.1% 44.1%, 100% 61.6%, 97.5% 26.9%, 85.5% 0.1%, 80.7% 2%, 72.5% 32.5%, 60.2% 62.4%, 52.4% 68.1%, 47.5% 58.3%, 45.2% 34.5%, 27.5% 76.7%, 0.1% 64.9%, 17.9% 100%, 27.6% 76.8%, 76.1% 97.7%, 74.1% 44.1%)',
+            }}
+            className="aspect-1097/845 w-274.25 bg-linear-to-tr from-[#ff4694] to-[#776fff] opacity-20"
+          />
+        </div>
+        <div className="mx-auto max-w-7xl px-6 lg:px-8">
+          <div className="mx-auto max-w-2xl lg:mx-0">
+            <h2 className="text-5xl font-semibold tracking-tight text-white sm:text-7xl">Support</h2>
+            <p className="mt-8 text-lg font-medium text-pretty text-gray-400 sm:text-xl/8">
+              Professional support for Masonic event management. Our dedicated team understands the unique 
+              requirements of lodge events and is committed to ensuring your Masonic gatherings run seamlessly.
+            </p>
+          </div>
+          <div className="mx-auto mt-16 grid max-w-2xl grid-cols-1 gap-6 sm:mt-20 lg:mx-0 lg:max-w-none lg:grid-cols-3 lg:gap-8">
+            {supportCards.map((card) => (
+              <div key={card.name} className="flex gap-x-4 rounded-xl bg-white/5 p-6 ring-1 ring-white/10 ring-inset">
+                <card.icon aria-hidden="true" className="h-7 w-5 flex-none text-indigo-400" />
+                <div className="text-base/7">
+                  <h3 className="font-semibold text-white">{card.name}</h3>
+                  <p className="mt-2 text-gray-300">{card.description}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Support Form Section */}
+      <div className="bg-white px-6 py-32 lg:px-8">
+        <div className="mx-auto max-w-7xl">
+          <div className="grid lg:grid-cols-3 gap-8">
           {/* Contact Information */}
           <div className="lg:col-span-1">
             <Card>
               <CardHeader>
                 <CardTitle>Contact Information</CardTitle>
                 <CardDescription>
-                  Get in touch with our support team
+                  Connect with our Masonic event support specialists
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
@@ -126,28 +213,33 @@ export default function SupportPage() {
                     <Mail className="h-5 w-5 text-masonic-navy mt-0.5" />
                     <div>
                       <h3 className="font-medium">Email Support</h3>
-                      <p className="text-sm text-gray-600">support@lodgetix.io</p>
-                      <p className="text-xs text-gray-500 mt-1">Response within 24 hours</p>
+                      <p className="text-sm text-gray-600">support@windingstair.com.au</p>
+                      <p className="text-xs text-gray-500 mt-1">Response within 24 hours during business days</p>
                     </div>
                   </div>
                   
                   <div className="flex items-start gap-3">
                     <Phone className="h-5 w-5 text-masonic-navy mt-0.5" />
                     <div>
-                      <h3 className="font-medium">Phone</h3>
-                      <p className="text-sm text-gray-600">1300 LODGETIX</p>
-                      <p className="text-xs text-gray-500 mt-1">Business hours: 9AM - 5PM AEST</p>
+                      <h3 className="font-medium">Phone Support</h3>
+                      <p className="text-sm text-gray-600">+61 2 9264 8088</p>
+                      <p className="text-xs text-gray-500 mt-1">Business hours: 9:00 AM - 5:00 PM AEST (Mon-Fri)</p>
+                      <p className="text-xs text-gray-500">Emergency line available 24/7 during events</p>
                     </div>
                   </div>
                   
                   <div className="flex items-start gap-3">
                     <MapPin className="h-5 w-5 text-masonic-navy mt-0.5" />
                     <div>
-                      <h3 className="font-medium">Address</h3>
+                      <h3 className="font-medium">Operated by</h3>
                       <p className="text-sm text-gray-600">
-                        United Grand Lodge of NSW & ACT<br />
-                        279 Castlereagh Street<br />
-                        Sydney, NSW 2000
+                        Winding Stair Pty. Limited<br />
+                        Level 14, 309 Kent Street<br />
+                        Sydney, NSW 2000<br />
+                        Australia
+                      </p>
+                      <p className="text-xs text-gray-500 mt-2">
+                        ABN: 123 456 789 (placeholder)
                       </p>
                     </div>
                   </div>
@@ -156,11 +248,14 @@ export default function SupportPage() {
                 <div className="border-t pt-4">
                   <h3 className="font-medium mb-2">Common Issues</h3>
                   <ul className="text-sm text-gray-600 space-y-1">
-                    <li>• Registration problems</li>
-                    <li>• Payment and billing inquiries</li>
-                    <li>• Technical support</li>
-                    <li>• Event information</li>
-                    <li>• Account management</li>
+                    <li>• Lodge event registration problems</li>
+                    <li>• Masonic verification and membership issues</li>
+                    <li>• Payment and billing inquiries for lodges</li>
+                    <li>• Technical support for event organizers</li>
+                    <li>• Profile and membership management</li>
+                    <li>• Guest and visitor protocol questions</li>
+                    <li>• Ceremonial event requirements</li>
+                    <li>• Dress code and protocol guidance</li>
                   </ul>
                 </div>
               </CardContent>
@@ -173,7 +268,7 @@ export default function SupportPage() {
               <CardHeader>
                 <CardTitle>Send Support Request</CardTitle>
                 <CardDescription>
-                  Fill out the form below and we'll get back to you as soon as possible
+                  Fill out the form below and we'll respond within 24 hours during business days (Mon-Fri, 9 AM - 5 PM AEST)
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -246,7 +341,7 @@ export default function SupportPage() {
                   <div className="flex items-center gap-2 p-3 bg-blue-50 rounded-lg border border-blue-200">
                     <AlertCircle className="h-4 w-4 text-blue-600" />
                     <p className="text-sm text-blue-800">
-                      For urgent issues during events, please call 1300 LODGETIX for immediate assistance.
+                      For urgent issues during Masonic events, please call +61 2 9264 8088 for immediate assistance.
                     </p>
                   </div>
 
@@ -269,11 +364,12 @@ export default function SupportPage() {
                   </Button>
 
                   <p className="text-xs text-gray-500">
-                    * Required fields. We typically respond within 24 hours during business days.
+                    * Required fields. We respond within 24 hours during business days (Mon-Fri, 9 AM - 5 PM AEST).
                   </p>
                 </form>
               </CardContent>
             </Card>
+            </div>
           </div>
         </div>
       </div>

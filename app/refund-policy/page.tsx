@@ -512,7 +512,7 @@ export default function RefundPolicyPage() {
                       </div>
                       <div>
                         <p><strong>Specialisation:</strong> Masonic events and functions</p>
-                        <p><strong>Market:</strong> United Grand Lodge of NSW & ACT</p>
+                        <p><strong>Market:</strong> Masonic Lodges & Orders</p>
                       </div>
                     </div>
                   </div>

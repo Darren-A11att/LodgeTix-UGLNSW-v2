@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
 
     // Prepare email content
     const emailHtml = `
-      <h2>New Support Request from LodgeTix</h2>
+      <h2>New Support Request from LodgeTix - Masonic Event Platform</h2>
       <p><strong>From:</strong> ${formData.name} (${formData.email})</p>
       <p><strong>Subject:</strong> ${formData.subject}</p>
       <p><strong>Priority:</strong> ${formData.priority || 'medium'}</p>
@@ -41,11 +41,11 @@ export async function POST(request: NextRequest) {
       <h3>Message:</h3>
       <p>${formData.message.replace(/\n/g, '<br>')}</p>
       <hr>
-      <p><em>This message was sent via the LodgeTix support form.</em></p>
+      <p><em>This support request was submitted via the LodgeTix platform operated by Winding Stair Pty. Limited.</em></p>
     `;
 
     const emailText = `
-New Support Request from LodgeTix
+New Support Request from LodgeTix - Masonic Event Platform
 
 From: ${formData.name} (${formData.email})
 Subject: ${formData.subject}
@@ -55,17 +55,17 @@ Message:
 ${formData.message}
 
 ---
-This message was sent via the LodgeTix support form.
+This support request was submitted via the LodgeTix platform operated by Winding Stair Pty. Limited.
     `;
 
     // Call the send-email edge function
     const { data, error } = await supabase.functions.invoke('send-email', {
       body: {
-        to: 'support@lodgetix.io',
-        subject: `Support Request: ${formData.subject}`,
+        to: 'support@windingstair.com.au',
+        subject: `LodgeTix Support Request: ${formData.subject}`,
         html: emailHtml,
         text: emailText,
-        from: 'LodgeTix Support <noreply@lodgetix.io>',
+        from: 'LodgeTix Support <noreply@windingstair.com.au>',
         replyTo: formData.email
       }
     });
@@ -73,7 +73,7 @@ This message was sent via the LodgeTix support form.
     if (error) {
       console.error('Error sending support email:', error);
       return NextResponse.json(
-        { error: 'Failed to send support request. Please try again or email support@lodgetix.io directly.' },
+        { error: 'Failed to send support request. Please try again or email support@windingstair.com.au directly.' },
         { status: 500 }
       );
     }
@@ -99,7 +99,7 @@ This message was sent via the LodgeTix support form.
 
     return NextResponse.json({
       success: true,
-      message: 'Support request sent successfully. We will respond within 24 hours.'
+      message: 'Support request sent successfully. We will respond within 24 hours during business days.'
     });
 
   } catch (error) {

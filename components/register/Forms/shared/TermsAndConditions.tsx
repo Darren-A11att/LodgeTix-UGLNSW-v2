@@ -175,7 +175,7 @@ export const PrivacyAgreement: React.FC<{
       agreed={agreed}
       onAgreeChange={onAgreeChange}
       termsText="I consent to the collection and processing of my personal data for event registration purposes."
-      linkToTerms="/privacy-policy"
+      linkToTerms="/privacy"
       required={true}
     />
   );

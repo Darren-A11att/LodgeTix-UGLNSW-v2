@@ -10,7 +10,7 @@ import { LayoutWithFooter } from '@/components/ui/layout-with-footer'
 import { Toaster } from '@/components/ui/sonner'
 
 export const metadata: Metadata = {
-  title: 'Grand Proclamation 2025 | United Grand Lodge of NSW & ACT',
+  title: 'Grand Proclamation 2025 | LodgeTix',
   description: 'Created with v0',
   generator: ';)',
 }

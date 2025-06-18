@@ -15,15 +15,13 @@ export function Footer({ eventSlug }: FooterProps = {}) {
         <div className="grid gap-8 md:grid-cols-4">
           <div>
             <h3 className="mb-4 text-xl font-bold text-masonic-gold">LodgeTix</h3>
-            <p>Official ticketing platform for the Grand Installation.</p>
+            <p>Event ticketing marketplace for Masonic Lodges & Orders</p>
             <div className="mt-4">
               <Link
-                href="https://www.masons.au"
-                target="_blank"
+                href="/about"
                 className="flex items-center text-masonic-gold hover:underline"
               >
-                <span>Visit masons.au</span>
-                <ExternalLink className="ml-1 h-4 w-4" />
+                <span>About LodgeTix</span>
               </Link>
             </div>
           </div>
@@ -81,8 +79,13 @@ export function Footer({ eventSlug }: FooterProps = {}) {
             <h4 className="mb-4 font-semibold text-masonic-gold">Legal</h4>
             <ul className="space-y-2">
               <li>
+                <Link href="/unified-terms" className="hover:text-masonic-gold">
+                  Unified Terms of Service
+                </Link>
+              </li>
+              <li>
                 <Link href="/terms" className="hover:text-masonic-gold">
-                  Terms & Conditions
+                  Simple Terms & Conditions
                 </Link>
               </li>
               <li>
@@ -99,7 +102,7 @@ export function Footer({ eventSlug }: FooterProps = {}) {
           </div>
         </div>
         <div className="mt-8 border-t border-gray-800 pt-8 text-center">
-          <p>&copy; {new Date().getFullYear()} United Grand Lodge of NSW & ACT. All rights reserved.</p>
+          <p>&copy; {new Date().getFullYear()} LodgeTix. All rights reserved.</p>
         </div>
       </div>
     </footer>
