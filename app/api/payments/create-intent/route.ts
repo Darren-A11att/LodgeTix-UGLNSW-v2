@@ -8,13 +8,15 @@
  * - Correct fee calculations for domestic/international cards
  * - Comprehensive metadata with function details (not event)
  * - No premature status updates or confirmation generation
+ * 
+ * Updated to use Square CreatePayment API instead of Stripe
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { unifiedPaymentService } from '@/lib/services/unified-payment-service';
+import { unifiedSquarePaymentService } from '@/lib/services/unified-square-payment-service';
 import { createClient } from '@/utils/supabase/server';
 import { createClientWithToken } from '@/utils/supabase/server-with-token';
-import type { UnifiedPaymentRequest } from '@/lib/services/unified-payment-service';
+import type { UnifiedPaymentRequest } from '@/lib/services/unified-square-payment-service';
 
 export async function POST(request: NextRequest) {
   try {
@@ -162,42 +164,45 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    console.log('Creating payment intent for registration:', {
+    console.log('Creating Square payment for registration:', {
       registrationId,
       userCountry: billingDetails.address.country,
       sessionId
     });
     
-    // Create payment intent using unified service
-    const paymentResponse = await unifiedPaymentService.createPaymentIntent({
+    // Create payment using unified Square service
+    const paymentResponse = await unifiedSquarePaymentService.createPaymentIntent({
       registrationId,
-      paymentMethodId, // ✅ Pass the payment method ID to the service
+      paymentMethodId, // ✅ Pass the payment method ID (Square nonce) to the service
       billingDetails,
       sessionId,
       referrer
     });
     
-    console.log('Payment intent created successfully:', {
-      paymentIntentId: paymentResponse.paymentIntentId,
+    console.log('Square payment created successfully:', {
+      paymentId: paymentResponse.paymentId,
       totalAmount: paymentResponse.totalAmount,
       processingFees: paymentResponse.processingFees,
       subtotal: paymentResponse.subtotal,
-      platformFee: paymentResponse.platformFee
+      platformFee: paymentResponse.platformFee,
+      status: paymentResponse.status
     });
     
     console.groupEnd();
     
-    // Return response to client
+    // Return response to client (maintaining compatibility with existing frontend)
     return NextResponse.json({
-      clientSecret: paymentResponse.clientSecret,
-      paymentIntentId: paymentResponse.paymentIntentId,
+      clientSecret: paymentResponse.clientSecret, // Will be undefined for Square but keeps compatibility
+      paymentIntentId: paymentResponse.paymentId, // Use Square payment ID
+      paymentId: paymentResponse.paymentId, // Also provide as paymentId for clarity
       totalAmount: paymentResponse.totalAmount,
       processingFees: paymentResponse.processingFees,
-      subtotal: paymentResponse.subtotal
+      subtotal: paymentResponse.subtotal,
+      status: paymentResponse.status
     });
     
   } catch (error: any) {
-    console.error('Error creating payment intent:', error);
+    console.error('Error creating Square payment:', error);
     console.groupEnd();
     
     // Handle specific error types
@@ -208,16 +213,34 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    if (error.message === 'No connected Stripe account for this organization') {
+    // Handle Square-specific errors
+    if (error.message?.includes('Square payment failed:')) {
       return NextResponse.json(
-        { error: 'Payment processing not available for this organization' },
+        { error: error.message },
+        { status: 400 }
+      );
+    }
+    
+    // Handle Square configuration errors
+    if (error.message?.includes('SQUARE_') && error.message?.includes('not configured')) {
+      return NextResponse.json(
+        { error: 'Payment processing not properly configured' },
+        { status: 500 }
+      );
+    }
+    
+    // Handle specific Square error codes
+    if (error.errors && Array.isArray(error.errors)) {
+      const squareErrors = error.errors.map((err: any) => err.detail || err.code).join(', ');
+      return NextResponse.json(
+        { error: `Payment failed: ${squareErrors}` },
         { status: 400 }
       );
     }
     
     // Generic error response
     return NextResponse.json(
-      { error: 'Failed to create payment intent' },
+      { error: 'Failed to create payment' },
       { status: 500 }
     );
   }

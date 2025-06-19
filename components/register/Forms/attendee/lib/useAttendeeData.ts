@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useEffect } from 'react';
+import { useCallback, useMemo, useEffect, useRef } from 'react';
 import { useRegistrationStore } from '@/lib/registrationStore';
 import { AttendeeData } from '../types';
 import { useShallow } from 'zustand/react/shallow';
@@ -13,10 +13,13 @@ export const useAttendeeData = (attendeeId: string) => {
     }))
   );
 
+  // Track if we've already restored data for this attendee to prevent infinite loops
+  const restorationCompleted = useRef<Set<string>>(new Set());
+
   // Effect to ensure we have the most up-to-date data from localStorage 
-  // This helps prevent data loss when forms are refreshed
+  // This helps prevent data loss when forms are refreshed or components remount
   useEffect(() => {
-    if (attendeeId && typeof window !== 'undefined') {
+    if (attendeeId && typeof window !== 'undefined' && !restorationCompleted.current.has(attendeeId)) {
       try {
         // Read stored data from localStorage to ensure we have the latest
         const storedData = localStorage.getItem('lodgetix-registration-storage');
@@ -31,9 +34,49 @@ export const useAttendeeData = (attendeeId: string) => {
             // Find current state of this attendee
             const currentAttendee = attendees.find(a => a.attendeeId === attendeeId);
             
-            // If we found stored data, update store with it (but only if it has more data)
+            // If we found stored data and current attendee exists
             if (storedAttendee && currentAttendee) {
               console.log(`[useAttendeeData] Comparing ${attendeeId} store data with localStorage data`);
+              
+              // Check for key fields that might be missing in current state but present in storage
+              const fieldsToRestore = [
+                'grand_lodge_id', 'lodge_id', 'lodgeNameNumber', 
+                'grandLodgeOrganisationId', 'lodgeOrganisationId',
+                'useSameLodge', 'title', 'firstName', 'lastName', 'rank',
+                'suffix', 'grandOfficerStatus', 'presentGrandOfficerRole', 'otherGrandOfficerRole',
+                'primaryEmail', 'primaryPhone', 'contactPreference',
+                'dietaryRequirements', 'specialNeeds'
+              ];
+              
+              const updates: Partial<AttendeeData> = {};
+              let hasUpdates = false;
+              
+              // Compare each field and restore if stored data has a value but current doesn't
+              fieldsToRestore.forEach(field => {
+                const storedValue = storedAttendee[field];
+                const currentValue = currentAttendee[field as keyof typeof currentAttendee];
+                
+                // Restore if stored has a meaningful value and current is empty/null/undefined
+                if (storedValue && 
+                    storedValue !== '' && 
+                    (!currentValue || currentValue === '')) {
+                  updates[field as keyof AttendeeData] = storedValue;
+                  hasUpdates = true;
+                  console.log(`[useAttendeeData] Restoring ${field}: ${storedValue} for attendee ${attendeeId}`);
+                }
+              });
+              
+              // Apply updates if we found any missing data
+              if (hasUpdates && updateAttendee) {
+                console.log(`[useAttendeeData] Restoring ${Object.keys(updates).length} fields from localStorage for attendee ${attendeeId}`);
+                updateAttendee(attendeeId, updates);
+                
+                // Mark this attendee as having completed restoration
+                restorationCompleted.current.add(attendeeId);
+              } else {
+                // Even if no updates needed, mark as completed to avoid future checks
+                restorationCompleted.current.add(attendeeId);
+              }
             }
           }
         }
@@ -41,7 +84,7 @@ export const useAttendeeData = (attendeeId: string) => {
         console.error('[useAttendeeData] Error ensuring up-to-date data:', err);
       }
     }
-  }, [attendeeId, attendees]);
+  }, [attendeeId, attendees, updateAttendee]);
 
   const attendee = useMemo(
     () => attendees.find((a) => a.attendeeId === attendeeId),

@@ -962,7 +962,7 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ function
         
         storeState.attendees.forEach(attendee => {
           const attendeeId = attendee.attendeeId;
-          const enhancedSelections = storeState.ticketSelections?.[attendeeId];
+          const enhancedSelections = storeState.attendeeSelections?.[attendeeId];
           
           if (enhancedSelections) {
             // Use enhanced ticket selections

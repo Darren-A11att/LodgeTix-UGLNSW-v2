@@ -1,3 +1,9 @@
+/**
+ * DEPRECATED: This Stripe API route has been replaced by Square payment processing
+ * New payments should use /api/payments/create-intent which supports Square
+ * This file is kept for legacy compatibility only
+ */
+
 import { NextResponse } from 'next/server';
 import Stripe from 'stripe';
 import { createClient } from '@/utils/supabase/server';

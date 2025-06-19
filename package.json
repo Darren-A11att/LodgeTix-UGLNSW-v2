@@ -76,8 +76,6 @@
     "@radix-ui/react-tooltip": "1.1.6",
     "@react-email/components": "^0.0.41",
     "@sentry/nextjs": "^9.19.0",
-    "@stripe/react-stripe-js": "^3.7.0",
-    "@stripe/stripe-js": "^7.3.0",
     "@supabase/ssr": "^0.6.1",
     "@supabase/supabase-js": "^2.49.4",
     "autoprefixer": "^10.4.20",
@@ -104,7 +102,7 @@
     "recharts": "2.15.0",
     "resend": "^2.0.0",
     "sonner": "^1.7.1",
-    "stripe": "^18.1.0",
+    "square": "^36.0.0",
     "tailwind-merge": "^2.5.5",
     "tailwindcss-animate": "^1.0.7",
     "use-debounce": "^10.0.4",
@@ -115,6 +113,7 @@
     "zustand": "^5.0.4"
   },
   "devDependencies": {
+    "@square/web-payments-sdk-types": "^1.0.0",
     "@testing-library/dom": "^10.4.0",
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^16.3.0",
@@ -126,6 +125,7 @@
     "dotenv": "^16.5.0",
     "jsdom": "^26.1.0",
     "postcss": "^8",
+    "puppeteer": "^24.10.2",
     "supabase": "^2.23.4",
     "tailwindcss": "^3.4.17",
     "tsx": "^4.19.4",

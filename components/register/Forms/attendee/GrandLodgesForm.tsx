@@ -17,14 +17,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { ChevronRight } from 'lucide-react';
-import { loadStripe } from '@stripe/stripe-js';
-import { Elements } from '@stripe/react-stripe-js';
 import { CheckoutForm, CheckoutFormHandle } from '../../RegistrationWizard/payment/CheckoutForm';
-import { StripeErrorBoundary } from '../../RegistrationWizard/payment/StripeErrorBoundary';
-import { StripeBillingDetailsForClient } from '../../RegistrationWizard/payment/types';
+import { SquareErrorBoundary } from '../../RegistrationWizard/payment/SquareErrorBoundary';
+import { SquareBillingDetails } from '../../RegistrationWizard/payment/types';
+import { useSquareWebPayments } from '../../RegistrationWizard/payment/useSquareWebPayments';
 import { useRouter } from 'next/navigation';
 import { getFunctionTicketsService, FunctionTicketDefinition, FunctionPackage } from '@/lib/services/function-tickets-service';
-import { calculateStripeFees, getFeeModeFromEnv, getProcessingFeeLabel } from '@/lib/utils/stripe-fee-calculator';
+import { calculateSquareFees, getFeeModeFromEnv, getProcessingFeeLabel } from '@/lib/utils/square-fee-calculator';
 
 // Import form components
 import { BasicInfo } from '../basic-details/BasicInfo';
@@ -57,21 +56,7 @@ const EVENT_IDS = {
 // Table package configuration (10 tickets per table)
 const TABLE_SIZE = 10;
 
-// Validate and get Stripe publishable key
-const getStripeKey = () => {
-  const key = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
-  if (!key) {
-    console.error('NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY is not defined');
-    return null;
-  }
-  if (!key.startsWith('pk_')) {
-    console.error('Invalid Stripe publishable key format:', key);
-    return null;
-  }
-  return key;
-};
-
-const stripePublishableKey = getStripeKey();
+// Square payment processing is handled by the useSquareWebPayments hook
 const TABLE_PRICE = 1950; // $195 per ticket x 10 = $1950 per table
 
 interface GrandLodgesFormProps {
@@ -120,18 +105,8 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
   const router = useRouter();
   const checkoutFormRef = useRef<CheckoutFormHandle>(null);
   
-  // Create Stripe promise with error handling
-  const stripePromise = useMemo(() => {
-    if (!stripePublishableKey) {
-      return null;
-    }
-    try {
-      return loadStripe(stripePublishableKey);
-    } catch (error) {
-      console.error('Failed to load Stripe:', error);
-      return null;
-    }
-  }, []);
+  // Square Web Payments SDK initialization
+  const { payments, isLoaded, error: squareError } = useSquareWebPayments();
   
   const { 
     attendees, 
@@ -544,13 +519,13 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
   }, [selectedGrandLodge, primaryAttendee, activeTab, ticketCount, delegationMembers, onComplete, onValidationError, setLodgeTicketOrder, addMasonAttendee, addGuestAttendee, addPartnerAttendee, updateAttendee, primaryAttendeeId, delegationTypeTab, getValidationErrors]);
 
   // Payment handlers for ticket-only purchase
-  const handlePaymentSuccess = useCallback(async (paymentMethodId: string, billingDetails: StripeBillingDetailsForClient) => {
+  const handlePaymentSuccess = useCallback(async (token: string, billingDetails: SquareBillingDetails) => {
     console.log('[GrandLodgesForm] Payment success, processing ticket purchase');
     
     try {
       // Calculate fees
       const subtotal = ticketCount * ticketPrice;
-      const feeCalculation = calculateStripeFees(subtotal, { isDomesticCard: true });
+      const feeCalculation = calculateSquareFees(subtotal, { isDomesticCard: true });
       const totalAmount = feeCalculation.customerPayment;
       
       // Create payment intent and process registration
@@ -569,10 +544,10 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
           },
           grandLodgeId: selectedGrandLodge,
           delegationType: delegationTypeTab,
-          paymentMethodId,
+          sourceId: token,
           amount: totalAmount * 100, // Convert to cents
           subtotal: subtotal * 100,
-          stripeFee: feeCalculation.stripeFee * 100,
+          squareFee: feeCalculation.squareFee * 100,
           billingDetails,
         }),
       });
@@ -636,19 +611,18 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
     }
   }, [getValidationErrors, ticketCount, onValidationError]);
 
-  // Get billing details for Stripe
-  const getBillingDetails = useCallback((): StripeBillingDetailsForClient => {
+  // Get billing details for Square
+  const getBillingDetails = useCallback(() => {
     return {
-      name: `${primaryAttendee?.firstName || ''} ${primaryAttendee?.lastName || ''}`,
-      email: primaryAttendee?.primaryEmail || '',
-      phone: primaryAttendee?.primaryPhone || '',
-      address: {
-        line1: primaryAttendee?.addressLine1 || '',
-        city: primaryAttendee?.suburb || '',
-        state: primaryAttendee?.stateTerritory?.name || '',
-        postal_code: primaryAttendee?.postcode || '',
-        country: primaryAttendee?.country?.isoCode || 'AU',
-      }
+      firstName: primaryAttendee?.firstName || '',
+      lastName: primaryAttendee?.lastName || '',
+      emailAddress: primaryAttendee?.primaryEmail || '',
+      mobileNumber: primaryAttendee?.primaryPhone || '',
+      addressLine1: primaryAttendee?.addressLine1 || '',
+      suburb: primaryAttendee?.suburb || '',
+      stateTerritory: primaryAttendee?.stateTerritory || null,
+      postcode: primaryAttendee?.postcode || '',
+      country: primaryAttendee?.country || null,
     };
   }, [primaryAttendee]);
 
@@ -889,7 +863,7 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
                           <div className="flex justify-between items-center">
                             <span className="text-gray-600">Processing Fee</span>
                             <span className="font-medium">
-                              ${calculateStripeFees(ticketCount * ticketPrice, { isDomesticCard: true }).processingFeesDisplay.toFixed(2)}
+                              ${calculateSquareFees(ticketCount * ticketPrice, { isDomesticCard: true }).processingFeesDisplay.toFixed(2)}
                             </span>
                           </div>
                         </>
@@ -900,7 +874,7 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
                       <div className="flex justify-between items-center">
                         <span className="text-lg font-semibold">Total Amount</span>
                         <span className="text-2xl font-bold text-primary">
-                          ${calculateStripeFees(ticketCount * ticketPrice, { isDomesticCard: true }).customerPayment.toLocaleString()}
+                          ${calculateSquareFees(ticketCount * ticketPrice, { isDomesticCard: true }).customerPayment.toLocaleString()}
                         </span>
                       </div>
                     </div>
@@ -926,7 +900,7 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
                   <Alert className="border-blue-200 bg-blue-50 mb-4">
                     <ShieldCheck className="h-4 w-4 text-blue-600" />
                     <AlertDescription className="text-sm text-blue-800">
-                      Your payment information is securely processed by Stripe. We never store your card details.
+                      Your payment information is securely processed by Square. We never store your card details.
                     </AlertDescription>
                   </Alert>
 
@@ -937,20 +911,30 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
                     </Alert>
                   )}
 
-                  {/* Stripe Elements */}
-                  <StripeErrorBoundary>
-                    <Elements stripe={stripePromise}>
+                  {/* Square Web Payments SDK */}
+                  {squareError ? (
+                    <Alert variant="destructive">
+                      <AlertDescription>{squareError}</AlertDescription>
+                    </Alert>
+                  ) : !isLoaded || !payments ? (
+                    <div className="flex items-center justify-center py-8">
+                      <Loader2 className="animate-spin h-6 w-6 mr-2" />
+                      <span>Loading payment system...</span>
+                    </div>
+                  ) : (
+                    <SquareErrorBoundary>
                       <CheckoutForm
                         ref={checkoutFormRef}
-                        totalAmount={calculateStripeFees(ticketCount * ticketPrice, { isDomesticCard: true }).customerPayment}
+                        totalAmount={calculateSquareFees(ticketCount * ticketPrice, { isDomesticCard: true }).customerPayment}
                         onPaymentSuccess={handlePaymentSuccess}
                         onPaymentError={handlePaymentError}
                         setIsProcessingPayment={setIsProcessingPayment}
                         billingDetails={getBillingDetails()}
                         isProcessing={isProcessingPayment}
+                        payments={payments}
                       />
-                    </Elements>
-                  </StripeErrorBoundary>
+                    </SquareErrorBoundary>
+                  )}
 
                   {/* Purchase Button */}
                   <div className="mt-6">

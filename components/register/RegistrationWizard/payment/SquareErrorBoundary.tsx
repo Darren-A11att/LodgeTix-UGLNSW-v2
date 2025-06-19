@@ -13,33 +13,37 @@ interface State {
   error: Error | null;
 }
 
-export class StripeErrorBoundary extends Component<Props, State> {
+export class SquareErrorBoundary extends Component<Props, State> {
   constructor(props: Props) {
     super(props);
     this.state = { hasError: false, error: null };
   }
 
   static getDerivedStateFromError(error: Error): State {
-    // Check if this is a Stripe-related error
-    const isStripeError = error.message.includes('match') || 
-                         error.stack?.includes('stripe-js') || 
+    // Check if this is a Square Web Payments SDK related error
+    const isSquareError = error.message.includes('Square') || 
+                         error.message.includes('payments') ||
+                         error.message.includes('tokenize') ||
+                         error.stack?.includes('square') || 
                          error.message.includes('Cannot read properties of undefined');
     
     return {
-      hasError: isStripeError,
-      error: isStripeError ? error : null
+      hasError: isSquareError,
+      error: isSquareError ? error : null
     };
   }
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
-    console.error('Stripe Error Boundary caught an error:', error, errorInfo);
+    console.error('Square Error Boundary caught an error:', error, errorInfo);
     
-    // Log to Sentry or other error reporting service
-    if (error.message.includes('match') || error.stack?.includes('stripe-js')) {
-      console.error('Stripe initialization error detected:', {
+    // Log to error reporting service
+    if (error.message.includes('Square') || error.stack?.includes('square')) {
+      console.error('Square Web Payments SDK error detected:', {
         error: error.message,
         stack: error.stack,
-        stripeKey: process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ? 'SET' : 'MISSING'
+        applicationId: process.env.NEXT_PUBLIC_SQUARE_APPLICATION_ID ? 'SET' : 'MISSING',
+        locationId: process.env.NEXT_PUBLIC_SQUARE_LOCATION_ID ? 'SET' : 'MISSING',
+        environment: process.env.NEXT_PUBLIC_SQUARE_ENVIRONMENT
       });
     }
   }

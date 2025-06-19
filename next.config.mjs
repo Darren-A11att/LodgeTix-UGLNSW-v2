@@ -11,7 +11,7 @@ const nextConfig = {
     unoptimized: true,
   },
   // Disable Fast Refresh console messages
-  reactStrictMode: true,
+  reactStrictMode: false,
   devIndicators: {
     position: 'bottom-right',
   },

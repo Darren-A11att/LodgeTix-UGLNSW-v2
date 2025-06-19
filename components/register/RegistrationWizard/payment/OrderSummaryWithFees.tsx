@@ -5,7 +5,7 @@ import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Info, Loader2 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { calculateStripeFees, getFeeDisclaimer, getFeeModeFromEnv, getPlatformFeePercentage } from "@/lib/utils/stripe-fee-calculator";
+import { calculateSquareFees, getFeeDisclaimer, getFeeModeFromEnv, getPlatformFeePercentage, isDomesticCard } from "@/lib/utils/square-fee-calculator";
 
 interface OrderSummaryWithFeesProps {
   primaryAttendee: any;
@@ -37,9 +37,8 @@ export const OrderSummaryWithFees: React.FC<OrderSummaryWithFeesProps> = ({
   // Calculate fees
   const feeMode = getFeeModeFromEnv();
   const platformFeePercentage = getPlatformFeePercentage();
-  const feeCalculation = calculateStripeFees(subtotalAmount, {
+  const feeCalculation = calculateSquareFees(subtotalAmount, {
     isDomestic: true, // Default to domestic, could be enhanced to detect card type
-    platformFeePercentage
   });
 
   return (

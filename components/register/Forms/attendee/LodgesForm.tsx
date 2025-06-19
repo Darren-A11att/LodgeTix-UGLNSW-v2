@@ -9,7 +9,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import formSaveManager from '@/lib/formSaveManager';
 import { getFunctionTicketsService, FunctionTicketDefinition, FunctionPackage } from '@/lib/services/function-tickets-service';
 import { getEnvironmentConfig } from '@/lib/config/environment';
-import { calculateStripeFees, STRIPE_RATES, getFeeDisclaimer, getFeeModeFromEnv, getPlatformFeePercentage, getProcessingFeeLabel, isDomesticCard } from '@/lib/utils/stripe-fee-calculator';
+import { calculateSquareFees, SQUARE_RATES, getFeeDisclaimer, getFeeModeFromEnv, getPlatformFeePercentage, getProcessingFeeLabel, isDomesticCard } from '@/lib/utils/square-fee-calculator';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 // Import form components
@@ -142,8 +142,8 @@ export const LodgesForm: React.FC<LodgesFormProps> = ({
   useEffect(() => {
     const subtotal = packageCount * packagePrice;
     
-    // Calculate Stripe fees
-    const feeCalculation = calculateStripeFees(subtotal, {
+    // Calculate Square fees
+    const feeCalculation = calculateSquareFees(subtotal, {
       isDomestic: true // Default to domestic for Australian lodges
     });
     
@@ -644,7 +644,7 @@ export const LodgeFormSummary: React.FC = () => {
 
   // Calculate fees for the summary
   const subtotal = lodgeTicketOrder.tableCount * 1950;
-  const feeCalculation = calculateStripeFees(subtotal, {
+  const feeCalculation = calculateSquareFees(subtotal, {
     isDomestic: true // Default to domestic for Australian lodges
   });
 

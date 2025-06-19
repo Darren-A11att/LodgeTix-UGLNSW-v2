@@ -1,7 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { 
-  calculateStripeFees, 
-  calculateFeesWithGeolocation,
+  calculateSquareFees, 
   validateFeeCalculation,
   formatFeeBreakdown,
   getFeeExplanation,
@@ -10,18 +9,18 @@ import {
   getPlatformFeeCap,
   isDomesticCard,
   getProcessingFeeLabel,
-  STRIPE_RATES
-} from '../stripe-fee-calculator';
+  SQUARE_RATES
+} from '../square-fee-calculator';
 
 // Mock environment variables
 const originalEnv = process.env;
 
-describe('Stripe Fee Calculator - Complete Overhaul', () => {
+describe('Square Fee Calculator - Complete Test Suite', () => {
   beforeEach(() => {
     // Reset environment variables for each test
     process.env = { ...originalEnv };
-    process.env.STRIPE_PLATFORM_FEE_PERCENTAGE = '0.02'; // 2%
-    process.env.STRIPE_PLATFORM_FEE_CAP = '20'; // $20 cap
+    process.env.SQUARE_PLATFORM_FEE_PERCENTAGE = '0.02'; // 2%
+    process.env.SQUARE_PLATFORM_FEE_CAP = '20'; // $20 cap
   });
 
   afterEach(() => {
@@ -30,7 +29,7 @@ describe('Stripe Fee Calculator - Complete Overhaul', () => {
 
   describe('Basic Fee Calculation', () => {
     it('calculates domestic fees correctly for small order', () => {
-      const result = calculateStripeFees(500, { isDomestic: true });
+      const result = calculateSquareFees(500, { isDomestic: true });
       
       // For $500 order:
       // Platform fee = min($500 * 0.02, $20) = $10
@@ -51,7 +50,7 @@ describe('Stripe Fee Calculator - Complete Overhaul', () => {
     });
 
     it('calculates domestic fees correctly for large order with platform fee cap', () => {
-      const result = calculateStripeFees(2300, { isDomestic: true });
+      const result = calculateSquareFees(2300, { isDomestic: true });
       
       // For $2,300 order:
       // Platform fee = min($2,300 * 0.02, $20) = $20 (capped)
@@ -72,7 +71,7 @@ describe('Stripe Fee Calculator - Complete Overhaul', () => {
     });
 
     it('calculates international fees correctly', () => {
-      const result = calculateStripeFees(2300, { isDomestic: false });
+      const result = calculateSquareFees(2300, { isDomestic: false });
       
       // For $2,300 order with international rates (3.5%):
       // Platform fee = min($2,300 * 0.02, $20) = $20 (capped)
@@ -93,7 +92,7 @@ describe('Stripe Fee Calculator - Complete Overhaul', () => {
     });
 
     it('handles very large orders where platform fee would exceed cap', () => {
-      const result = calculateStripeFees(5000, { isDomestic: true });
+      const result = calculateSquareFees(5000, { isDomestic: true });
       
       // For $5,000 order:
       // Platform fee = min($5,000 * 0.02, $20) = $20 (capped, not $100)
@@ -108,7 +107,7 @@ describe('Stripe Fee Calculator - Complete Overhaul', () => {
     });
 
     it('handles edge case of zero amount', () => {
-      const result = calculateStripeFees(0, { isDomestic: true });
+      const result = calculateSquareFees(0, { isDomestic: true });
       
       expect(result.connectedAmount).toBe(0);
       expect(result.platformFee).toBe(1); // $1 minimum platform fee
@@ -123,7 +122,7 @@ describe('Stripe Fee Calculator - Complete Overhaul', () => {
   describe('Platform Fee Capping', () => {
     it('applies minimum platform fee for very small amounts', () => {
       // For $25 order: 2% = $0.50, but minimum is $1
-      const result = calculateStripeFees(25, { isDomestic: true });
+      const result = calculateSquareFees(25, { isDomestic: true });
       
       expect(result.connectedAmount).toBe(25);
       expect(result.platformFee).toBe(1); // $1 minimum (higher than 2% of $25 = $0.50)
@@ -135,7 +134,7 @@ describe('Stripe Fee Calculator - Complete Overhaul', () => {
 
     it('applies platform fee percentage when above minimum', () => {
       // For $100 order: 2% = $2.00, which is above $1 minimum
-      const result = calculateStripeFees(100, { isDomestic: true });
+      const result = calculateSquareFees(100, { isDomestic: true });
       
       expect(result.connectedAmount).toBe(100);
       expect(result.platformFee).toBe(2); // 2% of $100 = $2.00 (above $1 minimum)
@@ -149,7 +148,7 @@ describe('Stripe Fee Calculator - Complete Overhaul', () => {
       const amounts = [100, 500, 750]; // All should be under $20 cap
       
       amounts.forEach(amount => {
-        const result = calculateStripeFees(amount, { isDomestic: true });
+        const result = calculateSquareFees(amount, { isDomestic: true });
         const expectedPlatformFee = amount * 0.02; // 2%
         
         expect(result.platformFee).toBeCloseTo(expectedPlatformFee, 2);
@@ -161,7 +160,7 @@ describe('Stripe Fee Calculator - Complete Overhaul', () => {
       const largeAmounts = [1500, 2300, 5000, 10000];
       
       largeAmounts.forEach(amount => {
-        const result = calculateStripeFees(amount, { isDomestic: true });
+        const result = calculateSquareFees(amount, { isDomestic: true });
         
         expect(result.platformFee).toBe(20); // Always capped at $20
         expect(result.platformFee).toBeLessThan(amount * 0.02); // Less than uncapped amount
@@ -169,7 +168,7 @@ describe('Stripe Fee Calculator - Complete Overhaul', () => {
     });
 
     it('respects custom platform fee cap', () => {
-      const result = calculateStripeFees(5000, { 
+      const result = calculateSquareFees(5000, { 
         isDomestic: true,
         platformFeeCap: 50 // Custom $50 cap
       });
@@ -219,7 +218,7 @@ describe('Stripe Fee Calculator - Complete Overhaul', () => {
       process.env.STRIPE_PLATFORM_FEE_PERCENTAGE = '0.03'; // 3%
       process.env.STRIPE_PLATFORM_FEE_CAP = '15'; // $15 cap
       
-      const result = calculateStripeFees(1000, { isDomestic: true });
+      const result = calculateSquareFees(1000, { isDomestic: true });
       
       expect(result.breakdown.platformFeePercentage).toBe(0.03);
       expect(result.breakdown.platformFeeCap).toBe(15);
@@ -230,7 +229,7 @@ describe('Stripe Fee Calculator - Complete Overhaul', () => {
       delete process.env.STRIPE_PLATFORM_FEE_PERCENTAGE;
       delete process.env.STRIPE_PLATFORM_FEE_CAP;
       
-      const result = calculateStripeFees(1000, { isDomestic: true });
+      const result = calculateSquareFees(1000, { isDomestic: true });
       
       expect(result.breakdown.platformFeePercentage).toBe(0.02); // Default 2%
       expect(result.breakdown.platformFeeCap).toBe(20); // Default $20
@@ -240,7 +239,7 @@ describe('Stripe Fee Calculator - Complete Overhaul', () => {
       process.env.STRIPE_PLATFORM_FEE_PERCENTAGE = 'invalid';
       process.env.STRIPE_PLATFORM_FEE_CAP = 'also-invalid';
       
-      const result = calculateStripeFees(1000, { isDomestic: true });
+      const result = calculateSquareFees(1000, { isDomestic: true });
       
       // Should use defaults when parsing fails
       expect(result.breakdown.platformFeePercentage).toBe(0.02);
@@ -250,7 +249,7 @@ describe('Stripe Fee Calculator - Complete Overhaul', () => {
 
   describe('Fee Validation', () => {
     it('validates correct fee calculations', () => {
-      const result = calculateStripeFees(1500, { isDomestic: true });
+      const result = calculateSquareFees(1500, { isDomestic: true });
       const validation = validateFeeCalculation(result);
       
       expect(validation.isValid).toBe(true);
@@ -258,7 +257,7 @@ describe('Stripe Fee Calculator - Complete Overhaul', () => {
     });
 
     it('detects calculation errors', () => {
-      const result = calculateStripeFees(1500, { isDomestic: true });
+      const result = calculateSquareFees(1500, { isDomestic: true });
       
       // Manually corrupt the calculation
       result.customerPayment = 999; // Incorrect value
@@ -270,7 +269,7 @@ describe('Stripe Fee Calculator - Complete Overhaul', () => {
     });
 
     it('validates platform fee cap enforcement', () => {
-      const result = calculateStripeFees(5000, { isDomestic: true });
+      const result = calculateSquareFees(5000, { isDomestic: true });
       
       // Manually set platform fee above cap
       result.platformFee = 150; // Way above $20 cap
@@ -284,7 +283,7 @@ describe('Stripe Fee Calculator - Complete Overhaul', () => {
 
   describe('UI Helper Functions', () => {
     it('formats fee breakdown correctly', () => {
-      const result = calculateStripeFees(1000, { isDomestic: true });
+      const result = calculateSquareFees(1000, { isDomestic: true });
       const formatted = formatFeeBreakdown(result);
       
       expect(formatted.subtotal).toBe('$1000.00');
@@ -294,14 +293,14 @@ describe('Stripe Fee Calculator - Complete Overhaul', () => {
     });
 
     it('shows international fee label for international customers', () => {
-      const result = calculateStripeFees(1000, { isDomestic: false });
+      const result = calculateSquareFees(1000, { isDomestic: false });
       const formatted = formatFeeBreakdown(result);
       
       expect(formatted.feeType).toBe('International processing fees');
     });
 
     it('generates helpful fee explanations', () => {
-      const result = calculateStripeFees(1000, { isDomestic: true });
+      const result = calculateSquareFees(1000, { isDomestic: true });
       const explanation = getFeeExplanation(result);
       
       expect(explanation).toContain('platform fee');
@@ -342,7 +341,7 @@ describe('Stripe Fee Calculator - Complete Overhaul', () => {
 
   describe('Real-world Examples', () => {
     it('matches the PRD example: $2,300 domestic order', () => {
-      const result = calculateStripeFees(2300, { isDomestic: true });
+      const result = calculateSquareFees(2300, { isDomestic: true });
       
       // From PRD: connected gets $2,300, platform fee capped at $20
       expect(result.connectedAmount).toBe(2300);
@@ -359,7 +358,7 @@ describe('Stripe Fee Calculator - Complete Overhaul', () => {
     });
 
     it('matches the PRD example: $2,300 international order', () => {
-      const result = calculateStripeFees(2300, { isDomestic: false });
+      const result = calculateSquareFees(2300, { isDomestic: false });
       
       // From PRD: connected gets $2,300, platform fee capped at $20
       expect(result.connectedAmount).toBe(2300);
@@ -377,7 +376,7 @@ describe('Stripe Fee Calculator - Complete Overhaul', () => {
 
     it('handles the original problem case', () => {
       // Original issue: connected account got $2,293.28 instead of $2,300
-      const result = calculateStripeFees(2300, { isDomestic: true });
+      const result = calculateSquareFees(2300, { isDomestic: true });
       
       // With new calculation, connected account should get exactly $2,300
       expect(result.connectedAmount).toBe(2300);
@@ -390,7 +389,7 @@ describe('Stripe Fee Calculator - Complete Overhaul', () => {
 
   describe('Edge Cases and Error Handling', () => {
     it('handles very small amounts', () => {
-      const result = calculateStripeFees(1, { isDomestic: true });
+      const result = calculateSquareFees(1, { isDomestic: true });
       
       expect(result.connectedAmount).toBe(1);
       expect(result.platformFee).toBe(1); // $1 minimum (higher than 2% of $1 = $0.02)
@@ -401,7 +400,7 @@ describe('Stripe Fee Calculator - Complete Overhaul', () => {
     });
 
     it('handles maximum realistic amounts', () => {
-      const result = calculateStripeFees(100000, { isDomestic: true });
+      const result = calculateSquareFees(100000, { isDomestic: true });
       
       expect(result.connectedAmount).toBe(100000);
       expect(result.platformFee).toBe(20); // Still capped at $20
@@ -411,7 +410,7 @@ describe('Stripe Fee Calculator - Complete Overhaul', () => {
     });
 
     it('handles decimal amounts correctly', () => {
-      const result = calculateStripeFees(123.45, { isDomestic: true });
+      const result = calculateSquareFees(123.45, { isDomestic: true });
       
       expect(result.connectedAmount).toBe(123.45);
       expect(result.platformFee).toBeCloseTo(2.47, 2); // 2% of $123.45

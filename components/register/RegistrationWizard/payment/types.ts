@@ -15,28 +15,27 @@ export interface State {
   state_code?: string; // Short code like NSW, ACT
 }
 
-// Local type for Stripe billing details to avoid namespace conflict on client
-export interface StripeBillingDetailsForClient {
-  name?: string;
+// Square billing details for Web Payments SDK
+export interface SquareBillingDetails {
+  givenName?: string;
+  familyName?: string;
   email?: string;
   phone?: string;
-  address?: {
-    line1?: string;
-    line2?: string;
-    city?: string;
-    state?: string;
-    postal_code?: string;
-    country?: string; // Stripe expects 2-letter ISO code
-  };
+  addressLines?: string[];
+  city?: string;
+  state?: string;
+  postalCode?: string;
+  country?: string; // Square expects 2-letter ISO code
 }
 
 export interface CheckoutFormProps {
   totalAmount: number;
-  onPaymentSuccess: (paymentMethodId: string, billingDetailsForStripe: StripeBillingDetailsForClient) => void;
+  onPaymentSuccess: (token: string, billingDetails: SquareBillingDetails) => void;
   onPaymentError: (errorMessage: string) => void;
   setIsProcessingPayment: (isProcessing: boolean) => void;
   billingDetails: BillingDetails;
   isProcessing?: boolean;
+  payments: any; // Square Web Payments SDK instance
 }
 
 export interface FilterableComboboxProps<T> {

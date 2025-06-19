@@ -2,37 +2,32 @@
 
 import React, { useState, useCallback, useRef, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { loadStripe } from '@stripe/stripe-js';
-import { Elements } from '@stripe/react-stripe-js';
 import { OneColumnStepLayout } from '../Layouts/OneColumnStepLayout';
 import { LodgesForm } from '../../Forms/attendee/LodgesForm';
-import { CheckoutForm, CheckoutFormHandle } from '../payment/CheckoutForm';
-import { StripeErrorBoundary } from '../payment/StripeErrorBoundary';
+import { UnifiedPaymentForm } from '../payment/UnifiedPaymentForm';
 import { PaymentProcessing } from '../payment/PaymentProcessing';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Loader2, CreditCard, ShieldCheck, AlertCircle, ArrowLeft } from 'lucide-react';
 import { useRegistrationStore } from '@/lib/registrationStore';
-import { StripeBillingDetailsForClient } from '../payment/types';
+import { SquareBillingDetails } from '../payment/types';
 import { getFunctionTicketsService, FunctionPackage } from '@/lib/services/function-tickets-service';
-import { calculateStripeFees, STRIPE_RATES, getFeeModeFromEnv, getPlatformFeePercentage } from '@/lib/utils/stripe-fee-calculator';
+import { calculateSquareFees, SQUARE_RATES, getFeeModeFromEnv, getPlatformFeePercentage, isDomesticCard } from '@/lib/utils/square-fee-calculator';
 
-// Validate and get Stripe publishable key
-const getStripeKey = () => {
-  const key = process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY;
+// Validate and get Square application key
+const getSquareKey = () => {
+  const key = process.env.NEXT_PUBLIC_SQUARE_APPLICATION_ID;
+  console.log('🔧 [LodgeRegistrationStep] Checking Square Application ID:', key ? '✅ Found' : '❌ Missing');
   if (!key) {
-    console.error('NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY is not defined');
-    return null;
-  }
-  if (!key.startsWith('pk_')) {
-    console.error('Invalid Stripe publishable key format:', key);
+    console.error('❌ [LodgeRegistrationStep] NEXT_PUBLIC_SQUARE_APPLICATION_ID is not defined');
     return null;
   }
   return key;
 };
 
-const stripePublishableKey = getStripeKey();
+const squareApplicationId = getSquareKey();
+console.log('🔧 [LodgeRegistrationStep] Square Application ID resolved:', squareApplicationId ? '✅ Valid' : '❌ Invalid');
 
 interface LodgeRegistrationStepProps {
   functionId: string;
@@ -47,20 +42,7 @@ export const LodgeRegistrationStep: React.FC<LodgeRegistrationStepProps> = ({
   onPrevStep
 }) => {
   const router = useRouter();
-  const checkoutFormRef = useRef<CheckoutFormHandle>(null);
-  
-  // Create Stripe promise with error handling
-  const stripePromise = useMemo(() => {
-    if (!stripePublishableKey) {
-      return null;
-    }
-    try {
-      return loadStripe(stripePublishableKey);
-    } catch (error) {
-      console.error('Failed to load Stripe:', error);
-      return null;
-    }
-  }, []);
+  // Remove Square initialization - now handled by UnifiedPaymentForm
   
   // Store hooks from unified store
   const { 
@@ -127,7 +109,7 @@ export const LodgeRegistrationStep: React.FC<LodgeRegistrationStepProps> = ({
   
   // Calculate total amount including Stripe fees
   const subtotal = lodgeTicketOrder ? lodgeTicketOrder.tableCount * packagePrice : 0;
-  const feeCalculation = calculateStripeFees(subtotal, {
+  const feeCalculation = calculateSquareFees(subtotal, {
     isDomestic: true // Default to domestic for Australian lodges
   });
   const totalAmount = feeCalculation.customerPayment;
@@ -156,8 +138,8 @@ export const LodgeRegistrationStep: React.FC<LodgeRegistrationStepProps> = ({
   }, [lodgeCustomer, lodgeDetails]);
 
   // Handle payment success
-  const handlePaymentSuccess = async (paymentMethodId: string, billingDetails: StripeBillingDetailsForClient) => {
-    console.log('💳 Payment method created:', paymentMethodId);
+  const handlePaymentSuccess = async (paymentToken: string, billingDetails: SquareBillingDetails) => {
+    console.log('💳 Square payment token created:', paymentToken);
     
     // Debug: Check validation state
     if (!isLodgeFormValid()) {
@@ -238,10 +220,10 @@ export const LodgeRegistrationStep: React.FC<LodgeRegistrationStepProps> = ({
             lodgeId: lodgeDetails.lodge_id,
             organisation_id: lodgeDetails.organisation_id,
           },
-          paymentMethodId,
+          paymentMethodId: paymentToken,
           amount: totalAmount * 100, // Convert to cents (includes fees)
           subtotal: subtotal * 100, // Convert to cents (before fees)
-          stripeFee: feeCalculation.stripeFee * 100, // Convert to cents
+          squareFee: feeCalculation.squareFee * 100, // Convert to cents
           billingDetails: getBillingDetails(),
         }),
       });
@@ -327,37 +309,7 @@ export const LodgeRegistrationStep: React.FC<LodgeRegistrationStepProps> = ({
     setIsProcessing(false);
   };
 
-  // Handle form submission
-  const handleSubmit = async () => {
-    // Validate form
-    if (!isLodgeFormValid()) {
-      const errors = getLodgeValidationErrors();
-      setError(errors.join(', '));
-      return;
-    }
-
-    if (!lodgeTicketOrder || lodgeTicketOrder.tableCount === 0) {
-      setError('Please select at least one table');
-      return;
-    }
-
-    // Clear any previous errors
-    setError(null);
-    setIsProcessing(true);
-
-    // Trigger payment method creation in CheckoutForm
-    if (checkoutFormRef.current) {
-      const result = await checkoutFormRef.current.createPaymentMethod();
-      if (result.error) {
-        setError(result.error);
-        setIsProcessing(false);
-      }
-      // Success is handled by onPaymentSuccess callback
-    } else {
-      setError('Payment form not ready');
-      setIsProcessing(false);
-    }
-  };
+  // Form submission is now handled by UnifiedPaymentForm
 
   // Show processing page when payment is being processed
   if (showProcessingSteps) {
@@ -390,14 +342,6 @@ export const LodgeRegistrationStep: React.FC<LodgeRegistrationStepProps> = ({
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-6 pt-6">
-          {/* Security Note */}
-          <Alert className="border-blue-200 bg-blue-50">
-            <ShieldCheck className="h-4 w-4 text-blue-600" />
-            <AlertDescription className="text-sm text-blue-800">
-              Your payment information is securely processed by Stripe. We never store your card details.
-            </AlertDescription>
-          </Alert>
-
           {/* Show loading state while fetching packages */}
           {isLoadingPricing ? (
             <div className="flex items-center justify-center py-8">
@@ -411,29 +355,22 @@ export const LodgeRegistrationStep: React.FC<LodgeRegistrationStepProps> = ({
                 No lodge package is available for this function. Please contact support.
               </AlertDescription>
             </Alert>
-          ) : !stripePromise ? (
-            /* Stripe Error */
-            <Alert variant="destructive">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>
-                Payment processing is currently unavailable. Please contact support or try again later.
-              </AlertDescription>
-            </Alert>
           ) : (
-            /* Stripe Elements */
-            <StripeErrorBoundary>
-              <Elements stripe={stripePromise}>
-                <CheckoutForm
-                  ref={checkoutFormRef}
-                  totalAmount={totalAmount}
-                  onPaymentSuccess={handlePaymentSuccess}
-                  onPaymentError={handlePaymentError}
-                  setIsProcessingPayment={setIsProcessing}
-                  billingDetails={getBillingDetails()}
-                  isProcessing={isProcessing}
-                />
-              </Elements>
-            </StripeErrorBoundary>
+            /* Unified Payment Form */
+            <UnifiedPaymentForm
+              totalAmount={totalAmount}
+              subtotal={subtotal}
+              billingDetails={getBillingDetails()}
+              registrationType="lodge"
+              registrationData={{ lodgeCustomer, lodgeDetails, lodgeTicketOrder }}
+              onPaymentSuccess={handlePaymentSuccess}
+              onPaymentError={handlePaymentError}
+              isProcessing={isProcessing}
+              functionId={functionId}
+              functionSlug={functionSlug}
+              packageId={selectedPackage?.package_id || selectedPackage?.id}
+              minimal={true}
+            />
           )}
 
 

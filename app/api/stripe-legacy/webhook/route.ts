@@ -8,25 +8,31 @@ import {
   logPayoutDetails,
   calculatePlatformFees 
 } from '@/lib/utils/stripe-connect-helpers';
+import { getPaymentConfig } from '@/lib/config/payment';
 
 // Initialize Stripe client lazily with proper error handling
 function getStripeClient() {
-  const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
+  const config = getPaymentConfig();
   
-  if (!stripeSecretKey) {
+  if (!config.stripe) {
+    throw new Error('Stripe configuration is not available');
+  }
+  
+  if (!config.stripe.secretKey) {
     throw new Error('STRIPE_SECRET_KEY environment variable is not configured');
   }
   
-  if (!stripeSecretKey.startsWith('sk_')) {
+  if (!config.stripe.secretKey.startsWith('sk_')) {
     throw new Error('Invalid STRIPE_SECRET_KEY format');
   }
   
-  return new Stripe(stripeSecretKey, {
-    apiVersion: '2024-11-20.acacia',
+  return new Stripe(config.stripe.secretKey, {
+    apiVersion: config.stripe.apiVersion as any,
   });
 }
 
-const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET!;
+const config = getPaymentConfig();
+const webhookSecret = config.stripe?.webhookSecret || '';
 const connectWebhookSecret = process.env.STRIPE_CONNECT_WEBHOOK_SECRET;
 
 export async function POST(request: NextRequest) {
