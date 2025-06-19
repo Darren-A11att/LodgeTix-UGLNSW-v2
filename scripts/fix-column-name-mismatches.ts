@@ -126,18 +126,7 @@ const columnFixes = [
     old: ".in('id', ticketIds);",
     new: ".in('event_ticket_id', ticketIds);"
   },
-  {
-    file: '/lib/services/stripe-sync-service.ts',
-    line: 209,
-    old: ".update({ stripe_price_id: price.id })",
-    new: ".update({ stripe_price_id: price.id })"
-  },
-  {
-    file: '/lib/services/stripe-sync-service.ts',
-    line: 210,
-    old: ".eq('id', ticket.id);",
-    new: ".eq('event_ticket_id', ticket.event_ticket_id);"
-  },
+  // Note: stripe-sync-service.ts has been removed as this application now uses Square payments
   {
     file: '/scripts/check-all-event-tickets.ts',
     line: 25,
@@ -284,12 +273,7 @@ const columnFixes = [
     old: ".eq('id', id)",
     new: ".eq('event_id', id)"
   },
-  {
-    file: '/lib/services/stripe-sync-service.ts',
-    line: 113,
-    old: ".update({ stripe_product_id: product.id })",
-    new: ".update({ stripe_product_id: product.id })"
-  },
+  // Note: Additional stripe-sync-service.ts reference removed
   
   // Attendees
   {

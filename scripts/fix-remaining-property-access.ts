@@ -3,17 +3,7 @@ import * as path from 'path';
 
 // Specific fixes for property access patterns
 const specificFixes = [
-  // stripe-sync-service.ts
-  {
-    file: '/lib/services/stripe-sync-service.ts',
-    fixes: [
-      {
-        old: 'ticket.id',
-        new: 'ticket.event_ticket_id',
-        lines: [152, 166, 195, 217]
-      }
-    ]
-  },
+  // Note: stripe-sync-service.ts has been removed as this application now uses Square payments
   // Fix patterns where we're accessing data after inserts/updates
   {
     file: '/lib/services/post-payment-service.ts',

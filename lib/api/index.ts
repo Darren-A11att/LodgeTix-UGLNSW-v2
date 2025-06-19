@@ -6,8 +6,7 @@ import { RegistrationAdminService } from './registrationAdminService';
 import { CustomerAdminService } from './customerAdminService';
 import { PackageAdminService } from './packageAdminService';
 
-// Export Stripe queries
-export * from './stripe-queries';
+// Note: Stripe queries have been removed as this application now uses Square payments
 
 // Create singleton instances for use throughout the app
 export const adminApi = new AdminApiService();

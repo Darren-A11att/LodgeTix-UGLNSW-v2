@@ -1,34 +1,17 @@
 /**
- * Cleaned Payment Route
+ * Square Payment Route
  * 
- * This route has been cleaned up to remove redundant operations:
+ * This route has been updated to use Square instead of Stripe:
  * - No longer updates registration status (webhook handles this)
  * - No redundant callbacks to registration-specific endpoints
- * - Only handles payment intent creation/confirmation
- * - Uses unified payment service for consistency
+ * - Only handles payment creation/confirmation
+ * - Uses unified Square payment service for consistency
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from '@/utils/supabase/server';
-import { unifiedPaymentService } from '@/lib/services/unified-payment-service';
-import Stripe from 'stripe';
+import { unifiedSquarePaymentService } from '@/lib/services/unified-square-payment-service';
 
-// Initialize Stripe client lazily with proper error handling
-function getStripeClient() {
-  const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
-  
-  if (!stripeSecretKey) {
-    throw new Error('STRIPE_SECRET_KEY environment variable is not configured');
-  }
-  
-  if (!stripeSecretKey.startsWith('sk_')) {
-    throw new Error('Invalid STRIPE_SECRET_KEY format');
-  }
-  
-  return new Stripe(stripeSecretKey, {
-    apiVersion: '2024-11-20.acacia',
-  });
-}
 
 export async function POST(
   request: NextRequest,
@@ -120,9 +103,9 @@ export async function POST(
     let requiresAction = false;
     let clientSecret = null;
     
-    // Create new payment intent using unified service
-    if (data.createNewIntent || !data.paymentIntentId) {
-      console.log("Creating new payment intent using unified payment service");
+    // Create new Square payment
+    if (data.createNewIntent || !data.paymentId) {
+      console.log("Creating new Square payment using unified Square payment service");
       
       // Extract billing details
       const billingDetails = data.billingDetails || {
@@ -139,59 +122,38 @@ export async function POST(
       };
       
       try {
-        const paymentResponse = await unifiedPaymentService.createPaymentIntent({
+        const paymentResponse = await unifiedSquarePaymentService.createPaymentIntent({
           registrationId,
+          paymentMethodId: data.paymentMethodId, // Square nonce or token
           billingDetails,
           sessionId: data.sessionId,
           referrer: data.referrer
         });
         
-        finalPaymentIntentId = paymentResponse.paymentIntentId;
-        clientSecret = paymentResponse.clientSecret;
+        finalPaymentIntentId = paymentResponse.paymentId;
         
-        console.log("Payment intent created successfully:", {
-          paymentIntentId: finalPaymentIntentId,
+        console.log("Square payment created successfully:", {
+          paymentId: finalPaymentIntentId,
           totalAmount: paymentResponse.totalAmount,
           processingFees: paymentResponse.processingFees,
-          subtotal: paymentResponse.subtotal
+          subtotal: paymentResponse.subtotal,
+          status: paymentResponse.status
         });
         
       } catch (error: any) {
-        console.error("Error creating payment intent:", error);
+        console.error("Error creating Square payment:", error);
         console.groupEnd();
         return NextResponse.json(
-          { error: error.message || "Failed to create payment intent" },
+          { error: error.message || "Failed to create Square payment" },
           { status: 500 }
         );
       }
     }
     
-    // Confirm existing payment intent
-    if (data.paymentIntentId && !data.createNewIntent && data.paymentMethodId) {
-      console.log("Confirming existing payment intent");
-      
-      try {
-        const paymentIntent = await stripe.paymentIntents.confirm(data.paymentIntentId, {
-          payment_method: data.paymentMethodId,
-          return_url: data.returnUrl || `${process.env.NEXT_PUBLIC_APP_URL}/api/registrations/${registrationId}/verify-payment`
-        });
-        
-        requiresAction = paymentIntent.status === "requires_action" || paymentIntent.status === "requires_source_action";
-        clientSecret = paymentIntent.client_secret;
-        
-        console.log("Payment intent confirmed:", {
-          status: paymentIntent.status,
-          requiresAction
-        });
-        
-      } catch (stripeError: any) {
-        console.error("Stripe error:", stripeError);
-        console.groupEnd();
-        return NextResponse.json(
-          { error: `Payment processing failed: ${stripeError.message}` },
-          { status: 500 }
-        );
-      }
+    // Note: Square payments are processed immediately, no separate confirmation step needed
+    if (data.paymentId && !data.createNewIntent) {
+      console.log("Square payment already processed, no further action needed");
+      finalPaymentIntentId = data.paymentId;
     }
     
     // IMPORTANT: NO STATUS UPDATES HERE
@@ -203,9 +165,7 @@ export async function POST(
     // Return response
     return NextResponse.json({
       success: true,
-      clientSecret,
-      paymentIntentId: finalPaymentIntentId,
-      requiresAction,
+      paymentId: finalPaymentIntentId,
       registrationId
     });
     
