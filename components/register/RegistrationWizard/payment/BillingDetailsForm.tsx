@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { Controller, UseFormReturn } from "react-hook-form";
 import { GetCountries, GetState } from 'react-country-state-city';
 import { User, ShieldCheck } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
@@ -35,12 +35,14 @@ interface BillingDetailsFormProps {
     attendeeType?: string;
   } | null;
   setBillingFormDetailsInStore?: (details: BillingDetails) => void;
+  footerContent?: React.ReactNode;
 }
 
 export const BillingDetailsForm: React.FC<BillingDetailsFormProps> = ({
   form,
   primaryAttendee,
-  setBillingFormDetailsInStore
+  setBillingFormDetailsInStore,
+  footerContent
 }) => {
   if (!form) {
     // Log error in development, but use a clean error message in production
@@ -627,6 +629,11 @@ export const BillingDetailsForm: React.FC<BillingDetailsFormProps> = ({
           </div>
         </div>
       </CardContent>
+      {footerContent && (
+        <CardFooter className="bg-gray-50/50 border-t border-primary/10 pt-6">
+          {footerContent}
+        </CardFooter>
+      )}
     </Card>
   );
 };

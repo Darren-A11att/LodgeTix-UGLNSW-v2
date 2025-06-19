@@ -1,15 +1,14 @@
 "use client"
 
-import { useState, useImperativeHandle, forwardRef } from "react";
+import { useState, useImperativeHandle, forwardRef, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
-import { CardElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import { CreditCard, ShieldCheck, Loader2 } from "lucide-react";
-import { CARD_ELEMENT_OPTIONS } from "./CardElementOptions";
-import { CheckoutFormProps, StripeBillingDetailsForClient } from "./types";
+import { SQUARE_CARD_OPTIONS } from "./SquareConfig";
+import { CheckoutFormProps, SquareBillingDetails } from "./types";
 import { useRouter } from 'next/navigation';
 
 export interface CheckoutFormHandle {
-  createPaymentMethod: () => Promise<{ paymentMethodId?: string; error?: string }>;
+  createPaymentMethod: () => Promise<{ token?: string; error?: string }>;
 }
 
 export const CheckoutForm = forwardRef<CheckoutFormHandle, CheckoutFormProps>(
@@ -20,13 +19,14 @@ export const CheckoutForm = forwardRef<CheckoutFormHandle, CheckoutFormProps>(
       onPaymentError,
       setIsProcessingPayment,
       billingDetails,
-      isProcessing = false
+      isProcessing = false,
+      payments
     },
     ref
   ) {
-    const stripe = useStripe();
-    const elements = useElements();
     const router = useRouter();
+    const cardRef = useRef<HTMLDivElement>(null);
+    const [card, setCard] = useState<any>(null);
     const [cardError, setCardError] = useState<string | null>(null);
     const [isCardComplete, setIsCardComplete] = useState(false);
     const [isProcessingLocal, setIsProcessingLocal] = useState(false);
@@ -73,44 +73,74 @@ export const CheckoutForm = forwardRef<CheckoutFormHandle, CheckoutFormProps>(
       return false; // Proceed with payment
     };
 
-    // Helper function to format billing details for Stripe
-    const getBillingDetailsForStripe = (): StripeBillingDetailsForClient => {
+    // Helper function to format billing details for Square
+    const getBillingDetailsForSquare = (): SquareBillingDetails => {
+      // For individuals registration, billingDetails might be minimal
+      // Use defaults with 'AU' country for fee calculation
+      const addressLines = [billingDetails?.addressLine1 || ''];
+      if (billingDetails?.businessName) {
+        addressLines.push(billingDetails.businessName);
+      }
+      
       return {
-        name: `${billingDetails.firstName} ${billingDetails.lastName}`,
-        email: billingDetails.emailAddress,
-        phone: billingDetails.mobileNumber,
-        address: {
-          line1: billingDetails.addressLine1,
-          city: billingDetails.suburb,
-          state: billingDetails.stateTerritory?.name,
-          postal_code: billingDetails.postcode,
-          country: billingDetails.country?.isoCode,
-          ...(billingDetails.businessName ? { line2: billingDetails.businessName } : {})
-        }
+        givenName: billingDetails?.firstName || 'Customer',
+        familyName: billingDetails?.lastName || 'Name',
+        email: billingDetails?.emailAddress || 'customer@example.com',
+        phone: billingDetails?.mobileNumber || '',
+        addressLines,
+        city: billingDetails?.suburb || '',
+        state: billingDetails?.stateTerritory?.name || '',
+        postalCode: billingDetails?.postcode || '',
+        country: billingDetails?.country?.isoCode || 'AU', // Default to AU for fee calculation
       };
     };
 
-    // Create payment method function
+    // Initialize Square card component
+    useEffect(() => {
+      let cardInstance: any = null;
+
+      const initializeCard = async () => {
+        if (!payments || !cardRef.current) return;
+
+        try {
+          // Clean up any existing card first
+          if (card) {
+            console.log('🧹 Cleaning up existing Square card before creating new one');
+            card.destroy();
+            setCard(null);
+          }
+
+          console.log('🔧 Creating new Square card instance');
+          cardInstance = await payments.card(SQUARE_CARD_OPTIONS);
+          await cardInstance.attach('#square-card-element');
+          setCard(cardInstance);
+          setIsCardComplete(true);
+          console.log('✅ Square card attached successfully');
+        } catch (error: any) {
+          console.error('❌ Error initializing Square card:', error);
+          setCardError('Failed to initialize payment form');
+        }
+      };
+
+      initializeCard();
+
+      // Cleanup function with proper reference
+      return () => {
+        if (cardInstance) {
+          console.log('🧹 Cleaning up Square card instance');
+          cardInstance.destroy();
+          cardInstance = null;
+        }
+      };
+    }, [payments]);
+
+    // Create payment method function using Square tokenization
     const createPaymentMethod = async () => {
-      console.log("💳 CheckoutForm: Creating payment method");
+      console.log("💳 CheckoutForm: Creating Square payment token");
       
-      if (!stripe || !elements) {
+      if (!payments || !card) {
         const error = "Payment system not ready. Please refresh and try again.";
-        console.error("Stripe not initialized", { stripe: !!stripe, elements: !!elements });
-        setCardError(error);
-        return { error };
-      }
-
-      const cardElement = elements.getElement(CardElement);
-      if (!cardElement) {
-        const error = "Payment form not loaded. Please refresh and try again.";
-        console.error("Card element not found");
-        setCardError(error);
-        return { error };
-      }
-
-      if (!isCardComplete) {
-        const error = "Please complete your card details";
+        console.error("Square not initialized", { payments: !!payments, card: !!card });
         setCardError(error);
         return { error };
       }
@@ -120,27 +150,26 @@ export const CheckoutForm = forwardRef<CheckoutFormHandle, CheckoutFormProps>(
       setIsProcessingPayment(true);
 
       try {
-        // Create payment method
-        const { error, paymentMethod } = await stripe.createPaymentMethod({
-          type: 'card',
-          card: cardElement,
-          billing_details: getBillingDetailsForStripe(),
-        });
+        // Tokenize card using simple Square tokenization (as per docs)
+        console.log("🔍 Starting Square tokenization...");
+        const result = await card.tokenize();
 
-        if (error) {
-          console.error("Payment method error:", error);
-          setCardError(error.message || "Failed to process payment details");
-          return { error: error.message };
-        } else if (paymentMethod) {
-          console.log("✅ Payment method created:", paymentMethod.id);
-          // Call the success handler with formatted billing details
-          await onPaymentSuccess(paymentMethod.id, getBillingDetailsForStripe());
-          return { paymentMethodId: paymentMethod.id };
+        if (result.status === 'OK' && result.token) {
+          console.log("✅ Square token created:", result.token);
+          // Call the success handler with token and billing details
+          await onPaymentSuccess(result.token, getBillingDetailsForSquare());
+          return { token: result.token };
+        } else if (result.errors) {
+          const errorMessage = result.errors.map(error => error.detail || error.message).join(', ');
+          console.error("Square tokenization errors:", result.errors);
+          console.error("Full error details:", JSON.stringify(result.errors, null, 2));
+          setCardError(errorMessage);
+          return { error: errorMessage };
         }
         
-        return { error: "Failed to create payment method" };
+        return { error: "Failed to create payment token" };
       } catch (err: any) {
-        console.error("Payment error:", err);
+        console.error("Square payment error:", err);
         const errorMsg = err.message || "An unexpected error occurred";
         setCardError(errorMsg);
         onPaymentError(errorMsg);
@@ -155,12 +184,6 @@ export const CheckoutForm = forwardRef<CheckoutFormHandle, CheckoutFormProps>(
     useImperativeHandle(ref, () => ({
       createPaymentMethod
     }));
-
-    // Handle card element changes
-    const handleCardChange = (event: any) => {
-      setCardError(event.error ? event.error.message : null);
-      setIsCardComplete(event.complete);
-    };
 
     // Handle direct button click
     const handleButtonClick = async () => {
@@ -178,8 +201,8 @@ export const CheckoutForm = forwardRef<CheckoutFormHandle, CheckoutFormProps>(
       await createPaymentMethod();
     };
 
-    // Guard against Stripe not being available
-    if (!stripe || !elements) {
+    // Guard against Square not being available
+    if (!payments) {
       return (
         <div className="space-y-6">
           <div className="p-4 border border-red-300 rounded-md bg-red-50">
@@ -194,15 +217,14 @@ export const CheckoutForm = forwardRef<CheckoutFormHandle, CheckoutFormProps>(
     return (
       <div className="space-y-6">
         <div>
-          <label htmlFor="card-element" className="block text-sm font-medium text-gray-700 mb-1">
-            Credit or debit card
+          <label htmlFor="square-card-element" className="block text-sm font-medium text-gray-700 mb-1">
+            We accept Visa, Mastercard or American Express
           </label>
-          <div id="card-element" className="p-3 border border-gray-300 rounded-md bg-white">
-            <CardElement 
-              options={CARD_ELEMENT_OPTIONS} 
-              onChange={handleCardChange}
-            />
-          </div>
+          <div 
+            id="square-card-element" 
+            ref={cardRef}
+            className="min-h-[40px] p-2"
+          />
           {cardError && <p className="mt-2 text-sm text-red-600">{cardError}</p>}
           <p className="mt-2 text-xs text-gray-500 flex items-center">
             <ShieldCheck className="h-3 w-3 mr-1 text-green-600" /> Your payment information is securely processed.
@@ -230,7 +252,7 @@ export const CheckoutForm = forwardRef<CheckoutFormHandle, CheckoutFormProps>(
           <Button
             type="button"
             onClick={handleButtonClick}
-            disabled={!stripe || !isCardComplete || isProcessingLocal}
+            disabled={!payments || !card || isProcessingLocal}
             className="w-full"
           >
             {isProcessingLocal ? (

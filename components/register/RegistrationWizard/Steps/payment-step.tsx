@@ -13,19 +13,18 @@ import { getBrowserClient } from '@/lib/supabase-singleton';
 import { Button } from "@/components/ui/button";
 import { Form } from "@/components/ui/form";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, Loader2, Receipt } from "lucide-react";
+import { ArrowLeft, Loader2, Receipt, CreditCard, ShieldCheck } from "lucide-react";
 import { SummaryRenderer } from '../Summary/SummaryRenderer';
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { StripeBillingDetailsForClient } from "../payment/types";
+import { SquareBillingDetails } from "../payment/types";
 
 // Import modular components
 import { BillingDetailsForm } from "../payment/BillingDetailsForm";
-import { PaymentMethod } from "../payment/PaymentMethod";
-import { CheckoutFormHandle } from "../payment/CheckoutForm";
+import { UnifiedPaymentForm } from "../payment/UnifiedPaymentForm";
 import { PaymentProcessing } from "../payment/PaymentProcessing";
 import { OneColumnStepLayout } from "../Layouts/OneColumnStepLayout";
 import { getFunctionTicketsService, type FunctionTicketDefinition, type FunctionPackage } from '@/lib/services/function-tickets-service';
-import { calculateStripeFees, STRIPE_RATES, formatFeeBreakdown, getFeeDisclaimer, getFeeModeFromEnv, getPlatformFeePercentage, isDomesticCard, getProcessingFeeLabel } from '@/lib/utils/stripe-fee-calculator';
+import { calculateSquareFees, SQUARE_RATES, formatFeeBreakdown, getFeeDisclaimer, getFeeModeFromEnv, getPlatformFeePercentage, isDomesticCard, getProcessingFeeLabel } from '@/lib/utils/square-fee-calculator';
 import { resolveTicketPrices, expandPackagesWithPricing, validateTicketPricing, type TicketWithPrice, type EventTicketRecord, type PackageRecord } from '@/lib/utils/ticket-price-resolver';
 import { Info } from "lucide-react";
 import { 
@@ -496,7 +495,8 @@ function PaymentStep(props: PaymentStepProps) {
   const feeCalculation = useMemo(() => {
     const isDomestic = isDomesticCard(billingCountry?.isoCode);
     
-    return calculateStripeFees(subtotal, {
+    return calculateSquareFees(subtotal, {
+      userCountry: billingCountry?.isoCode,
       isDomestic
     });
   }, [subtotal, billingCountry]);
@@ -505,8 +505,8 @@ function PaymentStep(props: PaymentStepProps) {
   const totalAmount = feeCalculation.customerPayment;
 
   // Handle payment method creation from CheckoutForm
-  const handlePaymentMethodCreated = async (paymentMethodId: string, stripeBillingDetails: StripeBillingDetailsForClient) => {
-    console.log("💳 STEP 3: Payment method created, processing payment:", paymentMethodId);
+  const handlePaymentMethodCreated = async (paymentToken: string, squareBillingDetails: SquareBillingDetails) => {
+    console.log("💳 STEP 3: Square payment token created, processing payment:", paymentToken);
     
     if (!anonymousSessionEstablished) {
       setPaymentError("Session expired. Please return to the registration type page to complete verification.");
@@ -705,7 +705,7 @@ function PaymentStep(props: PaymentStepProps) {
           console.log("💰 Frontend calculated values:", {
             subtotal,
             totalAmount,
-            stripeFee: feeCalculation.stripeFee,
+            squareFee: feeCalculation.squareFee,
             expandedTicketsCount: expandedTickets.length,
             attendeesCount: transformedAttendees.length,
             currentTicketsForSummaryCount: currentTicketsForSummary.length
@@ -755,7 +755,7 @@ function PaymentStep(props: PaymentStepProps) {
             billToPrimaryAttendee: form.getValues('billToPrimaryAttendee') || false,
             totalAmount,
             subtotal,
-            stripeFee: feeCalculation.stripeFee,
+            squareFee: feeCalculation.squareFee,
             agreeToTerms: true,
             registrationId: currentRegistrationId, // For draft recovery
             
@@ -789,7 +789,7 @@ function PaymentStep(props: PaymentStepProps) {
             calculatedPricing: {
               totalAmount,
               subtotal,
-              stripeFee: feeCalculation.stripeFee,
+              squareFee: feeCalculation.squareFee,
               resolvedFromDatabase: true,
               priceResolutionTimestamp: new Date().toISOString()
             }
@@ -857,15 +857,15 @@ function PaymentStep(props: PaymentStepProps) {
         paymentHeaders['Authorization'] = `Bearer ${session.access_token}`;
       }
       
-      const response = await fetch('/api/payments/create-intent', {
+      const response = await fetch('/api/registrations/individuals/payment', {
         method: 'POST',
         headers: paymentHeaders,
         body: JSON.stringify({
           registrationId,
-          paymentMethodId: paymentMethodId, // ✅ Pass the payment method ID
-          billingDetails: stripeBillingDetails,
-          sessionId: storeDraftId, // Include session ID for tracking
-          referrer: window.location.href
+          paymentMethodId: paymentToken, // ✅ Pass the Square payment token
+          billingDetails: squareBillingDetails,
+          amount: totalAmount * 100, // Convert to cents (includes fees)
+          subtotal: subtotal * 100, // Convert to cents (before fees)
         }),
       });
 
@@ -875,22 +875,10 @@ function PaymentStep(props: PaymentStepProps) {
         throw new Error(result.error || "Failed to process payment");
       }
 
-      console.log("✅ Payment intent created:", result);
+      console.log("✅ Square payment created:", result);
       
-      // Handle 3D Secure if needed (backend auto-confirms, but may require action)
-      if (result.requiresAction && result.clientSecret) {
-        console.log("🔐 3D Secure required");
-        const stripe = (window as any).Stripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY);
-        
-        // Handle any required actions (like 3D Secure)
-        const { error: confirmError, paymentIntent } = await stripe.confirmCardPayment(result.clientSecret);
-        
-        if (confirmError) {
-          throw new Error(`Authentication failed: ${confirmError.message}`);
-        }
-        
-        console.log("✅ 3D Secure completed:", paymentIntent.status);
-      }
+      // Square handles payment authentication automatically during tokenization
+      // No additional confirmation step needed like Stripe's 3D Secure
       
       // Update final step
       setProcessingSteps(prev => {
@@ -987,7 +975,7 @@ function PaymentStep(props: PaymentStepProps) {
           })),
           totalAmount,
           subtotal,
-          stripeFee: feeCalculation.stripeFee
+          squareFee: feeCalculation.squareFee
         };
         
         // Store with confirmation number as key
@@ -1014,9 +1002,9 @@ function PaymentStep(props: PaymentStepProps) {
             body: JSON.stringify({
               status: 'completed',
               payment_status: 'completed',
-              stripe_payment_intent_id: result.paymentIntentId,
+              square_payment_id: result.paymentIntentId,
               total_amount_paid: result.totalAmount,
-              stripe_fee: result.processingFees
+              square_fee: result.processingFees
             })
           });
           
@@ -1143,24 +1131,39 @@ function PaymentStep(props: PaymentStepProps) {
           <div className="flex flex-col md:flex-row gap-6 md:gap-8">
             {/* Left Column - Billing Details and Payment (60%) */}
             <div className="flex-1 space-y-6 md:flex-none md:w-[60%]">
-              <BillingDetailsForm form={form} primaryAttendee={primaryAttendee ? {
-                firstName: primaryAttendee.firstName || undefined,
-                lastName: primaryAttendee.lastName || undefined,
-                primaryPhone: primaryAttendee.primaryPhone || undefined,
-                primaryEmail: primaryAttendee.primaryEmail || undefined,
-                grand_lodge_id: primaryAttendee.grand_lodge_id || undefined,
-                attendeeType: primaryAttendee.attendeeType || undefined
-              } : null} />
-              
-              {/* Payment Method */}
-              <PaymentMethod 
-                ref={paymentMethodRef}
-                totalAmount={totalAmount}
-                onPaymentSuccess={handlePaymentMethodCreated}
-                onPaymentError={setPaymentError}
-                setIsProcessingPayment={setIsProcessingPayment}
-                billingDetails={form.getValues()}
-                isProcessing={isProcessingPayment}
+              <BillingDetailsForm 
+                form={form} 
+                primaryAttendee={primaryAttendee ? {
+                  firstName: primaryAttendee.firstName || undefined,
+                  lastName: primaryAttendee.lastName || undefined,
+                  primaryPhone: primaryAttendee.primaryPhone || undefined,
+                  primaryEmail: primaryAttendee.primaryEmail || undefined,
+                  grand_lodge_id: primaryAttendee.grand_lodge_id || undefined,
+                  attendeeType: primaryAttendee.attendeeType || undefined
+                } : null}
+                footerContent={
+                  <div className="space-y-6 w-full">
+                    {/* Payment Form Header */}
+                    <div className="flex items-center gap-2 text-primary font-semibold">
+                      <CreditCard className="w-5 h-5" />
+                      Credit Card Details
+                    </div>
+
+                    {/* Unified Payment Form */}
+                    <UnifiedPaymentForm
+                      totalAmount={totalAmount}
+                      subtotal={subtotal}
+                      billingDetails={form.getValues()}
+                      registrationType="individuals"
+                      registrationData={{ attendees: allStoreAttendees, selectedTickets: currentTicketsForSummary }}
+                      onPaymentSuccess={handlePaymentMethodCreated}
+                      onPaymentError={setPaymentError}
+                      isProcessing={isProcessingPayment}
+                      functionId={props.functionId || ''}
+                      minimal={true}
+                    />
+                  </div>
+                }
               />
             </div>
             

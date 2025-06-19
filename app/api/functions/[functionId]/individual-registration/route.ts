@@ -1,23 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
-import Stripe from 'stripe';
-
-// Initialize Stripe client lazily with proper error handling
-function getStripeClient() {
-  const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
-  
-  if (!stripeSecretKey) {
-    throw new Error('STRIPE_SECRET_KEY environment variable is not configured');
-  }
-  
-  if (!stripeSecretKey.startsWith('sk_')) {
-    throw new Error('Invalid STRIPE_SECRET_KEY format');
-  }
-  
-  return new Stripe(stripeSecretKey, {
-    apiVersion: '2024-12-18.acacia',
-  });
-}
+import { getSquarePaymentsApi, getSquareLocationId, convertToCents, generateIdempotencyKey } from '@/lib/utils/square-client';
+import { calculateSquareFees } from '@/lib/utils/square-fee-calculator';
+import type { CreatePaymentRequest, CreateRefundRequest } from 'square';
 
 interface RouteParams {
   params: {
@@ -36,7 +21,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       paymentMethodId,
       totalAmount,
       subtotal,
-      stripeFee,
+      squareFee,
       registrationId, // Optional, for updates
     } = body;
 
@@ -62,11 +47,11 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     }
 
     // If payment method provided, process payment first
-    let paymentIntent = null;
+    let payment = null;
     let paymentStatus = 'pending';
     
     if (paymentMethodId && totalAmount > 0) {
-      // Fetch function for Stripe Connect details
+      // Fetch function for payment details
       const { data: functionData } = await supabase
         .from('functions')
         .select(`
@@ -76,8 +61,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           organiser_id,
           organisations!functions_organiser_id_fkey(
             organisation_id,
-            name,
-            stripe_onbehalfof
+            name
           )
         `)
         .eq('function_id', functionId)
@@ -90,25 +74,21 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         );
       }
       
-      // Check for connected account
-      const connectedAccountId = functionData.organisations?.stripe_onbehalfof;
       const organisationName = functionData.organisations?.name;
       
-      // Calculate platform fee
-      let applicationFeeAmount = 0;
-      if (connectedAccountId) {
-        const platformFeePercentage = parseFloat(process.env.STRIPE_PLATFORM_FEE_PERCENTAGE || '0.05');
-        applicationFeeAmount = Math.round(totalAmount * 100 * platformFeePercentage);
-      }
-      
-      console.log('[Individual Registration API] Platform fee calculation:', {
-        totalAmount,
-        connectedAccountId: !!connectedAccountId,
-        applicationFeeAmount,
-        platformFeeInDollars: applicationFeeAmount / 100
+      // Calculate Square fees using the fee calculator
+      const feeCalculation = calculateSquareFees(subtotal, {
+        userCountry: 'AU' // Default to AU, could be determined from billing address
       });
       
-      // Build metadata for payment intent
+      console.log('[Individual Registration API] Square fee calculation:', {
+        subtotal,
+        customerPayment: feeCalculation.customerPayment,
+        squareFee: feeCalculation.squareFee,
+        platformFee: feeCalculation.platformFee
+      });
+      
+      // Build metadata for payment
       const primaryAttendee = attendees.find((a: any) => a.isPrimary) || attendees[0];
       const attendeeTypes: Record<string, number> = {};
       attendees.forEach((a: any) => {
@@ -116,86 +96,68 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         attendeeTypes[type] = (attendeeTypes[type] || 0) + 1;
       });
       
-      // Prepare payment intent options
-      const paymentIntentOptions: any = {
-        amount: Math.round(totalAmount * 100), // Convert to cents
-        currency: 'aud',
-        payment_method: paymentMethodId,
-        confirmation_method: 'manual',
-        confirm: true,
-        return_url: `${process.env.NODE_ENV === 'production' ? 'https://lodgetix.io' : 'http://localhost:3000'}/functions/${functionData.slug || functionId}/register/success`,
-        receipt_email: bookingContact?.email || primaryAttendee?.email, // Use billing email, not attendee email
-        metadata: {
-          // Function (consistent with create-payment-intent)
-          function_id: functionId,
-          function_name: functionData.name?.substring(0, 100) || '',
-          
-          // Registration details
-          registration_type: 'individual',
-          total_attendees: attendees.length.toString(),
-          primary_attendee_name: primaryAttendee ? `${primaryAttendee.firstName} ${primaryAttendee.lastName}`.substring(0, 100) : '',
-          attendee_types: JSON.stringify(attendeeTypes).substring(0, 200),
-          
-          // Financial
-          subtotal: String(subtotal),
-          stripe_fee: String(stripeFee),
-          platform_fee: String(applicationFeeAmount / 100),
-          
-          // Organization
-          organisation_name: organisationName?.substring(0, 100) || '',
-          
-          // Tracking
-          created_at: new Date().toISOString(),
-          environment: process.env.NODE_ENV || 'development'
+      // Prepare Square payment request
+      const paymentsApi = getSquarePaymentsApi();
+      const locationId = getSquareLocationId();
+      const idempotencyKey = generateIdempotencyKey();
+      
+      const paymentRequest: CreatePaymentRequest = {
+        sourceId: paymentMethodId, // Square nonce from Web Payments SDK
+        idempotencyKey,
+        amountMoney: {
+          amount: BigInt(convertToCents(feeCalculation.customerPayment)),
+          currency: 'AUD'
         },
+        locationId,
+        referenceId: `I${Date.now().toString().slice(-8)}`,
+        note: `Individual Registration - ${functionData.name} (${attendees.length} attendees)`,
+        buyerEmailAddress: bookingContact?.email || primaryAttendee?.email
+      };
+
+      // Add billing address if provided
+      if (bookingContact?.firstName && bookingContact?.lastName && bookingContact?.addressLine1) {
+        paymentRequest.billingAddress = {
+          addressLine1: bookingContact.addressLine1,
+          addressLine2: bookingContact.addressLine2 || undefined,
+          locality: bookingContact.suburb || bookingContact.city,
+          administrativeDistrictLevel1: bookingContact.stateTerritory || bookingContact.state,
+          postalCode: bookingContact.postcode || bookingContact.postalCode,
+          country: bookingContact.country || 'AU',
+          firstName: bookingContact.firstName,
+          lastName: bookingContact.lastName
+        };
+      }
+
+      // Add customer details
+      paymentRequest.customerDetails = {
+        customerInitiated: true,
+        sellerKeyedIn: false
       };
       
-      // Add Stripe Connect parameters if connected account exists
-      if (connectedAccountId) {
-        try {
-          const stripe = getStripeClient();
-          const account = await stripe.accounts.retrieve(connectedAccountId);
-          if (!account.charges_enabled) {
-            return NextResponse.json(
-              { success: false, error: 'The organization\'s payment account is not properly configured' },
-              { status: 400 }
-            );
-          }
-          
-          paymentIntentOptions.on_behalf_of = connectedAccountId;
-          paymentIntentOptions.application_fee_amount = applicationFeeAmount;
-          
-          // Add statement descriptor with function slug and registration type
-          const descriptorText = `${functionData.slug} individual`.trim();
-          const statementDescriptor = descriptorText
-            ?.substring(0, 22)
-            .replace(/[^a-zA-Z0-9 ]/g, '')
-            .trim();
-          if (statementDescriptor) {
-            paymentIntentOptions.statement_descriptor_suffix = statementDescriptor;
-          }
-        } catch (accountError: any) {
-          console.error('Connected account validation failed:', accountError);
-        }
-      }
+      // Create Square payment
+      const response = await paymentsApi.createPayment(paymentRequest);
       
-      // Create payment intent
-      const stripe = getStripeClient();
-      paymentIntent = await stripe.paymentIntents.create(paymentIntentOptions);
-
-      if (paymentIntent.status !== 'succeeded' && paymentIntent.status !== 'processing') {
+      if (response.result.payment) {
+        payment = response.result.payment;
+        
+        if (payment.status !== 'COMPLETED') {
+          return NextResponse.json(
+            { 
+              success: false, 
+              error: 'Payment failed',
+              status: payment.status
+            },
+            { status: 400 }
+          );
+        }
+        
+        paymentStatus = 'completed';
+      } else {
         return NextResponse.json(
-          { 
-            success: false, 
-            error: 'Payment failed', 
-            requiresAction: paymentIntent.status === 'requires_action',
-            clientSecret: paymentIntent.client_secret
-          },
+          { success: false, error: 'Payment creation failed' },
           { status: 400 }
         );
       }
-      
-      paymentStatus = 'completed';
     }
 
     // Call the upsert RPC with multiple parameters including platform fee
@@ -206,17 +168,17 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         p_attendees: attendees,
         p_tickets: selectedTickets,
         p_payment_status: paymentStatus,
-        p_stripe_payment_intent_id: paymentIntent?.id || null,
+        p_square_payment_id: payment?.id || null,
         p_registration_id: registrationId || null,
         p_total_amount: totalAmount || 0,                    // Total charged to customer (including all fees)
         p_total_price_paid: subtotal || 0,                   // Subtotal (amount without fees)
-        p_platform_fee_amount: applicationFeeAmount / 100,   // Platform commission (convert from cents)
-        p_stripe_fee: stripeFee || 0,                        // Stripe processing fee only
+        p_platform_fee_amount: payment ? calculateSquareFees(subtotal, { userCountry: 'AU' }).platformFee : 0,   // Platform commission
+        p_square_fee: squareFee || 0,                        // Square processing fee only
         p_metadata: {
           source: 'individual-registration-api',
           created_at: new Date().toISOString(),
-          applicationFeeAmountCents: applicationFeeAmount,
-          platformFeeAmountDollars: applicationFeeAmount / 100
+          squarePaymentId: payment?.id,
+          platformFeeAmountDollars: payment ? calculateSquareFees(subtotal, { userCountry: 'AU' }).platformFee : 0
         }
       });
 
@@ -224,19 +186,21 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       console.error('Registration error:', registrationError);
       
       // Refund the payment if registration fails and payment was made
-      if (paymentIntent && paymentIntent.status === 'succeeded') {
+      if (payment && payment.status === 'COMPLETED') {
         console.log('[Individual Registration API] Creating refund due to registration failure:', registrationError.message);
-        const stripe = getStripeClient();
-        await stripe.refunds.create({
-          payment_intent: paymentIntent.id,
-          reason: 'duplicate',
-          metadata: {
-            refund_reason: 'registration_database_failure',
-            original_error: registrationError.message,
-            registration_type: 'individual',
-            refund_timestamp: new Date().toISOString()
-          }
-        });
+        const paymentsApi = getSquarePaymentsApi();
+        const refundRequest: CreateRefundRequest = {
+          idempotencyKey: generateIdempotencyKey(),
+          amountMoney: payment.amountMoney,
+          paymentId: payment.id!,
+          reason: 'Registration database failure'
+        };
+        
+        try {
+          await paymentsApi.createRefund(refundRequest);
+        } catch (refundError) {
+          console.error('[Individual Registration API] Failed to create refund:', refundError);
+        }
       }
 
       return NextResponse.json(
@@ -250,7 +214,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       registrationId: registrationResult.registration_id,
       confirmationNumber: registrationResult.confirmation_number,
       customerId: registrationResult.contact_id,
-      paymentIntentId: paymentIntent?.id,
+      paymentId: payment?.id,
       totalAttendees: registrationResult.total_attendees,
       totalTickets: registrationResult.total_tickets,
       requiresAction: false
@@ -273,10 +237,10 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     const {
       registrationId,
       paymentStatus,
-      stripePaymentIntentId,
+      squarePaymentId,
       totalAmount,
       subtotal,
-      stripeFee
+      squareFee
     } = body;
 
     if (!registrationId || !paymentStatus) {
@@ -305,11 +269,11 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
         p_selected_tickets: [], // Empty, not updating tickets
         p_booking_contact: {}, // Empty, not updating contact
         p_payment_status: paymentStatus,
-        p_stripe_payment_intent_id: stripePaymentIntentId,
+        p_square_payment_id: squarePaymentId,
         p_registration_id: registrationId,
         p_total_amount: totalAmount || 0,
         p_subtotal: subtotal || 0,
-        p_stripe_fee: stripeFee || 0,
+        p_square_fee: squareFee || 0,
         p_platform_fee_amount: 0  // Not updating platform fee for status changes
       });
 

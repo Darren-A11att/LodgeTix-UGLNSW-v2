@@ -1,23 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
-import Stripe from 'stripe';
-
-// Initialize Stripe client lazily with proper error handling
-function getStripeClient() {
-  const stripeSecretKey = process.env.STRIPE_SECRET_KEY;
-  
-  if (!stripeSecretKey) {
-    throw new Error('STRIPE_SECRET_KEY environment variable is not configured');
-  }
-  
-  if (!stripeSecretKey.startsWith('sk_')) {
-    throw new Error('Invalid STRIPE_SECRET_KEY format');
-  }
-  
-  return new Stripe(stripeSecretKey, {
-    apiVersion: '2024-12-18.acacia',
-  });
-}
+import { getSquarePaymentsApi, getSquareLocationId, convertToCents, generateIdempotencyKey } from '@/lib/utils/square-client';
+import { calculateSquareFees } from '@/lib/utils/square-fee-calculator';
+import type { CreatePaymentRequest, CreateRefundRequest } from 'square';
 
 interface RouteParams {
   params: {
@@ -45,7 +30,7 @@ export async function POST(
       paymentMethodId,
       amount,
       subtotal,
-      stripeFee,
+      squareFee,
       billingDetails,
       registrationId, // Optional, for updates
     } = body;
@@ -101,21 +86,30 @@ export async function POST(
       }
     }
 
-    // Round all amounts to ensure they're whole numbers (Stripe expects integers in cents)
+    // Round all amounts to ensure they're whole numbers
     const roundedAmount = Math.round(amount);
     const roundedSubtotal = Math.round(subtotal);
-    const roundedStripeFee = Math.round(stripeFee);
+    const roundedSquareFee = Math.round(squareFee);
     
-    // Calculate platform fee: total amount - subtotal - stripe fee
-    const platformFeeAmount = roundedAmount - roundedSubtotal - roundedStripeFee;
+    // Calculate Square fees using the fee calculator
+    // Note: calculateSquareFees expects amount in dollars, but frontend sends cents
+    const subtotalInDollars = roundedSubtotal / 100;
+    const feeCalculation = calculateSquareFees(subtotalInDollars, {
+      userCountry: 'AU' // Default to AU, could be determined from billing address
+    });
     
-    console.log('[Lodge Registration API] Amount calculation and rounding:', {
-      original: { amount, subtotal, stripeFee },
-      rounded: { amount: roundedAmount, subtotal: roundedSubtotal, stripeFee: roundedStripeFee },
-      calculated: { platformFeeAmount }
+    console.log('[Lodge Registration API] Square fee calculation:', {
+      original: { amount, subtotal, squareFee },
+      rounded: { amount: roundedAmount, subtotal: roundedSubtotal, squareFee: roundedSquareFee },
+      subtotalInDollars,
+      calculated: {
+        customerPayment: feeCalculation.customerPayment,
+        squareFee: feeCalculation.squareFee,
+        platformFee: feeCalculation.platformFee
+      }
     });
 
-    // Fetch function for Stripe Connect details (needed for both payment and registration)
+    // Fetch function for payment details (needed for both payment and registration)
     const { data: functionData } = await supabase
       .from('functions')
       .select(`
@@ -125,8 +119,7 @@ export async function POST(
         organiser_id,
         organisations!functions_organiser_id_fkey(
           organisation_id,
-          name,
-          stripe_onbehalfof
+          name
         )
       `)
       .eq('function_id', functionId)
@@ -139,104 +132,79 @@ export async function POST(
       );
     }
     
-    // Check for connected account (define outside payment block so it's accessible later)
-    const connectedAccountId = functionData.organisations?.stripe_onbehalfof;
     const organisationName = functionData.organisations?.name;
 
     // If payment method provided, process payment first
-    let paymentIntent = null;
+    let payment = null;
     let paymentStatus = 'pending';
     
     if (paymentMethodId) {
-      
-      // Platform fee is handled by the difference between customer payment and transfer amount
-      // Customer pays: amount (includes all fees)
-      // Connected account receives: subtotal
-      // Platform keeps: amount - subtotal - stripe_processing_fee
-      
-      // Get base URL with fallback - use production URL for return URL
-      const baseUrl = process.env.NODE_ENV === 'production' ? 'https://lodgetix.io' : 'http://localhost:3000';
-      console.log('[Lodge Registration API] Base URL:', baseUrl);
-      
       // Determine receipt email
       const receiptEmail = bookingContact?.email || lodgeDetails?.contactEmail;
       console.log('[Lodge Registration API] Setting receipt email to:', receiptEmail);
       
-      // Prepare payment intent options
-      const paymentIntentOptions: any = {
-        amount: roundedAmount,
-        currency: 'aud',
-        payment_method: paymentMethodId,
-        confirmation_method: 'manual',
-        confirm: true,
-        // Use functionId in return URL to avoid issues with undefined slug
-        return_url: `${baseUrl}/api/functions/${functionId}/register/success`,
-        // Send receipt to booking contact email (the person making the payment)
-        receipt_email: receiptEmail,
-        metadata: {
-          function_id: functionId,
-          function_name: functionData.name?.substring(0, 100) || '',
-          package_id: packageId,
-          registration_type: 'lodge',
-          lodge_name: lodgeDetails.lodgeName?.substring(0, 100) || '',
-          table_count: tableCount.toString(),
-          subtotal: String(roundedSubtotal / 100),
-          stripe_fee: String(roundedStripeFee / 100),
-          platform_fee: String((roundedAmount - roundedSubtotal - roundedStripeFee) / 100),
-          created_at: new Date().toISOString(),
-          environment: process.env.NODE_ENV || 'development'
+      // Prepare Square payment request
+      const paymentsApi = getSquarePaymentsApi();
+      const locationId = getSquareLocationId();
+      const idempotencyKey = generateIdempotencyKey();
+      
+      const paymentRequest: CreatePaymentRequest = {
+        sourceId: paymentMethodId, // Square nonce from Web Payments SDK
+        idempotencyKey,
+        amountMoney: {
+          amount: BigInt(Math.round(feeCalculation.customerPayment * 100)),
+          currency: 'AUD'
         },
+        locationId,
+        referenceId: `L${Date.now().toString().slice(-8)}`,
+        note: `Lodge Registration - ${functionData.name} (${tableCount} tables)`,
+        buyerEmailAddress: receiptEmail
+      };
+
+      // Add billing address if provided
+      if (bookingContact?.firstName && bookingContact?.lastName && bookingContact?.addressLine1) {
+        paymentRequest.billingAddress = {
+          addressLine1: bookingContact.addressLine1,
+          addressLine2: bookingContact.addressLine2 || undefined,
+          locality: bookingContact.suburb || bookingContact.city,
+          administrativeDistrictLevel1: bookingContact.stateTerritory || bookingContact.state,
+          postalCode: bookingContact.postcode || bookingContact.postalCode,
+          country: bookingContact.country || 'AU',
+          firstName: bookingContact.firstName,
+          lastName: bookingContact.lastName
+        };
+      }
+
+      // Add customer details
+      paymentRequest.customerDetails = {
+        customerInitiated: true,
+        sellerKeyedIn: false
       };
       
-      // Add Stripe Connect parameters if connected account exists
-      if (connectedAccountId) {
-        try {
-          const stripe = getStripeClient();
-          const account = await stripe.accounts.retrieve(connectedAccountId);
-          if (!account.charges_enabled) {
-            return NextResponse.json(
-              { success: false, error: 'The organization\'s payment account is not properly configured' },
-              { status: 400 }
-            );
-          }
-          
-          // For destination charges with Stripe Connect:
-          // - Customer pays the total (subtotal + platform fee + stripe fee)
-          // - Connected account receives exactly the subtotal
-          // - Platform keeps the difference minus Stripe's processing fee
-          paymentIntentOptions.transfer_data = {
-            destination: connectedAccountId,
-            amount: roundedSubtotal, // Transfer exactly the rounded subtotal to connected account
-          };
-          
-          // Add statement descriptor with function slug and registration type
-          const descriptorText = `${functionData.slug} lodge`.trim();
-          const statementDescriptor = descriptorText
-            ?.substring(0, 22)
-            .replace(/[^a-zA-Z0-9 ]/g, '')
-            .trim();
-          if (statementDescriptor) {
-            paymentIntentOptions.statement_descriptor_suffix = statementDescriptor;
-          }
-        } catch (accountError: any) {
-          console.error('Connected account validation failed:', accountError);
-          // Continue without connected account features
-          console.log('Processing payment without connected account features');
-        }
-      }
+      // Create Square payment
+      const response = await paymentsApi.createPayment(paymentRequest);
       
-      // Create payment intent
-      const stripe = getStripeClient();
-      paymentIntent = await stripe.paymentIntents.create(paymentIntentOptions);
-
-      if (paymentIntent.status !== 'succeeded' && paymentIntent.status !== 'processing') {
+      if (response.result.payment) {
+        payment = response.result.payment;
+        
+        if (payment.status !== 'COMPLETED') {
+          return NextResponse.json(
+            { 
+              success: false, 
+              error: 'Payment failed',
+              status: payment.status
+            },
+            { status: 400 }
+          );
+        }
+        
+        paymentStatus = 'completed';
+      } else {
         return NextResponse.json(
-          { success: false, error: 'Payment failed', requires_action: paymentIntent.status === 'requires_action' },
+          { success: false, error: 'Payment creation failed' },
           { status: 400 }
         );
       }
-      
-      paymentStatus = 'completed';
     }
 
     // Call the upsert RPC - it has SECURITY DEFINER so it bypasses RLS
@@ -249,23 +217,24 @@ export async function POST(
         p_booking_contact: bookingContact,
         p_lodge_details: lodgeDetails,
         p_payment_status: paymentStatus,
-        p_stripe_payment_intent_id: paymentIntent?.id || null,
+        p_square_payment_id: payment?.id || null,
         p_registration_id: registrationId || null,
-        p_total_amount: parseFloat((roundedAmount / 100).toFixed(2)),        // Total charged to customer (including all fees)
-        p_total_price_paid: parseFloat((roundedSubtotal / 100).toFixed(2)),  // Subtotal (amount without fees)
-        p_platform_fee_amount: parseFloat((platformFeeAmount / 100).toFixed(2)), // Platform commission
-        p_stripe_fee: parseFloat((roundedStripeFee / 100).toFixed(2)),       // Stripe processing fee only
+        p_total_amount: payment ? feeCalculation.customerPayment : parseFloat((roundedAmount / 100).toFixed(2)),        // Total charged to customer (including all fees)
+        p_total_price_paid: payment ? feeCalculation.connectedAmount : parseFloat((roundedSubtotal / 100).toFixed(2)),  // Subtotal (amount without fees)
+        p_platform_fee_amount: payment ? feeCalculation.platformFee : 0, // Platform commission
+        p_square_fee: payment ? feeCalculation.squareFee : parseFloat((roundedSquareFee / 100).toFixed(2)),       // Square processing fee only
         p_metadata: {
           billingDetails,
           originalAmountCents: amount,
           originalSubtotalCents: subtotal,
-          originalStripFeeCents: stripeFee,
+          originalSquareFeeCents: squareFee,
           roundedAmountCents: roundedAmount,
           roundedSubtotalCents: roundedSubtotal,
-          roundedStripFeeCents: roundedStripeFee,
-          platformFeeAmountCents: platformFeeAmount,
+          roundedSquareFeeCents: roundedSquareFee,
+          platformFeeAmountCents: payment ? convertToCents(feeCalculation.platformFee) : 0,
+          squarePaymentId: payment?.id,
         },
-        p_connected_account_id: connectedAccountId || null  // Add the missing parameter
+        p_connected_account_id: null  // Square doesn't use connected accounts like Stripe
       });
 
     console.log('[Lodge Registration API] RPC Result:', {
@@ -277,19 +246,21 @@ export async function POST(
       console.error('[Lodge Registration API] Registration error:', registrationError);
       
       // Refund the payment if registration fails and payment was made
-      if (paymentIntent && paymentIntent.status === 'succeeded') {
+      if (payment && payment.status === 'COMPLETED') {
         console.log('[Lodge Registration API] Creating refund due to registration failure:', registrationError.message);
-        const stripe = getStripeClient();
-        await stripe.refunds.create({
-          payment_intent: paymentIntent.id,
-          reason: 'duplicate',
-          metadata: {
-            refund_reason: 'registration_database_failure',
-            original_error: registrationError.message,
-            registration_type: 'lodge',
-            refund_timestamp: new Date().toISOString()
-          }
-        });
+        const paymentsApi = getSquarePaymentsApi();
+        const refundRequest: CreateRefundRequest = {
+          idempotencyKey: generateIdempotencyKey(),
+          amountMoney: payment.amountMoney,
+          paymentId: payment.id!,
+          reason: 'Registration database failure'
+        };
+        
+        try {
+          await paymentsApi.createRefund(refundRequest);
+        } catch (refundError) {
+          console.error('[Lodge Registration API] Failed to create refund:', refundError);
+        }
       }
 
       return NextResponse.json(
@@ -419,18 +390,24 @@ export async function POST(
           totalPrice: subtotal / 100 // Convert from cents to dollars
         }],
         subtotal: subtotal / 100, // Convert from cents to dollars
-        stripeFee: stripeFee / 100, // Convert from cents to dollars
+        squareFee: squareFee / 100, // Convert from cents to dollars
         totalAmount: amount / 100 // Convert from cents to dollars
       };
 
-      // Send email via our lodge confirmation API
-      const emailResponse = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/emails/lodge-confirmation`, {
+      // Send email via our lodge confirmation API with timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 second timeout
+      
+      const emailResponse = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3001'}/api/emails/lodge-confirmation`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(emailData),
+        signal: controller.signal,
       });
+      
+      clearTimeout(timeoutId);
 
       if (emailResponse.ok) {
         const emailResult = await emailResponse.json();
@@ -440,8 +417,12 @@ export async function POST(
         console.error('[Lodge Registration API] Failed to send lodge confirmation email:', emailError);
         // Don't fail the registration if email fails
       }
-    } catch (emailError) {
-      console.error('[Lodge Registration API] Error sending lodge confirmation email:', emailError);
+    } catch (emailError: any) {
+      if (emailError.name === 'AbortError') {
+        console.error('[Lodge Registration API] Email sending timed out after 5 seconds');
+      } else {
+        console.error('[Lodge Registration API] Error sending lodge confirmation email:', emailError);
+      }
       // Don't fail the registration if email fails
     }
 
@@ -450,7 +431,7 @@ export async function POST(
       registrationId: finalRegistrationId,
       confirmationNumber: confirmationNumber,
       customerId: registrationResult?.customerId || registrationResult?.customer_id,
-      paymentIntentId: paymentIntent?.id,
+      paymentId: payment?.id,
       totalTickets: registrationResult?.totalAttendees || registrationResult?.total_attendees || (tableCount * 10),
       createdTickets: registrationResult?.createdTickets || registrationResult?.created_tickets || 0,
     });
@@ -490,7 +471,7 @@ export async function PUT(
     const {
       registrationId,
       paymentStatus,
-      stripePaymentIntentId,
+      squarePaymentId,
     } = body;
 
     if (!registrationId || !paymentStatus) {
@@ -511,11 +492,11 @@ export async function PUT(
         p_booking_contact: {}, // Empty, not updating contact
         p_lodge_details: {}, // Empty, not updating lodge details
         p_payment_status: paymentStatus,
-        p_stripe_payment_intent_id: stripePaymentIntentId,
+        p_square_payment_id: squarePaymentId,
         p_registration_id: registrationId,
         p_total_amount: 0, // Not updating amounts for status changes
         p_subtotal: 0,
-        p_stripe_fee: 0,
+        p_square_fee: 0,
         p_platform_fee_amount: 0, // Not updating platform fee for status changes
         p_metadata: {},
         p_connected_account_id: null
