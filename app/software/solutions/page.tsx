@@ -14,7 +14,8 @@ import {
   TrendingUp,
   Clock,
   Shield,
-  CreditCard
+  CreditCard,
+  Megaphone
 } from 'lucide-react';
 
 const eventTypeSolutions = [
@@ -275,6 +276,38 @@ export default function SolutionsPage() {
             <p className="text-xl opacity-90 mb-8">
               From intimate degree ceremonies to grand installations, LodgeTix adapts to your lodge's unique needs
             </p>
+          </div>
+        </div>
+      </section>
+
+      {/* Event Distribution Platform */}
+      <section className="py-16 bg-blue-50">
+        <div className="container mx-auto px-4">
+          <div className="max-w-4xl mx-auto text-center">
+            <h2 className="text-3xl font-bold mb-6 text-gray-900">
+              Your Events, Discovered by Thousands
+            </h2>
+            <p className="text-lg text-gray-700 mb-8">
+              Every event you create is automatically listed on the <span className="font-semibold">LodgeTix Events Page</span> - 
+              our central marketplace where members browse and discover Masonic events across all lodges.
+            </p>
+            <div className="grid md:grid-cols-3 gap-6">
+              <div className="bg-white rounded-lg p-6 shadow-md">
+                <Megaphone className="w-10 h-10 text-blue-600 mx-auto mb-4" />
+                <h3 className="font-semibold mb-2">Instant Distribution</h3>
+                <p className="text-gray-600">Your events go live on the LodgeTix events page immediately upon creation</p>
+              </div>
+              <div className="bg-white rounded-lg p-6 shadow-md">
+                <Users className="w-10 h-10 text-green-600 mx-auto mb-4" />
+                <h3 className="font-semibold mb-2">Broader Reach</h3>
+                <p className="text-gray-600">Members discover your events while browsing other lodge activities</p>
+              </div>
+              <div className="bg-white rounded-lg p-6 shadow-md">
+                <Building2 className="w-10 h-10 text-purple-600 mx-auto mb-4" />
+                <h3 className="font-semibold mb-2">Complete Infrastructure</h3>
+                <p className="text-gray-600">No need to build your own event website - we provide everything</p>
+              </div>
+            </div>
           </div>
         </div>
       </section>

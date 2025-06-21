@@ -140,28 +140,28 @@ const featureCategories = [
     icon: Megaphone,
     features: [
       {
-        name: "Event Discovery",
-        description: "List events in the Masonic event marketplace",
-        benefit: "Reach Brethren beyond your immediate Lodge",
-        useCase: "Promote charity events or special degree work to the wider Masonic community"
+        name: "LodgeTix Events Page",
+        description: "Your events automatically listed on the central LodgeTix events page",
+        benefit: "Instant visibility to all members browsing upcoming Masonic events",
+        useCase: "Events are distributed through our centralized discovery platform reaching thousands of Brethren"
+      },
+      {
+        name: "Event Marketplace Listing",
+        description: "Professional listing in the LodgeTix event marketplace",
+        benefit: "Members discover and register for your events alongside other Lodge activities",
+        useCase: "Market special degree work or charity events through our established event infrastructure"
       },
       {
         name: "Custom Event Pages",
-        description: "Professional event pages with your Lodge branding",
-        benefit: "Present a professional image to attendees",
-        useCase: "Create stunning pages for milestone celebrations or consecrations"
+        description: "Dedicated event pages with Lodge branding on the LodgeTix platform",
+        benefit: "Professional presentation within our trusted event ecosystem",
+        useCase: "Create stunning pages for installations that members find through the LodgeTix events hub"
       },
       {
-        name: "Social Sharing",
-        description: "Easy sharing to social media and messaging apps",
-        benefit: "Leverage your members' networks",
-        useCase: "Share public charity events to attract community support"
-      },
-      {
-        name: "Email Campaigns",
-        description: "Targeted email marketing to your database",
-        benefit: "Directly reach interested members",
-        useCase: "Send targeted invitations to Past Masters for special ceremonies"
+        name: "Integrated Promotion",
+        description: "Built-in promotion tools including social sharing and email campaigns",
+        benefit: "Amplify your reach beyond the LodgeTix events page",
+        useCase: "Share your LodgeTix event listing across social media and email channels"
       }
     ]
   },

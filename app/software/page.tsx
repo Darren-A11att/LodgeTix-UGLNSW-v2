@@ -93,7 +93,7 @@ export default function SoftwareLandingPage() {
     },
     {
       title: "Event Marketing & Distribution",
-      description: "Promote your events through integrated channels and reach members effectively.",
+      description: "Your events are automatically listed on the LodgeTix events page where thousands of members discover and register.",
       icon: <Megaphone className="h-6 w-6" />
     },
     {
