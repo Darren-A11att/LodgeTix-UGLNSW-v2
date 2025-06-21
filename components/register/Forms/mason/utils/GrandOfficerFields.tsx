@@ -16,6 +16,7 @@ interface GrandOfficerFieldsProps {
   errors?: Record<string, string>;
   required?: boolean;
   className?: string;
+  isMasonicOrder?: boolean;
 }
 
 export const GrandOfficerFields: React.FC<GrandOfficerFieldsProps> = ({
@@ -24,9 +25,10 @@ export const GrandOfficerFields: React.FC<GrandOfficerFieldsProps> = ({
   errors = {},
   required = false,
   className,
+  isMasonicOrder = false,
 }) => {
-  // Only show if rank is GL
-  if (data.rank !== 'GL') {
+  // Only show if rank is GL or MO
+  if (data.rank !== 'GL' && data.rank !== 'MO') {
     return null;
   }
 
@@ -97,15 +99,27 @@ export const GrandOfficerFields: React.FC<GrandOfficerFieldsProps> = ({
       {/* Present Officer Role - 4 columns (expanded) */}
       {data.grandOfficerStatus === 'Present' && (
         <div className="col-span-4">
-          <GrandOfficerDropdown
-            label="Grand Office"
-            name="presentGrandOfficerRole"
-            value={data.presentGrandOfficerRole || ''}
-            onChange={(value) => handleRoleChange(value)}
-            options={roleOptions}
-            required={required}
-            className="relative z-10"
-          />
+          {isMasonicOrder ? (
+            <TextField
+              label="Grand Office"
+              name="presentGrandOfficerRole"
+              value={data.presentGrandOfficerRole || ''}
+              onChange={(value) => onChange('presentGrandOfficerRole', value)}
+              placeholder="Enter grand office"
+              required={required}
+              updateOnBlur={true}
+            />
+          ) : (
+            <GrandOfficerDropdown
+              label="Grand Office"
+              name="presentGrandOfficerRole"
+              value={data.presentGrandOfficerRole || ''}
+              onChange={(value) => handleRoleChange(value)}
+              options={roleOptions}
+              required={required}
+              className="relative z-10"
+            />
+          )}
         </div>
       )}
       
@@ -128,7 +142,7 @@ export const GrandOfficerFields: React.FC<GrandOfficerFieldsProps> = ({
 
 // Display component for summary views
 export const GrandOfficerSummary: React.FC<{ data: AttendeeData }> = ({ data }) => {
-  if (data.rank !== 'GL' || !data.grandOfficerStatus) {
+  if ((data.rank !== 'GL' && data.rank !== 'MO') || !data.grandOfficerStatus) {
     return null;
   }
 

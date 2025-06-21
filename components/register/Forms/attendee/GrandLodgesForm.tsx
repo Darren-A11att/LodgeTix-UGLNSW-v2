@@ -33,6 +33,7 @@ import { GrandOfficerDropdown } from '../shared/GrandOfficerDropdown';
 import { MASON_TITLES, MASON_RANKS, GRAND_OFFICER_ROLES, GUEST_TITLES, PARTNER_RELATIONSHIPS } from '../attendee/utils/constants';
 import { GrandLodgeSelection } from '../mason/lib/GrandLodgeSelection';
 import AutocompleteInput from '../shared/AutocompleteInput';
+import { TextField } from '../shared/FieldComponents';
 
 // Import our new extracted components
 import {
@@ -59,8 +60,12 @@ const TABLE_SIZE = 10;
 // Square payment processing is handled by the useSquareWebPayments hook
 const TABLE_PRICE = 1950; // $195 per ticket x 10 = $1950 per table
 
+// Check if we're in production environment
+const isProduction = typeof window !== 'undefined' && process.env.NODE_ENV === 'production';
+
 interface GrandLodgesFormProps {
   functionId: string;
+  functionSlug?: string;
   minTables?: number;
   maxTables?: number;
   onComplete?: () => void;
@@ -95,6 +100,7 @@ export interface GrandLodgesFormHandle {
 
 export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodgesFormProps>(({
   functionId,
+  functionSlug,
   minTables = 1,
   maxTables = 10,
   onComplete,
@@ -164,6 +170,13 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
     });
   }, [tableCount]);
   
+  // In production, ensure we're always on the 'purchaseOnly' tab
+  useEffect(() => {
+    if (isProduction && activeTab === 'registerDelegation') {
+      setActiveTab('purchaseOnly');
+    }
+  }, [activeTab]);
+  
   // Fetch function packages on mount
   useEffect(() => {
     const fetchFunctionData = async () => {
@@ -179,13 +192,22 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
         const ticketsService = getFunctionTicketsService();
         const { packages } = await ticketsService.getFunctionTicketsAndPackages(functionId);
         
-        // Filter for packages with "delegations" registration type
-        const delegationPackages = packages.filter(pkg => 
-          pkg.eligibleRegistrationTypes.includes('delegations')
-        );
+        // Filter packages based on context
+        const filteredPackages = packages.filter(pkg => {
+          // For Purchase Tickets Only - check if eligibility criteria contains registration_type = 'delegations'
+          if (activeTab === 'purchaseOnly') {
+            const rules = pkg.eligibility_criteria?.rules || [];
+            return rules.some(rule => 
+              rule.type === 'registration_type' && 
+              rule.value === 'delegations'
+            );
+          }
+          // For Register Delegation - use existing logic
+          return pkg.eligibleRegistrationTypes.includes('delegations');
+        });
         
-        console.log('[GrandLodgesForm] Fetched delegation packages:', delegationPackages);
-        setFunctionPackages(delegationPackages);
+        console.log('[GrandLodgesForm] Fetched filtered packages:', filteredPackages);
+        setFunctionPackages(filteredPackages);
       } catch (error) {
         console.error('Failed to fetch function data:', error);
         setDataError('Failed to load ticket information');
@@ -195,11 +217,12 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
     };
     
     fetchFunctionData();
-  }, [functionId]);
+  }, [functionId, activeTab]);
 
   // Get the first available delegation package
   const selectedPackage = functionPackages[0];
-  const ticketPrice = selectedPackage?.price || 195; // Fallback price
+  const packagePrice = selectedPackage?.price || 1950; // Package price, not per-ticket
+  const isPackagePurchase = selectedPackage?.qty && selectedPackage.qty > 1; // Check if this is a multi-ticket package
 
   // Initialize Grand Lodge from primary attendee when loaded
   useEffect(() => {
@@ -208,6 +231,13 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
       setSelectedGrandLodge(String(primaryAttendee.grand_lodge_id));
     }
   }, [primaryAttendee, selectedGrandLodge]);
+  
+  // Auto-set rank to 'MO' when Masonic Order tab is selected
+  useEffect(() => {
+    if (delegationTypeTab === 'masonicOrder' && primaryAttendeeId) {
+      updateFieldImmediate('rank', 'MO');
+    }
+  }, [delegationTypeTab, primaryAttendeeId, updateFieldImmediate]);
   
   useEffect(() => {
     if (!isInitializedRef.current) {
@@ -381,8 +411,8 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
         errors.push('Booking Contact: Phone number is required');
       }
       
-      // For Grand Officer fields (when rank is GL)
-      if (primaryAttendee?.rank === 'GL' && primaryAttendee?.grandOfficerStatus === 'Present' && !primaryAttendee?.presentGrandOfficerRole) {
+      // For Grand Officer fields (when rank is GL or MO)
+      if ((primaryAttendee?.rank === 'GL' || primaryAttendee?.rank === 'MO') && primaryAttendee?.grandOfficerStatus === 'Present' && !primaryAttendee?.presentGrandOfficerRole) {
         errors.push('Booking Contact: Grand Officer role is required');
       }
     }
@@ -482,7 +512,7 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
               firstName: member.firstName,
               lastName: member.lastName,
               suffix: member.grandRank,
-              rank: 'GL',
+              rank: delegationTypeTab === 'masonicOrder' ? 'MO' : 'GL',
               grandOfficerStatus: 'Present',
               presentGrandOfficerRole: member.grandOffice,
               grand_lodge_id: Number(selectedGrandLodge),
@@ -524,27 +554,31 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
     
     try {
       // Calculate fees
-      const subtotal = ticketCount * ticketPrice;
+      const subtotal = ticketCount * packagePrice;
       const feeCalculation = calculateSquareFees(subtotal, { isDomesticCard: true });
       const totalAmount = feeCalculation.customerPayment;
       
       // Create payment intent and process registration
-      const response = await fetch(`/api/functions/${functionId}/tickets/purchase`, {
+      // Use the lodge-registration endpoint for now (ticket purchase endpoint doesn't exist yet)
+      const response = await fetch(`/api/functions/${functionId}/packages/${selectedPackage.id}/lodge-registration`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          ticketCount,
+          tableCount: ticketCount, // Number of packages
           bookingContact: {
             firstName: primaryAttendee?.firstName,
             lastName: primaryAttendee?.lastName,
             email: primaryAttendee?.primaryEmail,
             phone: primaryAttendee?.primaryPhone,
           },
-          grandLodgeId: selectedGrandLodge,
-          delegationType: delegationTypeTab,
-          sourceId: token,
+          lodgeDetails: {
+            grand_lodge_id: selectedGrandLodge,
+            lodge_id: delegationTypeTab === 'grandLodge' ? selectedGrandLodge : '0', // Use grand lodge ID as lodge ID for delegations
+            lodgeName: delegationTypeTab === 'grandLodge' ? 'Grand Lodge Delegation' : primaryAttendee?.organisationName || 'Masonic Order',
+          },
+          paymentMethodId: token, // The lodge endpoint expects paymentMethodId, not sourceId
           amount: totalAmount * 100, // Convert to cents
           subtotal: subtotal * 100,
           squareFee: feeCalculation.squareFee * 100,
@@ -559,9 +593,26 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
       }
 
       if (result.success && result.confirmationNumber) {
-        // Redirect to confirmation page
+        // Redirect to lodge confirmation page (using lodge endpoint response format)
         console.log('[GrandLodgesForm] Payment successful, redirecting to confirmation');
-        router.push(`/functions/${functionId}/register/confirmation/tickets/${result.confirmationNumber}`);
+        
+        // Use provided slug or extract from current URL
+        let slug = functionSlug;
+        if (!slug) {
+          // Extract slug from current URL pattern: /functions/[slug]/register/...
+          const pathSegments = window.location.pathname.split('/');
+          const functionsIndex = pathSegments.indexOf('functions');
+          if (functionsIndex !== -1 && pathSegments[functionsIndex + 1]) {
+            slug = pathSegments[functionsIndex + 1];
+          }
+        }
+        
+        if (slug) {
+          router.push(`/functions/${slug}/register/confirmation/lodge/${result.confirmationNumber}`);
+        } else {
+          // Fallback: use functionId if slug not available
+          router.push(`/functions/${functionId}/register/confirmation/lodge/${result.confirmationNumber}`);
+        }
       } else {
         throw new Error('Payment failed');
       }
@@ -570,7 +621,7 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
       setPaymentError(err.message || 'Failed to complete payment');
       setIsProcessingPayment(false);
     }
-  }, [ticketCount, ticketPrice, primaryAttendee, selectedGrandLodge, delegationTypeTab, functionId, router]);
+  }, [ticketCount, packagePrice, primaryAttendee, selectedGrandLodge, delegationTypeTab, functionId, router, selectedPackage, isPackagePurchase]);
 
   const handlePaymentError = useCallback((error: string) => {
     console.error('Payment error:', error);
@@ -676,6 +727,7 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
                     attendee={primaryAttendee}
                     onFieldChange={handleFieldChange}
                     onFieldChangeImmediate={handleFieldChangeImmediate}
+                    delegationTypeTab={delegationTypeTab}
                   />
                 )}
               </TabsContent>
@@ -684,41 +736,41 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
                 {/* Masonic Order Fields */}
                 <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
                   {/* Formal Name - Long width (spans 6 columns) */}
-                  <div className="md:col-span-6 space-y-2">
-                    <Label htmlFor="formal-name">Formal Name</Label>
-                    <Input
-                      id="formal-name"
-                      type="text"
+                  <div className="md:col-span-6">
+                    <TextField
+                      label="Formal Name"
+                      name="formal-name"
                       value={primaryAttendee?.organisationName || ''}
-                      onChange={(e) => handleFieldChange('organisationName', e.target.value)}
+                      onChange={(value) => handleFieldChange('organisationName', value)}
                       placeholder="Enter formal name of Masonic Order"
-                      className="w-full"
+                      required={true}
+                      updateOnBlur={true}
                     />
                   </div>
                   
                   {/* Abbreviation - Short width (spans 2 columns) */}
-                  <div className="md:col-span-2 space-y-2">
-                    <Label htmlFor="abbreviation">Abbreviation</Label>
-                    <Input
-                      id="abbreviation"
-                      type="text"
+                  <div className="md:col-span-2">
+                    <TextField
+                      label="Abbreviation"
+                      name="abbreviation"
                       value={primaryAttendee?.organisationAbbreviation || ''}
-                      onChange={(e) => handleFieldChange('organisationAbbreviation', e.target.value)}
-                      placeholder="e.g. SRIA"
-                      className="w-full"
+                      onChange={(value) => handleFieldChange('organisationAbbreviation', value)}
+                      placeholder="e.g. USGC NSW & ACT"
+                      required={true}
+                      updateOnBlur={true}
                     />
                   </div>
                   
                   {/* Known As - Medium width (spans 4 columns) */}
-                  <div className="md:col-span-4 space-y-2">
-                    <Label htmlFor="known-as">Known As</Label>
-                    <Input
-                      id="known-as"
-                      type="text"
+                  <div className="md:col-span-4">
+                    <TextField
+                      label="Known As"
+                      name="known-as"
                       value={primaryAttendee?.organisationKnownAs || ''}
-                      onChange={(e) => handleFieldChange('organisationKnownAs', e.target.value)}
+                      onChange={(value) => handleFieldChange('organisationKnownAs', value)}
                       placeholder="Common or shortened name"
-                      className="w-full"
+                      required={true}
+                      updateOnBlur={true}
                     />
                   </div>
                 </div>
@@ -740,6 +792,7 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
                     attendee={primaryAttendee}
                     onFieldChange={handleFieldChange}
                     onFieldChangeImmediate={handleFieldChangeImmediate}
+                    delegationTypeTab={delegationTypeTab}
                   />
                 )}
               </TabsContent>
@@ -752,7 +805,9 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
       <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'purchaseOnly' | 'registerDelegation')} className="w-full">
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="purchaseOnly">Purchase Tickets Only</TabsTrigger>
-          <TabsTrigger value="registerDelegation">Register Delegation</TabsTrigger>
+          <TabsTrigger value="registerDelegation" disabled={isProduction}>
+            Register Delegation
+          </TabsTrigger>
         </TabsList>
 
         {/* Purchase Tickets Only Tab */}
@@ -797,7 +852,7 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-2">
                             <Package className="w-5 h-5 text-primary" />
-                            <h4 className="font-medium">{selectedPackage.display_name || 'Individual Ticket'}</h4>
+                            <h4 className="font-medium">{selectedPackage.name}</h4>
                           </div>
                           {selectedPackage.description && (
                             <p className="text-sm text-gray-600 mb-2">
@@ -809,8 +864,8 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
                           </p>
                         </div>
                         <div className="text-right">
-                          <p className="text-2xl font-bold">${ticketPrice}</p>
-                          <p className="text-sm text-gray-500">per ticket</p>
+                          <p className="text-2xl font-bold">${packagePrice.toLocaleString()}</p>
+                          <p className="text-sm text-gray-500">per {isPackagePurchase ? 'package' : 'ticket'}</p>
                         </div>
                       </div>
                     </div>
@@ -828,19 +883,20 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
                 <div className="space-y-6">
                   <div>
                     <Label htmlFor="ticket-count" className="text-base font-medium mb-2 block">
-                      Number of Tickets
+                      Number of {isPackagePurchase ? 'Packages' : 'Tickets'}
                     </Label>
                     <AttendeeCounter
                       id="ticket-count"
                       label=""
                       value={ticketCount}
                       min={1}
-                      max={100}
+                      max={isPackagePurchase ? 10 : 100}
                       onChange={handleTicketCountChange}
                       disabled={!selectedGrandLodge}
                     />
                     <p className="text-sm text-gray-600 mt-2">
-                      {ticketCount} {ticketCount === 1 ? 'ticket' : 'tickets'}
+                      {ticketCount} {isPackagePurchase ? (ticketCount === 1 ? 'package' : 'packages') : (ticketCount === 1 ? 'ticket' : 'tickets')}
+                      {isPackagePurchase && ` = ${ticketCount * (selectedPackage?.qty || 10)} tickets`}
                     </p>
                   </div>
 
@@ -850,20 +906,20 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
                     
                     <div className="space-y-2">
                       <div className="flex justify-between items-center">
-                        <span className="text-gray-600">Tickets</span>
-                        <span className="font-medium">{ticketCount} × ${ticketPrice}</span>
+                        <span className="text-gray-600">{isPackagePurchase ? 'Packages' : 'Tickets'}</span>
+                        <span className="font-medium">{ticketCount} × ${packagePrice.toLocaleString()}</span>
                       </div>
                       
                       {getFeeModeFromEnv() === 'pass_to_customer' && (
                         <>
                           <div className="flex justify-between items-center">
                             <span className="text-gray-600">Subtotal</span>
-                            <span className="font-medium">${(ticketCount * ticketPrice).toLocaleString()}</span>
+                            <span className="font-medium">${(ticketCount * packagePrice).toLocaleString()}</span>
                           </div>
                           <div className="flex justify-between items-center">
                             <span className="text-gray-600">Processing Fee</span>
                             <span className="font-medium">
-                              ${calculateSquareFees(ticketCount * ticketPrice, { isDomesticCard: true }).processingFeesDisplay.toFixed(2)}
+                              ${calculateSquareFees(ticketCount * packagePrice, { isDomesticCard: true }).processingFeesDisplay.toFixed(2)}
                             </span>
                           </div>
                         </>
@@ -874,7 +930,7 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
                       <div className="flex justify-between items-center">
                         <span className="text-lg font-semibold">Total Amount</span>
                         <span className="text-2xl font-bold text-primary">
-                          ${calculateSquareFees(ticketCount * ticketPrice, { isDomesticCard: true }).customerPayment.toLocaleString()}
+                          ${calculateSquareFees(ticketCount * packagePrice, { isDomesticCard: true }).customerPayment.toLocaleString()}
                         </span>
                       </div>
                     </div>
@@ -925,12 +981,12 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
                     <SquareErrorBoundary>
                       <CheckoutForm
                         ref={checkoutFormRef}
-                        totalAmount={calculateSquareFees(ticketCount * ticketPrice, { isDomesticCard: true }).customerPayment}
+                        totalAmount={calculateSquareFees(ticketCount * packagePrice, { isDomesticCard: true }).customerPayment}
                         onPaymentSuccess={handlePaymentSuccess}
                         onPaymentError={handlePaymentError}
                         setIsProcessingPayment={setIsProcessingPayment}
                         billingDetails={getBillingDetails()}
-                        isProcessing={isProcessingPayment}
+                        isProcessing={true}  // Always hide the internal button
                         payments={payments}
                       />
                     </SquareErrorBoundary>
@@ -1052,6 +1108,7 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
                         onRemove={removeDelegationMember}
                         grandOfficeOptions={grandOfficeOptions}
                         delegationMembers={delegationMembers}
+                        isMasonicOrder={delegationTypeTab === 'masonicOrder'}
                       />
                     ))}
                   </TableBody>
@@ -1114,7 +1171,8 @@ const DelegationMemberRow: React.FC<{
   onRemove: (id: string) => void;
   grandOfficeOptions: { value: string; label: string }[];
   delegationMembers: DelegationMember[];
-}> = ({ member, index, onUpdate, onRemove, grandOfficeOptions, delegationMembers }) => {
+  isMasonicOrder?: boolean;
+}> = ({ member, index, onUpdate, onRemove, grandOfficeOptions, delegationMembers, isMasonicOrder = false }) => {
   const [isEditing, setIsEditing] = useState(member.isEditing || false);
 
   const handleSave = () => {
@@ -1130,24 +1188,33 @@ const DelegationMemberRow: React.FC<{
         <TableCell>{index + 1}</TableCell>
         <TableCell>{member.type}</TableCell>
         <TableCell>
-          <Select
-            value={member.title}
-            onValueChange={(value) => onUpdate(member.id, { title: value })}
-          >
-            <SelectTrigger className="w-24">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {member.type === 'Mason' ? 
-                MASON_TITLES.map(title => (
-                  <SelectItem key={title} value={title}>{title}</SelectItem>
-                )) :
-                GUEST_TITLES.map(title => (
-                  <SelectItem key={title} value={title}>{title}</SelectItem>
-                ))
-              }
-            </SelectContent>
-          </Select>
+          {isMasonicOrder && member.type === 'Mason' ? (
+            <Input
+              value={member.title}
+              onChange={(e) => onUpdate(member.id, { title: e.target.value })}
+              placeholder="Title"
+              className="w-24"
+            />
+          ) : (
+            <Select
+              value={member.title}
+              onValueChange={(value) => onUpdate(member.id, { title: value })}
+            >
+              <SelectTrigger className="w-24">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {member.type === 'Mason' ? 
+                  MASON_TITLES.map(title => (
+                    <SelectItem key={title} value={title}>{title}</SelectItem>
+                  )) :
+                  GUEST_TITLES.map(title => (
+                    <SelectItem key={title} value={title}>{title}</SelectItem>
+                  ))
+                }
+              </SelectContent>
+            </Select>
+          )}
         </TableCell>
         <TableCell>
           <Input

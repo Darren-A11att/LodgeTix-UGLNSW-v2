@@ -8,7 +8,8 @@ export const MASON_RANKS = [
   { value: "FCF", label: "FCF" },
   { value: "MM", label: "MM" },
   { value: "IM", label: "IM" },
-  { value: "GL", label: "GL" }
+  { value: "GL", label: "GL" },
+  { value: "MO", label: "MO" }
 ] as const;
 
 // Grand Officer Constants

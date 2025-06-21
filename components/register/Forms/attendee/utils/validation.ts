@@ -47,7 +47,7 @@ export const validateName = (name: string): boolean => {
 
 // Grand Officer validation
 export const validateGrandOfficerFields = (attendee: Partial<AttendeeData>): boolean => {
-  if (attendee.rank !== 'GL') return true;
+  if (attendee.rank !== 'GL' && attendee.rank !== 'MO') return true;
   
   if (!attendee.grandOfficerStatus) return false;
   
@@ -100,13 +100,13 @@ export const validateAttendee = (attendee: AttendeeData): ValidationResult => {
       errors.push({ field: 'rank', message: 'Rank is required' });
     }
     
-    // Validate Grand Rank (suffix) field when rank is 'GL' 
-    // Field is only displayed when rank is 'GL', so we only validate in that case
-    if (attendee.rank === 'GL' && attendee.isPrimary && !attendee.suffix) {
+    // Validate Grand Rank (suffix) field when rank is 'GL' or 'MO'
+    // Field is only displayed when rank is 'GL' or 'MO', so we only validate in that case
+    if ((attendee.rank === 'GL' || attendee.rank === 'MO') && attendee.isPrimary && !attendee.suffix) {
       errors.push({ field: 'suffix', message: 'Grand Rank is required' });
     }
     
-    if (attendee.rank === 'GL' && attendee.isPrimary) {
+    if ((attendee.rank === 'GL' || attendee.rank === 'MO') && attendee.isPrimary) {
       if (!attendee.grandOfficerStatus) {
         errors.push({ field: 'grandOfficerStatus', message: 'Grand Officer status is required' });
       }

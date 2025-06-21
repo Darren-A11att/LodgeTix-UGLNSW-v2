@@ -18,6 +18,7 @@ interface BookingContactSectionProps {
   className?: string;
   required?: boolean;
   fieldErrors?: Record<string, string>;
+  delegationTypeTab?: 'grandLodge' | 'masonicOrder';
 }
 
 export const BookingContactSection: React.FC<BookingContactSectionProps> = React.memo(({
@@ -29,7 +30,8 @@ export const BookingContactSection: React.FC<BookingContactSectionProps> = React
   updateOnBlur = true,
   className = '',
   required = true,
-  fieldErrors = {}
+  fieldErrors = {},
+  delegationTypeTab
 }) => {
   // For customer mode, use lodge registration store
   const { lodgeCustomer, updateLodgeCustomer } = useRegistrationStore();
@@ -110,14 +112,16 @@ export const BookingContactSection: React.FC<BookingContactSectionProps> = React
             type="mason"
             isPrimary={true}
             onChange={handleChange}
+            isMasonicOrder={delegationTypeTab === 'masonicOrder'}
           />
           
-          {/* Show Grand Officer fields when rank is GL */}
-          {lodgeCustomer.rank === 'GL' && (
+          {/* Show Grand Officer fields when rank is GL or MO */}
+          {(lodgeCustomer.rank === 'GL' || lodgeCustomer.rank === 'MO') && (
             <GrandOfficerFields 
               data={customerData}
               onChange={handleChange}
               required={true}
+              isMasonicOrder={delegationTypeTab === 'masonicOrder'}
             />
           )}
           
@@ -149,14 +153,16 @@ export const BookingContactSection: React.FC<BookingContactSectionProps> = React
           type="mason"
           isPrimary={true}
           onChange={handleChange}
+          isMasonicOrder={delegationTypeTab === 'masonicOrder'}
         />
         
-        {/* Show Grand Officer fields when rank is GL */}
-        {attendee!.rank === 'GL' && (
+        {/* Show Grand Officer fields when rank is GL or MO */}
+        {(attendee!.rank === 'GL' || attendee!.rank === 'MO') && (
           <GrandOfficerFields 
             data={attendee!}
             onChange={handleChange}
             required={true}
+            isMasonicOrder={delegationTypeTab === 'masonicOrder'}
           />
         )}
         

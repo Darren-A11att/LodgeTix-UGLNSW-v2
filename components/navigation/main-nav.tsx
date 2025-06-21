@@ -18,6 +18,12 @@ export function MainNav() {
         Functions
       </Link>
       <Link 
+        href="/software" 
+        className="text-sm font-medium hover:underline hover:underline-offset-4"
+      >
+        Software
+      </Link>
+      <Link 
         href="/about" 
         className="text-sm font-medium hover:underline hover:underline-offset-4"
       >

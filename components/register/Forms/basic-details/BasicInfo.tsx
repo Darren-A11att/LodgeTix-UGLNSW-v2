@@ -32,11 +32,16 @@ import { InfoIcon } from 'lucide-react';
  * 
  * @returns {JSX.Element} Rendered component
  */
-export const BasicInfo = React.memo<SectionProps>(({ 
+interface BasicInfoProps extends SectionProps {
+  isMasonicOrder?: boolean;
+}
+
+export const BasicInfo = React.memo<BasicInfoProps>(({ 
   data, 
   type, 
   isPrimary, 
-  onChange 
+  onChange,
+  isMasonicOrder = false
 }) => {
   // Get appropriate title options based on attendee type
   const titles = type === 'mason' ? MASON_TITLES : GUEST_TITLES;
@@ -74,8 +79,8 @@ export const BasicInfo = React.memo<SectionProps>(({
         onChange('title', updates.title);
       }
       
-      // Clear grand officer fields if changing from GL rank
-      if (data.rank === 'GL' && newRank !== 'GL') {
+      // Clear grand officer fields if changing from GL or MO rank
+      if ((data.rank === 'GL' || data.rank === 'MO') && newRank !== 'GL' && newRank !== 'MO') {
         onChange('grandOfficerStatus', undefined);
         onChange('presentGrandOfficerRole', undefined);
         onChange('otherGrandOfficerRole', undefined);
@@ -123,14 +128,26 @@ export const BasicInfo = React.memo<SectionProps>(({
           <div className="grid grid-cols-12 gap-4">
             {/* Title - 2 columns */}
             <div className="col-span-2">
-              <SelectField
-                label="Masonic Title"
-                name="title"
-                value={data.title || ''}
-                onChange={handleTitleChangeWithLogic}
-                options={titleOptions}
-                required={true}
-              />
+              {isMasonicOrder ? (
+                <TextField
+                  label="Masonic Title"
+                  name="title"
+                  value={data.title || ''}
+                  onChange={(value) => onChange('title', value)}
+                  required={true}
+                  updateOnBlur={true}
+                  placeholder="Enter title"
+                />
+              ) : (
+                <SelectField
+                  label="Masonic Title"
+                  name="title"
+                  value={data.title || ''}
+                  onChange={handleTitleChangeWithLogic}
+                  options={titleOptions}
+                  required={true}
+                />
+              )}
             </div>
             
             {/* First Name - 4 columns */}
@@ -158,29 +175,43 @@ export const BasicInfo = React.memo<SectionProps>(({
             </div>
             
             {/* Rank - 2 columns */}
-            <div className="col-span-2">
-              <SelectField
-                label="Rank"
-                name="rank"
-                value={data.rank || ''}
-                onChange={handleRankChangeWithLogic}
-                options={rankOptions}
-                required={true}
-              />
-            </div>
+            {!isMasonicOrder && (
+              <div className="col-span-2">
+                <SelectField
+                  label="Rank"
+                  name="rank"
+                  value={data.rank || ''}
+                  onChange={handleRankChangeWithLogic}
+                  options={rankOptions}
+                  required={true}
+                />
+              </div>
+            )}
           </div>
         </div>
         
         {/* Mobile Layout (smaller than md) */}
         <div className="md:hidden space-y-4">
-          <SelectField
-            label="Masonic Title"
-            name="title"
-            value={data.title || ''}
-            onChange={handleTitleChangeWithLogic}
-            options={titleOptions}
-            required={true}
-          />
+          {isMasonicOrder ? (
+            <TextField
+              label="Masonic Title"
+              name="title"
+              value={data.title || ''}
+              onChange={(value) => onChange('title', value)}
+              required={true}
+              updateOnBlur={true}
+              placeholder="Enter title"
+            />
+          ) : (
+            <SelectField
+              label="Masonic Title"
+              name="title"
+              value={data.title || ''}
+              onChange={handleTitleChangeWithLogic}
+              options={titleOptions}
+              required={true}
+            />
+          )}
           
           <TextField
             label="First Name"
@@ -200,14 +231,16 @@ export const BasicInfo = React.memo<SectionProps>(({
             updateOnBlur={true}
           />
           
-          <SelectField
-            label="Rank"
-            name="rank"
-            value={data.rank || ''}
-            onChange={handleRankChangeWithLogic}
-            options={rankOptions}
-            required={true}
-          />
+          {!isMasonicOrder && (
+            <SelectField
+              label="Rank"
+              name="rank"
+              value={data.rank || ''}
+              onChange={handleRankChangeWithLogic}
+              options={rankOptions}
+              required={true}
+            />
+          )}
         </div>
         
         {/* Warning for title/rank mismatches */}
