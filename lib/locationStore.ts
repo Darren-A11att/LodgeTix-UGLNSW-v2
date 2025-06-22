@@ -4,6 +4,7 @@ import { getAllGrandLodges, GrandLodgeRow } from './api/grandLodges';
 import { getLodgesByGrandLodgeId, LodgeRow, createLodge as createLodgeApi, searchAllLodges as searchAllLodgesApi, getLodgesByStateRegionCode } from './api/lodges';
 import { supabase } from "./supabase";
 import { searchGrandLodges as searchGrandLodgesService } from './services/masonic-services';
+import { createSafeZustandStorage } from './utils/safe-storage';
 
 // --- Define Interfaces First ---
 export interface IpApiData {
@@ -658,6 +659,7 @@ export const useLocationStore = create<LocationState>(
     }),
     {
       name: 'lodgetix-location-storage',
+      storage: createSafeZustandStorage(),
       partialize: (state) => ({
         ipData: state.ipData,
         grandLodgeCache: state.grandLodgeCache,

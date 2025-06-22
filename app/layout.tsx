@@ -11,7 +11,7 @@ import { Toaster } from '@/components/ui/sonner'
 
 export const metadata: Metadata = {
   title: 'Grand Proclamation 2025 | LodgeTix',
-  description: 'Created with v0',
+  description: 'Proclamation of MW Bro B. Khristian Albano GM as the Grand Master of the United Grand Lodge of NSW & ACT for 2025.',
   generator: ';)',
 }
 
