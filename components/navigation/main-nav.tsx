@@ -18,19 +18,19 @@ export function MainNav() {
         Functions
       </Link>
       <Link 
-        href="/software" 
+        href="/business" 
         className="text-sm font-medium hover:underline hover:underline-offset-4"
       >
         Software
       </Link>
       <Link 
-        href="/about" 
+        href="/business/about" 
         className="text-sm font-medium hover:underline hover:underline-offset-4"
       >
         About
       </Link>
       <Link 
-        href="/contact" 
+        href="/business/about/contact" 
         className="text-sm font-medium hover:underline hover:underline-offset-4"
       >
         Contact

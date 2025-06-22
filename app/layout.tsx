@@ -8,10 +8,12 @@ import { AuthProvider } from '@/contexts/auth-provider'
 import { FeaturedFunctionProvider } from '@/contexts/featured-function-context'
 import { LayoutWithFooter } from '@/components/ui/layout-with-footer'
 import { Toaster } from '@/components/ui/sonner'
+import { COMPANY_INFO } from '@/lib/constants/company-details'
+import { AuthEncryptionProvider } from '@/components/providers/auth-encryption-provider'
 
 export const metadata: Metadata = {
-  title: 'Grand Proclamation 2025 | LodgeTix',
-  description: 'Proclamation of MW Bro B. Khristian Albano GM as the Grand Master of the United Grand Lodge of NSW & ACT for 2025.',
+  title: `Grand Proclamation 2025 | ${COMPANY_INFO.tradingName}`,
+  description: 'Join us for the Grand Proclamation 2025. Register for this historic Masonic event through our secure event management platform.',
   generator: ';)',
 }
 
@@ -29,13 +31,15 @@ export default function RootLayout({
       </head>
       <body>
         <AuthProvider>
-          <FeaturedFunctionProvider>
-            <LocationInitializer />
-            <LayoutWithFooter>
-              {children}
-            </LayoutWithFooter>
-            <Toaster />
-          </FeaturedFunctionProvider>
+          <AuthEncryptionProvider>
+            <FeaturedFunctionProvider>
+              <LocationInitializer />
+              <LayoutWithFooter>
+                {children}
+              </LayoutWithFooter>
+              <Toaster />
+            </FeaturedFunctionProvider>
+          </AuthEncryptionProvider>
         </AuthProvider>
         
         {/* Crisp Chat Widget */}

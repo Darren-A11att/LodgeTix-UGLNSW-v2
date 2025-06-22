@@ -61,6 +61,18 @@ export interface BrandPositioning {
 }
 
 /**
+ * Logo assets and configurations
+ */
+export interface LogoAssets {
+  readonly placeholder: {
+    readonly svg: string;
+    readonly png: string;
+  };
+  readonly component: string;
+  readonly alt: string;
+}
+
+/**
  * Core company information constants
  */
 export const COMPANY_INFO: CompanyInfo = {
@@ -90,10 +102,10 @@ export const COMPANY_INFO: CompanyInfo = {
  * Brand positioning variants for different contexts
  */
 export const BRAND_POSITIONING: BrandPositioning = {
-  primary: "Event Ticketing Platform for Masonic Functions",
-  secondary: "Premier ticketing marketplace for lodge events and masonic gatherings",
-  legal: "Event Ticketing marketplace platform operated by Winding Stair Pty. Limited",
-  marketing: "Streamlining Masonic event management with professional ticketing solutions"
+  primary: "Masonic Event Management Software",
+  secondary: "The Complete Event Management Platform for Masonic Organizations",
+  legal: "Event Management Software as a Service (SaaS) platform operated by Winding Stair Pty. Limited",
+  marketing: "Purpose-built event management software crafted with Masonic traditions and requirements in mind"
 } as const;
 
 /**
@@ -103,22 +115,32 @@ export const COMPANY_DESCRIPTIONS = {
   /**
    * Short description for headers and brief introductions
    */
-  short: "LodgeTix is a specialized event ticketing platform for Masonic functions and lodge events.",
+  short: "LodgeTix is a purpose-built event management software platform for Masonic organizations.",
   
   /**
    * Medium description for about sections and general use
    */
-  medium: "LodgeTix is a comprehensive event ticketing and registration platform designed specifically for Masonic lodges and organizations, streamlining event management with professional tools and secure payment processing.",
+  medium: "LodgeTix is a comprehensive Software as a Service (SaaS) platform that provides Masonic organizations with complete event management capabilities including registration, check-in & badging, attendee management, sponsorship tracking, and automated communication tools.",
   
   /**
    * Long description for detailed explanations
    */
-  long: "LodgeTix is a specialized event ticketing marketplace platform operated by Winding Stair Pty. Limited, designed to serve the unique needs of Masonic lodges and organizations. Our platform provides comprehensive event management tools, secure payment processing, and streamlined registration processes to help lodges efficiently manage their functions, meetings, and ceremonial events.",
+  long: "LodgeTix is a Software as a Service (SaaS) platform operated by Winding Stair Pty. Limited, providing comprehensive event management solutions specifically designed for Masonic organizations. Our software enables Lodges, Grand Lodges, and Masonic Orders to efficiently manage their events with features including attendee registration, check-in & badging, event marketing, attendee management & communication, sponsorship management, printed materials design & production, vendor & supplier management, and expense tracking. Purpose-built with deep understanding of Masonic traditions, hierarchy, and protocols, LodgeTix saves lodges 10+ hours per event while enhancing member experiences.",
   
   /**
    * Legal context description for terms and conditions
    */
-  legal: `The LodgeTix platform ("Service") is operated by Winding Stair Pty. Limited (ABN: 94687923128), a company incorporated under the laws of New South Wales, Australia.`
+  legal: `The LodgeTix software platform ("Service") is operated by Winding Stair Pty. Limited (ABN: 94687923128), a company incorporated under the laws of New South Wales, Australia.`,
+  
+  /**
+   * SaaS-specific description for software pages
+   */
+  saas: "LodgeTix is the complete event management platform for Masonic organizations. Our purpose-built software streamlines every aspect of event management - from registration and ticketing to check-in, badging, and post-event reporting. Designed exclusively for Freemasonry, we understand the unique requirements of Masonic events including rank hierarchy, protocol management, and ceremonial traditions.",
+  
+  /**
+   * Value proposition for marketing
+   */
+  value: "Save time, reduce errors, and deliver professional events with LodgeTix - the only event management software designed exclusively for Masonic organizations. Join lodges saving 10+ hours per event while reducing errors by 95%."
 } as const;
 
 /**
@@ -241,6 +263,18 @@ export const DateFormatters = {
   getEffectiveDate: (date: Date = new Date()): string => {
     return `Effective as of ${DateFormatters.formatDateAU(date)}`;
   }
+} as const;
+
+/**
+ * Logo assets and configurations
+ */
+export const LOGO_ASSETS: LogoAssets = {
+  placeholder: {
+    svg: '/placeholder-logo.svg',
+    png: '/placeholder-logo.png'
+  },
+  component: 'MasonicLogo',
+  alt: 'LodgeTix - Masonic Event Management Software'
 } as const;
 
 /**

@@ -14,6 +14,7 @@ import { useRegistrationStore } from '@/lib/registrationStore';
 import { SquareBillingDetails } from '../payment/types';
 import { getFunctionTicketsService, FunctionPackage } from '@/lib/services/function-tickets-service';
 import { calculateSquareFees, SQUARE_RATES, getFeeModeFromEnv, getPlatformFeePercentage, isDomesticCard } from '@/lib/utils/square-fee-calculator';
+import { useCompletedRegistrationsStore } from '@/lib/completedRegistrationsStore';
 
 // Validate and get Square application key
 const getSquareKey = () => {
@@ -257,6 +258,54 @@ export const LodgeRegistrationStep: React.FC<LodgeRegistrationStepProps> = ({
 
         // Check if we got a confirmation number
         if (result.confirmationNumber) {
+          // Track in completed registrations store with lodge metadata
+          const { addCompletedRegistration } = useCompletedRegistrationsStore.getState();
+          const functionData = functionPackages[0]?.functionData || {};
+          
+          // Build lodge-specific metadata
+          const lodgeMetadata = {
+            registrationType: 'lodge' as const,
+            primaryAttendee: {
+              title: lodgeCustomer.title,
+              firstName: lodgeCustomer.firstName,
+              lastName: lodgeCustomer.lastName,
+              attendeeType: 'lodge-contact'
+            },
+            attendees: [{
+              attendeeId: 'lodge-bulk',
+              title: 'Lodge',
+              firstName: lodgeDetails.lodgeName,
+              lastName: `${lodgeTableOrder?.tableCount || 0} tables`,
+              attendeeType: 'lodge-bulk',
+              selectedTickets: [{
+                ticketId: selectedPackage?.id || selectedPackage?.package_id || '',
+                ticketName: selectedPackage?.name || 'Lodge Package',
+                price: selectedPackage?.pricePerPerson || selectedPackage?.price_per_person || 0,
+                isPackage: true
+              }]
+            }],
+            totalAttendees: (lodgeTableOrder?.tableCount || 0) * 10,
+            totalAmount: totalAmount,
+            subtotal: subtotal
+          };
+          
+          addCompletedRegistration({
+            completedAt: Date.now(),
+            registrationId: result.registrationId,
+            functionId: functionId,
+            functionStartDate: functionData.startDate || new Date().toISOString(),
+            confirmationNumber: result.confirmationNumber,
+            paymentReference: {
+              provider: 'square',
+              paymentId: result.paymentId,
+              transactionId: result.paymentId
+            },
+            paymentStatus: 'completed',
+            userId: result.customerId || '',
+            confirmationEmails: [], // Email sent by API, will track separately if needed
+            metadata: lodgeMetadata
+          });
+          
           // Redirect to confirmation page with confirmation number
           setTimeout(() => {
             console.log('[LodgeRegistrationStep] Redirecting to confirmation page:', result.confirmationNumber);

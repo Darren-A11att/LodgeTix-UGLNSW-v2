@@ -2,6 +2,7 @@ import { AboutSection } from './section';
 import { AboutValues } from './values';
 import { AboutFeatures } from './features';
 import { getAboutContent, getAboutFeatures, getAboutValues } from '@/lib/services/content-service';
+import { COMPANY_INFO, COMPANY_DESCRIPTIONS } from '@/lib/constants/company-details';
 
 // Default content if database tables don't exist yet
 const defaultContent = [
@@ -18,7 +19,7 @@ const defaultContent = [
     id: 'default-story',
     section: 'story',
     title: 'Founded by Freemasons, for Freemasons',
-    description: 'LodgeTix was born from the real-world experiences of active Freemasons who understood the unique challenges facing modern Lodges. Developed by Winding Stair Pty. Limited, our founding team comprises experienced Brethren who have served in various Lodge offices – from Lodge Secretary managing countless registrations by hand, to Worshipful Masters coordinating major installation ceremonies, to event organisers struggling with outdated ticketing platforms that simply didn\'t understand Masonic requirements. We witnessed firsthand how traditional event management systems failed to capture essential Masonic information like Grand Lodge affiliations, proper titles, or ceremonial requirements. After years of wrestling with generic platforms that treated our sacred ceremonies like corporate conferences, we decided to build something better. Our vision was simple: create a platform that truly understands Masonic culture, respects our traditions, and serves the genuine needs of our fraternal community.',
+    description: `LodgeTix was born from the real-world experiences of active Freemasons who understood the unique challenges facing modern Lodges. Developed by ${COMPANY_INFO.legalName}, our founding team comprises experienced Brethren who have served in various Lodge offices – from Lodge Secretary managing countless registrations by hand, to Worshipful Masters coordinating major installation ceremonies, to event organisers struggling with outdated ticketing platforms that simply didn't understand Masonic requirements. We witnessed firsthand how traditional event management systems failed to capture essential Masonic information like Grand Lodge affiliations, proper titles, or ceremonial requirements. After years of wrestling with generic platforms that treated our sacred ceremonies like corporate conferences, we decided to build something better. Our vision was simple: create a platform that truly understands Masonic culture, respects our traditions, and serves the genuine needs of our fraternal community.`,
     order: 2,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),

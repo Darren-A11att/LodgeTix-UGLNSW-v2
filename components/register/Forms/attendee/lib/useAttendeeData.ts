@@ -16,75 +16,23 @@ export const useAttendeeData = (attendeeId: string) => {
   // Track if we've already restored data for this attendee to prevent infinite loops
   const restorationCompleted = useRef<Set<string>>(new Set());
 
-  // Effect to ensure we have the most up-to-date data from localStorage 
-  // This helps prevent data loss when forms are refreshed or components remount
+  // Effect to ensure attendee data is synced
+  // The Zustand store handles persistence with encryption, so we don't need to read localStorage directly
   useEffect(() => {
-    if (attendeeId && typeof window !== 'undefined' && !restorationCompleted.current.has(attendeeId)) {
-      try {
-        // Read stored data from localStorage to ensure we have the latest
-        const storedData = localStorage.getItem('lodgetix-registration-storage');
-        if (storedData) {
-          const parsedData = JSON.parse(storedData);
-          if (parsedData.attendees && Array.isArray(parsedData.attendees)) {
-            // Find this specific attendee data in storage
-            const storedAttendee = parsedData.attendees.find(
-              (a: any) => a.attendeeId === attendeeId
-            );
-            
-            // Find current state of this attendee
-            const currentAttendee = attendees.find(a => a.attendeeId === attendeeId);
-            
-            // If we found stored data and current attendee exists
-            if (storedAttendee && currentAttendee) {
-              console.log(`[useAttendeeData] Comparing ${attendeeId} store data with localStorage data`);
-              
-              // Check for key fields that might be missing in current state but present in storage
-              const fieldsToRestore = [
-                'grand_lodge_id', 'lodge_id', 'lodgeNameNumber', 
-                'grandLodgeOrganisationId', 'lodgeOrganisationId',
-                'useSameLodge', 'title', 'firstName', 'lastName', 'rank',
-                'suffix', 'grandOfficerStatus', 'presentGrandOfficerRole', 'otherGrandOfficerRole',
-                'primaryEmail', 'primaryPhone', 'contactPreference',
-                'dietaryRequirements', 'specialNeeds'
-              ];
-              
-              const updates: Partial<AttendeeData> = {};
-              let hasUpdates = false;
-              
-              // Compare each field and restore if stored data has a value but current doesn't
-              fieldsToRestore.forEach(field => {
-                const storedValue = storedAttendee[field];
-                const currentValue = currentAttendee[field as keyof typeof currentAttendee];
-                
-                // Restore if stored has a meaningful value and current is empty/null/undefined
-                if (storedValue && 
-                    storedValue !== '' && 
-                    (!currentValue || currentValue === '')) {
-                  updates[field as keyof AttendeeData] = storedValue;
-                  hasUpdates = true;
-                  console.log(`[useAttendeeData] Restoring ${field}: ${storedValue} for attendee ${attendeeId}`);
-                }
-              });
-              
-              // Apply updates if we found any missing data
-              if (hasUpdates && updateAttendee) {
-                console.log(`[useAttendeeData] Restoring ${Object.keys(updates).length} fields from localStorage for attendee ${attendeeId}`);
-                updateAttendee(attendeeId, updates);
-                
-                // Mark this attendee as having completed restoration
-                restorationCompleted.current.add(attendeeId);
-              } else {
-                // Even if no updates needed, mark as completed to avoid future checks
-                restorationCompleted.current.add(attendeeId);
-              }
-            }
-          }
-        }
-      } catch (err) {
-        console.error('[useAttendeeData] Error ensuring up-to-date data:', err);
+    if (attendeeId && !restorationCompleted.current.has(attendeeId)) {
+      // The attendee data is already available through the Zustand store's attendees array
+      // which handles encryption/decryption automatically
+      const currentAttendee = attendees.find(a => a.attendeeId === attendeeId);
+      
+      if (currentAttendee) {
+        // Mark this attendee as processed to avoid redundant checks
+        restorationCompleted.current.add(attendeeId);
+        
+        // Log that we found the attendee (for debugging)
+        console.log(`[useAttendeeData] Attendee ${attendeeId} found in store with ${Object.keys(currentAttendee).length} fields`);
       }
     }
-  }, [attendeeId, attendees, updateAttendee]);
+  }, [attendeeId, attendees]);
 
   const attendee = useMemo(
     () => attendees.find((a) => a.attendeeId === attendeeId),

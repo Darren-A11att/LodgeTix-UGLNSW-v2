@@ -8,6 +8,8 @@
  * 4. Switch sources easily by changing the source value
  */
 
+import { COMPANY_INFO, LOGO_ASSETS } from '@/lib/constants/company-details'
+
 // Types for content configuration
 type ContentSource = 'DATABASE' | 'FALLBACK'
 
@@ -31,11 +33,11 @@ export const homepageContent = {
     brand: {
       name: {
         source: 'FALLBACK' as ContentSource,
-        fallback: 'LodgeTix'
+        fallback: COMPANY_INFO.tradingName
       },
       logo: {
         source: 'FALLBACK' as ContentSource,
-        fallback: '/masonic-logo.svg' // Update this path to your actual logo
+        fallback: LOGO_ASSETS.placeholder.svg
       }
     },
     menuItems: {

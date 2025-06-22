@@ -1,6 +1,7 @@
 import { create, StateCreator } from 'zustand';
-import { persist } from 'zustand/middleware';
+import { persist, createJSONStorage } from 'zustand/middleware';
 import { v7 as uuidv7 } from 'uuid';
+import { createUserEncryptedStorage } from '@/lib/utils/user-encrypted-storage';
 import { TicketType } from '../shared/types/register';
 import { TicketDefinitionType } from '../shared/types/ticket';
 import { RegistrationType, UnifiedAttendeeData } from './registration-types';
@@ -1647,7 +1648,8 @@ export const useRegistrationStore = create<RegistrationState>(
 
     }),
     {
-      name: 'lodgetix-registration-storage', 
+      name: 'lodgetix-registration-storage',
+      storage: createJSONStorage(() => createUserEncryptedStorage()),
       partialize: (state) => ({
         draftId: state.draftId,
         functionId: state.functionId, // Persist function ID

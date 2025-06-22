@@ -35,6 +35,7 @@ import {
 } from "@/components/ui/tooltip";
 import { useRouter } from 'next/navigation';
 import { getEnhancedTicketSummaryData } from '../Summary/summary-data/ticket-summary-data-enhanced';
+import { useCompletedRegistrationsStore } from '@/lib/completedRegistrationsStore';
 
 interface PaymentStepProps {
   functionId?: string;
@@ -926,6 +927,70 @@ function PaymentStep(props: PaymentStepProps) {
         
         // Set confirmation number in store
         setStoreConfirmationNumber(confirmationResult.confirmationNumber);
+        
+        // Add to completed registrations store with metadata
+        const { addCompletedRegistration } = useCompletedRegistrationsStore.getState();
+        const currentUser = session?.user || user;
+        
+        // Build metadata from current registration data
+        const registrationMetadata = {
+          registrationType: registrationType as 'individuals' | 'lodge' | 'delegation',
+          primaryAttendee: (() => {
+            const primary = allStoreAttendees.find(a => a.isPrimary);
+            if (!primary) return undefined;
+            
+            return {
+              title: primary.title,
+              firstName: primary.firstName,
+              lastName: primary.lastName,
+              rank: primary.rank,
+              grandRank: primary.grandRank,
+              isGrandOfficer: primary.grandOfficerStatus === 'Present' || primary.grandOfficerStatus === 'Past',
+              grandOffice: primary.presentGrandOfficerRole || primary.pastGrandOfficerRole,
+              attendeeType: primary.attendeeType
+            };
+          })(),
+          attendees: allStoreAttendees.map(attendee => {
+            const attendeeTickets = currentTicketsForSummary
+              .filter(t => t.attendeeId === attendee.attendeeId)
+              .map(t => ({
+                ticketId: t.id,
+                ticketName: t.name,
+                price: t.price,
+                isPackage: t.isPackage || false
+              }));
+            
+            return {
+              attendeeId: attendee.attendeeId,
+              title: attendee.title,
+              firstName: attendee.firstName,
+              lastName: attendee.lastName,
+              attendeeType: attendee.attendeeType,
+              rank: attendee.rank,
+              selectedTickets: attendeeTickets
+            };
+          }),
+          totalAttendees: allStoreAttendees.length,
+          totalAmount: totalAmount,
+          subtotal: subtotal
+        };
+        
+        addCompletedRegistration({
+          completedAt: Date.now(),
+          registrationId: registrationId,
+          functionId: functionId || storeFunctionId || '',
+          functionStartDate: functionData?.startDate || new Date().toISOString(),
+          confirmationNumber: confirmationResult.confirmationNumber,
+          paymentReference: {
+            provider: 'square',
+            paymentId: result.paymentIntentId,
+            transactionId: result.paymentIntentId
+          },
+          paymentStatus: 'completed',
+          userId: currentUser?.id || '',
+          confirmationEmails: [], // Will be populated when email is sent
+          metadata: registrationMetadata
+        });
         
         // Determine the registration type for routing
         const confirmationType = confirmationResult.registrationType || registrationType || 'individuals';

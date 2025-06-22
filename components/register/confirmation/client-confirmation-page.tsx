@@ -18,6 +18,7 @@ import {
 import { PrintButton } from '@/components/register/confirmation/print-button';
 import { useConfirmationData } from './confirmation-data-provider';
 import { useFeaturedFunctionDetails } from '@/contexts/featured-function-context';
+import { useCompletedRegistrationsStore } from '@/lib/completedRegistrationsStore';
 
 interface ClientConfirmationPageProps {
   confirmationNumber: string;
@@ -183,6 +184,19 @@ export function ClientConfirmationPage({ confirmationNumber, fallbackData }: Cli
           console.log('✅ Confirmation email sent successfully:', result.emailId);
           // Mark as sent to prevent duplicate sends
           localStorage.setItem(emailSentKey, 'true');
+          
+          // Track email in completed registrations store
+          const { addConfirmationEmail } = useCompletedRegistrationsStore.getState();
+          const registrationId = registration.registrationId || rawRegistration.registrationId;
+          
+          if (registrationId) {
+            addConfirmationEmail(registrationId, {
+              status: response.status,
+              emailId: result.emailId || result.id,
+              to: emailData.billingDetails.emailAddress,
+              sentAt: Date.now()
+            });
+          }
         } else {
           console.error('❌ Failed to send confirmation email:', result.error);
         }

@@ -145,15 +145,14 @@ export function RegistrationTypeStep({ onTriggerDraftModal }: RegistrationTypeSt
       console.error('❌ localStorage access failed:', error);
     }
     
-    // Check registration storage directly
+    // Check registration storage through Zustand store (which handles decryption)
     try {
-      const localStorageData = localStorage.getItem('lodgetix-registration-storage');
-      const parsedData = localStorageData ? JSON.parse(localStorageData) : null;
-      console.log('📦 Registration storage from localStorage:', parsedData);
-      
-      if (parsedData && parsedData.state) {
-        console.log('📦 Anonymous session in storage:', parsedData.state.anonymousSessionEstablished);
-      }
+      const registrationStore = useRegistrationStore.getState();
+      console.log('📦 Registration storage from store:', {
+        anonymousSessionEstablished: registrationStore.anonymousSessionEstablished,
+        registrationType: registrationStore.registrationType,
+        attendees: registrationStore.attendees?.length || 0,
+      });
     } catch (error) {
       console.error('❌ Failed to read registration storage:', error);
     }
