@@ -55,7 +55,6 @@ export const LodgesForm: React.FC<LodgesFormProps> = ({
   fieldErrors = {},
 }) => {
   const { 
-    setLodgeTicketOrder,
     // Lodge-specific state from unified store
     lodgeCustomer,
     lodgeDetails,
@@ -159,63 +158,27 @@ export const LodgesForm: React.FC<LodgesFormProps> = ({
 
   // Set initial package order in store when component mounts or package data changes
   useEffect(() => {
-    if (setLodgeTicketOrder && baseQuantity > 0 && functionTickets.length > 0 && selectedPackage) {
-      // Build the included tickets array based on package includes
-      const includedTickets = selectedPackage.includes?.map(ticketId => {
-        const ticket = functionTickets.find(t => t.id === ticketId);
-        if (!ticket) return null;
-        return {
-          ticketId: ticket.id,
-          ticketName: ticket.name,
-          quantity: packageCount * baseQuantity,
-          eventId: ticket.event_id
-        };
-      }).filter(Boolean) || [];
-
-      setLodgeTicketOrder({
+    if (baseQuantity > 0 && functionTickets.length > 0 && selectedPackage) {
+      updateLodgeTableOrder({
         tableCount: packageCount,
-        totalTickets: packageCount * baseQuantity,
-        galaDinnerTickets: packageCount * baseQuantity, // Deprecated but kept for backward compatibility
-        ceremonyTickets: packageCount * baseQuantity, // Deprecated but kept for backward compatibility
-        eventId: functionTickets[0]?.event_id || '',
-        galaDinnerEventId: functionTickets.find(t => t.name.toLowerCase().includes('gala') || t.name.toLowerCase().includes('dinner'))?.event_id || '',
-        ceremonyEventId: functionTickets.find(t => t.name.toLowerCase().includes('ceremony') || t.name.toLowerCase().includes('installation'))?.event_id || '',
-        includedTickets // New flexible structure
+        totalPrice: packageCount * packagePrice
       });
     }
-  }, [packageCount, baseQuantity, functionTickets, setLodgeTicketOrder, selectedPackage]);
+  }, [packageCount, baseQuantity, functionTickets, updateLodgeTableOrder, selectedPackage, packagePrice]);
 
   // Update package count
   const handlePackageCountChange = useCallback((newCount: number) => {
     if (newCount >= minPackages && newCount <= maxPackages) {
       setPackageCount(newCount);
       // Store the package order in the registration store
-      if (setLodgeTicketOrder && selectedPackage) {
-        // Build the included tickets array based on package includes
-        const includedTickets = selectedPackage.includes?.map(ticketId => {
-          const ticket = functionTickets.find(t => t.id === ticketId);
-          if (!ticket) return null;
-          return {
-            ticketId: ticket.id,
-            ticketName: ticket.name,
-            quantity: newCount * baseQuantity,
-            eventId: ticket.event_id
-          };
-        }).filter(Boolean) || [];
-
-        setLodgeTicketOrder({
-          tableCount: newCount, // Keep as tableCount for backward compatibility
-          totalTickets: newCount * baseQuantity,
-          galaDinnerTickets: newCount * baseQuantity, // Deprecated but kept for backward compatibility
-          ceremonyTickets: newCount * baseQuantity, // Deprecated but kept for backward compatibility
-          eventId: functionTickets[0]?.event_id || '',
-          galaDinnerEventId: functionTickets.find(t => t.name.toLowerCase().includes('gala') || t.name.toLowerCase().includes('dinner'))?.event_id || '',
-          ceremonyEventId: functionTickets.find(t => t.name.toLowerCase().includes('ceremony') || t.name.toLowerCase().includes('installation'))?.event_id || '',
-          includedTickets // New flexible structure
+      if (selectedPackage) {
+        updateLodgeTableOrder({
+          tableCount: newCount,
+          totalPrice: newCount * packagePrice
         });
       }
     }
-  }, [minPackages, maxPackages, setLodgeTicketOrder, baseQuantity, functionTickets, selectedPackage]);
+  }, [minPackages, maxPackages, updateLodgeTableOrder, selectedPackage, packagePrice]);
 
   // Update lodge details
   const handleLodgeChange = useCallback((lodgeId: string, lodgeName: string) => {
@@ -260,28 +223,10 @@ export const LodgesForm: React.FC<LodgesFormProps> = ({
     }
     
     // Store final package order
-    if (setLodgeTicketOrder && selectedPackage) {
-      // Build the included tickets array based on package includes
-      const includedTickets = selectedPackage.includes?.map(ticketId => {
-        const ticket = functionTickets.find(t => t.id === ticketId);
-        if (!ticket) return null;
-        return {
-          ticketId: ticket.id,
-          ticketName: ticket.name,
-          quantity: packageCount * baseQuantity,
-          eventId: ticket.event_id
-        };
-      }).filter(Boolean) || [];
-
-      setLodgeTicketOrder({
-        tableCount: packageCount, // Keep as tableCount for backward compatibility
-        totalTickets: packageCount * baseQuantity,
-        galaDinnerTickets: packageCount * baseQuantity, // Deprecated but kept for backward compatibility
-        ceremonyTickets: packageCount * baseQuantity, // Deprecated but kept for backward compatibility
-        eventId: functionTickets[0]?.event_id || '',
-        galaDinnerEventId: functionTickets.find(t => t.name.toLowerCase().includes('gala') || t.name.toLowerCase().includes('dinner'))?.event_id || '',
-        ceremonyEventId: functionTickets.find(t => t.name.toLowerCase().includes('ceremony') || t.name.toLowerCase().includes('installation'))?.event_id || '',
-        includedTickets // New flexible structure
+    if (selectedPackage) {
+      updateLodgeTableOrder({
+        tableCount: packageCount,
+        totalPrice: packageCount * packagePrice
       });
     }
     
@@ -634,16 +579,16 @@ export const LodgesForm: React.FC<LodgesFormProps> = ({
 
 // Summary view for lodge table orders
 export const LodgeFormSummary: React.FC = () => {
-  const { billingDetails, lodgeTicketOrder } = useRegistrationStore();
+  const { billingDetails, lodgeTableOrder } = useRegistrationStore();
   
   const lodgeDetails = billingDetails?.businessName || 'Lodge';
 
-  if (!lodgeTicketOrder) {
+  if (!lodgeTableOrder || lodgeTableOrder.tableCount === 0) {
     return null;
   }
 
   // Calculate fees for the summary
-  const subtotal = lodgeTicketOrder.tableCount * 1950;
+  const subtotal = lodgeTableOrder.totalPrice;
   const feeCalculation = calculateSquareFees(subtotal, {
     isDomestic: true // Default to domestic for Australian lodges
   });
@@ -671,29 +616,12 @@ export const LodgeFormSummary: React.FC = () => {
             <div className="border-t pt-3 space-y-2">
               <div className="flex justify-between">
                 <span className="text-sm text-gray-600">Tables Ordered</span>
-                <span className="font-medium">{lodgeTicketOrder.tableCount}</span>
+                <span className="font-medium">{lodgeTableOrder.tableCount}</span>
               </div>
-              {/* Display included tickets from enhanced package metadata */}
-              {lodgeTicketOrder.includedTickets && lodgeTicketOrder.includedTickets.length > 0 ? (
-                lodgeTicketOrder.includedTickets.map((ticket) => (
-                  <div key={ticket.ticketId} className="flex justify-between text-sm">
-                    <span className="text-gray-500">• {ticket.ticketName}</span>
-                    <span>{ticket.quantity} tickets</span>
-                  </div>
-                ))
-              ) : (
-                // Legacy fallback for backward compatibility
-                <>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-500">• Gala Dinner</span>
-                    <span>{lodgeTicketOrder.galaDinnerTickets} tickets</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-gray-500">• Ceremony</span>
-                    <span>{lodgeTicketOrder.ceremonyTickets} tickets</span>
-                  </div>
-                </>
-              )}
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-500">• Total tickets</span>
+                <span>{lodgeTableOrder.tableCount * 10} tickets</span>
+              </div>
             </div>
             
             <div className="border-t pt-3 space-y-2">
