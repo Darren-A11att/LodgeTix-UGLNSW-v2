@@ -33,16 +33,21 @@ export interface PreloadedTicketsData {
 // Re-export UnifiedAttendeeData for backward compatibility
 export type { UnifiedAttendeeData };
 
-// Lodge ticket order interface
-export interface LodgeTicketOrder {
-  tableCount: number;
-  totalTickets: number;
-  galaDinnerTickets: number; // Deprecated - kept for backward compatibility
-  ceremonyTickets: number; // Deprecated - kept for backward compatibility
-  eventId: string;
-  galaDinnerEventId: string; // Deprecated - kept for backward compatibility
-  ceremonyEventId: string; // Deprecated - kept for backward compatibility
-  // New flexible structure for dynamic ticket types
+// Consolidated lodge order interface
+export interface LodgeOrder {
+  // Core order data
+  packageId: string;
+  catalogObjectId?: string;
+  packageQuantity: number;  // Number of packages selected by user
+  itemQuantity: number;     // Number of items per package
+  packagePrice: number;     // Price per package in dollars
+  packageName?: string;
+  
+  // Calculated values
+  totalAttendees: number;   // packageQuantity × itemQuantity
+  subtotal: number;         // packageQuantity × packagePrice
+  
+  // Optional metadata
   includedTickets?: Array<{
     ticketId: string;
     ticketName: string;
@@ -115,6 +120,7 @@ export interface LodgeDetails {
   lodgeName: string;
 }
 
+// Deprecated - kept for migration
 export interface LodgeTableOrder {
   tableCount: number;
   totalPrice: number;
@@ -157,7 +163,6 @@ export interface RegistrationState {
   confirmationNumber: string | null; // Add confirmationNumber for completion
   draftRecoveryHandled: boolean; // Flag to track if draft recovery has been handled in current session
   anonymousSessionEstablished: boolean; // Track if Turnstile verification and anonymous session is complete
-  lodgeTicketOrder: LodgeTicketOrder | null; // Lodge bulk ticket order details
   
   // Preloaded tickets data for performance optimization
   preloadedTicketsData: PreloadedTicketsData | null;
@@ -165,7 +170,7 @@ export interface RegistrationState {
   // Lodge-specific state
   lodgeCustomer: LodgeCustomer;
   lodgeDetails: LodgeDetails;
-  lodgeTableOrder: LodgeTableOrder;
+  lodgeOrder: LodgeOrder | null; // Consolidated lodge order (replaces lodgeTicketOrder and lodgeTableOrder)
 
   // --- Actions ---
   startNewRegistration: (type: RegistrationType) => string; // Returns new draftId
@@ -209,16 +214,13 @@ export interface RegistrationState {
   // Anonymous session methods
   setAnonymousSessionEstablished: (established: boolean) => void; // Set if anonymous session is established
   
-  // Lodge ticket order methods
-  setLodgeTicketOrder: (order: LodgeTicketOrder | null) => void; // Set lodge bulk ticket order
-  
   // Delegation type methods
   setDelegationType: (type: 'lodge' | 'grandLodge' | 'masonicOrder' | null) => void; // Set delegation sub-type
   
   // Lodge-specific methods
   updateLodgeCustomer: (customer: Partial<LodgeCustomer>) => void;
   updateLodgeDetails: (details: Partial<LodgeDetails>) => void;
-  updateLodgeTableOrder: (order: Partial<LodgeTableOrder>) => void;
+  setLodgeOrder: (order: LodgeOrder | null) => void; // Consolidated lodge order setter
   isLodgeFormValid: () => boolean;
   getLodgeValidationErrors: () => string[];
   
@@ -295,7 +297,6 @@ const initialRegistrationState: Omit<RegistrationState, 'startNewRegistration' |
     confirmationNumber: null, // No confirmation until complete
     draftRecoveryHandled: false, // Initialize draft recovery flag
     anonymousSessionEstablished: false, // Initialize anonymous session flag
-    lodgeTicketOrder: null, // Initialize lodge ticket order
     
     // Preloaded tickets data initialization
     preloadedTicketsData: null,
@@ -317,10 +318,7 @@ const initialRegistrationState: Omit<RegistrationState, 'startNewRegistration' |
       lodge_id: '',
       lodgeName: '',
     },
-    lodgeTableOrder: {
-      tableCount: 1,
-      totalPrice: 0,
-    },
+    lodgeOrder: null, // Initialize as null
 };
 
 type RegistrationStateCreator = StateCreator<RegistrationState>;
@@ -561,7 +559,17 @@ export const useRegistrationStore = create<RegistrationState>(
       },
 
       setRegistrationType: (type) => {
-        set({ registrationType: type });
+        const currentType = get().registrationType;
+        
+        // Clear lodge order when switching away from lodge registration
+        if (currentType === 'lodges' && type !== 'lodges') {
+          set({ 
+            registrationType: type,
+            lodgeOrder: null
+          });
+        } else {
+          set({ registrationType: type });
+        }
       },
 
       // Generic attendee addition function
@@ -871,9 +879,6 @@ export const useRegistrationStore = create<RegistrationState>(
       // Anonymous session actions
       setAnonymousSessionEstablished: (established) => set({ anonymousSessionEstablished: established }),
       
-      // Lodge ticket order actions
-      setLodgeTicketOrder: (order) => set({ lodgeTicketOrder: order }),
-      
       // Delegation type actions
       setDelegationType: (type) => set({ delegationType: type }),
       
@@ -886,28 +891,27 @@ export const useRegistrationStore = create<RegistrationState>(
         lodgeDetails: { ...state.lodgeDetails, ...details }
       })),
       
-      updateLodgeTableOrder: (order) => set(state => ({
-        lodgeTableOrder: { ...state.lodgeTableOrder, ...order }
-      })),
+      setLodgeOrder: (order) => set({ lodgeOrder: order }),
       
       isLodgeFormValid: () => {
         const state = get();
-        const { lodgeCustomer, lodgeDetails } = state;
+        const { lodgeCustomer, lodgeDetails, lodgeOrder } = state;
         
-        // Check required fields
+        // Check required fields including lodge order
         return !!(
           lodgeCustomer.firstName &&
           lodgeCustomer.lastName &&
           lodgeCustomer.email &&
           lodgeCustomer.mobile &&
           lodgeDetails.grand_lodge_id &&
-          lodgeDetails.lodge_id
+          lodgeDetails.lodge_id &&
+          lodgeOrder // Lodge order must be set
         );
       },
       
       getLodgeValidationErrors: () => {
         const state = get();
-        const { lodgeCustomer, lodgeDetails } = state;
+        const { lodgeCustomer, lodgeDetails, lodgeOrder } = state;
         const errors: string[] = [];
         
         if (!lodgeCustomer.firstName) errors.push('First name is required');
@@ -916,6 +920,7 @@ export const useRegistrationStore = create<RegistrationState>(
         if (!lodgeCustomer.mobile) errors.push('Mobile number is required');
         if (!lodgeDetails.grand_lodge_id) errors.push('Grand Lodge selection is required');
         if (!lodgeDetails.lodge_id) errors.push('Lodge selection is required');
+        if (!lodgeOrder) errors.push('Package selection is required');
         
         return errors;
       },
@@ -1665,11 +1670,10 @@ export const useRegistrationStore = create<RegistrationState>(
         confirmationNumber: state.confirmationNumber, // Persist confirmation number
         // Don't persist draftRecoveryHandled - it should reset on each session
         anonymousSessionEstablished: state.anonymousSessionEstablished, // Persist anonymous session state
-        lodgeTicketOrder: state.lodgeTicketOrder, // Persist lodge ticket order
         // Lodge-specific persistence
         lodgeCustomer: state.lodgeCustomer,
         lodgeDetails: state.lodgeDetails,
-        lodgeTableOrder: state.lodgeTableOrder,
+        lodgeOrder: state.lodgeOrder, // Persist consolidated lodge order
         lastSaved: Date.now(),
       }),
       onRehydrateStorage: () => {

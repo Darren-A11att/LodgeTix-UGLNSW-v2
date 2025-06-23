@@ -24,7 +24,8 @@ import { UnifiedPaymentForm } from "../payment/UnifiedPaymentForm";
 import { PaymentProcessing } from "../payment/PaymentProcessing";
 import { OneColumnStepLayout } from "../Layouts/OneColumnStepLayout";
 import { getFunctionTicketsService, type FunctionTicketDefinition, type FunctionPackage } from '@/lib/services/function-tickets-service';
-import { calculateSquareFees, SQUARE_RATES, formatFeeBreakdown, getFeeDisclaimer, getFeeModeFromEnv, getPlatformFeePercentage, isDomesticCard, getProcessingFeeLabel } from '@/lib/utils/square-fee-calculator';
+import { getFeeDisclaimer, isDomesticCard, getProcessingFeeLabel } from '@/lib/utils/square-fee-calculator-client';
+import { useFeeCalculation } from '@/hooks/use-fee-calculation';
 import { resolveTicketPrices, expandPackagesWithPricing, validateTicketPricing, type TicketWithPrice, type EventTicketRecord, type PackageRecord } from '@/lib/utils/ticket-price-resolver';
 import { Info } from "lucide-react";
 import { 
@@ -492,18 +493,15 @@ function PaymentStep(props: PaymentStepProps) {
     return () => subscription.unsubscribe();
   }, [form, updateStoreBillingDetails]);
 
-  // Calculate fees based on billing country
-  const feeCalculation = useMemo(() => {
-    const isDomestic = isDomesticCard(billingCountry?.isoCode);
-    
-    return calculateSquareFees(subtotal, {
-      userCountry: billingCountry?.isoCode,
-      isDomestic
-    });
-  }, [subtotal, billingCountry]);
+  // Use API-based fee calculation
+  const { fees: feeCalculation, isLoading: feeLoading, error: feeError } = useFeeCalculation({
+    subtotal,
+    isDomestic: isDomesticCard(billingCountry?.isoCode),
+    userCountry: billingCountry?.isoCode
+  });
 
   // Total amount including fees
-  const totalAmount = feeCalculation.customerPayment;
+  const totalAmount = feeCalculation?.customerPayment || subtotal;
 
   // Handle payment method creation from CheckoutForm
   const handlePaymentMethodCreated = async (paymentToken: string, squareBillingDetails: SquareBillingDetails) => {
@@ -706,7 +704,7 @@ function PaymentStep(props: PaymentStepProps) {
           console.log("💰 Frontend calculated values:", {
             subtotal,
             totalAmount,
-            squareFee: feeCalculation.squareFee,
+            squareFee: feeCalculation?.squareFee || 0,
             expandedTicketsCount: expandedTickets.length,
             attendeesCount: transformedAttendees.length,
             currentTicketsForSummaryCount: currentTicketsForSummary.length
@@ -756,7 +754,7 @@ function PaymentStep(props: PaymentStepProps) {
             billToPrimaryAttendee: form.getValues('billToPrimaryAttendee') || false,
             totalAmount,
             subtotal,
-            squareFee: feeCalculation.squareFee,
+            squareFee: feeCalculation?.squareFee || 0,
             agreeToTerms: true,
             registrationId: currentRegistrationId, // For draft recovery
             
@@ -790,7 +788,7 @@ function PaymentStep(props: PaymentStepProps) {
             calculatedPricing: {
               totalAmount,
               subtotal,
-              squareFee: feeCalculation.squareFee,
+              squareFee: feeCalculation?.squareFee || 0,
               resolvedFromDatabase: true,
               priceResolutionTimestamp: new Date().toISOString()
             }
@@ -1040,7 +1038,7 @@ function PaymentStep(props: PaymentStepProps) {
           })),
           totalAmount,
           subtotal,
-          squareFee: feeCalculation.squareFee
+          squareFee: feeCalculation?.squareFee || 0
         };
         
         // Store with confirmation number as key
@@ -1278,14 +1276,26 @@ function PaymentStep(props: PaymentStepProps) {
                             </Tooltip>
                           </TooltipProvider>
                         </span>
-                        <span className="font-medium text-gray-900">${feeCalculation.processingFeesDisplay.toFixed(2)}</span>
+                        <span className="font-medium text-gray-900">
+                          {feeLoading ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            `$${feeCalculation?.processingFeesDisplay?.toFixed(2) || '0.00'}`
+                          )}
+                        </span>
                       </div>
                       
                       {/* Total */}
                       <div className="border-t-2 border-gray-200 pt-3 mt-3">
                         <div className="flex justify-between items-center">
                           <span className="font-semibold text-gray-900">Total Amount:</span>
-                          <span className="text-xl font-bold text-masonic-navy">${totalAmount.toFixed(2)}</span>
+                          <span className="text-xl font-bold text-masonic-navy">
+                          {feeLoading ? (
+                            <Loader2 className="h-5 w-5 animate-spin" />
+                          ) : (
+                            `$${totalAmount.toFixed(2)}`
+                          )}
+                        </span>
                         </div>
                       </div>
                     </div>
@@ -1338,7 +1348,13 @@ function PaymentStep(props: PaymentStepProps) {
                             </Tooltip>
                           </TooltipProvider>
                         </span>
-                        <span className="font-medium text-gray-900">${feeCalculation.processingFeesDisplay.toFixed(2)}</span>
+                        <span className="font-medium text-gray-900">
+                          {feeLoading ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            `$${feeCalculation?.processingFeesDisplay?.toFixed(2) || '0.00'}`
+                          )}
+                        </span>
                       </div>
                     </div>
                     
@@ -1346,7 +1362,13 @@ function PaymentStep(props: PaymentStepProps) {
                     <div className="border-t-2 border-gray-200 pt-3 mt-3">
                       <div className="flex justify-between items-center">
                         <span className="font-semibold text-gray-900">Total Amount:</span>
-                        <span className="text-xl font-bold text-masonic-navy">${totalAmount.toFixed(2)}</span>
+                        <span className="text-xl font-bold text-masonic-navy">
+                          {feeLoading ? (
+                            <Loader2 className="h-5 w-5 animate-spin" />
+                          ) : (
+                            `$${totalAmount.toFixed(2)}`
+                          )}
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -1356,7 +1378,16 @@ function PaymentStep(props: PaymentStepProps) {
             </div>
           </div>
           
-          {/* Error Alert */}
+          {/* Error Alerts */}
+          {feeError && (
+            <Alert variant="destructive" className="mt-6">
+              <AlertTitle>Fee Calculation Error</AlertTitle>
+              <AlertDescription>
+                Unable to calculate processing fees. Please try again or contact support.
+              </AlertDescription>
+            </Alert>
+          )}
+          
           {paymentError && (
             <Alert variant="destructive" className="mt-6">
               <AlertTitle>Payment Error</AlertTitle>

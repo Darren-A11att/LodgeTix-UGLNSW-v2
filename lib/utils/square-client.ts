@@ -58,6 +58,14 @@ export function getSquareApplicationsApi() {
 }
 
 /**
+ * Get Square Refunds API client
+ */
+export function getSquareRefundsApi() {
+  const client = getSquareClient();
+  return client.refundsApi;
+}
+
+/**
  * Get the configured Square environment
  */
 export function getSquareEnvironment(): string {

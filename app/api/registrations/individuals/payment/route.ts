@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
-import { getSquarePaymentsApi, getSquareLocationId, generateIdempotencyKey } from '@/lib/utils/square-client';
-import { calculateSquareFees } from '@/lib/utils/square-fee-calculator';
+import { getSquarePaymentsApi, getSquareRefundsApi, getSquareLocationId, generateIdempotencyKey } from '@/lib/utils/square-client';
+import { calculateSquareFeesWithDb } from '@/lib/utils/square-fee-calculator';
 import type { CreatePaymentRequest } from 'square';
 
 export async function POST(request: NextRequest) {
@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
     // Calculate Square fees using the fee calculator
     // Convert to dollars for fee calculation
     const subtotalInDollars = roundedSubtotal / 100;
-    const feeCalculation = calculateSquareFees(subtotalInDollars, {
+    const feeCalculation = await calculateSquareFeesWithDb(subtotalInDollars, {
       userCountry: billingDetails?.country || 'AU' // Default to AU
     });
     
@@ -104,20 +104,22 @@ export async function POST(request: NextRequest) {
       locationId,
       referenceId: `I${Date.now().toString().slice(-8)}`,
       note: `Individual Registration - ${registrationData.functions?.name}`,
-      buyerEmailAddress: receiptEmail
+      buyerEmailAddress: receiptEmail,
+      buyerPhoneNumber: billingDetails?.phone || billingDetails?.mobileNumber,
+      statementDescriptionIdentifier: registrationData.functions?.name?.substring(0, 20)
     };
 
-    // Add billing address if provided
-    if (billingDetails?.firstName && billingDetails?.lastName && billingDetails?.addressLine1) {
+    // Add billing address if provided - map from SquareBillingDetails format
+    if (billingDetails?.givenName || billingDetails?.firstName) {
       paymentRequest.billingAddress = {
-        addressLine1: billingDetails.addressLine1,
-        addressLine2: billingDetails.addressLine2 || undefined,
-        locality: billingDetails.suburb || billingDetails.city,
-        administrativeDistrictLevel1: billingDetails.stateTerritory || billingDetails.state,
-        postalCode: billingDetails.postcode || billingDetails.postalCode,
-        country: billingDetails.country || 'AU',
-        firstName: billingDetails.firstName,
-        lastName: billingDetails.lastName
+        firstName: billingDetails.givenName || billingDetails.firstName,
+        lastName: billingDetails.familyName || billingDetails.lastName,
+        addressLine1: billingDetails.addressLines?.[0] || billingDetails.addressLine1,
+        addressLine2: billingDetails.addressLines?.[1] || billingDetails.addressLine2 || undefined,
+        locality: billingDetails.city || billingDetails.suburb,
+        administrativeDistrictLevel1: billingDetails.state || billingDetails.stateTerritory,
+        postalCode: billingDetails.postalCode || billingDetails.postcode,
+        country: billingDetails.country || 'AU'
       };
     }
 
@@ -163,7 +165,7 @@ export async function POST(request: NextRequest) {
     const { error: updateError } = await supabase
       .from('registrations')
       .update({
-        payment_status: paymentStatus,
+        payment_status: paymentStatus as any,
         total_amount_paid: feeCalculation.customerPayment,
         subtotal: feeCalculation.connectedAmount,
         square_fee: feeCalculation.squareFee,
@@ -181,9 +183,10 @@ export async function POST(request: NextRequest) {
       if (payment && payment.status === 'COMPLETED') {
         console.log('[Individuals Payment API] Creating refund due to registration update failure');
         try {
-          await paymentsApi.createRefund({
+          const refundsApi = getSquareRefundsApi();
+          await refundsApi.refundPayment({
             idempotencyKey: generateIdempotencyKey(),
-            amountMoney: payment.amountMoney,
+            amountMoney: payment.amountMoney!,
             paymentId: payment.id!,
             reason: 'Registration update failure'
           });

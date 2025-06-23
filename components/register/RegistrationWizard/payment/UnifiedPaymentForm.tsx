@@ -9,7 +9,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Loader2, CreditCard, ShieldCheck, AlertCircle, ArrowLeft } from 'lucide-react';
 import { SquareBillingDetails } from './types';
-import { calculateSquareFees } from '@/lib/utils/square-fee-calculator';
+// Fee calculation is now done by parent component
 
 interface UnifiedPaymentFormProps {
   // Core payment data
@@ -64,12 +64,8 @@ export const UnifiedPaymentForm: React.FC<UnifiedPaymentFormProps> = ({
     return configured;
   }, [isSquareLoaded, payments, registrationType]);
 
-  // Calculate Square fees
-  const feeCalculation = useMemo(() => {
-    return calculateSquareFees(subtotal, {
-      userCountry: billingDetails?.country?.isoCode || 'AU'
-    });
-  }, [subtotal, billingDetails]);
+  // Fee calculation is handled by parent component
+  // The totalAmount prop already includes the calculated fees
 
   // Convert billing details to Square format
   const getSquareBillingDetails = useCallback((): SquareBillingDetails => {

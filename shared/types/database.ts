@@ -1312,7 +1312,7 @@ export type Database = {
           original_price: number | null
           package_id: string
           package_price: number
-          qty: number | null
+          quantity: number | null
           registration_types: string[] | null
           updated_at: string | null
         }
@@ -1332,7 +1332,7 @@ export type Database = {
           original_price?: number | null
           package_id?: string
           package_price: number
-          qty?: number | null
+          quantity?: number | null
           registration_types?: string[] | null
           updated_at?: string | null
         }
@@ -1352,7 +1352,7 @@ export type Database = {
           original_price?: number | null
           package_id?: string
           package_price?: number
-          qty?: number | null
+          quantity?: number | null
           registration_types?: string[] | null
           updated_at?: string | null
         }
@@ -2156,7 +2156,7 @@ export type Database = {
           package_name: string | null
           package_price: number | null
           package_updated_at: string | null
-          qty: number | null
+          quantity: number | null
           registration_types: string[] | null
         }
         Relationships: [

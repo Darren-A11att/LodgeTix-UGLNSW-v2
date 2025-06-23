@@ -311,3 +311,107 @@ export { SQUARE_RATES };
 
 // Type exports
 export type { FeeCalculatorOptions };
+
+/**
+ * NEW DATABASE-DRIVEN FUNCTION
+ * Calculate Square fees using database configuration
+ * This will replace the environment variable-based calculation
+ */
+export async function calculateSquareFeesWithDb(
+  connectedAmount: number,
+  options: FeeCalculatorOptions = {}
+): Promise<SquareFeeCalculation> {
+  try {
+    // Import payment gateway service (server-side only)
+    const { paymentGatewayService } = await import('../services/payment-gateway-service');
+    
+    // Fetch fee configuration from database
+    const feeConfig = await paymentGatewayService.getFeeCalculationValues();
+    
+    console.log('[calculateSquareFeesWithDb] Fee config from database:', JSON.stringify(feeConfig, null, 2));
+    
+    // Handle absorb mode - customer pays only the subtotal
+    if (feeConfig.fee_mode === 'absorb') {
+      return {
+        connectedAmount: Number(connectedAmount.toFixed(2)),
+        platformFee: 0,
+        squareFee: 0,
+        customerPayment: Number(connectedAmount.toFixed(2)),
+        processingFeesDisplay: 0,
+        isDomestic: options.isDomestic ?? true,
+        breakdown: {
+          platformFeePercentage: 0,
+          platformFeeCap: 0,
+          platformFeeMinimum: 0,
+          squarePercentage: 0,
+          squareFixed: 0,
+        }
+      };
+    }
+    
+    // Determine if domestic or international
+    const isDomestic = options.isDomestic ?? isDomesticCard(options.userCountry);
+    
+    // Select appropriate rates based on card type
+    const cardPercentage = isDomestic 
+      ? feeConfig.domestic_card_percentage 
+      : feeConfig.international_card_percentage;
+    const cardFixed = isDomestic 
+      ? feeConfig.domestic_card_fixed 
+      : feeConfig.international_card_fixed;
+    
+    // Calculate platform fee with minimum and maximum capping
+    const platformFee = calculatePlatformFee(
+      connectedAmount, 
+      feeConfig.platform_fee_percentage, 
+      feeConfig.platform_fee_cap,
+      feeConfig.platform_fee_min
+    );
+    
+    console.log('[calculateSquareFeesWithDb] Fee calculation details:', {
+      connectedAmount,
+      isDomestic,
+      platformFeePercentage: feeConfig.platform_fee_percentage,
+      platformFee,
+      cardPercentage,
+      cardFixed
+    });
+    
+    // Use the CORRECT formula:
+    // Total = (ConnectedAmount + PlatformFee + CardFixedFee) ÷ (1 - CardRate)
+    
+    // Step 1: Calculate numerator
+    const numerator = connectedAmount + platformFee + cardFixed;
+    
+    // Step 2: Calculate denominator
+    const denominator = 1 - cardPercentage;
+    
+    // Step 3: Calculate total customer payment
+    const customerPayment = numerator / denominator;
+    
+    // Step 4: Calculate actual card processing fee
+    const cardProcessingFee = (customerPayment * cardPercentage) + cardFixed;
+    
+    // Processing fees display (what customer sees as "Processing fees")
+    const processingFeesDisplay = customerPayment - connectedAmount;
+    
+    return {
+      connectedAmount: Number(connectedAmount.toFixed(2)),
+      platformFee: Number(platformFee.toFixed(2)),
+      squareFee: Number(cardProcessingFee.toFixed(2)),
+      customerPayment: Number(customerPayment.toFixed(2)),
+      processingFeesDisplay: Number(processingFeesDisplay.toFixed(2)),
+      isDomestic,
+      breakdown: {
+        platformFeePercentage: feeConfig.platform_fee_percentage,
+        platformFeeCap: feeConfig.platform_fee_cap,
+        platformFeeMinimum: feeConfig.platform_fee_min,
+        squarePercentage: cardPercentage,
+        squareFixed: cardFixed,
+      }
+    };
+  } catch (error) {
+    console.error('Failed to calculate fees with database configuration:', error);
+    throw new Error(`Failed to calculate fees: ${error instanceof Error ? error.message : 'Unknown error'}`);
+  }
+}

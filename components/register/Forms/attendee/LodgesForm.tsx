@@ -9,7 +9,8 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import formSaveManager from '@/lib/formSaveManager';
 import { getFunctionTicketsService, FunctionTicketDefinition, FunctionPackage } from '@/lib/services/function-tickets-service';
 import { getEnvironmentConfig } from '@/lib/config/environment';
-import { calculateSquareFees, SQUARE_RATES, getFeeDisclaimer, getFeeModeFromEnv, getPlatformFeePercentage, getProcessingFeeLabel, isDomesticCard } from '@/lib/utils/square-fee-calculator';
+import { getFeeDisclaimer, getProcessingFeeLabel, isDomesticCard } from '@/lib/utils/square-fee-calculator-client';
+import { useFeeCalculation } from '@/hooks/use-fee-calculation';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 // Import form components
@@ -58,10 +59,10 @@ export const LodgesForm: React.FC<LodgesFormProps> = ({
     // Lodge-specific state from unified store
     lodgeCustomer,
     lodgeDetails,
-    lodgeTableOrder,
+    lodgeOrder,
     updateLodgeCustomer,
     updateLodgeDetails,
-    updateLodgeTableOrder,
+    setLodgeOrder,
     isLodgeFormValid,
     getLodgeValidationErrors,
   } = useRegistrationStore();
@@ -137,34 +138,43 @@ export const LodgesForm: React.FC<LodgesFormProps> = ({
     fetchFunctionData();
   }, [functionId]);
   
-  // Update package order when count or package data changes
+  // Calculate subtotal for fee calculation
+  const subtotal = packageCount * packagePrice;
+  
+  // Use API-based fee calculation
+  const { fees: feeCalculation, isLoading: feeLoading } = useFeeCalculation({
+    subtotal,
+    isDomestic: true, // Default to domestic for Australian lodges
+    userCountry: 'AU'  // Default country
+  });
+  
+  // Update package order when fee calculation completes
   useEffect(() => {
-    const subtotal = packageCount * packagePrice;
-    
-    // Calculate Square fees
-    const feeCalculation = calculateSquareFees(subtotal, {
-      isDomestic: true // Default to domestic for Australian lodges
-    });
-    
     setCalculatedPackageOrder({
       packageCount,
       totalTickets: packageCount * baseQuantity,
       totalPrice: subtotal,
-      stripeFee: feeCalculation.stripeFee,
-      processingFeesDisplay: feeCalculation.processingFeesDisplay,
-      totalWithFees: feeCalculation.customerPayment
+      stripeFee: feeCalculation?.squareFee || 0,
+      processingFeesDisplay: feeCalculation?.processingFeesDisplay || 0,
+      totalWithFees: feeCalculation?.customerPayment || subtotal
     });
-  }, [packageCount, baseQuantity, packagePrice]);
+  }, [packageCount, baseQuantity, packagePrice, feeCalculation, subtotal]);
 
   // Set initial package order in store when component mounts or package data changes
   useEffect(() => {
     if (baseQuantity > 0 && functionTickets.length > 0 && selectedPackage) {
-      updateLodgeTableOrder({
-        tableCount: packageCount,
-        totalPrice: packageCount * packagePrice
+      setLodgeOrder({
+        packageId: selectedPackage.id,
+        catalogObjectId: selectedPackage.catalogObjectId,
+        packageQuantity: packageCount,
+        itemQuantity: baseQuantity,
+        packagePrice: packagePrice,
+        packageName: selectedPackage.name,
+        totalAttendees: packageCount * baseQuantity,
+        subtotal: packageCount * packagePrice
       });
     }
-  }, [packageCount, baseQuantity, functionTickets, updateLodgeTableOrder, selectedPackage, packagePrice]);
+  }, [packageCount, baseQuantity, functionTickets, setLodgeOrder, selectedPackage, packagePrice]);
 
   // Update package count
   const handlePackageCountChange = useCallback((newCount: number) => {
@@ -172,13 +182,19 @@ export const LodgesForm: React.FC<LodgesFormProps> = ({
       setPackageCount(newCount);
       // Store the package order in the registration store
       if (selectedPackage) {
-        updateLodgeTableOrder({
-          tableCount: newCount,
-          totalPrice: newCount * packagePrice
+        setLodgeOrder({
+          packageId: selectedPackage.id,
+          catalogObjectId: selectedPackage.catalogObjectId,
+          packageQuantity: newCount,
+          itemQuantity: baseQuantity,
+          packagePrice: packagePrice,
+          packageName: selectedPackage.name,
+          totalAttendees: newCount * baseQuantity,
+          subtotal: newCount * packagePrice
         });
       }
     }
-  }, [minPackages, maxPackages, updateLodgeTableOrder, selectedPackage, packagePrice]);
+  }, [minPackages, maxPackages, setLodgeOrder, selectedPackage, packagePrice, baseQuantity]);
 
   // Update lodge details
   const handleLodgeChange = useCallback((lodgeId: string, lodgeName: string) => {
@@ -224,16 +240,22 @@ export const LodgesForm: React.FC<LodgesFormProps> = ({
     
     // Store final package order
     if (selectedPackage) {
-      updateLodgeTableOrder({
-        tableCount: packageCount,
-        totalPrice: packageCount * packagePrice
+      setLodgeOrder({
+        packageId: selectedPackage.id,
+        catalogObjectId: selectedPackage.catalogObjectId,
+        packageQuantity: packageCount,
+        itemQuantity: baseQuantity,
+        packagePrice: packagePrice,
+        packageName: selectedPackage.name,
+        totalAttendees: packageCount * baseQuantity,
+        subtotal: packageCount * packagePrice
       });
     }
     
     if (onComplete) {
       onComplete();
     }
-  }, [isLodgeFormValid, getLodgeValidationErrors, packageCount, minPackages, onComplete, setLodgeTicketOrder, baseQuantity, functionTickets]);
+  }, [isLodgeFormValid, getLodgeValidationErrors, packageCount, minPackages, onComplete, setLodgeOrder, selectedPackage, baseQuantity, packagePrice]);
 
   // Show loading state
   if (isLoadingData) {
@@ -524,8 +546,8 @@ export const LodgesForm: React.FC<LodgesFormProps> = ({
                     </span>
                   </div>
                   
-                  {/* Processing Fee */}
-                  {getFeeModeFromEnv() === 'pass_to_customer' && (
+                  {/* Processing Fee - show when fees are calculated */}
+                  {feeCalculation && feeCalculation.processingFeesDisplay > 0 && (
                     <div className="flex justify-between items-center">
                       <span className="text-gray-600 flex items-center gap-1">
                         {getProcessingFeeLabel(true)}
@@ -536,16 +558,16 @@ export const LodgesForm: React.FC<LodgesFormProps> = ({
                             </TooltipTrigger>
                             <TooltipContent className="max-w-xs">
                               <p className="text-sm">{getFeeDisclaimer()}</p>
-                              <div className="mt-2 text-xs space-y-1">
-                                <p>• Australian cards: 1.75% + $0.30</p>
-                                <p>• International cards: 2.9% + $0.30</p>
-                              </div>
                             </TooltipContent>
                           </Tooltip>
                         </TooltipProvider>
                       </span>
                       <span className="font-medium">
-                        ${calculatedPackageOrder.processingFeesDisplay.toFixed(2)}
+                        {feeLoading ? (
+                          <span className="text-sm text-gray-500">Calculating...</span>
+                        ) : (
+                          `$${calculatedPackageOrder.processingFeesDisplay.toFixed(2)}`
+                        )}
                       </span>
                     </div>
                   )}
@@ -562,7 +584,7 @@ export const LodgesForm: React.FC<LodgesFormProps> = ({
                 </div>
                 
                 {/* Fee disclaimer */}
-                {getFeeModeFromEnv() === 'pass_to_customer' && (
+                {feeCalculation && feeCalculation.processingFeesDisplay > 0 && (
                   <div className="text-xs text-gray-500 pt-2">
                     {getFeeDisclaimer()}
                   </div>
@@ -579,19 +601,29 @@ export const LodgesForm: React.FC<LodgesFormProps> = ({
 
 // Summary view for lodge table orders
 export const LodgeFormSummary: React.FC = () => {
-  const { billingDetails, lodgeTableOrder } = useRegistrationStore();
+  const { billingDetails, lodgeOrder } = useRegistrationStore();
   
   const lodgeDetails = billingDetails?.businessName || 'Lodge';
 
-  if (!lodgeTableOrder || lodgeTableOrder.tableCount === 0) {
+  if (!lodgeOrder || lodgeOrder.packageQuantity === 0) {
     return null;
   }
 
   // Calculate fees for the summary
-  const subtotal = lodgeTableOrder.totalPrice;
-  const feeCalculation = calculateSquareFees(subtotal, {
-    isDomestic: true // Default to domestic for Australian lodges
+  const subtotal = lodgeOrder.subtotal;
+  
+  // Use the hook for database-driven fee calculation
+  const { fees: feeCalculation } = useFeeCalculation({
+    subtotal,
+    isDomestic: true, // Default to domestic for Australian lodges
+    enabled: true
   });
+  
+  // Default to zero fees if still loading
+  const fees = feeCalculation || {
+    processingFeesDisplay: 0,
+    customerPayment: subtotal
+  };
 
   return (
     <div className="space-y-4">
@@ -615,12 +647,12 @@ export const LodgeFormSummary: React.FC = () => {
             
             <div className="border-t pt-3 space-y-2">
               <div className="flex justify-between">
-                <span className="text-sm text-gray-600">Tables Ordered</span>
-                <span className="font-medium">{lodgeTableOrder.tableCount}</span>
+                <span className="text-sm text-gray-600">Packages Ordered</span>
+                <span className="font-medium">{lodgeOrder.packageQuantity}</span>
               </div>
               <div className="flex justify-between text-sm">
-                <span className="text-gray-500">• Total tickets</span>
-                <span>{lodgeTableOrder.tableCount * 10} tickets</span>
+                <span className="text-gray-500">• {lodgeOrder.packageName || 'Lodge Package'}</span>
+                <span>{lodgeOrder.totalAttendees} tickets</span>
               </div>
             </div>
             
@@ -630,17 +662,17 @@ export const LodgeFormSummary: React.FC = () => {
                 <span className="font-medium">${subtotal.toLocaleString()}</span>
               </div>
               
-              {getFeeModeFromEnv() === 'pass_to_customer' && (
+              {fees.processingFeesDisplay > 0 && (
                 <div className="flex justify-between">
                   <span className="text-sm text-gray-600">Processing Fee</span>
-                  <span className="font-medium">${feeCalculation.processingFeesDisplay.toFixed(2)}</span>
+                  <span className="font-medium">${fees.processingFeesDisplay.toFixed(2)}</span>
                 </div>
               )}
               
               <div className="flex justify-between items-center pt-2">
                 <span className="font-medium">Total Amount</span>
                 <span className="text-lg font-bold text-primary">
-                  ${feeCalculation.customerPayment.toLocaleString()}
+                  ${fees.customerPayment.toLocaleString()}
                 </span>
               </div>
             </div>

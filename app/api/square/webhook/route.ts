@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { headers } from 'next/headers';
 import { createClient } from '@/utils/supabase/server';
 import { getPaymentConfig } from '@/lib/config/payment';
-import { calculateSquareFees } from '@/lib/utils/square-fee-calculator';
+import { calculateSquareFeesWithDb } from '@/lib/utils/square-fee-calculator';
 import crypto from 'crypto';
 
 // Square webhook event types

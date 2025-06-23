@@ -1,6 +1,9 @@
 /**
  * Payment Gateway Configuration
  * Centralizes all payment-related configuration for both Stripe and Square
+ * 
+ * IMPORTANT: Payment fees are now stored in the database (payment_gateway table)
+ * Only API credentials remain in environment variables
  */
 
 // Payment gateway selection
@@ -8,11 +11,7 @@ export type PaymentGateway = 'STRIPE' | 'SQUARE';
 
 export interface PaymentConfig {
   gateway: PaymentGateway;
-  platformFee: {
-    percentage: number;
-    cap: number;
-    minimum: number;
-  };
+  // Platform fees removed - now in database
   stripe?: StripeConfig;
   square?: SquareConfig;
 }
@@ -36,15 +35,13 @@ export interface SquareConfig {
  * Get payment configuration based on environment variables
  */
 export function getPaymentConfig(): PaymentConfig {
+  // Gateway selection still from env var for now
+  // TODO: Move this to database in future
   const gateway = (process.env.PAYMENT_GATEWAY || 'SQUARE') as PaymentGateway;
   
   const config: PaymentConfig = {
     gateway,
-    platformFee: {
-      percentage: parseFloat(process.env.PLATFORM_FEE_PERCENTAGE || '0.022'), // 2.2%
-      cap: parseFloat(process.env.PLATFORM_FEE_CAP || '20'), // $20
-      minimum: parseFloat(process.env.PLATFORM_FEE_MINIMUM || '0.50'), // $0.50
-    },
+    // Platform fees now loaded from database via PaymentGatewayService
   };
 
   // Add Stripe configuration if available
@@ -117,9 +114,41 @@ export function validatePaymentConfig(config: PaymentConfig): string[] {
 
 /**
  * Get the active payment gateway
+ * @deprecated Use PaymentGatewayService.getActivePaymentGateway() instead
  */
 export function getActivePaymentGateway(): PaymentGateway {
+  // Still using env var for backward compatibility
+  // Will be removed once all code is updated to use PaymentGatewayService
   return (process.env.PAYMENT_GATEWAY || 'SQUARE') as PaymentGateway;
+}
+
+/**
+ * Get the active payment gateway from database (async)
+ * This is the new preferred method
+ */
+export async function getActivePaymentGatewayAsync(): Promise<PaymentGateway> {
+  // Dynamic import based on environment
+  let paymentGatewayService: any;
+  
+  if (typeof window === 'undefined') {
+    // Server-side: use server version
+    const module = await import('../services/payment-gateway-service');
+    paymentGatewayService = module.paymentGatewayService;
+  } else {
+    // Client-side: use client version
+    const module = await import('../services/payment-gateway-service-client');
+    paymentGatewayService = module.paymentGatewayServiceClient;
+  }
+  
+  const gateway = await paymentGatewayService.getActivePaymentGateway();
+  
+  if (!gateway) {
+    // Fallback to env var if no database configuration
+    return getActivePaymentGateway();
+  }
+  
+  // Convert lowercase database value to uppercase for consistency
+  return gateway.toUpperCase() as PaymentGateway;
 }
 
 /**

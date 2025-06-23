@@ -23,7 +23,8 @@ import { SquareBillingDetails } from '../../RegistrationWizard/payment/types';
 import { useSquareWebPayments } from '../../RegistrationWizard/payment/useSquareWebPayments';
 import { useRouter } from 'next/navigation';
 import { getFunctionTicketsService, FunctionTicketDefinition, FunctionPackage } from '@/lib/services/function-tickets-service';
-import { calculateSquareFees, getFeeModeFromEnv, getProcessingFeeLabel } from '@/lib/utils/square-fee-calculator';
+import { getProcessingFeeLabel } from '@/lib/utils/square-fee-calculator-client';
+import { useFeeCalculation } from '@/hooks/use-fee-calculation';
 
 // Import form components
 import { BasicInfo } from '../basic-details/BasicInfo';

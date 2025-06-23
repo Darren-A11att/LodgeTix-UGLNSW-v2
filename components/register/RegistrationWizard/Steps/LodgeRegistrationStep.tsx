@@ -13,7 +13,7 @@ import { Loader2, CreditCard, ShieldCheck, AlertCircle, ArrowLeft } from 'lucide
 import { useRegistrationStore } from '@/lib/registrationStore';
 import { SquareBillingDetails } from '../payment/types';
 import { getFunctionTicketsService, FunctionPackage } from '@/lib/services/function-tickets-service';
-import { calculateSquareFees, SQUARE_RATES, getFeeModeFromEnv, getPlatformFeePercentage, isDomesticCard } from '@/lib/utils/square-fee-calculator';
+import { useFeeCalculation } from '@/hooks/use-fee-calculation';
 import { useCompletedRegistrationsStore } from '@/lib/completedRegistrationsStore';
 
 // Validate and get Square application key
@@ -49,7 +49,7 @@ export const LodgeRegistrationStep: React.FC<LodgeRegistrationStepProps> = ({
   const { 
     lodgeCustomer, 
     lodgeDetails, 
-    lodgeTicketOrder,
+    lodgeOrder,
     isLodgeFormValid,
     getLodgeValidationErrors,
     goToPrevStep: storeGoToPrevStep
@@ -108,12 +108,19 @@ export const LodgeRegistrationStep: React.FC<LodgeRegistrationStepProps> = ({
   const selectedPackage = lodgePackages[0]; // Use the first available lodge package
   const packagePrice = selectedPackage?.price || 1950; // fallback to 1950
   
-  // Calculate total amount including Stripe fees
-  const subtotal = lodgeTicketOrder ? lodgeTicketOrder.tableCount * packagePrice : 0;
-  const feeCalculation = calculateSquareFees(subtotal, {
-    isDomestic: true // Default to domestic for Australian lodges
+  // Calculate total amount including fees from database
+  const subtotal = lodgeOrder ? lodgeOrder.subtotal : 0;
+  
+  // Fetch fees from server (database-driven)
+  const { fees: feeCalculation, isLoading: isLoadingFees, error: feeError } = useFeeCalculation({
+    subtotal,
+    isDomestic: true, // Default to domestic for Australian lodges
+    enabled: subtotal > 0
   });
-  const totalAmount = feeCalculation.customerPayment;
+  
+  // Use fee calculation from server, default to subtotal if not loaded
+  // Ensure proper 2 decimal place precision
+  const totalAmount = Number((feeCalculation?.customerPayment || subtotal).toFixed(2));
 
   // Handle form completion
   const handleFormComplete = useCallback(() => {
@@ -202,9 +209,9 @@ export const LodgeRegistrationStep: React.FC<LodgeRegistrationStepProps> = ({
       console.log('[LodgeRegistrationStep] Sending registration request:', {
         functionId,
         packageId,
-        tableCount: lodgeTicketOrder?.tableCount || 0,
+        packageQuantity: lodgeOrder?.packageQuantity || 0,
         lodgeName: lodgeDetails.lodgeName,
-        totalAmount: totalAmount * 100
+        totalAmount: totalAmount // Log in dollars, not cents
       });
 
       // Create payment intent and process registration using new endpoint
@@ -214,17 +221,19 @@ export const LodgeRegistrationStep: React.FC<LodgeRegistrationStepProps> = ({
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          tableCount: lodgeTicketOrder?.tableCount || 0,
+          packageQuantity: lodgeOrder?.packageQuantity || 0,
           bookingContact: lodgeCustomer,
           lodgeDetails: {
             lodgeName: lodgeDetails.lodgeName,
-            lodgeId: lodgeDetails.lodge_id,
-            organisation_id: lodgeDetails.organisation_id,
+            lodge_id: lodgeDetails.lodge_id,
+            grand_lodge_id: lodgeDetails.grand_lodge_id,
+            lodgeNumber: lodgeDetails.lodgeNumber,
+            grandLodgeName: lodgeDetails.grandLodgeName,
           },
           paymentMethodId: paymentToken,
-          amount: totalAmount * 100, // Convert to cents (includes fees)
-          subtotal: subtotal * 100, // Convert to cents (before fees)
-          squareFee: feeCalculation.squareFee * 100, // Convert to cents
+          amount: Math.round(totalAmount * 100), // Convert to cents with proper rounding
+          subtotal: Math.round(subtotal * 100), // Convert to cents with proper rounding
+          squareFee: Math.round((feeCalculation?.squareFee || 0) * 100), // Convert to cents with proper rounding
           billingDetails: getBillingDetails(),
         }),
       });
@@ -275,7 +284,7 @@ export const LodgeRegistrationStep: React.FC<LodgeRegistrationStepProps> = ({
               attendeeId: 'lodge-bulk',
               title: 'Lodge',
               firstName: lodgeDetails.lodgeName,
-              lastName: `${lodgeTableOrder?.tableCount || 0} tables`,
+              lastName: `${lodgeOrder?.packageQuantity || 0} packages`,
               attendeeType: 'lodge-bulk',
               selectedTickets: [{
                 ticketId: selectedPackage?.id || selectedPackage?.package_id || '',
@@ -284,9 +293,11 @@ export const LodgeRegistrationStep: React.FC<LodgeRegistrationStepProps> = ({
                 isPackage: true
               }]
             }],
-            totalAttendees: (lodgeTableOrder?.tableCount || 0) * 10,
-            totalAmount: totalAmount,
-            subtotal: subtotal
+            totalAttendees: lodgeOrder?.totalAttendees || 0,
+            totalAmount: result.squareAmounts?.totalAmount || totalAmount, // Use Square's actual total
+            subtotal: result.squareAmounts?.subtotal || subtotal, // Use Square's actual subtotal
+            squareFee: result.squareAmounts?.processingFee, // Include actual Square fee
+            gstAmount: result.squareAmounts?.totalTax // Include actual GST from Square
           };
           
           addCompletedRegistration({
@@ -404,6 +415,18 @@ export const LodgeRegistrationStep: React.FC<LodgeRegistrationStepProps> = ({
                 No lodge package is available for this function. Please contact support.
               </AlertDescription>
             </Alert>
+          ) : isLoadingFees ? (
+            <div className="flex items-center justify-center py-8">
+              <Loader2 className="animate-spin h-6 w-6 mr-2" />
+              <span>Calculating fees...</span>
+            </div>
+          ) : feeError ? (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                Failed to calculate fees. Please try again.
+              </AlertDescription>
+            </Alert>
           ) : (
             /* Unified Payment Form */
             <UnifiedPaymentForm
@@ -411,7 +434,7 @@ export const LodgeRegistrationStep: React.FC<LodgeRegistrationStepProps> = ({
               subtotal={subtotal}
               billingDetails={getBillingDetails()}
               registrationType="lodge"
-              registrationData={{ lodgeCustomer, lodgeDetails, lodgeTicketOrder }}
+              registrationData={{ lodgeCustomer, lodgeDetails, lodgeOrder }}
               onPaymentSuccess={handlePaymentSuccess}
               onPaymentError={handlePaymentError}
               isProcessing={isProcessing}

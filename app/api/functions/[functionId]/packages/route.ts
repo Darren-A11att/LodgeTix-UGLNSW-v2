@@ -68,7 +68,7 @@ export async function GET(
         discount: pkg.discount,
         function_id: pkg.function_id,
         is_active: pkg.is_active,
-        qty: pkg.qty,
+        quantity: pkg.quantity,
         included_items: pkg.included_items,
         includes_description: pkg.includes_description,
         eligibility_criteria: pkg.eligibility_criteria,

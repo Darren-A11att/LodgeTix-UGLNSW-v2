@@ -773,14 +773,14 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ function
           return lodgeSubtotal;
         }
         
-        // Fallback: Check lodge table order
-        const tableOrderTotal = storeState.lodgeTableOrder?.totalPrice || 0;
-        if (tableOrderTotal > 0) {
-          console.log('✅ [LODGE] Fallback to lodgeTableOrder.totalPrice:', tableOrderTotal);
-          return tableOrderTotal;
+        // Fallback: Check lodge order
+        const lodgeOrderSubtotal = storeState.lodgeOrder?.subtotal || 0;
+        if (lodgeOrderSubtotal > 0) {
+          console.log('✅ [LODGE] Fallback to lodgeOrder.subtotal:', lodgeOrderSubtotal);
+          return lodgeOrderSubtotal;
         }
         
-        console.warn('⚠️ [LODGE] No subtotal found in lodgeBulkSelection or lodgeTableOrder');
+        console.warn('⚠️ [LODGE] No subtotal found in lodgeBulkSelection or lodgeOrder');
         break;
       }
       
@@ -829,7 +829,7 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ function
       attendeeSelectionsCount: Object.keys(storeState.attendeeSelections).length,
       attendeeSelectionsTotal: Object.values(storeState.attendeeSelections)
         .reduce((sum, selection) => sum + selection.attendeeSubtotal, 0),
-      lodgeTableOrder: storeState.lodgeTableOrder?.totalPrice || 'not available',
+      lodgeOrder: storeState.lodgeOrder?.subtotal || 'not available',
       packagesCount: Object.values(storeState.attendeeSelections)
         .reduce((count, selection) => count + selection.packages.length, 0)
     });

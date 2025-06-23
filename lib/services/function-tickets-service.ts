@@ -52,7 +52,7 @@ interface FunctionPackageRaw {
   discount: number | null
   function_id: string
   is_active: boolean | null
-  qty: number | null
+  quantity: number | null
   included_items: any[] | null
   includes_description: string[] | null
   eligibility_criteria: any | null
@@ -69,7 +69,7 @@ export interface FunctionPackage {
   discount: number | null
   function_id: string
   is_active: boolean | null
-  qty: number | null
+  quantity: number | null
   includes: string[] // UUIDs of included tickets
   includes_description: string[] | null
   eligibility_criteria: any | null
@@ -126,7 +126,7 @@ function adaptPackageToFrontend(rawPackage: FunctionPackageRaw): FunctionPackage
     discount: rawPackage.discount,
     function_id: rawPackage.function_id,
     is_active: rawPackage.is_active,
-    qty: rawPackage.qty,
+    quantity: rawPackage.quantity,
     includes: rawPackage.included_items || [],
     includes_description: rawPackage.includes_description,
     eligibility_criteria: rawPackage.eligibility_criteria,
@@ -213,7 +213,7 @@ class FunctionTicketsService {
         discount: pkg.discount ? parseFloat(pkg.discount) : null,
         function_id: pkg.function_id,
         is_active: pkg.is_active,
-        qty: pkg.qty,
+        quantity: pkg.quantity,
         includes: pkg.included_items || [],
         includes_description: pkg.includes_description,
         eligibility_criteria: pkg.eligibility_criteria,

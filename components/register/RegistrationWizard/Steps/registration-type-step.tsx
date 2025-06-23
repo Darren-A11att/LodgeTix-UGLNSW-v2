@@ -220,7 +220,7 @@ export function RegistrationTypeStep({ onTriggerDraftModal }: RegistrationTypeSt
       (storeState.lodgeCustomer.email && storeState.lodgeCustomer.email.trim()) ||
       (storeState.lodgeDetails.lodge_id && storeState.lodgeDetails.lodge_id.trim()) ||
       (storeState.lodgeDetails.grand_lodge_id && storeState.lodgeDetails.grand_lodge_id.trim()) ||
-      storeState.lodgeTableOrder.tableCount > 0
+      (storeState.lodgeOrder && storeState.lodgeOrder.packageQuantity > 0)
     );
     
     // Check if we're already on the selected type with existing data

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
 import { getSquarePaymentsApi, getSquareLocationId, convertToCents, generateIdempotencyKey } from '@/lib/utils/square-client';
-import { calculateSquareFees } from '@/lib/utils/square-fee-calculator';
+import { calculateSquareFeesWithDb } from '@/lib/utils/square-fee-calculator';
 import type { CreatePaymentRequest, CreateRefundRequest } from 'square';
 
 interface RouteParams {

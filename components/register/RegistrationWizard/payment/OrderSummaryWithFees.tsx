@@ -5,7 +5,8 @@ import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Info, Loader2 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { calculateSquareFees, getFeeDisclaimer, getFeeModeFromEnv, getPlatformFeePercentage, isDomesticCard } from "@/lib/utils/square-fee-calculator";
+import { getFeeDisclaimer } from "@/lib/utils/square-fee-calculator";
+import { useFeeCalculation } from "@/hooks/use-fee-calculation";
 
 interface OrderSummaryWithFeesProps {
   primaryAttendee: any;
@@ -34,12 +35,32 @@ export const OrderSummaryWithFees: React.FC<OrderSummaryWithFeesProps> = ({
 }) => {
   const isLoadingOverall = (isPaymentIntentLoading && subtotalAmount > 0) || isProcessingPayment || isSubmittingOrder;
   
-  // Calculate fees
-  const feeMode = getFeeModeFromEnv();
-  const platformFeePercentage = getPlatformFeePercentage();
-  const feeCalculation = calculateSquareFees(subtotalAmount, {
-    isDomestic: true, // Default to domestic, could be enhanced to detect card type
+  // Calculate fees using database configuration
+  const { fees: feeCalculation, isLoading: isLoadingFees } = useFeeCalculation({
+    subtotal: subtotalAmount,
+    isDomestic: true, // Default to domestic for Australian events
+    enabled: true
   });
+
+  // Default to subtotal if fees are still loading
+  const displayFees = feeCalculation || {
+    connectedAmount: subtotalAmount,
+    platformFee: 0,
+    squareFee: 0,
+    customerPayment: subtotalAmount,
+    processingFeesDisplay: 0,
+    isDomestic: true,
+    breakdown: {
+      platformFeePercentage: 0,
+      platformFeeCap: 0,
+      platformFeeMinimum: 0,
+      squarePercentage: 0,
+      squareFixed: 0,
+    }
+  };
+
+  // Determine if we should show fees (when fees exist and are greater than 0)
+  const shouldShowFees = showFees && displayFees.processingFeesDisplay > 0;
 
   return (
     <div className="space-y-6">
@@ -66,7 +87,7 @@ export const OrderSummaryWithFees: React.FC<OrderSummaryWithFeesProps> = ({
               <span>${subtotalAmount.toFixed(2)}</span>
             </div>
             
-            {showFees && feeMode === 'pass_to_customer' && (
+            {shouldShowFees && (
               <div className="flex justify-between text-sm text-muted-foreground">
                 <span className="flex items-center gap-1">
                   Processing Fee
@@ -83,7 +104,7 @@ export const OrderSummaryWithFees: React.FC<OrderSummaryWithFeesProps> = ({
                     </Tooltip>
                   </TooltipProvider>
                 </span>
-                <span>${feeCalculation.processingFeesDisplay.toFixed(2)}</span>
+                <span>${displayFees.processingFeesDisplay.toFixed(2)}</span>
               </div>
             )}
           </div>
@@ -92,10 +113,10 @@ export const OrderSummaryWithFees: React.FC<OrderSummaryWithFeesProps> = ({
           
           <div className="flex justify-between font-bold text-lg text-masonic-navy">
             <span>Amount Due:</span>
-            <span>${feeCalculation.customerPayment.toFixed(2)}</span>
+            <span>${displayFees.customerPayment.toFixed(2)}</span>
           </div>
           
-          {showFees && feeMode === 'pass_to_customer' && (
+          {shouldShowFees && (
             <p className="text-xs text-muted-foreground mt-2">
               {getFeeDisclaimer()}
             </p>

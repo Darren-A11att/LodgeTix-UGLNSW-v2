@@ -11,7 +11,7 @@
  */
 
 import { getSquarePaymentsApi, convertToCents, generateIdempotencyKey, getSquareLocationId } from '@/lib/utils/square-client';
-import { calculateSquareFees } from '@/lib/utils/square-fee-calculator';
+import { calculateSquareFeesWithDb } from '@/lib/utils/square-fee-calculator';
 import type { SquareFeeCalculation } from '@/lib/utils/square-fee-calculator';
 import type { CreatePaymentRequest, Payment } from 'square';
 import { createClient } from '@/utils/supabase/server';
@@ -617,8 +617,8 @@ export class UnifiedSquarePaymentService {
     
     const { registration, organization } = paymentData;
     
-    // Calculate fees using the square-fee-calculator
-    const feeCalculation = calculateSquareFees(
+    // Calculate fees using the square-fee-calculator with database configuration
+    const feeCalculation = await calculateSquareFeesWithDb(
       registration.subtotal,
       { userCountry: billingDetails.address.country }
     );
