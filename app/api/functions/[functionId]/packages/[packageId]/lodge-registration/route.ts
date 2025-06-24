@@ -164,6 +164,14 @@ export async function POST(
     let squarePaymentId: string | null = null;
     let paymentStatus = 'pending';
     
+    // Declare actualSquareAmounts outside try block
+    let actualSquareAmounts = {
+      subtotal: 0,
+      totalTax: 0,
+      processingFee: 0,
+      totalAmount: 0
+    };
+    
     try {
       // Step 1: Create Square customer
       const customerData = {
@@ -233,13 +241,6 @@ export async function POST(
       });
       
       // Extract actual amounts from Square order response for consistency
-      let actualSquareAmounts = {
-        subtotal: 0,
-        totalTax: 0,
-        processingFee: 0,
-        totalAmount: 0
-      };
-
       if (order && order.net_amount_due_money) {
         // Use net_amount_due_money as it's what needs to be paid
         const amountDue = Number(order.net_amount_due_money.amount);
