@@ -265,13 +265,6 @@ export function getFeeConfiguration(): {
   };
 }
 
-/**
- * Get fee mode from environment
- */
-export function getFeeModeFromEnv(): 'pass_to_customer' | 'absorb' {
-  const mode = process.env.NEXT_PUBLIC_SQUARE_FEE_MODE || process.env.NEXT_PUBLIC_STRIPE_FEE_MODE;
-  return mode === 'absorb' ? 'absorb' : 'pass_to_customer';
-}
 
 /**
  * Get platform fee percentage from environment
