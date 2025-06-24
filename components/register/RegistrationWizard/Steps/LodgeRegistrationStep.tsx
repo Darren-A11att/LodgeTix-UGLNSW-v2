@@ -408,32 +408,40 @@ export const LodgeRegistrationStep: React.FC<LodgeRegistrationStepProps> = ({
         </CardHeader>
         <CardContent className="space-y-6 pt-6">
           {/* Show loading state while fetching packages */}
-          {isLoadingPricing ? (
+          {isLoadingPricing && (
             <div className="flex items-center justify-center py-8">
               <Loader2 className="animate-spin h-6 w-6 mr-2" />
               <span>Loading pricing information...</span>
             </div>
-          ) : !selectedPackage ? (
+          )}
+          
+          {!isLoadingPricing && !selectedPackage && (
             <Alert variant="destructive">
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>
                 No lodge package is available for this function. Please contact support.
               </AlertDescription>
             </Alert>
-          ) : isLoadingFees ? (
+          )}
+          
+          {!isLoadingPricing && selectedPackage && isLoadingFees && (
             <div className="flex items-center justify-center py-8">
               <Loader2 className="animate-spin h-6 w-6 mr-2" />
               <span>Calculating fees...</span>
             </div>
-          ) : feeError ? (
+          )}
+          
+          {!isLoadingPricing && selectedPackage && !isLoadingFees && feeError && (
             <Alert variant="destructive">
               <AlertCircle className="h-4 w-4" />
               <AlertDescription>
                 Failed to calculate fees. Please try again.
               </AlertDescription>
             </Alert>
-          ) : (
-            /* Unified Payment Form */
+          )}
+          
+          {/* Always render UnifiedPaymentForm but hide it when loading */}
+          <div style={{ display: isLoadingPricing || !selectedPackage || isLoadingFees || feeError ? 'none' : 'block' }}>
             <UnifiedPaymentForm
               totalAmount={totalAmount}
               subtotal={subtotal}
@@ -445,10 +453,10 @@ export const LodgeRegistrationStep: React.FC<LodgeRegistrationStepProps> = ({
               isProcessing={isProcessing}
               functionId={functionId}
               functionSlug={functionSlug}
-              packageId={selectedPackage?.package_id || selectedPackage?.id}
+              packageId={selectedPackage?.package_id || selectedPackage?.id || ''}
               minimal={true}
             />
-          )}
+          </div>
 
 
           {/* Error Display */}
