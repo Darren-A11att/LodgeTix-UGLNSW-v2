@@ -66,6 +66,98 @@ export function getSquareRefundsApi() {
 }
 
 /**
+ * Complete a Square payment that was created with autocomplete: false
+ */
+export async function completeSquarePayment(paymentId: string) {
+  const paymentsApi = getSquarePaymentsApi();
+  return await paymentsApi.completePayment({ paymentId });
+}
+
+/**
+ * Cancel a Square payment that was created with autocomplete: false
+ */
+export async function cancelSquarePayment(paymentId: string) {
+  const paymentsApi = getSquarePaymentsApi();
+  return await paymentsApi.cancelPayment({ paymentId });
+}
+
+/**
+ * Get Square Customers API client
+ */
+export function getSquareCustomersApi() {
+  const client = getSquareClient();
+  return client.customersApi;
+}
+
+/**
+ * Search for a Square customer by email
+ */
+export async function searchSquareCustomerByEmail(email: string) {
+  const customersApi = getSquareCustomersApi();
+  
+  try {
+    const response = await customersApi.searchCustomers({
+      count: false,
+      query: {
+        filter: {
+          emailAddress: {
+            exact: email
+          }
+        },
+        sort: {
+          field: 'CREATED_AT',
+          order: 'DESC'
+        }
+      },
+      limit: BigInt(1)
+    });
+    
+    // Return the first customer if found
+    if (response.result.customers && response.result.customers.length > 0) {
+      return response.result.customers[0];
+    }
+    
+    return null;
+  } catch (error) {
+    console.error('Error searching for Square customer:', error);
+    return null;
+  }
+}
+
+/**
+ * Create a Square customer
+ */
+export async function createSquareCustomer(customerData: {
+  idempotencyKey: string;
+  givenName: string;
+  familyName: string;
+  emailAddress: string;
+  phoneNumber?: string;
+  companyName?: string;
+  address?: {
+    addressLine1: string;
+    addressLine2?: string;
+    locality: string;
+    administrativeDistrictLevel1: string;
+    postalCode: string;
+    country?: string;
+  };
+  taxIds?: {
+    euVat?: string;
+  };
+}) {
+  const customersApi = getSquareCustomersApi();
+  
+  try {
+    const response = await customersApi.createCustomer(customerData);
+    return response.result.customer;
+  } catch (error) {
+    console.error('Error creating Square customer:', error);
+    throw error;
+  }
+}
+
+/**
  * Get the configured Square environment
  */
 export function getSquareEnvironment(): string {

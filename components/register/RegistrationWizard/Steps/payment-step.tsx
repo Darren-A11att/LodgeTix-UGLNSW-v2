@@ -874,12 +874,12 @@ function PaymentStep(props: PaymentStepProps) {
         throw new Error(result.error || "Failed to process payment");
       }
 
-      console.log("✅ Square payment created:", result);
+      console.log("✅ Square payment authorized:", result);
       
-      // Square handles payment authentication automatically during tokenization
-      // No additional confirmation step needed like Stripe's 3D Secure
+      // Store the payment ID for completion after confirmation generation
+      const authorizedPaymentId = result.paymentId;
       
-      // Update final step
+      // Update to show payment authorized but not yet captured
       setProcessingSteps(prev => {
         const newSteps = [...prev];
         newSteps[1] = { ...newSteps[1], status: 'complete' };
@@ -887,8 +887,8 @@ function PaymentStep(props: PaymentStepProps) {
         return newSteps;
       });
       
-      // Wait for confirmation number using polling endpoint
-      console.log("⏳ Polling for confirmation number...");
+      // Generate confirmation number first
+      console.log("⏳ Generating confirmation number...");
       
       // Poll the confirmation endpoint - use same consistent session
       console.log('🔍 Using consistent session for confirmation polling');
@@ -915,6 +915,38 @@ function PaymentStep(props: PaymentStepProps) {
         if (confirmationResult.isTemporary) {
           console.log("⚠️ Using temporary confirmation number");
         }
+        
+        // Now complete the payment after confirmation generation
+        console.log("💳 Completing payment authorization...");
+        const completePaymentResponse = await fetch('/api/registrations/individuals/payment/complete', {
+          method: 'POST',
+          headers: paymentHeaders,
+          body: JSON.stringify({
+            paymentId: authorizedPaymentId,
+            registrationId
+          })
+        });
+        
+        const completePaymentResult = await completePaymentResponse.json();
+        
+        if (!completePaymentResponse.ok) {
+          console.error("❌ Payment completion failed:", completePaymentResult);
+          
+          // Cancel the authorization to prevent auto-capture
+          await fetch('/api/registrations/individuals/payment/cancel', {
+            method: 'POST',
+            headers: paymentHeaders,
+            body: JSON.stringify({
+              paymentId: authorizedPaymentId,
+              registrationId,
+              reason: 'Payment completion failed'
+            })
+          });
+          
+          throw new Error(completePaymentResult.error || "Failed to complete payment");
+        }
+        
+        console.log("✅ Payment completed successfully");
         
         // Update final step
         setProcessingSteps(prev => {

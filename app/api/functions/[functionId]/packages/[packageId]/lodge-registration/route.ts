@@ -3,7 +3,7 @@ import { createClient } from '@/utils/supabase/server';
 import { getSquareLocationId } from '@/lib/utils/square-client';
 import { calculateSquareFeesWithDb } from '@/lib/utils/square-fee-calculator';
 import { SquareOrdersService } from '@/lib/services/square-orders-service';
-import { convertToDollars } from '@/lib/utils/square-client';
+import { convertToDollars, convertToCents } from '@/lib/utils/square-client';
 
 interface RouteParams {
   params: {
@@ -210,8 +210,27 @@ export async function POST(
       };
       
       console.log('[Lodge Registration API] Creating Square order');
-      const { orderId, order } = await squareOrdersService.createLodgeOrder(orderData);
+      const orderResult = await squareOrdersService.createLodgeOrder(orderData);
+      console.log('[Lodge Registration API] createLodgeOrder returned:', {
+        hasOrderId: !!orderResult.orderId,
+        hasOrder: !!orderResult.order,
+        orderResultKeys: Object.keys(orderResult)
+      });
+      
+      const { orderId, order } = orderResult;
       squareOrderId = orderId;
+      
+      // Debug logging for order response
+      console.log('[Lodge Registration API] Order response:', {
+        orderId,
+        orderExists: !!order,
+        totalMoney: order?.total_money,
+        totalServiceChargeMoney: order?.total_service_charge_money,
+        totalTaxMoney: order?.total_tax_money,
+        netAmountDueMoney: order?.net_amount_due_money,
+        // Log the actual order object structure
+        orderKeys: order ? Object.keys(order) : 'order is null/undefined'
+      });
       
       // Extract actual amounts from Square order response for consistency
       let actualSquareAmounts = {
@@ -221,20 +240,41 @@ export async function POST(
         totalAmount: 0
       };
 
-      if (order) {
+      if (order && order.net_amount_due_money) {
+        // Use net_amount_due_money as it's what needs to be paid
+        const amountDue = Number(order.net_amount_due_money.amount);
+        
         actualSquareAmounts = {
-          subtotal: convertToDollars(Number(order.total_money?.amount || 0) - Number(order.total_service_charge_money?.amount || 0)),
-          totalTax: convertToDollars(Number(order.total_tax_money?.amount || 0)),
-          processingFee: convertToDollars(Number(order.total_service_charge_money?.amount || 0)),
-          totalAmount: convertToDollars(Number(order.total_money?.amount || 0))
+          subtotal: convertToDollars(amountDue - (Number(order.total_service_charge_money?.amount) || 0)),
+          totalTax: convertToDollars(Number(order.total_tax_money?.amount) || 0),
+          processingFee: convertToDollars(Number(order.total_service_charge_money?.amount) || 0),
+          totalAmount: convertToDollars(amountDue)
         };
         
-        console.log('[Lodge Registration API] Square order amounts:', actualSquareAmounts);
+        console.log('[Lodge Registration API] Using net_amount_due from Square:', {
+          amountDueCents: amountDue,
+          amountDueDollars: actualSquareAmounts.totalAmount
+        });
+      } else {
+        console.error('[Lodge Registration API] WARNING: No order object returned from Square!');
+        // Fall back to calculated amounts
+        actualSquareAmounts = {
+          subtotal: subtotalInDollars,
+          totalTax: 0, // Will be calculated by Square
+          processingFee: feeCalculation.squareFee + feeCalculation.platformFee,
+          totalAmount: subtotalInDollars + feeCalculation.squareFee + feeCalculation.platformFee
+        };
+        console.log('[Lodge Registration API] Using fallback calculated amounts:', actualSquareAmounts);
       }
       
       // Step 3: Process payment if payment method provided
       if (paymentMethodId) {
-        console.log('[Lodge Registration API] Processing payment');
+        console.log('[Lodge Registration API] Processing payment with amounts:', {
+          actualSquareAmounts,
+          calculatedTotal: feeCalculation.customerPayment,
+          orderId: squareOrderId,
+          hasPaymentMethod: !!paymentMethodId
+        });
         
         // Use actual Square total amount for payment
         const paymentData = {
@@ -243,6 +283,31 @@ export async function POST(
           amount: actualSquareAmounts.totalAmount, // Use Square's calculated amount
           billingDetails: billingDetails
         };
+        
+        console.log('[Lodge Registration API] Payment data being sent:', {
+          orderId: paymentData.orderId,
+          amount: paymentData.amount,
+          amountInCents: convertToCents(paymentData.amount),
+          paymentMethodIdLength: paymentData.paymentMethodId?.length
+        });
+        
+        // Validate payment amount before sending to Square
+        if (!paymentData.amount || paymentData.amount <= 0) {
+          console.error('[Lodge Registration API] CRITICAL: Payment amount is 0 or invalid!', {
+            actualSquareAmounts,
+            order,
+            calculatedTotal: feeCalculation.customerPayment
+          });
+          
+          // Use fallback calculation if Square amount is invalid
+          const fallbackAmount = subtotalInDollars + feeCalculation.squareFee + feeCalculation.platformFee;
+          if (fallbackAmount > 0) {
+            console.log('[Lodge Registration API] Using fallback amount:', fallbackAmount);
+            paymentData.amount = fallbackAmount;
+          } else {
+            throw new Error('Invalid payment amount. Unable to process payment.');
+          }
+        }
         
         const { paymentId, status, payment } = await squareOrdersService.createPayment(paymentData);
         squarePaymentId = paymentId;

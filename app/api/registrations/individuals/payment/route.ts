@@ -1,6 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createClient } from '@/utils/supabase/server';
-import { getSquarePaymentsApi, getSquareRefundsApi, getSquareLocationId, generateIdempotencyKey } from '@/lib/utils/square-client';
+import { 
+  getSquarePaymentsApi, 
+  getSquareRefundsApi, 
+  getSquareLocationId, 
+  generateIdempotencyKey,
+  searchSquareCustomerByEmail,
+  createSquareCustomer
+} from '@/lib/utils/square-client';
 import { calculateSquareFeesWithDb } from '@/lib/utils/square-fee-calculator';
 import type { CreatePaymentRequest } from 'square';
 
@@ -89,6 +96,50 @@ export async function POST(request: NextRequest) {
     const receiptEmail = billingDetails?.email || 'customer@example.com';
     console.log('[Individuals Payment API] Setting receipt email to:', receiptEmail);
     
+    // Search for existing Square customer or create new one
+    console.log('[Individuals Payment API] Searching for Square customer with email:', receiptEmail);
+    let squareCustomerId = null;
+    
+    try {
+      // Search for existing customer
+      const existingCustomer = await searchSquareCustomerByEmail(receiptEmail);
+      
+      if (existingCustomer) {
+        squareCustomerId = existingCustomer.id;
+        console.log('[Individuals Payment API] Found existing Square customer:', squareCustomerId);
+      } else {
+        // Create new customer with booking contact details
+        console.log('[Individuals Payment API] Creating new Square customer');
+        
+        const customerData = {
+          idempotencyKey: generateIdempotencyKey(),
+          givenName: billingDetails?.givenName || billingDetails?.firstName || 'Customer',
+          familyName: billingDetails?.familyName || billingDetails?.lastName || 'Name',
+          emailAddress: receiptEmail,
+          phoneNumber: billingDetails?.phone || billingDetails?.mobileNumber,
+          companyName: billingDetails?.businessName,
+          address: billingDetails?.addressLine1 ? {
+            addressLine1: billingDetails.addressLines?.[0] || billingDetails.addressLine1,
+            addressLine2: billingDetails.addressLines?.[1] || billingDetails.addressLine2,
+            locality: billingDetails.city || billingDetails.suburb,
+            administrativeDistrictLevel1: billingDetails.state || billingDetails.stateTerritory,
+            postalCode: billingDetails.postalCode || billingDetails.postcode,
+            country: billingDetails.country || 'AU'
+          } : undefined,
+          taxIds: billingDetails?.businessNumber ? {
+            euVat: billingDetails.businessNumber // Using EU VAT field for ABN
+          } : undefined
+        };
+        
+        const newCustomer = await createSquareCustomer(customerData);
+        squareCustomerId = newCustomer?.id;
+        console.log('[Individuals Payment API] Created new Square customer:', squareCustomerId);
+      }
+    } catch (error) {
+      console.error('[Individuals Payment API] Error handling Square customer:', error);
+      // Continue without customer ID if there's an error
+    }
+    
     // Prepare Square payment request
     const paymentsApi = getSquarePaymentsApi();
     const locationId = getSquareLocationId();
@@ -106,7 +157,12 @@ export async function POST(request: NextRequest) {
       note: `Individual Registration - ${registrationData.functions?.name}`,
       buyerEmailAddress: receiptEmail,
       buyerPhoneNumber: billingDetails?.phone || billingDetails?.mobileNumber,
-      statementDescriptionIdentifier: registrationData.functions?.name?.substring(0, 20)
+      statementDescriptionIdentifier: registrationData.functions?.name?.substring(0, 20),
+      customerId: squareCustomerId || undefined, // Add customer ID if found/created
+      // Authorization-only settings
+      autocomplete: false,
+      delayAction: 'CANCEL',
+      delayDuration: 'PT5M' // 5 minutes
     };
 
     // Add billing address if provided - map from SquareBillingDetails format
@@ -140,19 +196,21 @@ export async function POST(request: NextRequest) {
     if (response.result.payment) {
       payment = response.result.payment;
       
-      if (payment.status !== 'COMPLETED') {
+      // For authorization-only payments, we expect APPROVED status
+      if (payment.status !== 'APPROVED' && payment.status !== 'COMPLETED') {
         return NextResponse.json(
           { 
             success: false, 
-            error: 'Payment failed',
+            error: 'Payment authorization failed',
             status: payment.status
           },
           { status: 400 }
         );
       }
       
-      paymentStatus = 'completed';
-      console.log('[Individuals Payment API] Payment completed successfully:', payment.id);
+      // Payment is authorized but not yet captured
+      paymentStatus = 'authorized';
+      console.log('[Individuals Payment API] Payment authorized successfully:', payment.id);
     } else {
       return NextResponse.json(
         { success: false, error: 'Payment creation failed' },
@@ -171,6 +229,7 @@ export async function POST(request: NextRequest) {
         square_fee: feeCalculation.squareFee,
         platform_fee_amount: feeCalculation.platformFee,
         square_payment_id: payment?.id,
+        square_customer_id: squareCustomerId,
         status: 'completed',
         updated_at: new Date().toISOString()
       })

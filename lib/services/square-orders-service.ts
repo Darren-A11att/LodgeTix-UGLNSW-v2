@@ -225,6 +225,16 @@ export class SquareOrdersService {
         throw new Error('Failed to create order - no order returned');
       }
 
+      // Debug log the order response
+      console.log('[Square Orders] Order created successfully:', {
+        orderId: response.result.order.id,
+        totalMoney: response.result.order.total_money,
+        totalServiceChargeMoney: response.result.order.total_service_charge_money,
+        totalTaxMoney: response.result.order.total_tax_money,
+        netAmountDueMoney: response.result.order.net_amount_due_money,
+        state: response.result.order.state
+      });
+
       return {
         orderId: response.result.order.id,
         order: response.result.order
