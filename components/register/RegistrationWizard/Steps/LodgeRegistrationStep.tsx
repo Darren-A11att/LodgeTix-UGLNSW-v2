@@ -267,6 +267,11 @@ export const LodgeRegistrationStep: React.FC<LodgeRegistrationStepProps> = ({
 
         // Check if we got a confirmation number
         if (result.confirmationNumber) {
+          // Update main registration store to mark as completed
+          const store = useRegistrationStore.getState();
+          store.setConfirmationNumber(result.confirmationNumber);
+          store._updateStatus('completed');
+          
           // Track in completed registrations store with lodge metadata
           const { addCompletedRegistration } = useCompletedRegistrationsStore.getState();
           const functionData = functionPackages[0]?.functionData || {};

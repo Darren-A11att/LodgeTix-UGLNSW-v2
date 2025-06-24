@@ -251,6 +251,7 @@ const AttendeeDetails: React.FC<AttendeeDetailsProps> = ({
             onComplete={handleDelegationComplete} // Use special handler that checks terms
             onValidationError={handleDelegationValidationError} // Pass validation error handler
             fieldErrors={showErrors ? fieldErrorsByAttendee : {}}
+            onTabChange={handleGrandLodgeTabChange} // Add tab change handler
           />
         );
       
@@ -269,6 +270,14 @@ const AttendeeDetails: React.FC<AttendeeDetailsProps> = ({
     
     return <SummaryRenderer {...summaryData} />;
   };
+
+  // State to track if GrandLodgesForm is in purchase-only mode
+  const [isPurchaseOnlyMode, setIsPurchaseOnlyMode] = useState(false);
+  
+  // Callback to handle tab changes from GrandLodgesForm
+  const handleGrandLodgeTabChange = useCallback((tab: 'purchaseOnly' | 'registerDelegation') => {
+    setIsPurchaseOnlyMode(tab === 'purchaseOnly');
+  }, []);
 
   // Determine which layout to use based on registration type
   const useOneColumnLayout = registrationType === 'delegation';
@@ -302,29 +311,31 @@ const AttendeeDetails: React.FC<AttendeeDetailsProps> = ({
         </Alert>
       )}
 
-      {/* Navigation buttons */}
-      <div className="flex justify-between">
-        <Button
-          variant="outline"
-          onClick={prevStep}
-          className="gap-2 border-masonic-navy text-masonic-navy hover:bg-masonic-lightblue"
-        >
-          <ChevronLeft className="w-4 h-4" />
-          Back
-        </Button>
-        <Button
-          onClick={handleContinue}
-          variant={isFormValid ? "default" : "outline"}
-          className={`gap-2 ${
-            isFormValid 
-              ? "bg-masonic-navy hover:bg-masonic-blue text-white" 
-              : "border-masonic-navy text-masonic-navy hover:bg-masonic-lightblue"
-          }`}
-        >
-          Continue
-          <ChevronRight className="w-4 h-4" />
-        </Button>
-      </div>
+      {/* Navigation buttons - hide when in purchase-only mode for delegation */}
+      {!(registrationType === 'delegation' && isPurchaseOnlyMode) && (
+        <div className="flex justify-between">
+          <Button
+            variant="outline"
+            onClick={prevStep}
+            className="gap-2 border-masonic-navy text-masonic-navy hover:bg-masonic-lightblue"
+          >
+            <ChevronLeft className="w-4 h-4" />
+            Back
+          </Button>
+          <Button
+            onClick={handleContinue}
+            variant={isFormValid ? "default" : "outline"}
+            className={`gap-2 ${
+              isFormValid 
+                ? "bg-masonic-navy hover:bg-masonic-blue text-white" 
+                : "border-masonic-navy text-masonic-navy hover:bg-masonic-lightblue"
+            }`}
+          >
+            Continue
+            <ChevronRight className="w-4 h-4" />
+          </Button>
+        </div>
+      )}
 
       {/* Validation Modal */}
       <ValidationModal

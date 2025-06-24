@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Info, ShoppingCart, Users, Package, Check, Building, Plus, X, UserPlus, CreditCard, ShieldCheck, Loader2 } from 'lucide-react';
+import { Info, Users, Check, Building, Plus, X, UserPlus } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import formSaveManager from '@/lib/formSaveManager';
@@ -16,11 +16,14 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
-import { ChevronRight } from 'lucide-react';
+import { ChevronRight, CreditCard, Loader2, AlertCircle, ArrowLeft } from 'lucide-react';
 import { getFunctionTicketsService, FunctionTicketDefinition, FunctionPackage } from '@/lib/services/function-tickets-service';
 import { useFeeCalculation } from '@/hooks/use-fee-calculation';
-import { getFeeDisclaimer, getProcessingFeeLabel } from '@/lib/utils/square-fee-calculator-client';
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { UnifiedPaymentForm } from '../../RegistrationWizard/payment/UnifiedPaymentForm';
+import { PaymentProcessing } from '../../RegistrationWizard/payment/PaymentProcessing';
+import { useRouter } from 'next/navigation';
+import { useCompletedRegistrationsStore } from '@/lib/completedRegistrationsStore';
+import { getProcessingFeeLabel } from '@/lib/utils/square-fee-calculator-client';
 
 // Import form components
 import { BasicInfo } from '../basic-details/BasicInfo';
@@ -38,6 +41,7 @@ import {
   BookingContactSection,
   AttendeeCounter,
   LodgeSelectionCard,
+  PackageOrderCard,
 } from './components';
 import { AttendeeData } from './types';
 import { generateUUID } from '@/lib/uuid-slug-utils';
@@ -70,12 +74,22 @@ interface GrandLodgesFormProps {
   onValidationError?: (errors: string[]) => void;
   className?: string;
   fieldErrors?: Record<string, Record<string, string>>;
+  onTabChange?: (tab: 'purchaseOnly' | 'registerDelegation') => void;
 }
 
 interface TableOrder {
   tableCount: number;
   totalTickets: number;
   totalPrice: number;
+}
+
+interface PackageOrder {
+  packageCount: number;
+  totalTickets: number;
+  totalPrice: number;
+  stripeFee: number;
+  processingFeesDisplay: number;
+  totalWithFees: number;
 }
 
 interface DelegationMember {
@@ -105,7 +119,9 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
   onValidationError,
   className,
   fieldErrors,
+  onTabChange,
 }, ref) => {
+  const router = useRouter();
   
   const { 
     attendees, 
@@ -127,6 +143,7 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
   const [primaryAttendeeId, setPrimaryAttendeeId] = useState<string | null>(null);
   const [tableCount, setTableCount] = useState(1);
   const [ticketCount, setTicketCount] = useState(1);
+  const [selectedPackageId, setSelectedPackageId] = useState<string | null>(null);
   const [tableOrder, setTableOrder] = useState<TableOrder>({
     tableCount: 1,
     totalTickets: TABLE_SIZE,
@@ -144,6 +161,16 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
   const [functionTickets, setFunctionTickets] = useState<FunctionTicketDefinition[]>([]);
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [dataError, setDataError] = useState<string | null>(null);
+  
+  // Payment state (for purchase only mode)
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [showProcessingSteps, setShowProcessingSteps] = useState(false);
+  const [processingSteps, setProcessingSteps] = useState([
+    { name: 'Saving registration', description: 'Creating your registration record', status: 'upcoming' as const },
+    { name: 'Processing payment', description: 'Securely processing your payment', status: 'upcoming' as const },
+    { name: 'Confirming order', description: 'Finalizing your registration', status: 'upcoming' as const },
+  ]);
   
   // One-time initialization - move useRef before other hooks to maintain order
   const isInitializedRef = React.useRef(false);
@@ -211,6 +238,11 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
         
         console.log('[GrandLodgesForm] Fetched filtered packages:', filteredPackages);
         setFunctionPackages(filteredPackages);
+        
+        // Auto-select first delegation package if available
+        if (filteredPackages.length > 0 && !selectedPackageId) {
+          setSelectedPackageId(filteredPackages[0].id);
+        }
       } catch (error) {
         console.error('Failed to fetch function data:', error);
         setDataError('Failed to load ticket information');
@@ -222,10 +254,23 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
     fetchFunctionData();
   }, [functionId, activeTab]);
 
-  // Get the first available delegation package
-  const selectedPackage = functionPackages[0];
-  const packagePrice = selectedPackage?.price || 1950; // Package price, not per-ticket
+  // Get selected package or use first available
+  const selectedPackage = selectedPackageId 
+    ? functionPackages.find(pkg => pkg.id === selectedPackageId) || functionPackages[0]
+    : functionPackages[0];
+    
+  const baseQuantity = selectedPackage?.qty || 10; // Use package qty as base quantity
+  const packagePrice = selectedPackage?.price || 1950; // fallback price
   const isPackagePurchase = selectedPackage?.qty && selectedPackage.qty > 1; // Check if this is a multi-ticket package
+  
+  const [calculatedPackageOrder, setCalculatedPackageOrder] = useState<PackageOrder>({
+    packageCount: 1,
+    totalTickets: baseQuantity,
+    totalPrice: packagePrice,
+    stripeFee: 0,
+    processingFeesDisplay: 0,
+    totalWithFees: packagePrice
+  });
   
   // Calculate subtotal for fee calculation
   const subtotal = ticketCount * packagePrice;
@@ -236,6 +281,18 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
     isDomestic: true, // Default to domestic for Australian Grand Lodges
     userCountry: 'AU'  // Default country
   });
+  
+  // Update package order when fee calculation completes
+  useEffect(() => {
+    setCalculatedPackageOrder({
+      packageCount: ticketCount,
+      totalTickets: ticketCount * baseQuantity,
+      totalPrice: subtotal,
+      stripeFee: feeCalculation?.squareFee || 0,
+      processingFeesDisplay: feeCalculation?.processingFeesDisplay || 0,
+      totalWithFees: feeCalculation?.customerPayment || subtotal
+    });
+  }, [ticketCount, baseQuantity, packagePrice, feeCalculation, subtotal]);
   
   // Set initial package order in store when component mounts or package data changes (following LodgesForm pattern)
   useEffect(() => {
@@ -306,7 +363,7 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
 
   // Update ticket count (for purchase only)
   const handleTicketCountChange = useCallback((newCount: number) => {
-    if (newCount >= 1 && newCount <= 100) {
+    if (newCount >= 1 && newCount <= 10) {
       setTicketCount(newCount);
       // Store the package order in the registration store (following LodgesForm pattern)
       if (selectedPackage) {
@@ -314,15 +371,15 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
           packageId: selectedPackage.id,
           catalogObjectId: selectedPackage.catalogObjectId,
           packageQuantity: newCount,
-          itemQuantity: selectedPackage.qty || 10,
+          itemQuantity: baseQuantity,
           packagePrice: packagePrice,
           packageName: selectedPackage.name,
-          totalAttendees: newCount * (selectedPackage.qty || 10),
+          totalAttendees: newCount * baseQuantity,
           subtotal: newCount * packagePrice
         });
       }
     }
-  }, [setLodgeOrder, selectedPackage, packagePrice]);
+  }, [setLodgeOrder, selectedPackage, packagePrice, baseQuantity]);
 
   // Update Grand Lodge for primary attendee - No Lodge selection needed for Grand Lodges
   const handleGrandLodgeChange = useCallback((grandLodgeId: string) => {
@@ -597,10 +654,170 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
     });
   }, [selectedGrandLodge, primaryAttendee, activeTab, ticketCount, delegationMembers, onComplete, onValidationError, setLodgeTicketOrder, addMasonAttendee, addGuestAttendee, addPartnerAttendee, updateAttendee, primaryAttendeeId, delegationTypeTab, getValidationErrors, updateLodgeCustomer, updateLodgeDetails, selectedPackage, packagePrice]);
 
+  // Payment handlers for ticket purchase mode
+  const handlePaymentSuccess = async (paymentToken: string, billingDetails: any) => {
+    console.log('[GrandLodgesForm] Payment token created:', paymentToken);
+    
+    // Update processing steps
+    setProcessingSteps(prev => {
+      const newSteps = [...prev];
+      newSteps[0] = { ...newSteps[0], status: 'complete' };
+      newSteps[1] = { ...newSteps[1], status: 'current' };
+      return newSteps;
+    });
+
+    try {
+      // Step 1: Create registration and process payment
+      const packageId = selectedPackage?.package_id || selectedPackage?.id;
+      
+      if (!packageId) {
+        throw new Error('Package has no ID');
+      }
+
+      console.log('[GrandLodgesForm] Sending registration request');
+
+      // Create payment intent and process registration using lodge endpoint
+      const response = await fetch(`/api/functions/${functionId}/packages/${packageId}/lodge-registration`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          packageQuantity: ticketCount,
+          bookingContact: {
+            firstName: primaryAttendee?.firstName,
+            lastName: primaryAttendee?.lastName,
+            email: primaryAttendee?.primaryEmail,
+            phone: primaryAttendee?.primaryPhone,
+          },
+          lodgeDetails: {
+            lodgeName: delegationTypeTab === 'grandLodge' ? 'Grand Lodge Delegation' : (primaryAttendee?.organisationName || 'Masonic Order'),
+            lodge_id: delegationTypeTab === 'grandLodge' ? selectedGrandLodge : '0',
+            grand_lodge_id: selectedGrandLodge,
+          },
+          paymentMethodId: paymentToken,
+          amount: Math.round(calculatedPackageOrder.totalWithFees * 100), // Convert to cents
+          subtotal: Math.round(subtotal * 100),
+          squareFee: Math.round((feeCalculation?.squareFee || 0) * 100),
+          billingDetails,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Failed to process registration');
+      }
+
+      if (result.success && result.registrationId) {
+        // Step 2: Complete - Payment processed
+        setProcessingSteps(prev => {
+          const newSteps = [...prev];
+          newSteps[1] = { ...newSteps[1], status: 'complete' };
+          newSteps[2] = { ...newSteps[2], status: 'current' };
+          return newSteps;
+        });
+
+        console.log('[GrandLodgesForm] Registration successful');
+        
+        // Step 3: Complete - Confirmation ready
+        setProcessingSteps(prev => {
+          const newSteps = [...prev];
+          newSteps[2] = { ...newSteps[2], status: 'complete' };
+          return newSteps;
+        });
+
+        // Redirect to confirmation page
+        if (result.confirmationNumber) {
+          setTimeout(() => {
+            router.push(`/functions/${functionSlug}/register/confirmation/lodge/${result.confirmationNumber}`);
+          }, 1500);
+        }
+      } else {
+        throw new Error('Registration failed');
+      }
+    } catch (err: any) {
+      console.error('Registration error:', err);
+      setError(err.message || 'Failed to complete registration');
+      setIsProcessing(false);
+      setShowProcessingSteps(false);
+      
+      // Update processing steps to show error
+      setProcessingSteps(prev => {
+        const newSteps = [...prev];
+        const currentStepIndex = newSteps.findIndex(step => step.status === 'current');
+        if (currentStepIndex >= 0) {
+          newSteps[currentStepIndex] = { ...newSteps[currentStepIndex], status: 'error' };
+        }
+        return newSteps;
+      });
+    }
+  };
+
+  const handlePaymentError = (error: string) => {
+    console.error('Payment error:', error);
+    setError(error);
+    setIsProcessing(false);
+    setShowProcessingSteps(false);
+  };
+
+  const handleBackToPayment = () => {
+    setShowProcessingSteps(false);
+    setError(null);
+    setIsProcessing(false);
+  };
+
+  const handlePurchaseTickets = () => {
+    // Validate form first
+    const errors = getValidationErrors();
+    if (errors.length > 0) {
+      if (onValidationError) {
+        onValidationError(errors);
+      }
+      return;
+    }
+
+    // Show processing steps
+    setShowProcessingSteps(true);
+    setIsProcessing(true);
+    setError(null);
+  };
+
+  // Get billing details for payment
+  const getBillingDetails = useCallback((): any => {
+    return {
+      title: primaryAttendee?.title || '',
+      firstName: primaryAttendee?.firstName || '',
+      lastName: primaryAttendee?.lastName || '',
+      emailAddress: primaryAttendee?.primaryEmail || '',
+      mobileNumber: primaryAttendee?.primaryPhone || '',
+      phone: primaryAttendee?.primaryPhone || '',
+      addressLine1: primaryAttendee?.addressLine1 || '',
+      suburb: primaryAttendee?.suburb || 'Sydney',
+      stateTerritory: { name: primaryAttendee?.stateTerritory || 'NSW' },
+      postcode: primaryAttendee?.postcode || '2000',
+      country: { isoCode: 'AU' },
+      businessName: delegationTypeTab === 'grandLodge' ? 'Grand Lodge Delegation' : primaryAttendee?.organisationName,
+    };
+  }, [primaryAttendee, delegationTypeTab]);
+
   // Expose submit method to parent
   React.useImperativeHandle(ref, () => ({
     submit: handleComplete
   }), [handleComplete]);
+
+  // Show processing page when payment is being processed (for purchase tickets only mode)
+  if (showProcessingSteps && activeTab === 'purchaseOnly') {
+    return (
+      <div className={cn("space-y-6", className)}>
+        <PaymentProcessing 
+          steps={processingSteps}
+          error={error}
+          onBackToPayment={handleBackToPayment}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className={cn("space-y-6", className)}>
@@ -723,7 +940,11 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
       </div>
 
       {/* Registration Type Tabs */}
-      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'purchaseOnly' | 'registerDelegation')} className="w-full">
+      <Tabs value={activeTab} onValueChange={(value) => {
+        const newTab = value as 'purchaseOnly' | 'registerDelegation';
+        setActiveTab(newTab);
+        onTabChange?.(newTab);
+      }} className="w-full">
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="purchaseOnly">Purchase Tickets Only</TabsTrigger>
           <TabsTrigger value="registerDelegation" disabled={isProduction}>
@@ -732,157 +953,102 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
         </TabsList>
 
         {/* Purchase Tickets Only Tab */}
-        <TabsContent value="purchaseOnly" className="mt-6">
-          <Card className={cn(
-            "border-2 border-primary/20 transition-opacity duration-300",
-            !selectedGrandLodge && "opacity-70"
-          )}>
-            <CardHeader className="py-4 px-6 border-b border-gray-200">
-              <div className="flex items-center justify-between">
-                <CardTitle className="flex items-center gap-2 text-primary font-medium text-lg">
-                  <ShoppingCart className="w-5 h-5" />
-                  Ticket Purchase
-                </CardTitle>
-                <Badge className="bg-blue-100 text-blue-800 border-0">
-                  Grand Proclamation 2025
-                </Badge>
-              </div>
+        <TabsContent value="purchaseOnly" className="mt-6 space-y-6">
+          <PackageOrderCard
+            title="Grand Lodge Package Order"
+            disabled={!selectedGrandLodge}
+            isLoadingData={isLoadingData}
+            dataError={dataError}
+            packages={functionPackages}
+            selectedPackage={selectedPackage}
+            selectedPackageId={selectedPackageId}
+            onPackageSelect={setSelectedPackageId}
+            packageCount={ticketCount}
+            minPackages={1}
+            maxPackages={10}
+            onPackageCountChange={handleTicketCountChange}
+            functionTickets={functionTickets}
+            calculatedPackageOrder={calculatedPackageOrder}
+            feeCalculation={feeCalculation}
+            feeLoading={feeLoading}
+            baseQuantity={baseQuantity}
+            packagePrice={packagePrice}
+            showPackageSelection={functionPackages.length > 1}
+          />
+          
+          {/* Payment Section - same as LodgeRegistrationStep */}
+          <Card className="border-2 border-primary/20">
+            <CardHeader className="bg-primary/5 border-b border-primary/10">
+              <CardTitle className="flex items-center gap-2 text-primary">
+                <CreditCard className="w-5 h-5" />
+                Payment Details
+              </CardTitle>
             </CardHeader>
-            <CardContent className="p-6">
+            <CardContent className="space-y-6 pt-6">
+              {/* Show loading state while fetching data */}
               {isLoadingData ? (
-                <div className="flex items-center justify-center py-12">
-                  <Loader2 className="animate-spin h-8 w-8 mr-2" />
-                  <span>Loading ticket information...</span>
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="animate-spin h-6 w-6 mr-2" />
+                  <span>Loading pricing information...</span>
                 </div>
-              ) : dataError ? (
-                <Alert variant="destructive">
-                  <AlertDescription>{dataError}</AlertDescription>
-                </Alert>
               ) : !selectedPackage ? (
                 <Alert variant="destructive">
-                  <AlertDescription>No delegation packages available for this function.</AlertDescription>
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    No delegation package is available for this function. Please contact support.
+                  </AlertDescription>
                 </Alert>
-              ) : (
-                <div className="grid grid-cols-2 gap-8">
-                  {/* Column 1: Package Info */}
-                  <div className="space-y-4">
-                    <h3 className="font-medium text-lg mb-4">{selectedPackage.name || 'Delegation Package'}</h3>
-                    
-                    <div className="border rounded-lg p-4 bg-blue-50">
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-2">
-                            <Package className="w-5 h-5 text-primary" />
-                            <h4 className="font-medium">{selectedPackage.name}</h4>
-                          </div>
-                          {selectedPackage.description && (
-                            <p className="text-sm text-gray-600 mb-2">
-                              {selectedPackage.description}
-                            </p>
-                          )}
-                          <p className="text-sm text-gray-600">
-                            Quantity: {selectedPackage.qty} tickets per package
-                          </p>
-                        </div>
-                        <div className="text-right">
-                          <p className="text-2xl font-bold">${packagePrice.toLocaleString()}</p>
-                          <p className="text-sm text-gray-500">per {isPackagePurchase ? 'package' : 'ticket'}</p>
-                        </div>
-                      </div>
-                    </div>
-
-                    <Alert className="border-blue-200 bg-blue-50">
-                      <Info className="h-4 w-4 text-blue-600" />
-                      <AlertDescription className="text-sm">
-                        Purchase tickets now and provide attendee details later.
-                        This option will skip directly to payment.
-                      </AlertDescription>
-                    </Alert>
-                  </div>
-
-                {/* Column 2: Ticket Count and Summary */}
-                <div className="space-y-6">
-                  <div>
-                    <Label htmlFor="ticket-count" className="text-base font-medium mb-2 block">
-                      Number of {isPackagePurchase ? 'Packages' : 'Tickets'}
-                    </Label>
-                    <AttendeeCounter
-                      id="ticket-count"
-                      label=""
-                      value={ticketCount}
-                      min={1}
-                      max={isPackagePurchase ? 10 : 100}
-                      onChange={handleTicketCountChange}
-                      disabled={!selectedGrandLodge}
-                    />
-                    <p className="text-sm text-gray-600 mt-2">
-                      {ticketCount} {isPackagePurchase ? (ticketCount === 1 ? 'package' : 'packages') : (ticketCount === 1 ? 'ticket' : 'tickets')}
-                      {isPackagePurchase && ` = ${ticketCount * (selectedPackage?.qty || 10)} tickets`}
-                    </p>
-                  </div>
-
-                  {/* Order Summary */}
-                  <div className="bg-gray-50 rounded-lg p-6 space-y-4">
-                    <h4 className="font-medium text-lg">Order Summary</h4>
-                    
-                    <div className="space-y-2">
-                      <div className="flex justify-between items-center">
-                        <span className="text-gray-600">{isPackagePurchase ? 'Packages' : 'Tickets'}</span>
-                        <span className="font-medium">{ticketCount} × ${packagePrice.toLocaleString()}</span>
-                      </div>
-                      
-                      <div className="flex justify-between items-center">
-                        <span className="text-gray-600">Subtotal</span>
-                        <span className="font-medium">
-                          ${subtotal.toLocaleString()}
-                        </span>
-                      </div>
-                      
-                      {/* Processing Fee - show when fees are calculated */}
-                      {feeCalculation && feeCalculation.processingFeesDisplay > 0 && (
-                        <div className="flex justify-between items-center">
-                          <span className="text-gray-600 flex items-center gap-1">
-                            {getProcessingFeeLabel(true)}
-                            <TooltipProvider>
-                              <Tooltip>
-                                <TooltipTrigger>
-                                  <Info className="h-3 w-3 text-gray-400" />
-                                </TooltipTrigger>
-                                <TooltipContent className="max-w-xs">
-                                  <p className="text-sm">{getFeeDisclaimer()}</p>
-                                </TooltipContent>
-                              </Tooltip>
-                            </TooltipProvider>
-                          </span>
-                          <span className="font-medium">
-                            {feeLoading ? (
-                              <span className="text-sm text-gray-500">Calculating...</span>
-                            ) : (
-                              `$${feeCalculation.processingFeesDisplay.toFixed(2)}`
-                            )}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-
-                    <div className="border-t pt-4">
-                      <div className="flex justify-between items-center">
-                        <span className="text-lg font-semibold">Total Amount</span>
-                        <span className="text-2xl font-bold text-primary">
-                          ${feeCalculation ? feeCalculation.customerPayment.toLocaleString() : subtotal.toLocaleString()}
-                        </span>
-                      </div>
-                    </div>
-                    
-                    {/* Fee disclaimer */}
-                    {feeCalculation && feeCalculation.processingFeesDisplay > 0 && (
-                      <div className="text-xs text-gray-500 pt-2">
-                        {getFeeDisclaimer()}
-                      </div>
-                    )}
-                  </div>
+              ) : feeLoading ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="animate-spin h-6 w-6 mr-2" />
+                  <span>Calculating fees...</span>
                 </div>
-              </div>
+              ) : (
+                /* Unified Payment Form */
+                <UnifiedPaymentForm
+                  totalAmount={calculatedPackageOrder.totalWithFees}
+                  subtotal={subtotal}
+                  billingDetails={getBillingDetails()}
+                  registrationType="lodge" // Using lodge type for Grand Lodge purchases
+                  registrationData={{ 
+                    lodgeCustomer: {
+                      firstName: primaryAttendee?.firstName || '',
+                      lastName: primaryAttendee?.lastName || '',
+                      email: primaryAttendee?.primaryEmail || '',
+                      mobile: primaryAttendee?.primaryPhone || '',
+                    },
+                    lodgeDetails: {
+                      lodgeName: delegationTypeTab === 'grandLodge' ? 'Grand Lodge Delegation' : (primaryAttendee?.organisationName || 'Masonic Order'),
+                      lodge_id: delegationTypeTab === 'grandLodge' ? selectedGrandLodge : '0',
+                      grand_lodge_id: selectedGrandLodge,
+                    },
+                    lodgeOrder: {
+                      packageId: selectedPackage?.id,
+                      catalogObjectId: selectedPackage?.catalogObjectId,
+                      packageQuantity: ticketCount,
+                      itemQuantity: baseQuantity,
+                      packagePrice: packagePrice,
+                      packageName: selectedPackage?.name,
+                      totalAttendees: ticketCount * baseQuantity,
+                      subtotal: ticketCount * packagePrice
+                    }
+                  }}
+                  onPaymentSuccess={handlePaymentSuccess}
+                  onPaymentError={handlePaymentError}
+                  isProcessing={isProcessing}
+                  functionId={functionId}
+                  functionSlug={functionSlug || ''}
+                  packageId={selectedPackage?.package_id || selectedPackage?.id}
+                  minimal={true}
+                />
+              )}
+
+              {/* Error Display */}
+              {error && (
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>{error}</AlertDescription>
+                </Alert>
               )}
             </CardContent>
           </Card>

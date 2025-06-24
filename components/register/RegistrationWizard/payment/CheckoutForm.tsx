@@ -98,27 +98,26 @@ export const CheckoutForm = forwardRef<CheckoutFormHandle, CheckoutFormProps>(
     // Initialize Square card component
     useEffect(() => {
       let cardInstance: any = null;
+      let mounted = true;
 
       const initializeCard = async () => {
-        if (!payments || !cardRef.current) return;
+        if (!payments || !cardRef.current || card) return; // Don't reinitialize if card already exists
 
         try {
-          // Clean up any existing card first
-          if (card) {
-            console.log('🧹 Cleaning up existing Square card before creating new one');
-            card.destroy();
-            setCard(null);
-          }
-
           console.log('🔧 Creating new Square card instance');
           cardInstance = await payments.card(SQUARE_CARD_OPTIONS);
-          await cardInstance.attach('#square-card-element');
-          setCard(cardInstance);
-          setIsCardComplete(true);
-          console.log('✅ Square card attached successfully');
+          
+          if (mounted) {
+            await cardInstance.attach('#square-card-element');
+            setCard(cardInstance);
+            setIsCardComplete(true);
+            console.log('✅ Square card attached successfully');
+          }
         } catch (error: any) {
           console.error('❌ Error initializing Square card:', error);
-          setCardError('Failed to initialize payment form');
+          if (mounted) {
+            setCardError('Failed to initialize payment form');
+          }
         }
       };
 
@@ -126,13 +125,13 @@ export const CheckoutForm = forwardRef<CheckoutFormHandle, CheckoutFormProps>(
 
       // Cleanup function with proper reference
       return () => {
+        mounted = false;
         if (cardInstance) {
           console.log('🧹 Cleaning up Square card instance');
           cardInstance.destroy();
-          cardInstance = null;
         }
       };
-    }, [payments]);
+    }, [payments]); // Don't include card in dependencies to avoid re-initialization loop
 
     // Create payment method function using Square tokenization
     const createPaymentMethod = async () => {
