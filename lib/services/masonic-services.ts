@@ -10,10 +10,12 @@ export async function searchGrandLodges(searchTerm: string, userCountry: string 
     // Build search query with prioritization
     const searchQuery = searchTerm.toLowerCase()
     
+    console.log(`[searchGrandLodges] Searching for: "${searchQuery}" with user country: ${userCountry}`);
+    
     const { data, error } = await supabase
       .from("grand_lodges")
       .select("*")
-      .or(`name.ilike.%${searchQuery}%,abbreviation.ilike.%${searchQuery}%,country.ilike.%${searchQuery}%`)
+      .or(`name.ilike.%${searchQuery}%,abbreviation.ilike.%${searchQuery}%,country.ilike.%${searchQuery}%,state_region.ilike.%${searchQuery}%`)
       .order('country', { ascending: false, nullsFirst: false }) // Sort by country to prioritize
       .limit(50)
 
@@ -21,9 +23,16 @@ export async function searchGrandLodges(searchTerm: string, userCountry: string 
       console.error("Error searching Grand Lodges:", error)
       throw error
     }
+    
+    console.log(`[searchGrandLodges] Raw results count: ${data?.length || 0}`);
 
+    if (!data || data.length === 0) {
+      console.log(`[searchGrandLodges] No results found for search term: "${searchQuery}"`);
+      return [];
+    }
+    
     // Sort results to prioritize user's country
-    const sortedData = data?.sort((a, b) => {
+    const sortedData = data.sort((a, b) => {
       // Prioritize exact country match
       if (a.country === userCountry && b.country !== userCountry) return -1
       if (b.country === userCountry && a.country !== userCountry) return 1

@@ -10,7 +10,7 @@ import { ArrowLeft, Check, Minus, Plus } from 'lucide-react'
 import { Fragment } from 'react'
 
 interface SponsorshipPageProps {
-  function: {
+  functionData: {
     id: string
     name: string
     slug: string
@@ -151,7 +151,7 @@ function classNames(...classes: (string | undefined | false)[]): string {
   return classes.filter(Boolean).join(' ')
 }
 
-export function SponsorshipPage({ function: functionData }: SponsorshipPageProps) {
+export function SponsorshipPage({ functionData }: SponsorshipPageProps) {
   return (
     <div className="min-h-screen">
       {/* Header */}

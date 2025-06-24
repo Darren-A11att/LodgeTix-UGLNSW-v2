@@ -433,7 +433,11 @@ export const useLocationStore = create<LocationState>(
         set({ isLoadingGrandLodges: true, grandLodgeError: null });
         
         try {
-          const searchResults = await searchGrandLodgesService(searchTerm);
+          // Get user's country from IP data for search prioritization
+          const { ipData } = get();
+          const userCountry = ipData?.country_name || 'Australia';
+          
+          const searchResults = await searchGrandLodgesService(searchTerm, userCountry);
           console.log(`[LocationStore] Found ${searchResults.length} Grand Lodges matching "${searchTerm}"`);
           set({ grandLodges: searchResults, isLoadingGrandLodges: false });
           return searchResults;

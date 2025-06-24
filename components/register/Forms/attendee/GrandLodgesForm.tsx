@@ -17,14 +17,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Input } from '@/components/ui/input';
 import { ChevronRight } from 'lucide-react';
-import { CheckoutForm, CheckoutFormHandle } from '../../RegistrationWizard/payment/CheckoutForm';
-import { SquareErrorBoundary } from '../../RegistrationWizard/payment/SquareErrorBoundary';
-import { SquareBillingDetails } from '../../RegistrationWizard/payment/types';
-import { useSquareWebPayments } from '../../RegistrationWizard/payment/useSquareWebPayments';
-import { useRouter } from 'next/navigation';
 import { getFunctionTicketsService, FunctionTicketDefinition, FunctionPackage } from '@/lib/services/function-tickets-service';
-import { getProcessingFeeLabel } from '@/lib/utils/square-fee-calculator-client';
 import { useFeeCalculation } from '@/hooks/use-fee-calculation';
+import { getFeeDisclaimer, getProcessingFeeLabel } from '@/lib/utils/square-fee-calculator-client';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 // Import form components
 import { BasicInfo } from '../basic-details/BasicInfo';
@@ -35,6 +31,7 @@ import { MASON_TITLES, MASON_RANKS, GRAND_OFFICER_ROLES, GUEST_TITLES, PARTNER_R
 import { GrandLodgeSelection } from '../mason/lib/GrandLodgeSelection';
 import AutocompleteInput from '../shared/AutocompleteInput';
 import { TextField } from '../shared/FieldComponents';
+import { useLocationStore } from '@/lib/locationStore';
 
 // Import our new extracted components
 import {
@@ -109,11 +106,6 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
   className,
   fieldErrors,
 }, ref) => {
-  const router = useRouter();
-  const checkoutFormRef = useRef<CheckoutFormHandle>(null);
-  
-  // Square Web Payments SDK initialization
-  const { payments, isLoaded, error: squareError } = useSquareWebPayments();
   
   const { 
     attendees, 
@@ -122,7 +114,13 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
     addPartnerAttendee,
     updateAttendee,
     setLodgeTicketOrder,
+    updateLodgeCustomer,
+    updateLodgeDetails,
+    setLodgeOrder,
   } = useRegistrationStore();
+  
+  // Get location store functions to ensure Grand Lodges are loaded
+  const { fetchInitialGrandLodges } = useLocationStore();
   
   
   const [selectedGrandLodge, setSelectedGrandLodge] = useState<string>('');
@@ -141,13 +139,9 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
   const [delegationOrder, setDelegationOrder] = useState(1);
   const [delegationTypeTab, setDelegationTypeTab] = useState<'grandLodge' | 'masonicOrder'>('grandLodge');
   
-  // Payment state for ticket purchase
-  const [isProcessingPayment, setIsProcessingPayment] = useState(false);
-  const [paymentError, setPaymentError] = useState<string | null>(null);
-  const [showPaymentForm, setShowPaymentForm] = useState(false);
-  
   // Dynamic data state
   const [functionPackages, setFunctionPackages] = useState<FunctionPackage[]>([]);
+  const [functionTickets, setFunctionTickets] = useState<FunctionTicketDefinition[]>([]);
   const [isLoadingData, setIsLoadingData] = useState(true);
   const [dataError, setDataError] = useState<string | null>(null);
   
@@ -158,6 +152,12 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
   const attendeeDataResult = useAttendeeDataWithDebounce(primaryAttendeeId || '', DEBOUNCE_DELAY);
   const updateField = primaryAttendeeId ? attendeeDataResult.updateField : () => {};
   const updateFieldImmediate = primaryAttendeeId ? attendeeDataResult.updateFieldImmediate : () => {};
+  
+  // Ensure Grand Lodges are loaded when component mounts
+  useEffect(() => {
+    console.log('[GrandLodgesForm] Ensuring Grand Lodges are loaded');
+    fetchInitialGrandLodges();
+  }, [fetchInitialGrandLodges]);
   
   // Get the primary attendee
   const primaryAttendee = attendees.find(a => a.attendeeId === primaryAttendeeId);
@@ -191,7 +191,9 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
         setIsLoadingData(true);
         console.log('[GrandLodgesForm] Fetching packages for function:', functionId);
         const ticketsService = getFunctionTicketsService();
-        const { packages } = await ticketsService.getFunctionTicketsAndPackages(functionId);
+        const { tickets, packages } = await ticketsService.getFunctionTicketsAndPackages(functionId);
+        
+        setFunctionTickets(tickets);
         
         // Filter packages based on context
         const filteredPackages = packages.filter(pkg => {
@@ -224,6 +226,32 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
   const selectedPackage = functionPackages[0];
   const packagePrice = selectedPackage?.price || 1950; // Package price, not per-ticket
   const isPackagePurchase = selectedPackage?.qty && selectedPackage.qty > 1; // Check if this is a multi-ticket package
+  
+  // Calculate subtotal for fee calculation
+  const subtotal = ticketCount * packagePrice;
+  
+  // Use API-based fee calculation (same as LodgesForm)
+  const { fees: feeCalculation, isLoading: feeLoading } = useFeeCalculation({
+    subtotal,
+    isDomestic: true, // Default to domestic for Australian Grand Lodges
+    userCountry: 'AU'  // Default country
+  });
+  
+  // Set initial package order in store when component mounts or package data changes (following LodgesForm pattern)
+  useEffect(() => {
+    if (selectedPackage && functionTickets.length > 0 && activeTab === 'purchaseOnly') {
+      setLodgeOrder({
+        packageId: selectedPackage.id,
+        catalogObjectId: selectedPackage.catalogObjectId,
+        packageQuantity: ticketCount,
+        itemQuantity: selectedPackage.qty || 10,
+        packagePrice: packagePrice,
+        packageName: selectedPackage.name,
+        totalAttendees: ticketCount * (selectedPackage.qty || 10),
+        subtotal: ticketCount * packagePrice
+      });
+    }
+  }, [ticketCount, functionTickets, setLodgeOrder, selectedPackage, packagePrice, activeTab]);
 
   // Initialize Grand Lodge from primary attendee when loaded
   useEffect(() => {
@@ -280,20 +308,21 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
   const handleTicketCountChange = useCallback((newCount: number) => {
     if (newCount >= 1 && newCount <= 100) {
       setTicketCount(newCount);
-      // Store the ticket order
-      if (setLodgeTicketOrder) {
-        setLodgeTicketOrder({
-          tableCount: 0, // No tables, just tickets
-          totalTickets: newCount,
-          galaDinnerTickets: newCount,
-          ceremonyTickets: newCount,
-          eventId: EVENT_IDS.GRAND_PROCLAMATION,
-          galaDinnerEventId: EVENT_IDS.GALA_DINNER,
-          ceremonyEventId: EVENT_IDS.CEREMONY,
+      // Store the package order in the registration store (following LodgesForm pattern)
+      if (selectedPackage) {
+        setLodgeOrder({
+          packageId: selectedPackage.id,
+          catalogObjectId: selectedPackage.catalogObjectId,
+          packageQuantity: newCount,
+          itemQuantity: selectedPackage.qty || 10,
+          packagePrice: packagePrice,
+          packageName: selectedPackage.name,
+          totalAttendees: newCount * (selectedPackage.qty || 10),
+          subtotal: newCount * packagePrice
         });
       }
     }
-  }, [setLodgeTicketOrder]);
+  }, [setLodgeOrder, selectedPackage, packagePrice]);
 
   // Update Grand Lodge for primary attendee - No Lodge selection needed for Grand Lodges
   const handleGrandLodgeChange = useCallback((grandLodgeId: string) => {
@@ -450,26 +479,45 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
           return;
         }
         
-        // Store ticket order
-        if (setLodgeTicketOrder) {
-          setLodgeTicketOrder({
-            tableCount: 0,
-            totalTickets: ticketCount,
-            galaDinnerTickets: ticketCount,
-            ceremonyTickets: ticketCount,
-            eventId: EVENT_IDS.GRAND_PROCLAMATION,
-            galaDinnerEventId: EVENT_IDS.GALA_DINNER,
-            ceremonyEventId: EVENT_IDS.CEREMONY,
+        // Store customer data in lodge format (following LodgesForm pattern)
+        if (primaryAttendee) {
+          updateLodgeCustomer({
+            firstName: primaryAttendee.firstName || '',
+            lastName: primaryAttendee.lastName || '',
+            email: primaryAttendee.primaryEmail || '',
+            mobile: primaryAttendee.primaryPhone || '',
+          });
+          
+          updateLodgeDetails({
+            grand_lodge_id: selectedGrandLodge,
+            lodge_id: delegationTypeTab === 'grandLodge' ? selectedGrandLodge : '0',
+            lodgeName: delegationTypeTab === 'grandLodge' ? 'Grand Lodge Delegation' : primaryAttendee.organisationName || 'Masonic Order',
           });
         }
         
-        // Skip directly to payment step (step 5)
-        // Skip ticket selection (step 3) and order review (step 4)
-        console.log('[GrandLodgesForm] Purchase only validation passed, jumping to payment step');
-        useRegistrationStore.getState().setCurrentStep(5); // Step 5 is payment
+        // Store the package order (following LodgesForm pattern)
+        if (selectedPackage) {
+          // Get setLodgeOrder from the store
+          const { setLodgeOrder } = useRegistrationStore.getState();
+          
+          // Store detailed package information for payment processing
+          setLodgeOrder({
+            packageId: selectedPackage.id,
+            catalogObjectId: selectedPackage.catalogObjectId,
+            packageQuantity: ticketCount,
+            itemQuantity: selectedPackage.qty || 10,
+            packagePrice: packagePrice,
+            packageName: selectedPackage.name,
+            totalAttendees: ticketCount * (selectedPackage.qty || 10),
+            subtotal: ticketCount * packagePrice
+          });
+        }
         
-        // Since we manually set the step, we should not call onComplete
-        // as it would increment the step again
+        // Call onComplete to proceed to next step (following LodgesForm pattern)
+        console.log('[GrandLodgesForm] Purchase only validation passed, proceeding to next step');
+        if (onComplete) {
+          onComplete();
+        }
         return;
       } else {
         // For register delegation, validate delegation members
@@ -547,136 +595,7 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
         }
       }
     });
-  }, [selectedGrandLodge, primaryAttendee, activeTab, ticketCount, delegationMembers, onComplete, onValidationError, setLodgeTicketOrder, addMasonAttendee, addGuestAttendee, addPartnerAttendee, updateAttendee, primaryAttendeeId, delegationTypeTab, getValidationErrors]);
-
-  // Payment handlers for ticket-only purchase
-  const handlePaymentSuccess = useCallback(async (token: string, billingDetails: SquareBillingDetails) => {
-    console.log('[GrandLodgesForm] Payment success, processing ticket purchase');
-    
-    try {
-      // Calculate fees
-      const subtotal = ticketCount * packagePrice;
-      const feeCalculation = calculateSquareFees(subtotal, { isDomesticCard: true });
-      const totalAmount = feeCalculation.customerPayment;
-      
-      // Create payment intent and process registration
-      // Use the lodge-registration endpoint for now (ticket purchase endpoint doesn't exist yet)
-      const response = await fetch(`/api/functions/${functionId}/packages/${selectedPackage.id}/lodge-registration`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          tableCount: ticketCount, // Number of packages
-          bookingContact: {
-            firstName: primaryAttendee?.firstName,
-            lastName: primaryAttendee?.lastName,
-            email: primaryAttendee?.primaryEmail,
-            phone: primaryAttendee?.primaryPhone,
-          },
-          lodgeDetails: {
-            grand_lodge_id: selectedGrandLodge,
-            lodge_id: delegationTypeTab === 'grandLodge' ? selectedGrandLodge : '0', // Use grand lodge ID as lodge ID for delegations
-            lodgeName: delegationTypeTab === 'grandLodge' ? 'Grand Lodge Delegation' : primaryAttendee?.organisationName || 'Masonic Order',
-          },
-          paymentMethodId: token, // The lodge endpoint expects paymentMethodId, not sourceId
-          amount: totalAmount * 100, // Convert to cents
-          subtotal: subtotal * 100,
-          squareFee: feeCalculation.squareFee * 100,
-          billingDetails,
-        }),
-      });
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.error || 'Failed to process payment');
-      }
-
-      if (result.success && result.confirmationNumber) {
-        // Redirect to lodge confirmation page (using lodge endpoint response format)
-        console.log('[GrandLodgesForm] Payment successful, redirecting to confirmation');
-        
-        // Use provided slug or extract from current URL
-        let slug = functionSlug;
-        if (!slug) {
-          // Extract slug from current URL pattern: /functions/[slug]/register/...
-          const pathSegments = window.location.pathname.split('/');
-          const functionsIndex = pathSegments.indexOf('functions');
-          if (functionsIndex !== -1 && pathSegments[functionsIndex + 1]) {
-            slug = pathSegments[functionsIndex + 1];
-          }
-        }
-        
-        if (slug) {
-          router.push(`/functions/${slug}/register/confirmation/lodge/${result.confirmationNumber}`);
-        } else {
-          // Fallback: use functionId if slug not available
-          router.push(`/functions/${functionId}/register/confirmation/lodge/${result.confirmationNumber}`);
-        }
-      } else {
-        throw new Error('Payment failed');
-      }
-    } catch (err: any) {
-      console.error('Payment error:', err);
-      setPaymentError(err.message || 'Failed to complete payment');
-      setIsProcessingPayment(false);
-    }
-  }, [ticketCount, packagePrice, primaryAttendee, selectedGrandLodge, delegationTypeTab, functionId, router, selectedPackage, isPackagePurchase]);
-
-  const handlePaymentError = useCallback((error: string) => {
-    console.error('Payment error:', error);
-    setPaymentError(error);
-    setIsProcessingPayment(false);
-  }, []);
-
-  const handlePurchaseTickets = useCallback(async () => {
-    // Validate form
-    const errors = getValidationErrors();
-    if (errors.length > 0) {
-      if (onValidationError) {
-        onValidationError(errors);
-      }
-      return;
-    }
-
-    if (ticketCount < 1) {
-      setPaymentError('Please select at least 1 ticket');
-      return;
-    }
-
-    // Clear any previous errors
-    setPaymentError(null);
-    setIsProcessingPayment(true);
-
-    // Trigger payment method creation in CheckoutForm
-    if (checkoutFormRef.current) {
-      const result = await checkoutFormRef.current.createPaymentMethod();
-      if (result.error) {
-        setPaymentError(result.error);
-        setIsProcessingPayment(false);
-      }
-      // Success is handled by onPaymentSuccess callback
-    } else {
-      setPaymentError('Payment form not ready');
-      setIsProcessingPayment(false);
-    }
-  }, [getValidationErrors, ticketCount, onValidationError]);
-
-  // Get billing details for Square
-  const getBillingDetails = useCallback(() => {
-    return {
-      firstName: primaryAttendee?.firstName || '',
-      lastName: primaryAttendee?.lastName || '',
-      emailAddress: primaryAttendee?.primaryEmail || '',
-      mobileNumber: primaryAttendee?.primaryPhone || '',
-      addressLine1: primaryAttendee?.addressLine1 || '',
-      suburb: primaryAttendee?.suburb || '',
-      stateTerritory: primaryAttendee?.stateTerritory || null,
-      postcode: primaryAttendee?.postcode || '',
-      country: primaryAttendee?.country || null,
-    };
-  }, [primaryAttendee]);
+  }, [selectedGrandLodge, primaryAttendee, activeTab, ticketCount, delegationMembers, onComplete, onValidationError, setLodgeTicketOrder, addMasonAttendee, addGuestAttendee, addPartnerAttendee, updateAttendee, primaryAttendeeId, delegationTypeTab, getValidationErrors, updateLodgeCustomer, updateLodgeDetails, selectedPackage, packagePrice]);
 
   // Expose submit method to parent
   React.useImperativeHandle(ref, () => ({
@@ -710,6 +629,7 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
                   <GrandLodgeSelection 
                     value={selectedGrandLodge}
                     onChange={handleGrandLodgeChange}
+                    required={true}
                   />
                   {!selectedGrandLodge && (
                     <p className="text-amber-600 text-xs mt-1 flex items-center gap-1">
@@ -911,19 +831,37 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
                         <span className="font-medium">{ticketCount} × ${packagePrice.toLocaleString()}</span>
                       </div>
                       
-                      {getFeeModeFromEnv() === 'pass_to_customer' && (
-                        <>
-                          <div className="flex justify-between items-center">
-                            <span className="text-gray-600">Subtotal</span>
-                            <span className="font-medium">${(ticketCount * packagePrice).toLocaleString()}</span>
-                          </div>
-                          <div className="flex justify-between items-center">
-                            <span className="text-gray-600">Processing Fee</span>
-                            <span className="font-medium">
-                              ${calculateSquareFees(ticketCount * packagePrice, { isDomesticCard: true }).processingFeesDisplay.toFixed(2)}
-                            </span>
-                          </div>
-                        </>
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-600">Subtotal</span>
+                        <span className="font-medium">
+                          ${subtotal.toLocaleString()}
+                        </span>
+                      </div>
+                      
+                      {/* Processing Fee - show when fees are calculated */}
+                      {feeCalculation && feeCalculation.processingFeesDisplay > 0 && (
+                        <div className="flex justify-between items-center">
+                          <span className="text-gray-600 flex items-center gap-1">
+                            {getProcessingFeeLabel(true)}
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger>
+                                  <Info className="h-3 w-3 text-gray-400" />
+                                </TooltipTrigger>
+                                <TooltipContent className="max-w-xs">
+                                  <p className="text-sm">{getFeeDisclaimer()}</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          </span>
+                          <span className="font-medium">
+                            {feeLoading ? (
+                              <span className="text-sm text-gray-500">Calculating...</span>
+                            ) : (
+                              `$${feeCalculation.processingFeesDisplay.toFixed(2)}`
+                            )}
+                          </span>
+                        </div>
                       )}
                     </div>
 
@@ -931,90 +869,20 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
                       <div className="flex justify-between items-center">
                         <span className="text-lg font-semibold">Total Amount</span>
                         <span className="text-2xl font-bold text-primary">
-                          ${calculateSquareFees(ticketCount * packagePrice, { isDomesticCard: true }).customerPayment.toLocaleString()}
+                          ${feeCalculation ? feeCalculation.customerPayment.toLocaleString() : subtotal.toLocaleString()}
                         </span>
                       </div>
                     </div>
+                    
+                    {/* Fee disclaimer */}
+                    {feeCalculation && feeCalculation.processingFeesDisplay > 0 && (
+                      <div className="text-xs text-gray-500 pt-2">
+                        {getFeeDisclaimer()}
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>
-              )}
-
-              {/* Payment Section - Only show in Purchase Tickets mode */}
-              {activeTab === 'purchaseOnly' && selectedPackage && (
-                <div className="mt-6 border-t pt-6">
-                  <div className="mb-4">
-                    <h3 className="font-medium text-lg flex items-center gap-2">
-                      <CreditCard className="w-5 h-5" />
-                      Payment Information
-                    </h3>
-                    <p className="text-sm text-gray-600 mt-1">
-                      Complete your purchase by entering your payment details below
-                    </p>
-                  </div>
-
-                  {/* Security Note */}
-                  <Alert className="border-blue-200 bg-blue-50 mb-4">
-                    <ShieldCheck className="h-4 w-4 text-blue-600" />
-                    <AlertDescription className="text-sm text-blue-800">
-                      Your payment information is securely processed by Square. We never store your card details.
-                    </AlertDescription>
-                  </Alert>
-
-                  {/* Error display */}
-                  {paymentError && (
-                    <Alert variant="destructive" className="mb-4">
-                      <AlertDescription>{paymentError}</AlertDescription>
-                    </Alert>
-                  )}
-
-                  {/* Square Web Payments SDK */}
-                  {squareError ? (
-                    <Alert variant="destructive">
-                      <AlertDescription>{squareError}</AlertDescription>
-                    </Alert>
-                  ) : !isLoaded || !payments ? (
-                    <div className="flex items-center justify-center py-8">
-                      <Loader2 className="animate-spin h-6 w-6 mr-2" />
-                      <span>Loading payment system...</span>
-                    </div>
-                  ) : (
-                    <SquareErrorBoundary>
-                      <CheckoutForm
-                        ref={checkoutFormRef}
-                        totalAmount={calculateSquareFees(ticketCount * packagePrice, { isDomesticCard: true }).customerPayment}
-                        onPaymentSuccess={handlePaymentSuccess}
-                        onPaymentError={handlePaymentError}
-                        setIsProcessingPayment={setIsProcessingPayment}
-                        billingDetails={getBillingDetails()}
-                        isProcessing={true}  // Always hide the internal button
-                        payments={payments}
-                      />
-                    </SquareErrorBoundary>
-                  )}
-
-                  {/* Purchase Button */}
-                  <div className="mt-6">
-                    <Button
-                      onClick={handlePurchaseTickets}
-                      disabled={!selectedGrandLodge || ticketCount < 1 || isProcessingPayment}
-                      className="w-full"
-                      size="lg"
-                    >
-                      {isProcessingPayment ? (
-                        <>
-                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                          Processing Payment...
-                        </>
-                      ) : (
-                        <>
-                          <CreditCard className="mr-2 h-4 w-4" />
-                          Complete Purchase
-                        </>
-                      )}
-                    </Button>
-                  </div>
-                </div>
               )}
             </CardContent>
           </Card>
@@ -1330,6 +1198,22 @@ export const GrandLodgeFormSummary: React.FC = () => {
   
   const primaryAttendee = attendees.find(a => a.isPrimary);
   const grandLodgeName = primaryAttendee?.grand_lodge_id ? 'Grand Lodge' : 'Grand Lodge';
+  
+  // Calculate fees for summary
+  const subtotal = lodgeTicketOrder ? lodgeTicketOrder.totalTickets * 195 : 0;
+  
+  // Use the hook for database-driven fee calculation (same as LodgesForm)
+  const { fees: feeCalculation } = useFeeCalculation({
+    subtotal,
+    isDomestic: true, // Default to domestic for Australian Grand Lodges
+    enabled: true
+  });
+  
+  // Default to zero fees if still loading
+  const fees = feeCalculation || {
+    processingFeesDisplay: 0,
+    customerPayment: subtotal
+  };
 
   if (!lodgeTicketOrder) {
     return null;
@@ -1391,11 +1275,21 @@ export const GrandLodgeFormSummary: React.FC = () => {
               )}
             </div>
             
-            <div className="border-t pt-3">
+            <div className="border-t pt-3 space-y-2">
               <div className="flex justify-between items-center">
+                <span className="text-sm text-gray-600">Subtotal</span>
+                <span className="font-medium">${subtotal.toFixed(2)}</span>
+              </div>
+              {fees.processingFeesDisplay > 0 && (
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-600">{getProcessingFeeLabel(true)}</span>
+                  <span className="font-medium">${fees.processingFeesDisplay.toFixed(2)}</span>
+                </div>
+              )}
+              <div className="flex justify-between items-center pt-2 border-t">
                 <span className="font-medium">Total Amount</span>
                 <span className="text-lg font-bold text-primary">
-                  ${(lodgeTicketOrder.totalTickets * 195).toLocaleString()}
+                  ${fees.customerPayment.toFixed(2)}
                 </span>
               </div>
             </div>

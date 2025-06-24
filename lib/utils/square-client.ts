@@ -70,7 +70,7 @@ export function getSquareRefundsApi() {
  */
 export async function completeSquarePayment(paymentId: string) {
   const paymentsApi = getSquarePaymentsApi();
-  return await paymentsApi.completePayment({ paymentId });
+  return await paymentsApi.completePayment(paymentId, {});
 }
 
 /**
@@ -78,7 +78,7 @@ export async function completeSquarePayment(paymentId: string) {
  */
 export async function cancelSquarePayment(paymentId: string) {
   const paymentsApi = getSquarePaymentsApi();
-  return await paymentsApi.cancelPayment({ paymentId });
+  return await paymentsApi.cancelPayment(paymentId);
 }
 
 /**

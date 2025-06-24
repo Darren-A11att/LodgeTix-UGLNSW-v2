@@ -208,8 +208,8 @@ export async function POST(request: NextRequest) {
         );
       }
       
-      // Payment is authorized but not yet captured
-      paymentStatus = 'authorized';
+      // Payment is authorized but not yet captured - use 'pending' status
+      paymentStatus = 'pending';
       console.log('[Individuals Payment API] Payment authorized successfully:', payment.id);
     } else {
       return NextResponse.json(
@@ -220,16 +220,30 @@ export async function POST(request: NextRequest) {
 
     // Update registration with payment details
     console.log('[Individuals Payment API] Updating registration with payment details...');
+    
+    // Get existing registration data to merge Square customer ID
+    const { data: existingReg } = await supabase
+      .from('registrations')
+      .select('registration_data')
+      .eq('registration_id', registrationId)
+      .single();
+    
+    const updatedRegistrationData = {
+      ...(existingReg?.registration_data || {}),
+      square_customer_id: squareCustomerId,
+      square_payment_id: payment?.id
+    };
+    
     const { error: updateError } = await supabase
       .from('registrations')
       .update({
         payment_status: paymentStatus as any,
         total_amount_paid: feeCalculation.customerPayment,
         subtotal: feeCalculation.connectedAmount,
-        square_fee: feeCalculation.squareFee,
+        stripe_fee: feeCalculation.squareFee, // Using stripe_fee field for Square fees
         platform_fee_amount: feeCalculation.platformFee,
-        square_payment_id: payment?.id,
-        square_customer_id: squareCustomerId,
+        stripe_payment_intent_id: payment?.id, // Using stripe field for Square payment ID
+        registration_data: updatedRegistrationData, // Store Square IDs in JSON
         status: 'completed',
         updated_at: new Date().toISOString()
       })

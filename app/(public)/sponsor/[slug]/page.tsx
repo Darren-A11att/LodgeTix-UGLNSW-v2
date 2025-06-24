@@ -32,7 +32,7 @@ export default async function SponsorPage({
     }
     
     // Render the SponsorshipPage component
-    return <SponsorshipPage function={functionData} />
+    return <SponsorshipPage functionData={functionData} />
   } catch (error) {
     console.error('Failed to load sponsorship page:', error);
     return notFound();
