@@ -21,6 +21,9 @@ export default function RegistrationLayout({
   // Only hide footer on mobile for steps after the first one
   const hideFooterOnMobile = currentStep > 1
   
+  // Hide back link on payment step (step 5) to avoid confusion during processing
+  const showBackLink = currentStep !== 5
+  
   return (
     <div className="flex flex-col min-h-screen h-screen max-h-screen">
       {/* Full-width App Header - fixed height */}
@@ -29,11 +32,13 @@ export default function RegistrationLayout({
           <TicketIcon className="mr-2 h-5 w-5 text-masonic-navy" />
           <span className="font-bold">LodgeTix</span>
         </Link>
-        <div className="flex items-center">
-          <Link href={`/functions/${slug}`} className="text-sm text-masonic-navy hover:underline">
-            Back to Event
-          </Link>
-        </div>
+        {showBackLink && (
+          <div className="flex items-center">
+            <Link href={`/functions/${slug}`} className="text-sm text-masonic-navy hover:underline">
+              Back to Event
+            </Link>
+          </div>
+        )}
       </header>
 
       {/* Main Content Area - takes remaining height */}

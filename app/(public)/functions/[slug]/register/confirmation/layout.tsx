@@ -20,6 +20,9 @@ export default function ConfirmationLayout({
   // For confirmation pages, we always show the footer
   const hideFooterOnMobile = false
   
+  // Don't show back link on confirmation pages
+  const showBackLink = false
+  
   return (
     <div className="flex flex-col min-h-screen h-screen max-h-screen">
       {/* Full-width App Header - fixed height */}
@@ -28,11 +31,13 @@ export default function ConfirmationLayout({
           <TicketIcon className="mr-2 h-5 w-5 text-masonic-navy" />
           <span className="font-bold">LodgeTix</span>
         </Link>
-        <div className="flex items-center">
-          <Link href={`/functions/${slug}`} className="text-sm text-masonic-navy hover:underline">
-            Back to Event
-          </Link>
-        </div>
+        {showBackLink && (
+          <div className="flex items-center">
+            <Link href={`/functions/${slug}`} className="text-sm text-masonic-navy hover:underline">
+              Back to Event
+            </Link>
+          </div>
+        )}
       </header>
 
       {/* Main Content Area - takes remaining height */}

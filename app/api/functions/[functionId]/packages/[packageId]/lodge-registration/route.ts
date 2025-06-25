@@ -36,7 +36,8 @@ export async function POST(
       billingDetails,
       registrationId, // Optional, for updates
       additionalMetadata = {}, // Additional metadata from form
-      attendeeDetails // CRITICAL: Contains all collected data from Grand Lodge form
+      attendeeDetails, // CRITICAL: Contains all collected data from Grand Lodge form
+      registrationMode // 'purchaseOnly' or 'registerDelegation'
     } = body;
 
     // Validate required fields
@@ -88,6 +89,16 @@ export async function POST(
           { status: 401 }
         );
       }
+    }
+    
+    // Get the current user (anonymous or authenticated)
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (userError || !user) {
+      console.error('[Lodge Registration API] Failed to get user:', userError);
+      return NextResponse.json(
+        { success: false, error: 'Authentication failed' },
+        { status: 401 }
+      );
     }
     
     // Fetch package details to get catalog_object_id and quantity
@@ -443,10 +454,13 @@ export async function POST(
       }
     }
     
-    // Determine if this is a delegation or lodge registration
-    const isDelegation = lodgeDetails.delegationType === 'grandLodge' || lodgeDetails.delegationType === 'masonicOrder';
+    // Determine registration type based on mode and delegation type
+    // If registrationMode is 'purchaseOnly', treat it as a lodge registration regardless of delegation type
+    const isDelegation = registrationMode === 'purchaseOnly' ? false : 
+                        (lodgeDetails.delegationType === 'grandLodge' || lodgeDetails.delegationType === 'masonicOrder');
     
     // Call the appropriate RPC based on registration type
+    console.log(`[Lodge Registration API] Registration mode: ${registrationMode}, isDelegation: ${isDelegation}`);
     console.log(`[Lodge Registration API] Calling ${isDelegation ? 'delegation' : 'lodge'} registration RPC with Square amounts:`, finalAmounts);
     
     let registrationResult, registrationError;
@@ -455,11 +469,11 @@ export async function POST(
       // For delegations, insert directly into registrations table
       console.log('[Lodge Registration API] Creating delegation registration directly');
       
-      // Check if customer exists by email
+      // Check if customer exists for this user ID
       const { data: existingCustomer } = await supabase
         .from('customers')
         .select('customer_id')
-        .eq('email', bookingContact.email)
+        .eq('customer_id', user.id)
         .single();
       
       let customerId;
@@ -482,8 +496,8 @@ export async function POST(
           console.error('[Lodge Registration API] Customer update error:', updateError);
         }
       } else {
-        // Create new customer
-        const newCustomerId = generateUUID();
+        // Create new customer using the authenticated user's ID
+        const newCustomerId = user.id;
         const { error: insertError } = await supabase
           .from('customers')
           .insert({
@@ -519,7 +533,7 @@ export async function POST(
           suffix_3: bookingContact.grandOffice || '', // Store office in suffix_3
           email: bookingContact.email,
           mobile_number: bookingContact.mobile,
-          type: 'individual',
+          type: 'organisation',
           organisation_id: lodgeDetails.grand_lodge_id,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString()
@@ -534,6 +548,11 @@ export async function POST(
       
       const contactId = contactData?.contact_id;
       
+      // Generate confirmation number for delegation registrations
+      const delegationConfirmationNumber = paymentStatus === 'completed' 
+        ? `DEL-${Math.floor(Math.random() * 900000 + 100000)}${String.fromCharCode(65 + Math.floor(Math.random() * 26))}${String.fromCharCode(65 + Math.floor(Math.random() * 26))}`
+        : null;
+      
       // Create registration directly
       const registrationData = {
         registration_id: validRegistrationId || generateUUID(),
@@ -542,9 +561,10 @@ export async function POST(
         booking_contact_id: contactId || customerId, // Use contact ID if created, otherwise customer ID
         organisation_id: lodgeDetails.grand_lodge_id,
         organisation_name: lodgeDetails.organisationName || lodgeDetails.grandLodgeName || 'Delegation',
-        registration_type: 'delegation',
+        registration_type: registrationMode === 'purchaseOnly' ? 'lodge' : 'delegation',
         status: paymentStatus === 'completed' ? 'completed' : 'pending',
         payment_status: paymentStatus,
+        confirmation_number: delegationConfirmationNumber,
         total_amount_paid: finalAmounts.totalAmount,
         subtotal: finalAmounts.subtotal,
         square_fee: finalAmounts.processingFee,
@@ -556,6 +576,7 @@ export async function POST(
           bookingContact: bookingContact,
           lodgeDetails: lodgeDetails,
           attendeeDetails: attendeeDetails,
+          registrationMode: registrationMode || 'purchaseOnly', // Track which mode was used
           packageDetails: {
             packageId: packageId,
             packageName: packageData.name,
@@ -601,7 +622,7 @@ export async function POST(
         registrationResult = {
           registrationId: data.registration_id,
           customerId: data.customer_id,
-          confirmationNumber: data.confirmation_number
+          confirmationNumber: data.confirmation_number || delegationConfirmationNumber
         };
         registrationError = null;
       }
@@ -642,6 +663,8 @@ export async function POST(
           comprehensiveBookingContact: bookingContact,
           // Store comprehensive lodge details (includes organization data)
           comprehensiveLodgeDetails: lodgeDetails,
+          // Store registration mode
+          registrationMode: registrationMode || 'purchaseOnly',
           // Store complete package information
           packageDetails: {
             packageId: packageId,

@@ -545,7 +545,7 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
           });
           
           updateLodgeDetails({
-            grand_lodge_id: selectedGrandLodge,
+            grand_lodge_id: delegationTypeTab === 'grandLodge' ? selectedGrandLodge : '0',
             lodge_id: delegationTypeTab === 'grandLodge' ? selectedGrandLodge : '0',
             lodgeName: delegationTypeTab === 'grandLodge' ? 'Grand Lodge Delegation' : primaryAttendee.organisationName || 'Masonic Order',
           });
@@ -620,7 +620,7 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
               rank: delegationTypeTab === 'masonicOrder' ? 'MO' : 'GL',
               grandOfficerStatus: 'Present',
               presentGrandOfficerRole: member.grandOffice,
-              grand_lodge_id: Number(selectedGrandLodge),
+              grand_lodge_id: delegationTypeTab === 'grandLodge' ? Number(selectedGrandLodge) : 0,
               contactPreference: 'primaryattendee',
               isPrimary: index === 0 && !primaryAttendeeId
             });
@@ -751,8 +751,8 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
           lodge_id: '0', // Not a real lodge for masonic orders
         }),
         
-        grand_lodge_id: selectedGrandLodge,
-        grandLodgeName: grandLodgeName, // ACTUAL GRAND LODGE NAME
+        grand_lodge_id: delegationTypeTab === 'grandLodge' ? selectedGrandLodge : '0',
+        grandLodgeName: delegationTypeTab === 'grandLodge' ? grandLodgeName : 'Masonic Order',
         
         // For Masonic Orders - CRITICAL DATA WE'RE CURRENTLY LOSING
         organisationName: primaryAttendee?.organisationName || '',
@@ -778,6 +778,7 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
           subtotal: Math.round(subtotal * 100),
           squareFee: Math.round((feeCalculation?.squareFee || 0) * 100),
           billingDetails: getBillingDetails(),
+          registrationMode: activeTab, // Send the current tab mode
           // Add complete attendee data for proper storage
           attendeeDetails: {
             primaryAttendee: primaryAttendee, // Store ALL the collected data
@@ -906,7 +907,12 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
               store._updateStatus('completed');
               return;
             }
-            router.push(`/functions/${slugToUse}/register/confirmation/lodge/${result.confirmationNumber}`);
+            // Redirect based on delegation type
+            if (delegationTypeTab === 'grandLodge' || delegationTypeTab === 'masonicOrder') {
+              router.push(`/functions/${slugToUse}/register/confirmation/delegation/${result.confirmationNumber}`);
+            } else {
+              router.push(`/functions/${slugToUse}/register/confirmation/lodge/${result.confirmationNumber}`);
+            }
           }, 1500); // Small delay to show completion
         } else {
           // Fallback: Store registration data and go to confirmation step
@@ -984,7 +990,7 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
         <PaymentProcessing 
           steps={processingSteps}
           error={error}
-          onBackToPayment={handleBackToPayment}
+          onBackToPayment={error ? handleBackToPayment : undefined}
         />
       </div>
     );
@@ -1128,7 +1134,7 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
         <TabsContent value="purchaseOnly" className="mt-6 space-y-6">
           <PackageOrderCard
             title="Grand Lodge Package Order"
-            disabled={!selectedGrandLodge}
+            disabled={delegationTypeTab === 'grandLodge' ? !selectedGrandLodge : (!primaryAttendee?.organisationName || !primaryAttendee?.organisationAbbreviation || !primaryAttendee?.organisationKnownAs)}
             isLoadingData={isLoadingData}
             dataError={dataError}
             packages={functionPackages}
@@ -1192,7 +1198,7 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
                     lodgeDetails: {
                       lodgeName: delegationTypeTab === 'grandLodge' ? 'Grand Lodge Delegation' : (primaryAttendee?.organisationName || 'Masonic Order'),
                       lodge_id: delegationTypeTab === 'grandLodge' ? selectedGrandLodge : '0',
-                      grand_lodge_id: selectedGrandLodge,
+                      grand_lodge_id: delegationTypeTab === 'grandLodge' ? selectedGrandLodge : '0',
                     },
                     lodgeOrder: {
                       packageId: selectedPackage?.id,
@@ -1222,7 +1228,7 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
         <TabsContent value="registerDelegation" className="mt-6">
           <Card className={cn(
             "border-2 border-primary/20",
-            !selectedGrandLodge && "opacity-70"
+            (delegationTypeTab === 'grandLodge' ? !selectedGrandLodge : (!primaryAttendee?.organisationName || !primaryAttendee?.organisationAbbreviation || !primaryAttendee?.organisationKnownAs)) && "opacity-70"
           )}>
             <CardHeader className="py-4 px-6 border-b border-gray-200">
               <div className="flex items-center justify-between">
@@ -1248,7 +1254,7 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
                       size="sm"
                       variant="outline"
                       onClick={() => addDelegationMember('Mason')}
-                      disabled={!selectedGrandLodge}
+                      disabled={delegationTypeTab === 'grandLodge' ? !selectedGrandLodge : (!primaryAttendee?.organisationName || !primaryAttendee?.organisationAbbreviation || !primaryAttendee?.organisationKnownAs)}
                     >
                       <UserPlus className="w-4 h-4 mr-1" />
                       Add Mason
@@ -1257,7 +1263,7 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
                       size="sm"
                       variant="outline"
                       onClick={() => setShowAddMemberDialog(true)}
-                      disabled={!selectedGrandLodge || delegationMembers.length === 0}
+                      disabled={(delegationTypeTab === 'grandLodge' ? !selectedGrandLodge : (!primaryAttendee?.organisationName || !primaryAttendee?.organisationAbbreviation || !primaryAttendee?.organisationKnownAs)) || delegationMembers.length === 0}
                     >
                       <UserPlus className="w-4 h-4 mr-1" />
                       Add Partner
@@ -1266,7 +1272,7 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
                       size="sm"
                       variant="outline"
                       onClick={() => addDelegationMember('Guest')}
-                      disabled={!selectedGrandLodge}
+                      disabled={delegationTypeTab === 'grandLodge' ? !selectedGrandLodge : (!primaryAttendee?.organisationName || !primaryAttendee?.organisationAbbreviation || !primaryAttendee?.organisationKnownAs)}
                     >
                       <UserPlus className="w-4 h-4 mr-1" />
                       Add Guest
