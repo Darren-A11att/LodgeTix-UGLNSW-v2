@@ -75,8 +75,13 @@ export const CheckoutForm = forwardRef<CheckoutFormHandle, CheckoutFormProps>(
 
     // Helper function to format billing details for Square
     const getBillingDetailsForSquare = (): SquareBillingDetails => {
-      // For individuals registration, billingDetails might be minimal
-      // Use defaults with 'AU' country for fee calculation
+      // billingDetails are already in Square format from UnifiedPaymentForm
+      // Check if we have the Square format fields first
+      if (billingDetails?.givenName) {
+        return billingDetails as SquareBillingDetails;
+      }
+      
+      // Fallback for legacy format (shouldn't happen in individuals flow)
       const addressLines = [billingDetails?.addressLine1 || ''];
       if (billingDetails?.businessName) {
         addressLines.push(billingDetails.businessName);

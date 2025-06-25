@@ -1005,7 +1005,7 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
   // Show processing page when payment is being processed (for purchase tickets only mode)
   if (showProcessingSteps && activeTab === 'purchaseOnly') {
     return (
-      <div className={cn("space-y-6", className)}>
+      <div className={cn("space-y-4", className)}>
         <PaymentProcessing 
           steps={processingSteps}
           error={error}
@@ -1037,7 +1037,7 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
                 <TabsTrigger value="masonicOrder">Masonic Order</TabsTrigger>
               </TabsList>
               
-              <TabsContent value="grandLodge" className="p-6 space-y-6 mt-0">
+              <TabsContent value="grandLodge" className="p-4 space-y-4 mt-0">
                 {/* Grand Lodge Selection Field - No Lodge selection needed for Grand Lodges */}
                 <div className="space-y-2">
                   <GrandLodgeSelection 
@@ -1067,9 +1067,9 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
                 )}
               </TabsContent>
               
-              <TabsContent value="masonicOrder" className="p-6 space-y-6 mt-0">
+              <TabsContent value="masonicOrder" className="p-4 space-y-4 mt-0">
                 {/* Masonic Order Fields */}
-                <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-12 gap-3">
                   {/* Formal Name - Long width (spans 6 columns) */}
                   <div className="md:col-span-6">
                     <TextField
@@ -1150,7 +1150,7 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
         </TabsList>
 
         {/* Purchase Tickets Only Tab */}
-        <TabsContent value="purchaseOnly" className="mt-6 space-y-6">
+        <TabsContent value="purchaseOnly" className="mt-4 space-y-4">
           <PackageOrderCard
             title="Grand Lodge Package Order"
             disabled={delegationTypeTab === 'grandLodge' ? !selectedGrandLodge : (!primaryAttendee?.organisationName || !primaryAttendee?.organisationAbbreviation || !primaryAttendee?.organisationKnownAs)}
@@ -1181,7 +1181,7 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
                 Payment Details
               </CardTitle>
             </CardHeader>
-            <CardContent className="space-y-6 pt-6">
+            <CardContent className="space-y-4 pt-4">
               {/* Show loading state while fetching data */}
               {isLoadingData ? (
                 <div className="flex items-center justify-center py-8">
@@ -1244,12 +1244,12 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
         </TabsContent>
 
         {/* Register Delegation Tab */}
-        <TabsContent value="registerDelegation" className="mt-6">
+        <TabsContent value="registerDelegation" className="mt-4">
           <Card className={cn(
             "border-2 border-primary/20",
             (delegationTypeTab === 'grandLodge' ? !selectedGrandLodge : (!primaryAttendee?.organisationName || !primaryAttendee?.organisationAbbreviation || !primaryAttendee?.organisationKnownAs)) && "opacity-70"
           )}>
-            <CardHeader className="py-4 px-6 border-b border-gray-200">
+            <CardHeader className="py-3 px-4 border-b border-gray-200">
               <div className="flex items-center justify-between">
                 <CardTitle className="flex items-center gap-2 text-primary font-medium text-lg">
                   <Users className="w-5 h-5" />
@@ -1263,7 +1263,7 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
                       type="number"
                       value={delegationOrder}
                       onChange={(e) => setDelegationOrder(Number(e.target.value))}
-                      className="w-20"
+                      className="w-24"
                       min={1}
                       max={999}
                     />
@@ -1300,9 +1300,9 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
                 </div>
               </div>
             </CardHeader>
-            <CardContent className="p-6">
+            <CardContent className="p-3">
               {delegationMembers.length === 0 ? (
-                <div className="text-center py-12 text-gray-500">
+                <div className="text-center py-8 text-gray-500">
                   <Users className="w-12 h-12 mx-auto mb-4 text-gray-300" />
                   <p>No delegation members added yet.</p>
                   <p className="text-sm mt-2">Click the buttons above to add members.</p>
@@ -1311,15 +1311,15 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="w-12">#</TableHead>
-                      <TableHead>Type</TableHead>
-                      <TableHead>Title</TableHead>
-                      <TableHead>First Name</TableHead>
-                      <TableHead>Last Name</TableHead>
-                      <TableHead>Rank</TableHead>
-                      <TableHead>Office</TableHead>
-                      <TableHead>Relationship</TableHead>
-                      <TableHead className="w-20">Actions</TableHead>
+                      <TableHead className="w-8 px-2 py-2">#</TableHead>
+                      <TableHead className="px-2 py-2">Type</TableHead>
+                      <TableHead className="px-2 py-2">Title</TableHead>
+                      <TableHead className="px-2 py-2">First Name</TableHead>
+                      <TableHead className="px-2 py-2">Last Name</TableHead>
+                      <TableHead className="px-2 py-2">Rank</TableHead>
+                      <TableHead className="px-2 py-2">Office</TableHead>
+                      <TableHead className="px-2 py-2">Relationship</TableHead>
+                      <TableHead className="w-20 px-2 py-2">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -1340,7 +1340,7 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
               )}
 
               {delegationMembers.length > 0 && (
-                <Alert className="mt-6 border-amber-200 bg-amber-50">
+                <Alert className="mt-4 border-amber-200 bg-amber-50">
                   <Info className="h-4 w-4 text-amber-600" />
                   <AlertDescription className="text-amber-700 text-sm">
                     All delegation members will be registered under {selectedGrandLodge ? 'the selected Grand Lodge' : 'your Grand Lodge'}.
@@ -1409,9 +1409,9 @@ const DelegationMemberRow: React.FC<{
   if (isEditing) {
     return (
       <TableRow>
-        <TableCell>{index + 1}</TableCell>
-        <TableCell>{member.type}</TableCell>
-        <TableCell>
+        <TableCell className="p-2">{index + 1}</TableCell>
+        <TableCell className="p-2">{member.type}</TableCell>
+        <TableCell className="p-2">
           {isMasonicOrder && member.type === 'Mason' ? (
             <Input
               value={member.title}
@@ -1440,7 +1440,7 @@ const DelegationMemberRow: React.FC<{
             </Select>
           )}
         </TableCell>
-        <TableCell>
+        <TableCell className="p-2">
           <Input
             value={member.firstName}
             onChange={(e) => onUpdate(member.id, { firstName: e.target.value })}
@@ -1448,7 +1448,7 @@ const DelegationMemberRow: React.FC<{
             className="w-32"
           />
         </TableCell>
-        <TableCell>
+        <TableCell className="p-2">
           <Input
             value={member.lastName}
             onChange={(e) => onUpdate(member.id, { lastName: e.target.value })}
@@ -1456,7 +1456,7 @@ const DelegationMemberRow: React.FC<{
             className="w-32"
           />
         </TableCell>
-        <TableCell>
+        <TableCell className="p-2">
           {member.type === 'Mason' ? (
             <Input
               value={member.grandRank || ''}
@@ -1466,23 +1466,23 @@ const DelegationMemberRow: React.FC<{
             />
           ) : '-'}
         </TableCell>
-        <TableCell>
+        <TableCell className="p-2">
           {member.type === 'Mason' ? (
             <Input
               value={member.grandOffice || ''}
               onChange={(e) => onUpdate(member.id, { grandOffice: e.target.value })}
               placeholder="Office"
-              className="w-40"
+              className="w-36"
             />
           ) : '-'}
         </TableCell>
-        <TableCell>
+        <TableCell className="p-2">
           {member.type === 'Partner' ? (
             <Select
               value={member.relationship || ''}
               onValueChange={(value) => onUpdate(member.id, { relationship: value })}
             >
-              <SelectTrigger className="w-28">
+              <SelectTrigger className="w-24">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -1496,16 +1496,16 @@ const DelegationMemberRow: React.FC<{
               value={member.relationship || ''}
               onChange={(e) => onUpdate(member.id, { relationship: e.target.value })}
               placeholder="e.g., Friend"
-              className="w-28"
+              className="w-36"
             />
           ) : '-'}
         </TableCell>
-        <TableCell>
+        <TableCell className="p-2">
           <div className="flex gap-1">
-            <Button size="sm" variant="ghost" onClick={handleSave}>
+            <Button size="sm" variant="ghost" onClick={handleSave} className="h-7 px-2">
               <Check className="w-4 h-4" />
             </Button>
-            <Button size="sm" variant="ghost" onClick={() => onRemove(member.id)}>
+            <Button size="sm" variant="ghost" onClick={() => onRemove(member.id)} className="h-7 px-2">
               <X className="w-4 h-4" />
             </Button>
           </div>
@@ -1520,25 +1520,25 @@ const DelegationMemberRow: React.FC<{
 
   return (
     <TableRow>
-      <TableCell>{index + 1}</TableCell>
-      <TableCell>{member.type}</TableCell>
-      <TableCell>{member.title}</TableCell>
-      <TableCell>{member.firstName}</TableCell>
-      <TableCell>{member.lastName}</TableCell>
-      <TableCell>{member.type === 'Mason' ? member.grandRank : '-'}</TableCell>
-      <TableCell>{member.type === 'Mason' ? member.grandOffice : '-'}</TableCell>
-      <TableCell>
+      <TableCell className="p-2">{index + 1}</TableCell>
+      <TableCell className="p-2">{member.type}</TableCell>
+      <TableCell className="p-2">{member.title}</TableCell>
+      <TableCell className="p-2">{member.firstName}</TableCell>
+      <TableCell className="p-2">{member.lastName}</TableCell>
+      <TableCell className="p-2">{member.type === 'Mason' ? member.grandRank : '-'}</TableCell>
+      <TableCell className="p-2">{member.type === 'Mason' ? member.grandOffice : '-'}</TableCell>
+      <TableCell className="p-2">
         {member.type === 'Partner' && partnerOfMember ? 
           `${member.relationship} of ${partnerOfMember.firstName} ${partnerOfMember.lastName}` :
           member.relationship || '-'
         }
       </TableCell>
-      <TableCell>
+      <TableCell className="p-2">
         <div className="flex gap-1">
-          <Button size="sm" variant="ghost" onClick={() => setIsEditing(true)}>
+          <Button size="sm" variant="ghost" onClick={() => setIsEditing(true)} className="h-7 px-2">
             Edit
           </Button>
-          <Button size="sm" variant="ghost" onClick={() => onRemove(member.id)}>
+          <Button size="sm" variant="ghost" onClick={() => onRemove(member.id)} className="h-7 px-2">
             <X className="w-4 h-4" />
           </Button>
         </div>
@@ -1679,11 +1679,11 @@ const BookingContactDetails = React.memo(({
   handleFieldChangeImmediate: (field: string, value: any) => void;
 }) => {
   return (
-    <div className="space-y-4 border-t pt-6">
+    <div className="space-y-3 border-t pt-4">
       <h3 className="text-base font-medium">Booking Contact</h3>
       
       {/* Name and Title Row - following MasonForm layout */}
-      <div className="grid grid-cols-12 gap-4">
+      <div className="grid grid-cols-12 gap-3">
         {/* Masonic Title - 2 columns */}
         <div className="col-span-2">
           <Label>Title *</Label>
