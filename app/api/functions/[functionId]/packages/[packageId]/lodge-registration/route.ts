@@ -487,7 +487,16 @@ export async function POST(
             first_name: bookingContact.firstName,
             last_name: bookingContact.lastName,
             phone: bookingContact.mobile,
+            email: bookingContact.email,
             business_name: lodgeDetails.organisationName || lodgeDetails.grandLodgeName || 'Delegation',
+            billing_organisation_name: lodgeDetails.organisationName || lodgeDetails.grandLodgeName,
+            billing_email: bookingContact.email,
+            billing_phone: bookingContact.mobile,
+            billing_street_address: billingDetails?.addressLine1 || '',
+            billing_city: billingDetails?.suburb || 'Sydney',
+            billing_state: billingDetails?.stateTerritory?.name || 'NSW',
+            billing_postal_code: billingDetails?.postcode || '2000',
+            billing_country: billingDetails?.country?.isoCode || 'AU',
             updated_at: new Date().toISOString()
           })
           .eq('customer_id', customerId);
@@ -507,6 +516,19 @@ export async function POST(
             email: bookingContact.email,
             phone: bookingContact.mobile,
             business_name: lodgeDetails.organisationName || lodgeDetails.grandLodgeName || 'Delegation',
+            billing_organisation_name: lodgeDetails.organisationName || lodgeDetails.grandLodgeName,
+            billing_email: bookingContact.email,
+            billing_phone: bookingContact.mobile,
+            billing_street_address: billingDetails?.addressLine1 || '',
+            billing_city: billingDetails?.suburb || 'Sydney',
+            billing_state: billingDetails?.stateTerritory?.name || 'NSW',
+            billing_postal_code: billingDetails?.postcode || '2000',
+            billing_country: billingDetails?.country?.isoCode || 'AU',
+            address_line1: billingDetails?.addressLine1 || '',
+            city: billingDetails?.suburb || 'Sydney',
+            state: billingDetails?.stateTerritory?.name || 'NSW',
+            postal_code: billingDetails?.postcode || '2000',
+            country: billingDetails?.country?.isoCode || 'AU',
             customer_type: 'booking_contact',
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString()
@@ -627,6 +649,14 @@ export async function POST(
         registrationError = null;
       }
     } else {
+      // Prepare lodge details for RPC - ensure lodgeName is set
+      const rpcLodgeDetails = {
+        ...lodgeDetails,
+        // TEMPORARY FIX: Ensure lodgeName is always set to prevent RPC failure
+        // For Grand Lodge delegations, we use the Grand Lodge name
+        lodgeName: lodgeDetails.lodgeName || lodgeDetails.organisationName || lodgeDetails.grandLodgeName || 'Grand Lodge Delegation'
+      };
+
       // Use existing lodge RPC for lodge registrations
       const { data, error } = await supabase
         .rpc('upsert_lodge_registration', {
@@ -634,7 +664,7 @@ export async function POST(
         p_package_id: packageId,
         p_table_count: packageQuantity, // The RPC still expects p_table_count
         p_booking_contact: bookingContact,
-        p_lodge_details: lodgeDetails,
+        p_lodge_details: rpcLodgeDetails,
         p_payment_status: paymentStatus,
         p_stripe_payment_intent_id: null, // Not used for Square
         p_square_payment_id: squarePaymentId,

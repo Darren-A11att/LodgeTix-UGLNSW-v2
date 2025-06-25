@@ -137,6 +137,7 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
   
   
   const [selectedGrandLodge, setSelectedGrandLodge] = useState<string>('');
+  const [selectedGrandLodgeOrgId, setSelectedGrandLodgeOrgId] = useState<string | null>(null);
   const [primaryAttendeeId, setPrimaryAttendeeId] = useState<string | null>(null);
   const [tableCount, setTableCount] = useState(1);
   const [ticketCount, setTicketCount] = useState(1);
@@ -381,9 +382,14 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
   }, [setLodgeOrder, selectedPackage, packagePrice, baseQuantity]);
 
   // Update Grand Lodge for primary attendee - No Lodge selection needed for Grand Lodges
-  const handleGrandLodgeChange = useCallback((grandLodgeId: string) => {
+  const handleGrandLodgeChange = useCallback((grandLodgeId: string, organisationId?: string) => {
     if (selectedGrandLodge !== grandLodgeId) {
       setSelectedGrandLodge(grandLodgeId);
+      
+      // Store the organisation ID if provided
+      if (organisationId) {
+        setSelectedGrandLodgeOrgId(organisationId);
+      }
       
       if (primaryAttendeeId) {
         updateFieldImmediate('grand_lodge_id', grandLodgeId ? Number(grandLodgeId) : 0);
@@ -544,10 +550,20 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
             mobile: primaryAttendee.primaryPhone || '',
           });
           
+          // Get Grand Lodge name from the selected Grand Lodge
+          const allGrandLodges = useLocationStore.getState().grandLodges;
+          const selectedGL = allGrandLodges.find(gl => gl.grand_lodge_id === selectedGrandLodge);
+          const selectedGrandLodgeName = selectedGL?.name || '';
+
           updateLodgeDetails({
             grand_lodge_id: delegationTypeTab === 'grandLodge' ? selectedGrandLodge : '0',
-            lodge_id: delegationTypeTab === 'grandLodge' ? selectedGrandLodge : '0',
-            lodgeName: delegationTypeTab === 'grandLodge' ? 'Grand Lodge Delegation' : primaryAttendee.organisationName || 'Masonic Order',
+            grandLodgeName: delegationTypeTab === 'grandLodge' ? selectedGrandLodgeName : '',
+            // For delegations, we use organization details, not lodge details
+            organisationName: delegationTypeTab === 'grandLodge' ? selectedGrandLodgeName : (primaryAttendee.organisationName || ''),
+            organisationAbbreviation: delegationTypeTab === 'grandLodge' ? (selectedGL?.abbreviation || '') : (primaryAttendee.organisationAbbreviation || ''),
+            organisationKnownAs: delegationTypeTab === 'grandLodge' ? selectedGrandLodgeName : (primaryAttendee.organisationKnownAs || ''),
+            organisationId: delegationTypeTab === 'grandLodge' ? selectedGrandLodgeOrgId : null,
+            delegationType: delegationTypeTab
           });
         }
         
@@ -713,7 +729,7 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
       // Get the Grand Lodge name from location store
       const { grandLodges } = useLocationStore.getState();
       const selectedGrandLodgeData = grandLodges.find(gl => gl.grand_lodge_id.toString() === selectedGrandLodge);
-      const grandLodgeName = selectedGrandLodgeData?.name || 'Grand Lodge';
+      const currentGrandLodgeName = selectedGrandLodgeData?.name || 'Grand Lodge';
 
       // Create comprehensive booking contact with ALL collected data
       const comprehensiveBookingContact = {
@@ -743,21 +759,24 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
         contactPreference: primaryAttendee?.contactPreference || 'directly'
       };
 
-      // Create comprehensive lodge details with ALL organization data
+      // Get Grand Lodge name from the selected Grand Lodge (we'll need to store this)
+      const allGrandLodges = useLocationStore.getState().grandLodges;
+      const selectedGL = allGrandLodges.find(gl => gl.grand_lodge_id === selectedGrandLodge);
+      const grandLodgeName = selectedGL?.name || '';
+
+      // Create comprehensive organization details (NOT lodge details)
       const comprehensiveLodgeDetails = {
-        // Only include lodge fields for actual lodge registrations (not delegations)
-        ...(delegationTypeTab !== 'grandLodge' && {
-          lodgeName: primaryAttendee?.organisationName || 'Masonic Order',
-          lodge_id: '0', // Not a real lodge for masonic orders
-        }),
-        
+        // Grand Lodge ID for reference
         grand_lodge_id: delegationTypeTab === 'grandLodge' ? selectedGrandLodge : '0',
-        grandLodgeName: delegationTypeTab === 'grandLodge' ? grandLodgeName : 'Masonic Order',
+        grandLodgeName: delegationTypeTab === 'grandLodge' ? grandLodgeName : '',
         
-        // For Masonic Orders - CRITICAL DATA WE'RE CURRENTLY LOSING
-        organisationName: primaryAttendee?.organisationName || '',
-        organisationAbbreviation: primaryAttendee?.organisationAbbreviation || '',
-        organisationKnownAs: primaryAttendee?.organisationKnownAs || '',
+        // Organization details - for Grand Lodges, use the Grand Lodge info
+        organisationName: delegationTypeTab === 'grandLodge' ? grandLodgeName : (primaryAttendee?.organisationName || ''),
+        organisationAbbreviation: delegationTypeTab === 'grandLodge' ? (selectedGL?.abbreviation || '') : (primaryAttendee?.organisationAbbreviation || ''),
+        organisationKnownAs: delegationTypeTab === 'grandLodge' ? grandLodgeName : (primaryAttendee?.organisationKnownAs || ''),
+        
+        // Include the organisation ID if available
+        organisationId: delegationTypeTab === 'grandLodge' ? selectedGrandLodgeOrgId : null,
         
         // Delegation type
         delegationType: delegationTypeTab
@@ -779,12 +798,12 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
           squareFee: Math.round((feeCalculation?.squareFee || 0) * 100),
           billingDetails: getBillingDetails(),
           registrationMode: activeTab, // Send the current tab mode
-          // Add complete attendee data for proper storage
-          attendeeDetails: {
+          // Only send attendee data for registerDelegation mode
+          attendeeDetails: activeTab === 'registerDelegation' ? {
             primaryAttendee: primaryAttendee, // Store ALL the collected data
-            registrationType: 'grandlodge',
+            registrationType: delegationTypeTab === 'masonicOrder' ? 'masonicorder' : 'grandlodge',
             delegationType: delegationTypeTab
-          },
+          } : undefined,
           // Include all additional metadata including package details
           additionalMetadata: {
             selectedPackageDetails: {
@@ -1533,7 +1552,7 @@ export const GrandLodgeFormSummary: React.FC = () => {
   const { attendees, lodgeTicketOrder } = useRegistrationStore();
   
   const primaryAttendee = attendees.find(a => a.isPrimary);
-  const grandLodgeName = primaryAttendee?.grand_lodge_id ? 'Grand Lodge' : 'Grand Lodge';
+  const displayGrandLodgeName = primaryAttendee?.grand_lodge_id ? 'Grand Lodge' : 'Grand Lodge';
   
   // Calculate fees for summary
   const subtotal = lodgeTicketOrder ? lodgeTicketOrder.totalTickets * 195 : 0;
@@ -1567,7 +1586,7 @@ export const GrandLodgeFormSummary: React.FC = () => {
         <CardContent className="pt-4">
           <div className="space-y-3">
             <div>
-              <p className="font-medium text-lg">{grandLodgeName}</p>
+              <p className="font-medium text-lg">{displayGrandLodgeName}</p>
               <p className="text-sm text-gray-600">
                 Contact: {primaryAttendee?.title} {primaryAttendee?.firstName} {primaryAttendee?.lastName}
               </p>

@@ -114,10 +114,13 @@ export const BasicInfo = React.memo<BasicInfoProps>(({
   }, [type, data.title, data.rank, onChange]);
 
   // Convert rank constants to options
-  const rankOptions = MASON_RANKS.map(rank => ({ 
-    value: rank.value, 
-    label: rank.label 
-  }));
+  // Filter out MO unless isMasonicOrder is true
+  const rankOptions = MASON_RANKS
+    .filter(rank => rank.value !== 'MO' || isMasonicOrder)
+    .map(rank => ({ 
+      value: rank.value, 
+      label: rank.label 
+    }));
 
   // Render Mason-specific layout
   if (type === 'mason') {
@@ -341,7 +344,8 @@ export const BasicInfo = React.memo<BasicInfoProps>(({
     prevProps.data.rank === nextProps.data.rank &&
     prevProps.type === nextProps.type &&
     prevProps.isPrimary === nextProps.isPrimary &&
-    prevProps.onChange === nextProps.onChange
+    prevProps.onChange === nextProps.onChange &&
+    prevProps.isMasonicOrder === nextProps.isMasonicOrder
   );
 });
 

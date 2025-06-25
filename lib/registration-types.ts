@@ -117,6 +117,10 @@ export type UnifiedAttendeeData = {
   relationship?: string
   suffix?: string
   isCheckedIn?: boolean
+  // Organisation fields for delegations (Grand Lodge/Masonic Order)
+  organisationName?: string
+  organisationAbbreviation?: string
+  organisationKnownAs?: string
 }
 
 // Legacy type for MasonForm to reference during migration
