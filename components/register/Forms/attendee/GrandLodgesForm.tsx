@@ -1324,15 +1324,15 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="w-8 px-1 py-2">#</TableHead>
-                      <TableHead className="px-1 py-2">Type</TableHead>
-                      <TableHead className="px-1 py-2">Title</TableHead>
-                      <TableHead className="px-1 py-2">First Name</TableHead>
-                      <TableHead className="px-1 py-2">Last Name</TableHead>
-                      <TableHead className="px-1 py-2">Rank</TableHead>
-                      <TableHead className="px-1 py-2">Office</TableHead>
-                      <TableHead className="px-1 py-2">Relationship</TableHead>
-                      <TableHead className="w-20 px-1 py-2">Actions</TableHead>
+                      <TableHead className="!w-8 !px-1 !py-2 !h-auto">#</TableHead>
+                      <TableHead className="!px-1 !py-2 !h-auto">Type</TableHead>
+                      <TableHead className="!px-1 !py-2 !h-auto">Title</TableHead>
+                      <TableHead className="!px-1 !py-2 !h-auto">First Name</TableHead>
+                      <TableHead className="!px-1 !py-2 !h-auto">Last Name</TableHead>
+                      <TableHead className="!px-1 !py-2 !h-auto">Rank</TableHead>
+                      <TableHead className="!px-1 !py-2 !h-auto">Office</TableHead>
+                      <TableHead className="!px-1 !py-2 !h-auto">Relationship</TableHead>
+                      <TableHead className="!w-20 !px-1 !py-2 !h-auto">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -1422,9 +1422,9 @@ const DelegationMemberRow: React.FC<{
   if (isEditing) {
     return (
       <TableRow>
-        <TableCell className="py-2 px-1">{index + 1}</TableCell>
-        <TableCell className="py-2 px-1">{member.type}</TableCell>
-        <TableCell className="py-2 px-1">
+        <TableCell className="!py-2 !px-1">{index + 1}</TableCell>
+        <TableCell className="!py-2 !px-1">{member.type}</TableCell>
+        <TableCell className="!py-2 !px-1">
           {isMasonicOrder && member.type === 'Mason' ? (
             <Input
               value={member.title}
@@ -1453,7 +1453,7 @@ const DelegationMemberRow: React.FC<{
             </Select>
           )}
         </TableCell>
-        <TableCell className="py-2 px-1">
+        <TableCell className="!py-2 !px-1">
           <Input
             value={member.firstName}
             onChange={(e) => onUpdate(member.id, { firstName: e.target.value })}
@@ -1461,7 +1461,7 @@ const DelegationMemberRow: React.FC<{
             className="min-w-[8rem] w-full"
           />
         </TableCell>
-        <TableCell className="py-2 px-1">
+        <TableCell className="!py-2 !px-1">
           <Input
             value={member.lastName}
             onChange={(e) => onUpdate(member.id, { lastName: e.target.value })}
@@ -1469,7 +1469,7 @@ const DelegationMemberRow: React.FC<{
             className="min-w-[8rem] w-full"
           />
         </TableCell>
-        <TableCell className="py-2 px-1">
+        <TableCell className="!py-2 !px-1">
           {member.type === 'Mason' ? (
             <Input
               value={member.grandRank || ''}
@@ -1479,7 +1479,7 @@ const DelegationMemberRow: React.FC<{
             />
           ) : '-'}
         </TableCell>
-        <TableCell className="py-2 px-1">
+        <TableCell className="!py-2 !px-1">
           {member.type === 'Mason' ? (
             <Input
               value={member.grandOffice || ''}
@@ -1489,7 +1489,7 @@ const DelegationMemberRow: React.FC<{
             />
           ) : '-'}
         </TableCell>
-        <TableCell className="py-2 px-1">
+        <TableCell className="!py-2 !px-1">
           {member.type === 'Partner' ? (
             <Select
               value={member.relationship || ''}
@@ -1513,7 +1513,7 @@ const DelegationMemberRow: React.FC<{
             />
           ) : '-'}
         </TableCell>
-        <TableCell className="py-2 px-1">
+        <TableCell className="!py-2 !px-1">
           <div className="flex gap-1">
             <Button size="sm" variant="ghost" onClick={handleSave} className="h-7 px-2">
               <Check className="w-4 h-4" />
@@ -1533,20 +1533,20 @@ const DelegationMemberRow: React.FC<{
 
   return (
     <TableRow>
-      <TableCell className="py-2 px-1">{index + 1}</TableCell>
-      <TableCell className="py-2 px-1">{member.type}</TableCell>
-      <TableCell className="py-2 px-1">{member.title}</TableCell>
-      <TableCell className="py-2 px-1">{member.firstName}</TableCell>
-      <TableCell className="py-2 px-1">{member.lastName}</TableCell>
-      <TableCell className="py-2 px-1">{member.type === 'Mason' ? member.grandRank : '-'}</TableCell>
-      <TableCell className="py-2 px-1">{member.type === 'Mason' ? member.grandOffice : '-'}</TableCell>
-      <TableCell className="py-2 px-1">
+      <TableCell className="!py-2 !px-1">{index + 1}</TableCell>
+      <TableCell className="!py-2 !px-1">{member.type}</TableCell>
+      <TableCell className="!py-2 !px-1">{member.title}</TableCell>
+      <TableCell className="!py-2 !px-1">{member.firstName}</TableCell>
+      <TableCell className="!py-2 !px-1">{member.lastName}</TableCell>
+      <TableCell className="!py-2 !px-1">{member.type === 'Mason' ? member.grandRank : '-'}</TableCell>
+      <TableCell className="!py-2 !px-1">{member.type === 'Mason' ? member.grandOffice : '-'}</TableCell>
+      <TableCell className="!py-2 !px-1">
         {member.type === 'Partner' && partnerOfMember ? 
           `${member.relationship} of ${partnerOfMember.firstName} ${partnerOfMember.lastName}` :
           member.relationship || '-'
         }
       </TableCell>
-      <TableCell className="py-2 px-1">
+      <TableCell className="!py-2 !px-1">
         <div className="flex gap-1">
           <Button size="sm" variant="ghost" onClick={() => setIsEditing(true)} className="h-7 px-2">
             Edit
