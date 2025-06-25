@@ -184,14 +184,15 @@ export function RegistrationTypeStep({ onTriggerDraftModal }: RegistrationTypeSt
     const type = REGISTRATION_TYPES.find(t => t.id === typeId);
     if (!type) return;
 
-    // For lodge registration, we create ZERO attendees
-    // The booking contact info will be stored separately as billing details
-    if (typeId === 'lodge') {
-      // No attendees for lodge registration
+    // For lodge and delegation registrations, we create ZERO attendees
+    // The booking contact info will be managed by the respective forms
+    if (typeId === 'lodge' || typeId === 'delegation') {
+      // No attendees for lodge or delegation registration
+      // GrandLodgesForm will create its own primary attendee with proper initialization
       return;
     }
 
-    // For other registration types, create one primary attendee
+    // For other registration types (individuals), create one primary attendee
     const attendeeId = addAttendee(type.defaultAttendeeType);
     updateAttendee(attendeeId, {
       isPrimary: true,
@@ -281,7 +282,7 @@ export function RegistrationTypeStep({ onTriggerDraftModal }: RegistrationTypeSt
         goToNextStep();
       }
     } else if (isSelectingCurrentType && (hasExistingAttendees || hasLodgeData)) {
-      // If selecting the same type and we have attendees OR lodge data, just proceed without reinitializing
+      // If selecting the same type and we have attendees OR lodge/delegation data, just proceed without reinitializing
       console.log("Selecting current type with existing data - proceeding without reinitializing");
       setSelectedType(type);
       

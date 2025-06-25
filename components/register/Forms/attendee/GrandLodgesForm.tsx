@@ -329,7 +329,20 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
     if (!isInitializedRef.current) {
       isInitializedRef.current = true;
       
-      if (!primaryAttendeeId) {
+      // Check if there's already a primary attendee
+      const existingPrimary = attendees.find(a => a.isPrimary);
+      
+      if (existingPrimary) {
+        // Use the existing primary attendee
+        setPrimaryAttendeeId(existingPrimary.attendeeId);
+        // Update its properties to ensure it has the correct defaults
+        updateAttendee(existingPrimary.attendeeId, {
+          attendeeType: 'Mason',
+          rank: existingPrimary.rank || 'GL', // Default to Grand Lodge rank if not set
+          grandOfficerStatus: existingPrimary.grandOfficerStatus || 'Present', // Default to Present Grand Officer if not set
+        });
+      } else if (!primaryAttendeeId) {
+        // Only create a new primary attendee if none exists
         const primaryId = addMasonAttendee();
         updateAttendee(primaryId, {
           isPrimary: true,
@@ -340,7 +353,7 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
         setPrimaryAttendeeId(primaryId);
       }
     }
-  }, [primaryAttendeeId, addMasonAttendee, updateAttendee]);
+  }, [primaryAttendeeId, addMasonAttendee, updateAttendee, attendees]);
 
   // Update table count (for register delegation)
   const handleTableCountChange = useCallback((newCount: number) => {
@@ -1417,14 +1430,14 @@ const DelegationMemberRow: React.FC<{
               value={member.title}
               onChange={(e) => onUpdate(member.id, { title: e.target.value })}
               placeholder="Title"
-              className="w-24"
+              className="min-w-[6rem] w-full"
             />
           ) : (
             <Select
               value={member.title}
               onValueChange={(value) => onUpdate(member.id, { title: value })}
             >
-              <SelectTrigger className="w-24">
+              <SelectTrigger className="min-w-[6rem] w-full">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -1445,7 +1458,7 @@ const DelegationMemberRow: React.FC<{
             value={member.firstName}
             onChange={(e) => onUpdate(member.id, { firstName: e.target.value })}
             placeholder="First name"
-            className="w-32"
+            className="min-w-[8rem] w-full"
           />
         </TableCell>
         <TableCell className="py-2 px-1">
@@ -1453,7 +1466,7 @@ const DelegationMemberRow: React.FC<{
             value={member.lastName}
             onChange={(e) => onUpdate(member.id, { lastName: e.target.value })}
             placeholder="Last name"
-            className="w-32"
+            className="min-w-[8rem] w-full"
           />
         </TableCell>
         <TableCell className="py-2 px-1">
@@ -1462,7 +1475,7 @@ const DelegationMemberRow: React.FC<{
               value={member.grandRank || ''}
               onChange={(e) => onUpdate(member.id, { grandRank: e.target.value })}
               placeholder="Rank"
-              className="w-24"
+              className="min-w-[6rem] w-full"
             />
           ) : '-'}
         </TableCell>
@@ -1472,7 +1485,7 @@ const DelegationMemberRow: React.FC<{
               value={member.grandOffice || ''}
               onChange={(e) => onUpdate(member.id, { grandOffice: e.target.value })}
               placeholder="Office"
-              className="w-36"
+              className="min-w-[9rem] w-full"
             />
           ) : '-'}
         </TableCell>
@@ -1482,7 +1495,7 @@ const DelegationMemberRow: React.FC<{
               value={member.relationship || ''}
               onValueChange={(value) => onUpdate(member.id, { relationship: value })}
             >
-              <SelectTrigger className="w-24">
+              <SelectTrigger className="min-w-[6rem] w-full">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -1496,7 +1509,7 @@ const DelegationMemberRow: React.FC<{
               value={member.relationship || ''}
               onChange={(e) => onUpdate(member.id, { relationship: e.target.value })}
               placeholder="e.g., Friend"
-              className="w-36"
+              className="min-w-[9rem] w-full"
             />
           ) : '-'}
         </TableCell>
