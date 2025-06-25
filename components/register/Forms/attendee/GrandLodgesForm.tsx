@@ -1069,9 +1069,9 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
               
               <TabsContent value="masonicOrder" className="p-3 space-y-2 mt-0">
                 {/* Masonic Order Fields */}
-                <div className="grid grid-cols-1 md:grid-cols-12 gap-2">
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-2">
                   {/* Formal Name - Long width (spans 6 columns) */}
-                  <div className="md:col-span-6">
+                  <div className="lg:col-span-6">
                     <TextField
                       label="Formal Name"
                       name="formal-name"
@@ -1084,7 +1084,7 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
                   </div>
                   
                   {/* Abbreviation - Short width (spans 2 columns) */}
-                  <div className="md:col-span-2">
+                  <div className="lg:col-span-2">
                     <TextField
                       label="Abbreviation"
                       name="abbreviation"
@@ -1097,7 +1097,7 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
                   </div>
                   
                   {/* Known As - Medium width (spans 4 columns) */}
-                  <div className="md:col-span-4">
+                  <div className="lg:col-span-4">
                     <TextField
                       label="Known As"
                       name="known-as"
@@ -1683,9 +1683,9 @@ const BookingContactDetails = React.memo(({
       <h3 className="text-sm font-medium">Booking Contact</h3>
       
       {/* Name and Title Row - following MasonForm layout */}
-      <div className="grid grid-cols-12 gap-2">
-        {/* Masonic Title - 2 columns */}
-        <div className="col-span-2">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-2">
+        {/* Masonic Title - 2 columns on large screens */}
+        <div className="lg:col-span-2">
           <Label className="text-sm mb-1">Title *</Label>
           <select
             className="w-full h-9 border rounded-md px-3 py-1.5 text-sm"
@@ -1699,8 +1699,8 @@ const BookingContactDetails = React.memo(({
           </select>
         </div>
         
-        {/* First Name - 4 columns */}
-        <div className="col-span-4">
+        {/* First Name - 4 columns on large screens */}
+        <div className="lg:col-span-4">
           <Label className="text-sm mb-1">First Name *</Label>
           <input
             type="text"
@@ -1711,8 +1711,8 @@ const BookingContactDetails = React.memo(({
           />
         </div>
         
-        {/* Last Name - 4 columns */}
-        <div className="col-span-4">
+        {/* Last Name - 4 columns on large screens */}
+        <div className="lg:col-span-4">
           <Label className="text-sm mb-1">Last Name *</Label>
           <input
             type="text"
@@ -1723,8 +1723,8 @@ const BookingContactDetails = React.memo(({
           />
         </div>
         
-        {/* Rank - 2 columns */}
-        <div className="col-span-2">
+        {/* Rank - 2 columns on large screens */}
+        <div className="lg:col-span-2">
           <Label className="text-sm mb-1">Rank *</Label>
           <select
             className="w-full h-9 border rounded-md px-3 py-1.5 text-sm"
