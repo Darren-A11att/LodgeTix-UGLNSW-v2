@@ -238,7 +238,7 @@ export const LodgesForm: React.FC<LodgesFormProps> = ({
       return;
     }
     
-    // Store final package order
+    // Store final package order with all package details
     if (selectedPackage) {
       setLodgeOrder({
         packageId: selectedPackage.id,
@@ -247,6 +247,13 @@ export const LodgesForm: React.FC<LodgesFormProps> = ({
         itemQuantity: baseQuantity,
         packagePrice: packagePrice,
         packageName: selectedPackage.name,
+        packageDescription: selectedPackage.description,
+        originalPrice: selectedPackage.original_price,
+        discount: selectedPackage.discount,
+        includesDescription: selectedPackage.includes_description,
+        eligibilityCriteria: selectedPackage.eligibility_criteria,
+        registrationTypes: selectedPackage.eligibleRegistrationTypes,
+        isActive: selectedPackage.is_active,
         totalAttendees: packageCount * baseQuantity,
         subtotal: packageCount * packagePrice
       });

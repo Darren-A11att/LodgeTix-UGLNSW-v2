@@ -104,11 +104,17 @@ export const AttendeeDetailsSummary: React.FC = () => {
   
   // Determine if attendees can be added (based on registration type limits)
   const canAddAttendee = useMemo(() => {
-    if ((registrationType === 'individuals' || registrationType === 'individual') && attendees.length >= 10) return false;
+    if (registrationType === 'individuals' || registrationType === 'individual') {
+      // For individuals: max 10 masons and 10 guests (excluding partners)
+      const primaryAttendees = attendees.filter(a => !a.isPartner);
+      const masonCount = primaryAttendees.filter(a => a.attendeeType === 'mason').length;
+      const guestCount = primaryAttendees.filter(a => a.attendeeType === 'guest').length;
+      return masonCount < 10 || guestCount < 10;
+    }
     if (registrationType === 'lodge' && attendees.length >= 20) return false;
     if (registrationType === 'delegation' && attendees.length >= 10) return false;
     return true;
-  }, [registrationType, attendees.length]);
+  }, [registrationType, attendees]);
   
   // Determine which attendees can have partners added
   const getCanAddPartner = (attendee: UnifiedAttendeeData): boolean => {

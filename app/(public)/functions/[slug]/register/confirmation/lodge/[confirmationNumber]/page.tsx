@@ -19,15 +19,35 @@ export default async function LodgeConfirmationRoute({ params }: LodgeConfirmati
   
   const supabase = await createClient();
   
-  // Fetch lodge registration using confirmation number view
-  const { data: registration, error } = await supabase
-    .from('lodge_registration_confirmation_view')
-    .select('*')
-    .eq('confirmation_number', confirmationNumber)
-    .single();
+  // Retry logic to handle timing issues with database view updates
+  let registration = null;
+  let error = null;
+  const maxRetries = 5;
+  const retryDelay = 1000; // 1 second
+  
+  for (let i = 0; i < maxRetries; i++) {
+    const result = await supabase
+      .from('lodge_registration_confirmation_view')
+      .select('*')
+      .eq('confirmation_number', confirmationNumber)
+      .single();
+    
+    registration = result.data;
+    error = result.error;
+    
+    if (registration) {
+      console.log(`[LodgeConfirmationRoute] Registration found on attempt ${i + 1}`);
+      break;
+    }
+    
+    if (i < maxRetries - 1) {
+      console.log(`[LodgeConfirmationRoute] Registration not found on attempt ${i + 1}, retrying in ${retryDelay}ms...`);
+      await new Promise(resolve => setTimeout(resolve, retryDelay));
+    }
+  }
   
   if (error || !registration) {
-    console.error('[LodgeConfirmationRoute] Lodge registration not found:', error);
+    console.error('[LodgeConfirmationRoute] Lodge registration not found after retries:', error);
     redirect(`/functions/${slug}?error=confirmation_not_found`);
   }
   

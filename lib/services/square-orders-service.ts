@@ -17,6 +17,7 @@ export interface LodgeContactDetails {
   state?: string;
   postcode?: string;
   country?: string;
+  note?: string; // For storing additional details like masonic information
 }
 
 export interface PackageLineItem {
@@ -67,6 +68,7 @@ export class SquareOrdersService {
           postalCode: contact.postcode || '',
           country: contact.country === 'Australia' ? 'AU' : (contact.country || 'AU')
         } : undefined,
+        note: contact.note, // Include masonic details
         idempotencyKey: generateIdempotencyKey()
       };
 
@@ -150,6 +152,34 @@ export class SquareOrdersService {
         }
       });
 
+      // Build metadata object with only defined string values
+      const orderMetadata: Record<string, string> = {
+        function_id: metadata.functionId || '',
+        registration_type: metadata.registrationType || 'lodge',
+        package_count: packages.reduce((sum, pkg) => sum + pkg.packageQuantity, 0).toString(),
+        items_per_package: packages[0]?.itemQuantity.toString() || '1'
+      };
+      
+      // Only add lodge_name if it exists (not for delegations)
+      if (metadata.lodgeName) {
+        orderMetadata.lodge_name = metadata.lodgeName;
+      }
+      
+      // Add organization name if present (for delegations)
+      if (metadata.organizationName) {
+        orderMetadata.organization_name = metadata.organizationName;
+      }
+      
+      // Add delegation type if present
+      if (metadata.delegationType) {
+        orderMetadata.delegation_type = metadata.delegationType;
+      }
+      
+      // Add grand lodge name if present
+      if (metadata.grandLodgeName) {
+        orderMetadata.grand_lodge_name = metadata.grandLodgeName;
+      }
+      
       // Create order with service charges if processing fee is provided
       const orderRequest: any = {
         order: {
@@ -157,13 +187,7 @@ export class SquareOrdersService {
           customerId,
           state: 'OPEN', // Create order in OPEN state for payment
           lineItems,
-          metadata: {
-            function_id: metadata.functionId,
-            lodge_name: metadata.lodgeName,
-            registration_type: metadata.registrationType,
-            package_count: packages.reduce((sum, pkg) => sum + pkg.packageQuantity, 0).toString(),
-            items_per_package: packages[0]?.itemQuantity.toString() || '1'
-          }
+          metadata: orderMetadata
         },
         idempotencyKey: generateIdempotencyKey()
       };
@@ -213,7 +237,7 @@ export class SquareOrdersService {
         customerId,
         lineItemCount: lineItems.length,
         processingFee: processingFee,
-        totalItems: orderRequest.order.metadata.total_items,
+        metadata: orderMetadata,
         orderRequest: JSON.stringify(orderRequest.order, (key, value) =>
           typeof value === 'bigint' ? value.toString() : value
         )

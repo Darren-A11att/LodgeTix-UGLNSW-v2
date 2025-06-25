@@ -378,9 +378,18 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ function
         setResolvedFunctionId(providedFunctionId);
         
         // Set the registrationId as the draftId if provided
+        // But first check if this registration is already completed
         if (registrationId) {
-          console.log(`Using registrationId as draftId: ${registrationId}`);
-          setDraftId(registrationId);
+          const completedRegistrations = useRegistrationStore.getState().completedRegistrations || [];
+          const isCompleted = completedRegistrations.some(reg => reg.registrationId === registrationId);
+          
+          if (isCompleted) {
+            console.log(`Registration ${registrationId} is already completed, not setting as draft`);
+            // Don't set as draft if already completed
+          } else {
+            console.log(`Using registrationId as draftId: ${registrationId}`);
+            setDraftId(registrationId);
+          }
         }
         
         // Set initializing to false to proceed to the registration type step
@@ -435,9 +444,18 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ function
           setFunctionId(functionId);
           
           // Set the registrationId as the draftId if provided
+          // But first check if this registration is already completed
           if (registrationId) {
-            console.log(`Using registrationId as draftId: ${registrationId}`);
-            setDraftId(registrationId);
+            const completedRegistrations = useRegistrationStore.getState().completedRegistrations || [];
+            const isCompleted = completedRegistrations.some(reg => reg.registrationId === registrationId);
+            
+            if (isCompleted) {
+              console.log(`Registration ${registrationId} is already completed, not setting as draft`);
+              // Don't set as draft if already completed
+            } else {
+              console.log(`Using registrationId as draftId: ${registrationId}`);
+              setDraftId(registrationId);
+            }
           }
           
           // Set initializing to false to proceed to the registration type step
@@ -463,99 +481,108 @@ export const RegistrationWizard: React.FC<RegistrationWizardProps> = ({ function
   // Handler for continuing existing draft
   const handleContinueDraft = () => {
     console.log("Continuing with existing draft registration");
+    
+    // Close the modal first
     setShowDraftRecoveryModal(false);
     setDraftRecoveryHandled(true);
     
-    // Clear the pending type since we're keeping the current draft
-    delete (window as any).__pendingRegistrationType__;
-    
-    // Set the function slug and ID for the existing registration if needed
-    if (functionSlug) {
-      setFunctionSlug(functionSlug);
-    }
-    const functionIdToUse = providedFunctionId || resolvedFunctionId;
-    if (functionIdToUse) {
-      setFunctionId(functionIdToUse);
-    }
-    
-    // Continue to the first page within the registration type (step 2)
-    // This maintains the existing draft data and progresses to attendee details
-    setCurrentStep(2);
-    
-    // Initialization is complete after user makes their choice
-    setIsInitializing(false);
+    // Use setTimeout to ensure modal closes before navigation
+    setTimeout(() => {
+      // Clear the pending type since we're keeping the current draft
+      delete (window as any).__pendingRegistrationType__;
+      
+      // Set the function slug and ID for the existing registration if needed
+      if (functionSlug) {
+        setFunctionSlug(functionSlug);
+      }
+      const functionIdToUse = providedFunctionId || resolvedFunctionId;
+      if (functionIdToUse) {
+        setFunctionId(functionIdToUse);
+      }
+      
+      // Force navigation to step 2 after all state updates
+      requestAnimationFrame(() => {
+        // Continue to the first page within the registration type (step 2)
+        // This maintains the existing draft data and progresses to attendee details
+        setCurrentStep(2);
+      });
+      
+      // Initialization is complete after user makes their choice
+      setIsInitializing(false);
+    }, 100); // Small delay to ensure modal animation completes
   };
   
   // Handler for starting a new registration
   const handleStartNew = () => {
     console.log("Starting new registration, discarding previous draft");
-    // Completely clear the existing registration
-    clearRegistration();
-    
-    // Clear session state - user will need to re-verify on registration type page
-    setAnonymousSessionEstablished(false);
     
     // Get the pending registration type they were trying to select
     const pendingType = (window as any).__pendingRegistrationType__;
     
-    if (pendingType) {
-      console.log("Setting new registration type:", pendingType);
-      setRegistrationType(pendingType);
-      // Initialize for the new type based on what they selected
-      const { addAttendee, updateAttendee, clearAllAttendees } = useRegistrationStore.getState();
-      clearAllAttendees();
-      
-      if (pendingType !== 'lodge') {
-        // For non-lodge types, create a primary attendee
-        const attendeeId = addAttendee(pendingType === 'individuals' ? 'mason' : 'mason');
-        updateAttendee(attendeeId, { isPrimary: true });
-      }
-      
-      // Go to step 2 (first step within the registration type)
-      setCurrentStep(2);
-      
-      // Clear the pending type
-      delete (window as any).__pendingRegistrationType__;
-    } else {
-      // Go to step 1 (Registration Type Selection) for fresh start
-      setCurrentStep(1);
-    }
-    
-    if (functionSlug) {
-      setFunctionSlug(functionSlug);
-    }
-    const functionIdToUse = providedFunctionId || resolvedFunctionId;
-    if (functionIdToUse) {
-      setFunctionId(functionIdToUse);
-    }
-    
+    // Close the modal first
     setShowDraftRecoveryModal(false);
     setDraftRecoveryHandled(true);
     
-    // Initialization is complete after user makes their choice
-    setIsInitializing(false);
+    // Use setTimeout to ensure modal closes before navigation
+    setTimeout(() => {
+      // Completely clear the existing registration
+      clearRegistration();
+      
+      // Clear session state - user will need to re-verify on registration type page
+      setAnonymousSessionEstablished(false);
+      
+      if (pendingType) {
+        console.log("Setting new registration type:", pendingType);
+        setRegistrationType(pendingType);
+        
+        // Initialize for the new type based on what they selected
+        const { addAttendee, updateAttendee, clearAllAttendees } = useRegistrationStore.getState();
+        clearAllAttendees();
+        
+        if (pendingType !== 'lodge') {
+          // For non-lodge types, create a primary attendee
+          const attendeeId = addAttendee(pendingType === 'individuals' ? 'mason' : 'mason');
+          updateAttendee(attendeeId, { isPrimary: true });
+        }
+        
+        // Set function details
+        if (functionSlug) {
+          setFunctionSlug(functionSlug);
+        }
+        const functionIdToUse = providedFunctionId || resolvedFunctionId;
+        if (functionIdToUse) {
+          setFunctionId(functionIdToUse);
+        }
+        
+        // Force navigation to step 2 after all state updates
+        requestAnimationFrame(() => {
+          setCurrentStep(2);
+          // Clear the pending type
+          delete (window as any).__pendingRegistrationType__;
+        });
+      } else {
+        // Go to step 1 (Registration Type Selection) for fresh start
+        setCurrentStep(1);
+      }
+      
+      // Initialization is complete after user makes their choice
+      setIsInitializing(false);
+    }, 100); // Small delay to ensure modal animation completes
   };
   
   // Handler for canceling the modal
   const handleCancelRecovery = () => {
     console.log("Recovery modal canceled, returning to registration type selection");
+    
+    // Close the modal
     setShowDraftRecoveryModal(false);
     setDraftRecoveryHandled(true);
     
     // Clear the pending type since user canceled
     delete (window as any).__pendingRegistrationType__;
     
-    // Take user back to the registration type page (step 1)
-    // Maintains existing draft data but lets user reconsider their choice
-    if (functionSlug) {
-      setFunctionSlug(functionSlug);
-    }
-    const functionIdToUse = providedFunctionId || resolvedFunctionId;
-    if (functionIdToUse) {
-      setFunctionId(functionIdToUse);
-    }
-    
-    setCurrentStep(1);
+    // Keep user on registration type page (step 1)
+    // No need to set step since we're already on step 1
     
     // Initialization is complete even if user cancels
     setIsInitializing(false);

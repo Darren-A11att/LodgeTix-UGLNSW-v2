@@ -45,15 +45,14 @@ export const LodgeRegistrationStep: React.FC<LodgeRegistrationStepProps> = ({
   const router = useRouter();
   // Remove Square initialization - now handled by UnifiedPaymentForm
   
-  // Store hooks from unified store
-  const { 
-    lodgeCustomer, 
-    lodgeDetails, 
-    lodgeOrder,
-    isLodgeFormValid,
-    getLodgeValidationErrors,
-    goToPrevStep: storeGoToPrevStep
-  } = useRegistrationStore();
+  // Store hooks from unified store - use individual selectors to avoid re-render issues
+  const lodgeCustomer = useRegistrationStore(state => state.lodgeCustomer);
+  const lodgeDetails = useRegistrationStore(state => state.lodgeDetails);
+  const lodgeOrder = useRegistrationStore(state => state.lodgeOrder);
+  const isLodgeFormValid = useRegistrationStore(state => state.isLodgeFormValid);
+  const getLodgeValidationErrors = useRegistrationStore(state => state.getLodgeValidationErrors);
+  const storeGoToPrevStep = useRegistrationStore(state => state.goToPrevStep);
+  const registrationId = useRegistrationStore(state => state.registrationId);
   
   // Use prop if provided, otherwise use store function
   const goToPrevStep = onPrevStep || storeGoToPrevStep;
@@ -221,6 +220,7 @@ export const LodgeRegistrationStep: React.FC<LodgeRegistrationStepProps> = ({
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
+          registrationId: registrationId, // Include the registration ID
           packageQuantity: lodgeOrder?.packageQuantity || 0,
           bookingContact: lodgeCustomer,
           lodgeDetails: {
@@ -235,6 +235,23 @@ export const LodgeRegistrationStep: React.FC<LodgeRegistrationStepProps> = ({
           subtotal: Math.round(subtotal * 100), // Convert to cents with proper rounding
           squareFee: Math.round((feeCalculation?.squareFee || 0) * 100), // Convert to cents with proper rounding
           billingDetails: getBillingDetails(),
+          // Include all additional metadata from lodgeOrder
+          additionalMetadata: {
+            lodgeOrderDetails: lodgeOrder, // Contains all package details
+            selectedPackageDetails: {
+              packageId: selectedPackage?.package_id || selectedPackage?.id,
+              packageName: selectedPackage?.name,
+              packageDescription: selectedPackage?.description,
+              pricePerPackage: selectedPackage?.price,
+              originalPrice: selectedPackage?.original_price,
+              discount: selectedPackage?.discount,
+              includesDescription: selectedPackage?.includes_description,
+              eligibilityCriteria: selectedPackage?.eligibility_criteria,
+              registrationTypes: selectedPackage?.eligibleRegistrationTypes,
+              isActive: selectedPackage?.is_active,
+              catalogObjectId: selectedPackage?.catalog_object_id
+            }
+          }
         }),
       });
 
@@ -322,20 +339,23 @@ export const LodgeRegistrationStep: React.FC<LodgeRegistrationStepProps> = ({
             metadata: lodgeMetadata
           });
           
+          // Clear registration store to prevent interference
+          store.clearRegistration();
+          
           // Redirect to confirmation page with confirmation number
           setTimeout(() => {
             console.log('[LodgeRegistrationStep] Redirecting to confirmation page:', result.confirmationNumber);
-            router.push(`/functions/${functionSlug}/register/confirmation/lodge/${result.confirmationNumber}`);
+            router.replace(`/functions/${functionSlug}/register/confirmation/lodge/${result.confirmationNumber}`);
           }, 1500); // Small delay to show completion
         } else {
           // Fallback: Store registration data and go to confirmation step
-          const store = useRegistrationStore.getState();
+          const registrationStore = useRegistrationStore.getState();
           useRegistrationStore.setState({ draftId: result.registrationId });
           
           setTimeout(() => {
             console.log('[LodgeRegistrationStep] No confirmation number, moving to confirmation step with registrationId:', result.registrationId);
-            store.setCurrentStep(6); // Go to confirmation step
-            store._updateStatus('completed'); // Mark as completed
+            registrationStore.setCurrentStep(6); // Go to confirmation step
+            registrationStore._updateStatus('completed'); // Mark as completed
           }, 1500);
         }
       } else {

@@ -4,6 +4,7 @@ import { getSquareLocationId } from '@/lib/utils/square-client';
 import { calculateSquareFeesWithDb } from '@/lib/utils/square-fee-calculator';
 import { SquareOrdersService } from '@/lib/services/square-orders-service';
 import { convertToDollars, convertToCents } from '@/lib/utils/square-client';
+import { generateUUID } from '@/lib/uuid-slug-utils';
 
 interface RouteParams {
   params: {
@@ -34,7 +35,8 @@ export async function POST(
       squareFee,
       billingDetails,
       registrationId, // Optional, for updates
-      additionalMetadata = {} // Additional metadata from form
+      additionalMetadata = {}, // Additional metadata from form
+      attendeeDetails // CRITICAL: Contains all collected data from Grand Lodge form
     } = body;
 
     // Validate required fields
@@ -173,7 +175,7 @@ export async function POST(
     };
     
     try {
-      // Step 1: Create Square customer
+      // Step 1: Create Square customer with comprehensive data
       const customerData = {
         firstName: bookingContact.firstName || bookingContact.first_name,
         lastName: bookingContact.lastName || bookingContact.last_name,
@@ -183,7 +185,15 @@ export async function POST(
         city: bookingContact.city || bookingContact.suburb,
         state: bookingContact.state || bookingContact.stateTerritory || bookingContact.state_territory,
         postcode: bookingContact.postcode || bookingContact.postal_code,
-        country: bookingContact.country || 'Australia'
+        country: bookingContact.country || 'Australia',
+        // Include masonic details in customer note for Square
+        note: [
+          bookingContact.title && `Title: ${bookingContact.title}`,
+          bookingContact.rank && `Rank: ${bookingContact.rank}`,
+          bookingContact.grandRank && `Grand Rank: ${bookingContact.grandRank}`,
+          bookingContact.grandOfficerStatus && `Officer Status: ${bookingContact.grandOfficerStatus}`,
+          bookingContact.grandOffice && `Office: ${bookingContact.grandOffice}`
+        ].filter(Boolean).join(', ')
       };
       
       console.log('[Lodge Registration API] Creating Square customer');
@@ -206,13 +216,31 @@ export async function POST(
         metadata: {
           functionId: functionId,
           functionName: functionData.name,
-          lodgeName: lodgeDetails.lodgeName || lodgeDetails.lodge_name,
+          // For delegations, use the organization name instead of lodge name
+          organizationName: lodgeDetails.delegationType === 'grandLodge' 
+            ? lodgeDetails.grandLodgeName 
+            : (lodgeDetails.organisationName || lodgeDetails.lodgeName || lodgeDetails.lodge_name),
+          // Only include lodge details for actual lodge registrations
+          ...(lodgeDetails.delegationType !== 'grandLodge' && lodgeDetails.lodge_id && {
+            lodgeName: lodgeDetails.lodgeName || lodgeDetails.lodge_name,
+            lodgeId: lodgeDetails.lodge_id,
+          }),
           grandLodgeId: lodgeDetails.grand_lodge_id,
-          lodgeId: lodgeDetails.lodge_id,
-          registrationType: 'lodge',
+          grandLodgeName: lodgeDetails.grandLodgeName,
+          registrationType: lodgeDetails.delegationType === 'grandLodge' ? 'delegation' : 'lodge',
+          delegationType: lodgeDetails.delegationType,
+          // Include organization details for masonic orders
+          ...(lodgeDetails.organisationAbbreviation && {
+            organisationAbbreviation: lodgeDetails.organisationAbbreviation,
+            organisationKnownAs: lodgeDetails.organisationKnownAs
+          }),
           contactName: `${customerData.firstName} ${customerData.lastName}`,
           contactEmail: customerData.email,
           contactPhone: customerData.mobile,
+          // Include masonic details
+          contactTitle: bookingContact.title,
+          contactRank: bookingContact.rank,
+          contactGrandRank: bookingContact.grandRank,
           ...additionalMetadata
         }
       };
@@ -382,10 +410,205 @@ export async function POST(
           totalAmount: feeCalculation.customerPayment
         };
 
-    // Call the upsert RPC - it has SECURITY DEFINER so it bypasses RLS
-    console.log('[Lodge Registration API] Calling upsert_lodge_registration RPC with Square amounts:', finalAmounts);
-    const { data: registrationResult, error: registrationError } = await supabase
-      .rpc('upsert_lodge_registration', {
+    // Log comprehensive data being stored
+    console.log('[Lodge Registration API] Comprehensive data being stored:', {
+      bookingContact: {
+        hasTitle: !!bookingContact.title,
+        hasRank: !!bookingContact.rank,
+        hasGrandRank: !!bookingContact.grandRank,
+        hasGrandOfficerStatus: !!bookingContact.grandOfficerStatus,
+        hasOrganizationName: !!lodgeDetails.organisationName,
+        fullData: bookingContact
+      },
+      lodgeDetails: {
+        hasOrganizationDetails: !!(lodgeDetails.organisationName || lodgeDetails.organisationAbbreviation),
+        hasGrandLodgeName: !!lodgeDetails.grandLodgeName,
+        fullData: lodgeDetails
+      },
+      attendeeDetails: attendeeDetails
+    });
+
+    // If registrationId is provided, check if it exists
+    let validRegistrationId = registrationId;
+    if (registrationId) {
+      const { data: existingReg, error: checkError } = await supabase
+        .from('registrations')
+        .select('registration_id')
+        .eq('registration_id', registrationId)
+        .single();
+      
+      if (checkError || !existingReg) {
+        console.log('[Lodge Registration API] Provided registration ID does not exist, will create new registration');
+        validRegistrationId = null;
+      }
+    }
+    
+    // Determine if this is a delegation or lodge registration
+    const isDelegation = lodgeDetails.delegationType === 'grandLodge' || lodgeDetails.delegationType === 'masonicOrder';
+    
+    // Call the appropriate RPC based on registration type
+    console.log(`[Lodge Registration API] Calling ${isDelegation ? 'delegation' : 'lodge'} registration RPC with Square amounts:`, finalAmounts);
+    
+    let registrationResult, registrationError;
+    
+    if (isDelegation) {
+      // For delegations, insert directly into registrations table
+      console.log('[Lodge Registration API] Creating delegation registration directly');
+      
+      // Check if customer exists by email
+      const { data: existingCustomer } = await supabase
+        .from('customers')
+        .select('customer_id')
+        .eq('email', bookingContact.email)
+        .single();
+      
+      let customerId;
+      
+      if (existingCustomer) {
+        // Update existing customer
+        customerId = existingCustomer.customer_id;
+        const { error: updateError } = await supabase
+          .from('customers')
+          .update({
+            first_name: bookingContact.firstName,
+            last_name: bookingContact.lastName,
+            phone: bookingContact.mobile,
+            business_name: lodgeDetails.organisationName || lodgeDetails.grandLodgeName || 'Delegation',
+            updated_at: new Date().toISOString()
+          })
+          .eq('customer_id', customerId);
+        
+        if (updateError) {
+          console.error('[Lodge Registration API] Customer update error:', updateError);
+        }
+      } else {
+        // Create new customer
+        const newCustomerId = generateUUID();
+        const { error: insertError } = await supabase
+          .from('customers')
+          .insert({
+            customer_id: newCustomerId,
+            first_name: bookingContact.firstName,
+            last_name: bookingContact.lastName,
+            email: bookingContact.email,
+            phone: bookingContact.mobile,
+            business_name: lodgeDetails.organisationName || lodgeDetails.grandLodgeName || 'Delegation',
+            customer_type: 'booking_contact',
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          });
+        
+        if (insertError) {
+          console.error('[Lodge Registration API] Customer creation error:', insertError);
+          throw new Error('Failed to create customer record');
+        }
+        
+        customerId = newCustomerId;
+      }
+      
+      // Create contact record with masonic profile data
+      const { data: contactData, error: contactError } = await supabase
+        .from('contacts')
+        .insert({
+          contact_id: generateUUID(),
+          title: bookingContact.title || '',
+          first_name: bookingContact.firstName,
+          last_name: bookingContact.lastName,
+          suffix_1: bookingContact.grandRank || '', // Store grand rank in suffix_1
+          suffix_2: bookingContact.grandOfficerStatus || '', // Store officer status in suffix_2
+          suffix_3: bookingContact.grandOffice || '', // Store office in suffix_3
+          email: bookingContact.email,
+          mobile_number: bookingContact.mobile,
+          type: 'individual',
+          organisation_id: lodgeDetails.grand_lodge_id,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        })
+        .select()
+        .single();
+      
+      if (contactError) {
+        console.error('[Lodge Registration API] Contact creation error:', contactError);
+        // Don't fail registration if contact creation fails
+      }
+      
+      const contactId = contactData?.contact_id;
+      
+      // Create registration directly
+      const registrationData = {
+        registration_id: validRegistrationId || generateUUID(),
+        function_id: functionId,
+        customer_id: customerId,
+        booking_contact_id: contactId || customerId, // Use contact ID if created, otherwise customer ID
+        organisation_id: lodgeDetails.grand_lodge_id,
+        organisation_name: lodgeDetails.organisationName || lodgeDetails.grandLodgeName || 'Delegation',
+        registration_type: 'delegation',
+        status: paymentStatus === 'completed' ? 'completed' : 'pending',
+        payment_status: paymentStatus,
+        total_amount_paid: finalAmounts.totalAmount,
+        subtotal: finalAmounts.subtotal,
+        square_fee: finalAmounts.processingFee,
+        stripe_fee: 0,
+        platform_fee_amount: feeCalculation.platformFee,
+        square_payment_id: squarePaymentId,
+        // Store all comprehensive data in registration_data JSONB
+        registration_data: {
+          bookingContact: bookingContact,
+          lodgeDetails: lodgeDetails,
+          attendeeDetails: attendeeDetails,
+          packageDetails: {
+            packageId: packageId,
+            packageName: packageData.name,
+            packageDescription: packageData.description,
+            packageQuantity: packageQuantity,
+            itemQuantity: itemQuantity,
+            pricePerPackage: packagePrice,
+            originalPrice: packageData.original_price,
+            discount: packageData.discount,
+            subtotal: finalAmounts.subtotal,
+            includesDescription: packageData.includes_description,
+            eligibilityCriteria: packageData.eligibility_criteria,
+            registrationTypes: packageData.registration_types,
+            isActive: packageData.is_active,
+            catalogObjectId: packageData.catalog_object_id
+          },
+          metadata: {
+            ...additionalMetadata,
+            squareOrderId: squareOrderId,
+            squareCustomerId: squareCustomerId,
+            squarePaymentId: squarePaymentId,
+            squareAmounts: finalAmounts
+          }
+        },
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      };
+      
+      const { data, error } = await supabase
+        .from('registrations')
+        .upsert(registrationData, {
+          onConflict: 'registration_id',
+          ignoreDuplicates: false
+        })
+        .select()
+        .single();
+      
+      if (error) {
+        registrationError = error;
+        registrationResult = null;
+      } else {
+        // Format result to match expected structure
+        registrationResult = {
+          registrationId: data.registration_id,
+          customerId: data.customer_id,
+          confirmationNumber: data.confirmation_number
+        };
+        registrationError = null;
+      }
+    } else {
+      // Use existing lodge RPC for lodge registrations
+      const { data, error } = await supabase
+        .rpc('upsert_lodge_registration', {
         p_function_id: functionId,
         p_package_id: packageId,
         p_table_count: packageQuantity, // The RPC still expects p_table_count
@@ -394,7 +617,7 @@ export async function POST(
         p_payment_status: paymentStatus,
         p_stripe_payment_intent_id: null, // Not used for Square
         p_square_payment_id: squarePaymentId,
-        p_registration_id: registrationId || null,
+        p_registration_id: validRegistrationId || null,
         p_total_amount: finalAmounts.totalAmount, // Use Square's actual total
         p_total_price_paid: finalAmounts.subtotal, // Use Square's actual subtotal
         p_platform_fee_amount: feeCalculation.platformFee, // Platform fee unchanged
@@ -412,10 +635,38 @@ export async function POST(
             subtotal: subtotalInDollars,
             processingFee: feeCalculation.squareFee,
             totalAmount: feeCalculation.customerPayment
-          }
+          },
+          // CRITICAL: Store ALL collected attendee data
+          attendeeDetails: attendeeDetails || {},
+          // Store comprehensive booking contact data (includes masonic details)
+          comprehensiveBookingContact: bookingContact,
+          // Store comprehensive lodge details (includes organization data)
+          comprehensiveLodgeDetails: lodgeDetails,
+          // Store complete package information
+          packageDetails: {
+            packageId: packageId,
+            packageName: packageData.name,
+            packageDescription: packageData.description,
+            packagePrice: packagePrice,
+            originalPrice: packageData.original_price,
+            discount: packageData.discount,
+            quantity: packageQuantity,
+            itemsPerPackage: itemQuantity,
+            totalItems: packageQuantity * itemQuantity,
+            includesDescription: packageData.includes_description,
+            eligibilityCriteria: packageData.eligibility_criteria,
+            registrationTypes: packageData.registration_types,
+            isActive: packageData.is_active,
+            catalogObjectId: packageData.catalog_object_id
+          },
+          ...additionalMetadata // Include any other metadata passed
         },
         p_connected_account_id: null  // Square doesn't use connected accounts
       });
+      
+      registrationResult = data;
+      registrationError = error;
+    }
 
     console.log('[Lodge Registration API] RPC Result:', {
       data: registrationResult,
@@ -440,8 +691,17 @@ export async function POST(
     }
 
     // Extract confirmation number and registration ID from result
-    let confirmationNumber = registrationResult?.[0]?.confirmation_number || registrationResult?.confirmationNumber || registrationResult?.confirmation_number;
-    const finalRegistrationId = registrationResult?.[0]?.registration_id || registrationResult?.registrationId || registrationResult?.registration_id || registrationId;
+    let confirmationNumber, finalRegistrationId;
+    
+    if (isDelegation) {
+      // Delegation RPC returns a different structure
+      confirmationNumber = registrationResult?.confirmationNumber;
+      finalRegistrationId = registrationResult?.registrationId || validRegistrationId;
+    } else {
+      // Lodge RPC returns array or object
+      confirmationNumber = registrationResult?.[0]?.confirmation_number || registrationResult?.confirmationNumber || registrationResult?.confirmation_number;
+      finalRegistrationId = registrationResult?.[0]?.registration_id || registrationResult?.registrationId || registrationResult?.registration_id || validRegistrationId;
+    }
     
     console.log('[Lodge Registration API] Extracted values:', {
       confirmationNumber,
@@ -456,7 +716,7 @@ export async function POST(
         // Use the database function directly instead of edge function
         const { data: confirmationData, error: confirmationError } = await supabase
           .rpc('generate_confirmation_number', {
-            registration_type: 'lodge',
+            registration_type: isDelegation ? 'delegation' : 'lodge',
             registration_id: finalRegistrationId
           });
 
@@ -601,11 +861,11 @@ export async function POST(
       success: true,
       registrationId: finalRegistrationId,
       confirmationNumber: confirmationNumber,
-      customerId: registrationResult?.customerId || registrationResult?.customer_id,
+      customerId: isDelegation ? registrationResult?.customerId : (registrationResult?.customerId || registrationResult?.customer_id),
       paymentId: squarePaymentId,
       orderId: squareOrderId,
-      totalTickets: registrationResult?.totalAttendees || registrationResult?.total_attendees || (packageQuantity * itemQuantity),
-      createdTickets: registrationResult?.createdTickets || registrationResult?.created_tickets || 0,
+      totalTickets: isDelegation ? (packageQuantity * itemQuantity) : (registrationResult?.totalAttendees || registrationResult?.total_attendees || (packageQuantity * itemQuantity)),
+      createdTickets: isDelegation ? (packageQuantity * itemQuantity) : (registrationResult?.createdTickets || registrationResult?.created_tickets || 0),
       // Include actual Square amounts for consistency
       squareAmounts: finalAmounts,
       // Include original calculations for comparison/debugging
@@ -613,7 +873,9 @@ export async function POST(
         subtotal: subtotalInDollars,
         processingFee: feeCalculation.squareFee,
         totalAmount: feeCalculation.customerPayment
-      }
+      },
+      // Include registration type for client handling
+      registrationType: isDelegation ? 'delegation' : 'lodge'
     });
 
   } catch (error: any) {

@@ -129,6 +129,7 @@ export interface LodgeTableOrder {
 // --- State Interface ---
 export interface RegistrationState {
   draftId: string | null;
+  registrationId: string | null; // The actual registration ID from the database
   functionId: string | null; // Function ID for the registration
   functionSlug: string | null; // Function slug for navigation
   selectedEvents: string[]; // Selected event IDs within the function
@@ -258,6 +259,7 @@ export interface RegistrationState {
 // --- Initial State ---
 const initialRegistrationState: Omit<RegistrationState, 'startNewRegistration' | 'addPrimaryAttendee' | 'loadDraft' | 'clearRegistration' | 'clearAllAttendees' | 'setRegistrationType' | 'addAttendee' | 'addMasonAttendee' | 'addGuestAttendee' | 'addPartnerAttendee' | 'updateAttendee' | 'removeAttendee' | 'updateTicketSelections' | 'addPackageSelection' | 'removePackageSelection' | 'addIndividualTicket' | 'removeIndividualTicket' | 'clearAttendeeTicketSelections' | 'updateBillingDetails' | 'setAgreeToTerms' | '_updateStatus' | 'setCurrentStep' | 'goToNextStep' | 'goToPrevStep' | 'setConfirmationNumber' | 'setFunctionId' | 'setFunctionSlug' | 'setSelectedEvents' | 'setDraftRecoveryHandled' | 'setDraftId' | 'setAnonymousSessionEstablished' | 'setLodgeTicketOrder' | 'setDelegationType' | 'updateLodgeCustomer' | 'updateLodgeDetails' | 'updateLodgeTableOrder' | 'isLodgeFormValid' | 'getLodgeValidationErrors' | 'addEnhancedPackageSelection' | 'addEnhancedIndividualTicket' | 'removeEnhancedSelection' | 'addEnhancedLodgeBulkPackage' | 'addEnhancedLodgeBulkTickets' | 'validateEnhancedStructures' | 'isEnhancedDataComplete' | 'captureFunctionMetadata' | 'captureTicketMetadata' | 'capturePackageMetadata' | 'addAttendeeTicketSelection' | 'addAttendeePackageSelection' | 'removeAttendeeSelection' | 'updateOrderSummary' | 'updateRegistrationTableData' | 'addLodgeBulkPackageSelection' | 'addLodgeBulkTicketSelections'> = {
     draftId: null,
+    registrationId: null, // Initialize registrationId as null
     functionId: null, // Initialize functionId as null
     functionSlug: null, // Initialize functionSlug as null
     selectedEvents: [], // Initialize selectedEvents as empty array
@@ -509,7 +511,8 @@ export const useRegistrationStore = create<RegistrationState>(
         if (currentState.draftId !== id) {
              console.log(`Attempting to load draft: ${id}. Current state draftId: ${currentState.draftId}`);
              // If the middleware loaded a different draft, reset state before setting new ID
-             set({ ...initialRegistrationState, draftId: id, status: 'loading' }); 
+             // Also set registrationId to maintain compatibility
+             set({ ...initialRegistrationState, draftId: id, registrationId: id, status: 'loading' }); 
         } else {
              // Already loaded or loading this draft
              set({ status: 'draft' }); 
@@ -873,7 +876,8 @@ export const useRegistrationStore = create<RegistrationState>(
       setDraftRecoveryHandled: (handled) => set({ draftRecoveryHandled: handled }),
       setDraftId: (id) => {
         console.log(`[Store] Setting draft ID to: ${id}`);
-        set({ draftId: id, status: 'draft' });
+        // Also set registrationId to maintain compatibility
+        set({ draftId: id, registrationId: id, status: 'draft' });
       },
       
       // Anonymous session actions
@@ -1719,6 +1723,7 @@ export const selectPackages = (state: RegistrationState) => state.packages; // L
 export const selectBillingDetails = (state: RegistrationState) => state.billingDetails;
 export const selectAgreeToTerms = (state: RegistrationState) => state.agreeToTerms;
 export const selectDraftId = (state: RegistrationState) => state.draftId;
+export const selectRegistrationId = (state: RegistrationState) => state.registrationId;
 export const selectLastSaved = (state: RegistrationState) => state.lastSaved;
 export const selectConfirmationNumber = (state: RegistrationState) => state.confirmationNumber;
 export const selectFunctionId = (state: RegistrationState) => state.functionId;

@@ -117,7 +117,12 @@ export const IndividualsForm: React.FC<IndividualsFormProps> = ({
 
   // Add new attendee with mobile-specific behavior
   const handleAddAttendee = useCallback((type: 'mason' | 'guest') => {
-    if (primaryAttendees.length >= maxAttendees) return;
+    // Check specific type limits
+    const masonCount = primaryAttendees.filter(a => a.attendeeType === 'mason').length;
+    const guestCount = primaryAttendees.filter(a => a.attendeeType === 'guest').length;
+    
+    if (type === 'mason' && masonCount >= 10) return;
+    if (type === 'guest' && guestCount >= 10) return;
     
     // First save any pending changes to ensure current data is preserved
     formSaveManager.saveBeforeNavigation();
@@ -179,7 +184,7 @@ export const IndividualsForm: React.FC<IndividualsFormProps> = ({
         }, 400); // Increased delay to ensure card expansion completes
       }
     }, 100); // Small delay to ensure component has rendered
-  }, [addMasonAttendee, addGuestAttendee, primaryAttendees, maxAttendees, isMobile]);
+  }, [addMasonAttendee, addGuestAttendee, primaryAttendees, isMobile]);
 
   // Remove attendee
   const handleRemoveAttendee = useCallback((attendeeId: string) => {
@@ -332,7 +337,7 @@ export const IndividualsForm: React.FC<IndividualsFormProps> = ({
               }
             }}
             min={1}
-            max={5}
+            max={10}
             removeDisabled={primaryAttendees.filter(a => a.attendeeType === 'mason').length <= 1}
           />
           <LegacyAddRemoveControl
@@ -347,7 +352,7 @@ export const IndividualsForm: React.FC<IndividualsFormProps> = ({
               }
             }}
             min={0}
-            max={5}
+            max={10}
           />
         </div>
         
@@ -358,7 +363,7 @@ export const IndividualsForm: React.FC<IndividualsFormProps> = ({
             variant="outline"
             size="sm"
             onClick={() => handleAddAttendee('mason')}
-            disabled={primaryAttendees.filter(a => a.attendeeType === 'mason').length >= 5}
+            disabled={primaryAttendees.filter(a => a.attendeeType === 'mason').length >= 10}
             className="border-[#c8a870] text-[#c8a870] hover:border-[#b09760] hover:text-[#b09760]"
           >
             <PlusCircle className="w-4 h-4 mr-2" />
@@ -369,7 +374,7 @@ export const IndividualsForm: React.FC<IndividualsFormProps> = ({
             variant="outline"
             size="sm"
             onClick={() => handleAddAttendee('guest')}
-            disabled={primaryAttendees.filter(a => a.attendeeType === 'guest').length >= 5}
+            disabled={primaryAttendees.filter(a => a.attendeeType === 'guest').length >= 10}
             className="border-[#c8a870] text-[#c8a870] hover:border-[#b09760] hover:text-[#b09760]"
           >
             <PlusCircle className="w-4 h-4 mr-2" />

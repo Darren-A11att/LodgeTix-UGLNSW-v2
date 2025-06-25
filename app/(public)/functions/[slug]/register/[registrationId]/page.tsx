@@ -95,7 +95,7 @@ export default async function RegistrationWizardPage({ params, searchParams }: R
       <RegistrationWizard 
         functionSlug={functionData.slug}
         functionId={functionData.function_id}
-        registrationId={registrationId}
+        registrationId={registrationId} // Pass the generated UUID for new registrations
         isNewRegistration={true}
       />
     );

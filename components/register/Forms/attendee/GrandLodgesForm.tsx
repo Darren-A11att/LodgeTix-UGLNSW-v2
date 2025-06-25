@@ -62,9 +62,6 @@ const TABLE_SIZE = 10;
 // Square payment processing is handled by the useSquareWebPayments hook
 const TABLE_PRICE = 1950; // $195 per ticket x 10 = $1950 per table
 
-// Check if we're in production environment
-const isProduction = typeof window !== 'undefined' && process.env.NODE_ENV === 'production';
-
 interface GrandLodgesFormProps {
   functionId: string;
   functionSlug?: string;
@@ -198,12 +195,14 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
     });
   }, [tableCount]);
   
-  // In production, ensure we're always on the 'purchaseOnly' tab
+  // Removed production restriction - both tabs are now available in all environments
+  
+  // Notify parent of initial tab state on mount
   useEffect(() => {
-    if (isProduction && activeTab === 'registerDelegation') {
-      setActiveTab('purchaseOnly');
+    if (onTabChange) {
+      onTabChange(activeTab);
     }
-  }, [activeTab]);
+  }, []); // Only run on mount
   
   // Fetch function packages on mount
   useEffect(() => {
@@ -445,23 +444,6 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
   const getValidationErrors = useCallback(() => {
     const errors: string[] = [];
     
-    // Validate based on delegation type tab
-    if (delegationTypeTab === 'grandLodge') {
-      if (!selectedGrandLodge) {
-        errors.push('Grand Lodge selection is required');
-      }
-    } else if (delegationTypeTab === 'masonicOrder') {
-      if (!primaryAttendee?.organisationName) {
-        errors.push('Masonic Order formal name is required');
-      }
-      if (!primaryAttendee?.organisationAbbreviation) {
-        errors.push('Masonic Order abbreviation is required');
-      }
-      if (!primaryAttendee?.organisationKnownAs) {
-        errors.push('Masonic Order known as name is required');
-      }
-    }
-    
     // For Purchase Tickets Only tab, only validate booking contact fields
     if (activeTab === 'purchaseOnly') {
       // Validate only the booking contact required fields
@@ -478,7 +460,24 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
         errors.push('Booking Contact: Phone number is required');
       }
     } else {
-      // For Register Delegation tab, validate all primary attendee fields
+      // For Register Delegation tab, validate delegation type specific fields first
+      if (delegationTypeTab === 'grandLodge') {
+        if (!selectedGrandLodge) {
+          errors.push('Grand Lodge selection is required');
+        }
+      } else if (delegationTypeTab === 'masonicOrder') {
+        if (!primaryAttendee?.organisationName) {
+          errors.push('Masonic Order formal name is required');
+        }
+        if (!primaryAttendee?.organisationAbbreviation) {
+          errors.push('Masonic Order abbreviation is required');
+        }
+        if (!primaryAttendee?.organisationKnownAs) {
+          errors.push('Masonic Order known as name is required');
+        }
+      }
+      
+      // Then validate all primary attendee fields
       if (!primaryAttendee?.title) {
         errors.push('Booking Contact: Title is required');
       }
@@ -654,27 +653,115 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
     });
   }, [selectedGrandLodge, primaryAttendee, activeTab, ticketCount, delegationMembers, onComplete, onValidationError, setLodgeTicketOrder, addMasonAttendee, addGuestAttendee, addPartnerAttendee, updateAttendee, primaryAttendeeId, delegationTypeTab, getValidationErrors, updateLodgeCustomer, updateLodgeDetails, selectedPackage, packagePrice]);
 
-  // Payment handlers for ticket purchase mode
+  // Payment handlers for ticket purchase mode - EXACT SAME AS LODGE FORM
   const handlePaymentSuccess = async (paymentToken: string, billingDetails: any) => {
-    console.log('[GrandLodgesForm] Payment token created:', paymentToken);
+    console.log('💳 Square payment token created:', paymentToken);
     
-    // Update processing steps
+    // Show processing steps UI (same as payment step)
+    setError(null);
+    setShowProcessingSteps(true);
+    setIsProcessing(true);
+    
+    // Update steps to show registration saving
     setProcessingSteps(prev => {
       const newSteps = [...prev];
-      newSteps[0] = { ...newSteps[0], status: 'complete' };
-      newSteps[1] = { ...newSteps[1], status: 'current' };
+      newSteps[0] = { ...newSteps[0], status: 'current' };
       return newSteps;
     });
-
+    
+    // Check if packages are loaded
+    if (isLoadingData) {
+      console.error('Packages are still loading');
+      setError('Please wait while we load pricing information');
+      setIsProcessing(false);
+      return;
+    }
+    
+    // Check if we have a selected package
+    if (!selectedPackage) {
+      console.error('No delegation package available');
+      setError('No delegation package is available for this function');
+      setIsProcessing(false);
+      return;
+    }
+    
     try {
-      // Step 1: Create registration and process payment
-      const packageId = selectedPackage?.package_id || selectedPackage?.id;
+      // Step 1: Complete - Registration validation
+      setProcessingSteps(prev => {
+        const newSteps = [...prev];
+        newSteps[0] = { ...newSteps[0], status: 'complete' };
+        newSteps[1] = { ...newSteps[1], status: 'current' };
+        return newSteps;
+      });
+
+      // Get package ID from the selected package
+      const packageId = selectedPackage.package_id || selectedPackage.id;
       
       if (!packageId) {
+        console.error('[GrandLodgesForm] Package structure:', selectedPackage);
         throw new Error('Package has no ID');
       }
 
-      console.log('[GrandLodgesForm] Sending registration request');
+      console.log('[GrandLodgesForm] Sending registration request:', {
+        functionId,
+        packageId,
+        packageQuantity: ticketCount,
+        lodgeName: delegationTypeTab === 'grandLodge' ? 'Grand Lodge Delegation' : (primaryAttendee?.organisationName || 'Masonic Order'),
+        totalAmount: calculatedPackageOrder.totalWithFees
+      });
+
+      // Get the Grand Lodge name from location store
+      const { grandLodges } = useLocationStore.getState();
+      const selectedGrandLodgeData = grandLodges.find(gl => gl.grand_lodge_id.toString() === selectedGrandLodge);
+      const grandLodgeName = selectedGrandLodgeData?.name || 'Grand Lodge';
+
+      // Create comprehensive booking contact with ALL collected data
+      const comprehensiveBookingContact = {
+        // Basic details
+        title: primaryAttendee?.title || '',
+        firstName: primaryAttendee?.firstName || '',
+        lastName: primaryAttendee?.lastName || '',
+        email: primaryAttendee?.primaryEmail || '',
+        mobile: primaryAttendee?.primaryPhone || '',
+        
+        // Masonic details - CRITICAL DATA WE'RE CURRENTLY LOSING
+        rank: primaryAttendee?.rank || '',
+        grandRank: primaryAttendee?.suffix || '', // Grand Rank is stored in suffix field
+        grandOfficerStatus: primaryAttendee?.grandOfficerStatus || '',
+        grandOffice: primaryAttendee?.presentGrandOfficerRole || '',
+        otherGrandOffice: primaryAttendee?.otherPresentGrandOfficerRole || '',
+        
+        // Address details for billing
+        addressLine1: primaryAttendee?.addressLine1 || '',
+        suburb: primaryAttendee?.suburb || 'Sydney',
+        stateTerritory: primaryAttendee?.stateTerritory || 'NSW',
+        postcode: primaryAttendee?.postcode || '2000',
+        country: 'AU',
+        
+        // Additional metadata
+        attendeeType: 'Mason',
+        contactPreference: primaryAttendee?.contactPreference || 'directly'
+      };
+
+      // Create comprehensive lodge details with ALL organization data
+      const comprehensiveLodgeDetails = {
+        // Only include lodge fields for actual lodge registrations (not delegations)
+        ...(delegationTypeTab !== 'grandLodge' && {
+          lodgeName: primaryAttendee?.organisationName || 'Masonic Order',
+          lodge_id: '0', // Not a real lodge for masonic orders
+        }),
+        
+        grand_lodge_id: selectedGrandLodge,
+        grandLodgeName: grandLodgeName, // ACTUAL GRAND LODGE NAME
+        
+        // For Masonic Orders - CRITICAL DATA WE'RE CURRENTLY LOSING
+        organisationName: primaryAttendee?.organisationName || '',
+        organisationAbbreviation: primaryAttendee?.organisationAbbreviation || '',
+        organisationKnownAs: primaryAttendee?.organisationKnownAs || '',
+        
+        // Delegation type
+        delegationType: delegationTypeTab
+      };
 
       // Create payment intent and process registration using lodge endpoint
       const response = await fetch(`/api/functions/${functionId}/packages/${packageId}/lodge-registration`, {
@@ -684,22 +771,42 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
         },
         body: JSON.stringify({
           packageQuantity: ticketCount,
-          bookingContact: {
-            firstName: primaryAttendee?.firstName,
-            lastName: primaryAttendee?.lastName,
-            email: primaryAttendee?.primaryEmail,
-            phone: primaryAttendee?.primaryPhone,
-          },
-          lodgeDetails: {
-            lodgeName: delegationTypeTab === 'grandLodge' ? 'Grand Lodge Delegation' : (primaryAttendee?.organisationName || 'Masonic Order'),
-            lodge_id: delegationTypeTab === 'grandLodge' ? selectedGrandLodge : '0',
-            grand_lodge_id: selectedGrandLodge,
-          },
+          bookingContact: comprehensiveBookingContact,
+          lodgeDetails: comprehensiveLodgeDetails,
           paymentMethodId: paymentToken,
           amount: Math.round(calculatedPackageOrder.totalWithFees * 100), // Convert to cents
           subtotal: Math.round(subtotal * 100),
           squareFee: Math.round((feeCalculation?.squareFee || 0) * 100),
-          billingDetails,
+          billingDetails: getBillingDetails(),
+          // Add complete attendee data for proper storage
+          attendeeDetails: {
+            primaryAttendee: primaryAttendee, // Store ALL the collected data
+            registrationType: 'grandlodge',
+            delegationType: delegationTypeTab
+          },
+          // Include all additional metadata including package details
+          additionalMetadata: {
+            selectedPackageDetails: {
+              packageId: selectedPackage?.package_id || selectedPackage?.id,
+              packageName: selectedPackage?.name,
+              packageDescription: selectedPackage?.description,
+              pricePerPackage: selectedPackage?.price,
+              originalPrice: selectedPackage?.original_price,
+              discount: selectedPackage?.discount,
+              includesDescription: selectedPackage?.includes_description,
+              eligibilityCriteria: selectedPackage?.eligibility_criteria,
+              registrationTypes: selectedPackage?.eligibleRegistrationTypes,
+              isActive: selectedPackage?.is_active,
+              catalogObjectId: selectedPackage?.catalog_object_id,
+              qty: selectedPackage?.qty || selectedPackage?.quantity
+            },
+            orderDetails: {
+              ticketCount: ticketCount,
+              subtotal: subtotal,
+              totalWithFees: calculatedPackageOrder.totalWithFees,
+              processingFees: calculatedPackageOrder.processingFeesDisplay
+            }
+          }
         }),
       });
 
@@ -718,7 +825,10 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
           return newSteps;
         });
 
-        console.log('[GrandLodgesForm] Registration successful');
+        console.log('[GrandLodgesForm] Registration successful:', {
+          registrationId: result.registrationId,
+          confirmationNumber: result.confirmationNumber
+        });
         
         // Step 3: Complete - Confirmation ready
         setProcessingSteps(prev => {
@@ -727,10 +837,86 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
           return newSteps;
         });
 
-        // Redirect to confirmation page
+        // Check if we got a confirmation number
         if (result.confirmationNumber) {
+          // Update main registration store to mark as completed
+          const store = useRegistrationStore.getState();
+          store.setConfirmationNumber(result.confirmationNumber);
+          store._updateStatus('completed');
+          
+          // Track in completed registrations store
+          const { addCompletedRegistration } = useCompletedRegistrationsStore.getState();
+          
+          // Build metadata
+          const metadata = {
+            registrationType: 'grandlodge' as const,
+            primaryAttendee: {
+              title: primaryAttendee?.title || '',
+              firstName: primaryAttendee?.firstName || '',
+              lastName: primaryAttendee?.lastName || '',
+              attendeeType: 'lodge-contact'
+            },
+            attendees: [{
+              attendeeId: 'lodge-bulk',
+              title: 'Grand Lodge',
+              firstName: delegationTypeTab === 'grandLodge' ? 'Grand Lodge Delegation' : (primaryAttendee?.organisationName || 'Masonic Order'),
+              lastName: `${ticketCount} packages`,
+              attendeeType: 'lodge-bulk',
+              selectedTickets: [{
+                ticketId: selectedPackage?.id || selectedPackage?.package_id || '',
+                ticketName: selectedPackage?.name || 'Delegation Package',
+                price: selectedPackage?.price || 0,
+                isPackage: true
+              }]
+            }],
+            totalAttendees: ticketCount * baseQuantity,
+            totalAmount: result.squareAmounts?.totalAmount || calculatedPackageOrder.totalWithFees,
+            subtotal: result.squareAmounts?.subtotal || subtotal,
+            squareFee: result.squareAmounts?.processingFee,
+            gstAmount: result.squareAmounts?.totalTax
+          };
+          
+          addCompletedRegistration({
+            completedAt: Date.now(),
+            registrationId: result.registrationId,
+            functionId: functionId,
+            functionStartDate: new Date().toISOString(),
+            confirmationNumber: result.confirmationNumber,
+            paymentReference: {
+              provider: 'square',
+              paymentId: result.paymentId,
+              transactionId: result.paymentId
+            },
+            paymentStatus: 'completed',
+            userId: result.customerId || '',
+            confirmationEmails: [],
+            metadata
+          });
+          
+          // Redirect to confirmation page
           setTimeout(() => {
-            router.push(`/functions/${functionSlug}/register/confirmation/lodge/${result.confirmationNumber}`);
+            console.log('[GrandLodgesForm] Redirecting to confirmation page:', result.confirmationNumber);
+            // Use functionSlug if available, otherwise get it from the store
+            const slugToUse = functionSlug || useRegistrationStore.getState().functionSlug;
+            if (!slugToUse) {
+              console.error('[GrandLodgesForm] No function slug available for redirect');
+              // Fallback: go to confirmation step instead of redirect
+              const store = useRegistrationStore.getState();
+              store.setCurrentStep(6);
+              store._updateStatus('completed');
+              return;
+            }
+            router.push(`/functions/${slugToUse}/register/confirmation/lodge/${result.confirmationNumber}`);
+          }, 1500); // Small delay to show completion
+        } else {
+          // Fallback: Store registration data and go to confirmation step
+          const store = useRegistrationStore.getState();
+          useRegistrationStore.setState({ draftId: result.registrationId });
+          
+          setTimeout(() => {
+            console.log('[GrandLodgesForm] No confirmation number, moving to confirmation step');
+            store.setCurrentStep(6); // Go to confirmation step
+            store._updateStatus('completed');
           }, 1500);
         }
       } else {
@@ -767,21 +953,6 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
     setIsProcessing(false);
   };
 
-  const handlePurchaseTickets = () => {
-    // Validate form first
-    const errors = getValidationErrors();
-    if (errors.length > 0) {
-      if (onValidationError) {
-        onValidationError(errors);
-      }
-      return;
-    }
-
-    // Show processing steps
-    setShowProcessingSteps(true);
-    setIsProcessing(true);
-    setError(null);
-  };
 
   // Get billing details for payment
   const getBillingDetails = useCallback((): any => {
@@ -818,6 +989,7 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
       </div>
     );
   }
+
 
   return (
     <div className={cn("space-y-6", className)}>
@@ -947,7 +1119,7 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
       }} className="w-full">
         <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="purchaseOnly">Purchase Tickets Only</TabsTrigger>
-          <TabsTrigger value="registerDelegation" disabled={isProduction}>
+          <TabsTrigger value="registerDelegation">
             Register Delegation
           </TabsTrigger>
         </TabsList>
@@ -1004,12 +1176,12 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
                   <span>Calculating fees...</span>
                 </div>
               ) : (
-                /* Unified Payment Form */
+                /* Unified Payment Form - EXACT SAME AS LODGE FORM */
                 <UnifiedPaymentForm
                   totalAmount={calculatedPackageOrder.totalWithFees}
                   subtotal={subtotal}
                   billingDetails={getBillingDetails()}
-                  registrationType="lodge" // Using lodge type for Grand Lodge purchases
+                  registrationType="lodge"
                   registrationData={{ 
                     lodgeCustomer: {
                       firstName: primaryAttendee?.firstName || '',
@@ -1041,14 +1213,6 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
                   packageId={selectedPackage?.package_id || selectedPackage?.id}
                   minimal={true}
                 />
-              )}
-
-              {/* Error Display */}
-              {error && (
-                <Alert variant="destructive">
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertDescription>{error}</AlertDescription>
-                </Alert>
               )}
             </CardContent>
           </Card>

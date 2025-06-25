@@ -39,12 +39,16 @@ const AttendeeDetails: React.FC<AttendeeDetailsProps> = ({
     attendees, 
     delegationType, 
     functionId,
+    functionSlug,
     isLodgeFormValid,
     getLodgeValidationErrors
   } = useRegistrationStore();
   const [showErrors, setShowErrors] = useState(false);
   const [showValidationModal, setShowValidationModal] = useState(false);
   const [attemptedSubmit, setAttemptedSubmit] = useState(false);
+  
+  // State to track if GrandLodgesForm is in purchase-only mode
+  const [isPurchaseOnlyMode, setIsPurchaseOnlyMode] = useState(false);
   
   // Preload tickets data in the background for better UX on next step
   // Trigger after a delay to allow attendee details to fully load
@@ -66,13 +70,16 @@ const AttendeeDetails: React.FC<AttendeeDetailsProps> = ({
     }
     if (registrationType === 'delegation') {
       // For delegation registration, we need custom validation
-      // If there are no attendees (just the primary booking contact), validation should be minimal
-      // The GrandLodgesForm handles its own validation internally
+      // In purchase-only mode, we don't need terms agreement
+      if (isPurchaseOnlyMode) {
+        return true; // GrandLodgesForm handles its own validation
+      }
+      // For register delegation mode, we need terms agreement
       return agreeToTerms;
     }
     // For other registration types, use the standard validation
     return validationErrors.length === 0 && agreeToTerms;
-  }, [registrationType, isLodgeFormValid, validationErrors, agreeToTerms]);
+  }, [registrationType, isLodgeFormValid, validationErrors, agreeToTerms, isPurchaseOnlyMode]);
   
   // Parse validation errors to create a map of field errors by attendee
   const fieldErrorsByAttendee = useMemo(() => {
@@ -170,9 +177,9 @@ const AttendeeDetails: React.FC<AttendeeDetailsProps> = ({
       // For lodge registration, get errors from lodge store
       errors = getLodgeValidationErrors();
     } else if (registrationType === 'delegation') {
-      // For delegation registration, only check terms agreement
+      // For delegation registration, only check terms agreement if not in purchase-only mode
       // The GrandLodgesForm handles its own internal validation
-      if (!agreeToTerms) {
+      if (!isPurchaseOnlyMode && !agreeToTerms) {
         errors.push('You must agree to the terms and conditions');
       }
       return errors.map(error => ({
@@ -184,7 +191,7 @@ const AttendeeDetails: React.FC<AttendeeDetailsProps> = ({
       errors = [...validationErrors];
     }
     
-    if (!agreeToTerms) {
+    if (!agreeToTerms && !(registrationType === 'delegation' && isPurchaseOnlyMode)) {
       errors.push('You must agree to the terms and conditions');
     }
     
@@ -248,6 +255,7 @@ const AttendeeDetails: React.FC<AttendeeDetailsProps> = ({
           <GrandLodgesForm
             ref={grandLodgesFormRef}
             functionId={functionId}
+            functionSlug={functionSlug}
             onComplete={handleDelegationComplete} // Use special handler that checks terms
             onValidationError={handleDelegationValidationError} // Pass validation error handler
             fieldErrors={showErrors ? fieldErrorsByAttendee : {}}
@@ -271,9 +279,6 @@ const AttendeeDetails: React.FC<AttendeeDetailsProps> = ({
     return <SummaryRenderer {...summaryData} />;
   };
 
-  // State to track if GrandLodgesForm is in purchase-only mode
-  const [isPurchaseOnlyMode, setIsPurchaseOnlyMode] = useState(false);
-  
   // Callback to handle tab changes from GrandLodgesForm
   const handleGrandLodgeTabChange = useCallback((tab: 'purchaseOnly' | 'registerDelegation') => {
     setIsPurchaseOnlyMode(tab === 'purchaseOnly');
@@ -287,16 +292,18 @@ const AttendeeDetails: React.FC<AttendeeDetailsProps> = ({
       {/* Form content */}
       {renderForm()}
 
-      {/* Terms and conditions */}
-      <div className="mt-8 border border-slate-200 rounded-md bg-slate-50">
-        <TermsAndConditions
-          checked={agreeToTerms}
-          onChange={onAgreeToTermsChange}
-        />
-      </div>
+      {/* Terms and conditions - hide when in purchase-only mode for delegation */}
+      {!(registrationType === 'delegation' && isPurchaseOnlyMode) && (
+        <div className="mt-8 border border-slate-200 rounded-md bg-slate-50">
+          <TermsAndConditions
+            checked={agreeToTerms}
+            onChange={onAgreeToTermsChange}
+          />
+        </div>
+      )}
 
       {/* Validation errors - only show inline if attempted submit and modal is closed */}
-      {showErrors && !showValidationModal && (validationErrors.length > 0 || !agreeToTerms) && (
+      {showErrors && !showValidationModal && (validationErrors.length > 0 || (!agreeToTerms && !(registrationType === 'delegation' && isPurchaseOnlyMode))) && (
         <Alert variant="destructive">
           <AlertDescription>
             {validationErrors.length > 0 && (
@@ -306,22 +313,23 @@ const AttendeeDetails: React.FC<AttendeeDetailsProps> = ({
                 ))}
               </ul>
             )}
-            {!agreeToTerms && <p>You must agree to the terms and conditions.</p>}
+            {!agreeToTerms && !(registrationType === 'delegation' && isPurchaseOnlyMode) && <p>You must agree to the terms and conditions.</p>}
           </AlertDescription>
         </Alert>
       )}
 
-      {/* Navigation buttons - hide when in purchase-only mode for delegation */}
-      {!(registrationType === 'delegation' && isPurchaseOnlyMode) && (
-        <div className="flex justify-between">
-          <Button
-            variant="outline"
-            onClick={prevStep}
-            className="gap-2 border-masonic-navy text-masonic-navy hover:bg-masonic-lightblue"
-          >
-            <ChevronLeft className="w-4 h-4" />
-            Back
-          </Button>
+      {/* Navigation buttons */}
+      <div className="flex justify-between">
+        <Button
+          variant="outline"
+          onClick={prevStep}
+          className="gap-2 border-masonic-navy text-masonic-navy hover:bg-masonic-lightblue"
+        >
+          <ChevronLeft className="w-4 h-4" />
+          Back
+        </Button>
+        {/* Hide continue button when in purchase-only mode for delegation */}
+        {!(registrationType === 'delegation' && isPurchaseOnlyMode) && (
           <Button
             onClick={handleContinue}
             variant={isFormValid ? "default" : "outline"}
@@ -334,8 +342,8 @@ const AttendeeDetails: React.FC<AttendeeDetailsProps> = ({
             Continue
             <ChevronRight className="w-4 h-4" />
           </Button>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Validation Modal */}
       <ValidationModal
