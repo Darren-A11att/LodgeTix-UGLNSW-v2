@@ -98,8 +98,39 @@ export interface BillingDetailsType {
   businessNumber?: string;
 }
 
-// Alias for clarity - will transition to BookingContactType
-export type BookingContactType = BillingDetailsType;
+// Enhanced Booking Contact for Delegations
+export interface DelegationBookingContact {
+  // Basic details
+  title: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  phone: string;
+  
+  // Masonic details (stored in suffix fields in DB)
+  rank: string;
+  grandRank?: string; // suffix_1
+  grandOfficerStatus?: string; // suffix_2
+  grandOffice?: string; // suffix_3
+  otherGrandOffice?: string;
+  
+  // Organisation details (Grand Lodge or Masonic Order)
+  organisationId?: string;
+  organisationName?: string;
+  organisationAbbreviation?: string;
+  organisationKnownAs?: string;
+  
+  // Address details (optional for delegation)
+  addressLine1?: string;
+  addressLine2?: string;
+  city?: string;
+  stateProvince?: string;
+  postalCode?: string;
+  country?: string;
+}
+
+// Unified Booking Contact type
+export type BookingContactType = BillingDetailsType | DelegationBookingContact;
 
 // Lodge-specific interfaces (from lodge registration store)
 export interface LodgeCustomer {
@@ -172,6 +203,17 @@ export interface RegistrationState {
   lodgeCustomer: LodgeCustomer;
   lodgeDetails: LodgeDetails;
   lodgeOrder: LodgeOrder | null; // Consolidated lodge order (replaces lodgeTicketOrder and lodgeTableOrder)
+  
+  // Delegation booking contact (separate from attendees)
+  delegationBookingContact: DelegationBookingContact | null;
+  
+  // Grand Lodge form tab state
+  grandLodgeFormActiveTab: 'purchaseOnly' | 'registerDelegation' | null;
+  
+  // Grand Lodge form specific state
+  selectedGrandLodge: string | null; // Selected Grand Lodge ID
+  delegationTicketCount: number; // Number of tickets/packages selected
+  selectedDelegationPackageId: string | null; // Selected package ID
 
   // --- Actions ---
   startNewRegistration: (type: RegistrationType) => string; // Returns new draftId
@@ -225,6 +267,13 @@ export interface RegistrationState {
   isLodgeFormValid: () => boolean;
   getLodgeValidationErrors: () => string[];
   
+  // Delegation methods
+  updateDelegationBookingContact: (contact: Partial<DelegationBookingContact>) => void;
+  setGrandLodgeFormActiveTab: (tab: 'purchaseOnly' | 'registerDelegation' | null) => void;
+  setSelectedGrandLodge: (grandLodgeId: string | null) => void;
+  setDelegationTicketCount: (count: number) => void;
+  setSelectedDelegationPackageId: (packageId: string | null) => void;
+  
   // NEW: Enhanced-only migration actions
   addEnhancedPackageSelection: (attendeeId: string, packageId: string, quantity: number) => boolean;
   addEnhancedIndividualTicket: (attendeeId: string, ticketId: string, quantity: number) => boolean;
@@ -257,7 +306,7 @@ export interface RegistrationState {
 }
 
 // --- Initial State ---
-const initialRegistrationState: Omit<RegistrationState, 'startNewRegistration' | 'addPrimaryAttendee' | 'loadDraft' | 'clearRegistration' | 'clearAllAttendees' | 'setRegistrationType' | 'addAttendee' | 'addMasonAttendee' | 'addGuestAttendee' | 'addPartnerAttendee' | 'updateAttendee' | 'removeAttendee' | 'updateTicketSelections' | 'addPackageSelection' | 'removePackageSelection' | 'addIndividualTicket' | 'removeIndividualTicket' | 'clearAttendeeTicketSelections' | 'updateBillingDetails' | 'setAgreeToTerms' | '_updateStatus' | 'setCurrentStep' | 'goToNextStep' | 'goToPrevStep' | 'setConfirmationNumber' | 'setFunctionId' | 'setFunctionSlug' | 'setSelectedEvents' | 'setDraftRecoveryHandled' | 'setDraftId' | 'setAnonymousSessionEstablished' | 'setLodgeTicketOrder' | 'setDelegationType' | 'updateLodgeCustomer' | 'updateLodgeDetails' | 'updateLodgeTableOrder' | 'isLodgeFormValid' | 'getLodgeValidationErrors' | 'addEnhancedPackageSelection' | 'addEnhancedIndividualTicket' | 'removeEnhancedSelection' | 'addEnhancedLodgeBulkPackage' | 'addEnhancedLodgeBulkTickets' | 'validateEnhancedStructures' | 'isEnhancedDataComplete' | 'captureFunctionMetadata' | 'captureTicketMetadata' | 'capturePackageMetadata' | 'addAttendeeTicketSelection' | 'addAttendeePackageSelection' | 'removeAttendeeSelection' | 'updateOrderSummary' | 'updateRegistrationTableData' | 'addLodgeBulkPackageSelection' | 'addLodgeBulkTicketSelections'> = {
+const initialRegistrationState: Omit<RegistrationState, 'startNewRegistration' | 'addPrimaryAttendee' | 'loadDraft' | 'clearRegistration' | 'clearAllAttendees' | 'setRegistrationType' | 'addAttendee' | 'addMasonAttendee' | 'addGuestAttendee' | 'addPartnerAttendee' | 'updateAttendee' | 'removeAttendee' | 'updateTicketSelections' | 'addPackageSelection' | 'removePackageSelection' | 'addIndividualTicket' | 'removeIndividualTicket' | 'clearAttendeeTicketSelections' | 'updateBillingDetails' | 'setAgreeToTerms' | '_updateStatus' | 'setCurrentStep' | 'goToNextStep' | 'goToPrevStep' | 'setConfirmationNumber' | 'setFunctionId' | 'setFunctionSlug' | 'setSelectedEvents' | 'setDraftRecoveryHandled' | 'setDraftId' | 'setAnonymousSessionEstablished' | 'setLodgeTicketOrder' | 'setDelegationType' | 'updateLodgeCustomer' | 'updateLodgeDetails' | 'updateLodgeTableOrder' | 'isLodgeFormValid' | 'getLodgeValidationErrors' | 'updateDelegationBookingContact' | 'setGrandLodgeFormActiveTab' | 'setSelectedGrandLodge' | 'setDelegationTicketCount' | 'setSelectedDelegationPackageId' | 'addEnhancedPackageSelection' | 'addEnhancedIndividualTicket' | 'removeEnhancedSelection' | 'addEnhancedLodgeBulkPackage' | 'addEnhancedLodgeBulkTickets' | 'validateEnhancedStructures' | 'isEnhancedDataComplete' | 'captureFunctionMetadata' | 'captureTicketMetadata' | 'capturePackageMetadata' | 'addAttendeeTicketSelection' | 'addAttendeePackageSelection' | 'removeAttendeeSelection' | 'updateOrderSummary' | 'updateRegistrationTableData' | 'addLodgeBulkPackageSelection' | 'addLodgeBulkTicketSelections' | 'setPreloadedTicketsData' | 'getPreloadedTicketsData' | 'clearPreloadedTicketsData' | 'isPreloadedDataValid' | 'setLodgeOrder'> = {
     draftId: null,
     registrationId: null, // Initialize registrationId as null
     functionId: null, // Initialize functionId as null
@@ -321,6 +370,17 @@ const initialRegistrationState: Omit<RegistrationState, 'startNewRegistration' |
       lodgeName: '',
     },
     lodgeOrder: null, // Initialize as null
+    
+    // Delegation booking contact
+    delegationBookingContact: null,
+    
+    // Grand Lodge form tab state
+    grandLodgeFormActiveTab: null,
+    
+    // Grand Lodge form specific state
+    selectedGrandLodge: null,
+    delegationTicketCount: 1,
+    selectedDelegationPackageId: null,
 };
 
 type RegistrationStateCreator = StateCreator<RegistrationState>;
@@ -896,6 +956,21 @@ export const useRegistrationStore = create<RegistrationState>(
       })),
       
       setLodgeOrder: (order) => set({ lodgeOrder: order }),
+      
+      // Delegation methods
+      updateDelegationBookingContact: (contact) => set(state => ({
+        delegationBookingContact: state.delegationBookingContact 
+          ? { ...state.delegationBookingContact, ...contact }
+          : contact as DelegationBookingContact
+      })),
+      
+      setGrandLodgeFormActiveTab: (tab) => set({ grandLodgeFormActiveTab: tab }),
+      
+      setSelectedGrandLodge: (grandLodgeId) => set({ selectedGrandLodge: grandLodgeId }),
+      
+      setDelegationTicketCount: (count) => set({ delegationTicketCount: count }),
+      
+      setSelectedDelegationPackageId: (packageId) => set({ selectedDelegationPackageId: packageId }),
       
       isLodgeFormValid: () => {
         const state = get();
@@ -1678,6 +1753,12 @@ export const useRegistrationStore = create<RegistrationState>(
         lodgeCustomer: state.lodgeCustomer,
         lodgeDetails: state.lodgeDetails,
         lodgeOrder: state.lodgeOrder, // Persist consolidated lodge order
+        // Delegation booking contact
+        delegationBookingContact: state.delegationBookingContact, // Persist delegation booking contact
+        grandLodgeFormActiveTab: state.grandLodgeFormActiveTab, // Persist Grand Lodge form tab
+        selectedGrandLodge: state.selectedGrandLodge, // Persist selected Grand Lodge
+        delegationTicketCount: state.delegationTicketCount, // Persist ticket count
+        selectedDelegationPackageId: state.selectedDelegationPackageId, // Persist selected package
         lastSaved: Date.now(),
       }),
       onRehydrateStorage: () => {

@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { Info, Users, Check, Building, Plus, X, UserPlus } from 'lucide-react';
+import { Info, Users, Check, Building, Plus, X, UserPlus, ChevronUp, ChevronDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import formSaveManager from '@/lib/formSaveManager';
@@ -126,33 +126,58 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
     addGuestAttendee,
     addPartnerAttendee,
     updateAttendee,
+    removeAttendee,
     setLodgeTicketOrder,
     updateLodgeCustomer,
     updateLodgeDetails,
     setLodgeOrder,
+    delegationBookingContact,
+    updateDelegationBookingContact,
+    addPrimaryAttendee,
+    grandLodgeFormActiveTab,
+    setGrandLodgeFormActiveTab,
+    selectedGrandLodge,
+    setSelectedGrandLodge,
+    delegationTicketCount,
+    setDelegationTicketCount,
+    selectedDelegationPackageId,
+    setSelectedDelegationPackageId,
+    delegationType,
+    setDelegationType,
   } = useRegistrationStore();
   
   // Get location store functions to ensure Grand Lodges are loaded
   const { fetchInitialGrandLodges } = useLocationStore();
   
-  
-  const [selectedGrandLodge, setSelectedGrandLodge] = useState<string>('');
+  // Remove local state that should be in store
+  // Only keep UI-specific state locally
   const [selectedGrandLodgeOrgId, setSelectedGrandLodgeOrgId] = useState<string | null>(null);
-  const [primaryAttendeeId, setPrimaryAttendeeId] = useState<string | null>(null);
   const [tableCount, setTableCount] = useState(1);
-  const [ticketCount, setTicketCount] = useState(1);
-  const [selectedPackageId, setSelectedPackageId] = useState<string | null>(null);
   const [tableOrder, setTableOrder] = useState<TableOrder>({
     tableCount: 1,
     totalTickets: TABLE_SIZE,
     totalPrice: TABLE_PRICE
   });
-  const [activeTab, setActiveTab] = useState<'purchaseOnly' | 'registerDelegation'>('purchaseOnly');
-  const [delegationMembers, setDelegationMembers] = useState<DelegationMember[]>([]);
+  
+  // Initialize activeTab from persisted state or default
+  const [activeTab, setActiveTab] = useState<'purchaseOnly' | 'registerDelegation'>(
+    grandLodgeFormActiveTab || 'purchaseOnly'
+  );
+  
+  // UI-only state
   const [showAddMemberDialog, setShowAddMemberDialog] = useState(false);
-  const [editingMember, setEditingMember] = useState<DelegationMember | null>(null);
-  const [delegationOrder, setDelegationOrder] = useState(1);
-  const [delegationTypeTab, setDelegationTypeTab] = useState<'grandLodge' | 'masonicOrder'>('grandLodge');
+  
+  // Use store values
+  const ticketCount = delegationTicketCount;
+  const setTicketCount = setDelegationTicketCount;
+  const selectedPackageId = selectedDelegationPackageId;
+  const setSelectedPackageId = setSelectedDelegationPackageId;
+  
+  // Derive delegationTypeTab from store's delegationType
+  const delegationTypeTab = delegationType === 'masonicOrder' ? 'masonicOrder' : 'grandLodge';
+  const setDelegationTypeTab = (type: 'grandLodge' | 'masonicOrder') => {
+    setDelegationType(type);
+  };
   
   // Dynamic data state
   const [functionPackages, setFunctionPackages] = useState<FunctionPackage[]>([]);
@@ -173,19 +198,11 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
   // One-time initialization - move useRef before other hooks to maintain order
   const isInitializedRef = React.useRef(false);
   
-  // Get update functions for primary attendee - hooks must always be called
-  const attendeeDataResult = useAttendeeDataWithDebounce(primaryAttendeeId || '', DEBOUNCE_DELAY);
-  const updateField = primaryAttendeeId ? attendeeDataResult.updateField : () => {};
-  const updateFieldImmediate = primaryAttendeeId ? attendeeDataResult.updateFieldImmediate : () => {};
-  
   // Ensure Grand Lodges are loaded when component mounts
   useEffect(() => {
     console.log('[GrandLodgesForm] Ensuring Grand Lodges are loaded');
     fetchInitialGrandLodges();
   }, [fetchInitialGrandLodges]);
-  
-  // Get the primary attendee
-  const primaryAttendee = attendees.find(a => a.attendeeId === primaryAttendeeId);
 
   // Update table order when count changes
   useEffect(() => {
@@ -198,10 +215,25 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
   
   // Removed production restriction - both tabs are now available in all environments
   
-  // Notify parent of initial tab state on mount
+  // Persist tab changes and notify parent
   useEffect(() => {
+    setGrandLodgeFormActiveTab(activeTab);
     if (onTabChange) {
       onTabChange(activeTab);
+    }
+    
+    // Clear attendees when switching to purchase-only mode
+    if (activeTab === 'purchaseOnly') {
+      const { clearAllAttendees } = useRegistrationStore.getState();
+      clearAllAttendees();
+    }
+  }, [activeTab, setGrandLodgeFormActiveTab, onTabChange]);
+  
+  // Notify parent of initial tab state on mount
+  useEffect(() => {
+    // If we have a persisted tab, use it
+    if (grandLodgeFormActiveTab && grandLodgeFormActiveTab !== activeTab) {
+      setActiveTab(grandLodgeFormActiveTab);
     }
   }, []); // Only run on mount
   
@@ -310,50 +342,76 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
     }
   }, [ticketCount, functionTickets, setLodgeOrder, selectedPackage, packagePrice, activeTab]);
 
-  // Initialize Grand Lodge from primary attendee when loaded
+  // Initialize Grand Lodge from booking contact when loaded
   useEffect(() => {
-    if (primaryAttendee && !selectedGrandLodge && primaryAttendee.grand_lodge_id) {
-      // Initialize Grand Lodge
-      setSelectedGrandLodge(String(primaryAttendee.grand_lodge_id));
-    }
-  }, [primaryAttendee, selectedGrandLodge]);
-  
-  // Auto-set rank to 'MO' when Masonic Order tab is selected
-  useEffect(() => {
-    if (delegationTypeTab === 'masonicOrder' && primaryAttendeeId) {
-      updateFieldImmediate('rank', 'MO');
-    }
-  }, [delegationTypeTab, primaryAttendeeId, updateFieldImmediate]);
-  
-  useEffect(() => {
-    if (!isInitializedRef.current) {
-      isInitializedRef.current = true;
-      
-      // Check if there's already a primary attendee
-      const existingPrimary = attendees.find(a => a.isPrimary);
-      
-      if (existingPrimary) {
-        // Use the existing primary attendee
-        setPrimaryAttendeeId(existingPrimary.attendeeId);
-        // Update its properties to ensure it has the correct defaults
-        updateAttendee(existingPrimary.attendeeId, {
-          attendeeType: 'Mason',
-          rank: existingPrimary.rank || 'GL', // Default to Grand Lodge rank if not set
-          grandOfficerStatus: existingPrimary.grandOfficerStatus || 'Present', // Default to Present Grand Officer if not set
-        });
-      } else if (!primaryAttendeeId) {
-        // Only create a new primary attendee if none exists
-        const primaryId = addMasonAttendee();
-        updateAttendee(primaryId, {
-          isPrimary: true,
-          attendeeType: 'Mason',
-          rank: 'GL', // Default to Grand Lodge rank
-          grandOfficerStatus: 'Present', // Default to Present Grand Officer
-        });
-        setPrimaryAttendeeId(primaryId);
+    if (delegationBookingContact && delegationBookingContact.organisationId) {
+      // Initialize Grand Lodge if not already set
+      const grandLodgeId = String(delegationBookingContact.organisationId);
+      if (selectedGrandLodge !== grandLodgeId) {
+        setSelectedGrandLodge(grandLodgeId);
+        console.log('[GrandLodgesForm] Restored Grand Lodge from booking contact:', grandLodgeId);
       }
     }
-  }, [primaryAttendeeId, addMasonAttendee, updateAttendee, attendees]);
+  }, [delegationBookingContact?.organisationId, selectedGrandLodge]); // Include selectedGrandLodge to prevent infinite loops
+  
+  // Restore delegation type from booking contact data
+  useEffect(() => {
+    if (delegationBookingContact) {
+      // If booking contact has Masonic Order fields filled, switch to that tab
+      if (delegationBookingContact.organisationName || delegationBookingContact.rank === 'MO') {
+        setDelegationTypeTab('masonicOrder');
+      } else if (delegationBookingContact.organisationId) {
+        setDelegationTypeTab('grandLodge');
+      }
+    }
+  }, []); // Only run on mount
+
+  // Auto-set rank to 'MO' when Masonic Order tab is selected (only if rank is not already set)
+  useEffect(() => {
+    if (delegationTypeTab === 'masonicOrder' && !delegationBookingContact?.rank) {
+      updateDelegationBookingContact({ rank: 'MO' });
+    }
+  }, [delegationTypeTab, delegationBookingContact?.rank, updateDelegationBookingContact]);
+  
+  // Initialize booking contact if it doesn't exist
+  useEffect(() => {
+    if (!isInitializedRef.current && !delegationBookingContact) {
+      isInitializedRef.current = true;
+      
+      // Initialize with default values for Grand Lodge delegation
+      updateDelegationBookingContact({
+        title: '',
+        firstName: '',
+        lastName: '',
+        email: '',
+        phone: '',
+        rank: 'GL', // Default to Grand Lodge rank
+        grandOfficerStatus: 'Present', // Default to Present Grand Officer
+      });
+    }
+  }, [delegationBookingContact, updateDelegationBookingContact]);
+
+  // Auto-add booking contact as first delegation member when switching to register delegation
+  useEffect(() => {
+    // When switching to register delegation tab and no attendees exist
+    if (activeTab === 'registerDelegation' && attendees.length === 0 && delegationBookingContact) {
+      // Auto-add the booking contact as the first attendee (Mason)
+      const newAttendeeId = addMasonAttendee();
+      
+      // Update the new attendee with booking contact details
+      updateAttendee(newAttendeeId, {
+        title: delegationBookingContact.title || 'Bro',
+        firstName: delegationBookingContact.firstName || '',
+        lastName: delegationBookingContact.lastName || '',
+        suffix: delegationBookingContact.grandRank || 'PSGW',
+        grandOfficerStatus: (delegationBookingContact.rank === 'GL' || delegationBookingContact.rank === 'MO') ? 'Present' : undefined,
+        presentGrandOfficerRole: delegationBookingContact.grandOffice || 'Board of Management',
+        primaryEmail: delegationBookingContact.email || '',
+        primaryPhone: delegationBookingContact.phone || '',
+        rank: delegationBookingContact.rank || 'GL'
+      });
+    }
+  }, [activeTab, attendees.length, delegationBookingContact, addMasonAttendee, updateAttendee]);
 
   // Update table count (for register delegation)
   const handleTableCountChange = useCallback((newCount: number) => {
@@ -394,50 +452,138 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
     }
   }, [setLodgeOrder, selectedPackage, packagePrice, baseQuantity]);
 
-  // Update Grand Lodge for primary attendee - No Lodge selection needed for Grand Lodges
+  // Update Grand Lodge for booking contact - No Lodge selection needed for Grand Lodges
   const handleGrandLodgeChange = useCallback((grandLodgeId: string, organisationId?: string) => {
-    if (selectedGrandLodge !== grandLodgeId) {
-      setSelectedGrandLodge(grandLodgeId);
-      
-      // Store the organisation ID if provided
-      if (organisationId) {
-        setSelectedGrandLodgeOrgId(organisationId);
+    console.log('[GrandLodgesForm] Grand Lodge change:', grandLodgeId, organisationId);
+    setSelectedGrandLodge(grandLodgeId);
+    
+    // Store the organisation ID if provided
+    if (organisationId) {
+      setSelectedGrandLodgeOrgId(organisationId);
+    }
+    
+    // Update the booking contact with the organisation ID
+    updateDelegationBookingContact({
+      organisationId: organisationId || grandLodgeId
+    });
+  }, [updateDelegationBookingContact]);
+
+  // Filter attendees to show only those relevant for delegation
+  // This replaces the local delegationMembers state
+  const delegationMembers = useMemo(() => {
+    // Only show attendees when in register delegation mode
+    if (activeTab !== 'registerDelegation') {
+      return [];
+    }
+    
+    // Convert attendees to DelegationMember format for display
+    return attendees.map(attendee => ({
+      id: attendee.attendeeId,
+      type: attendee.attendeeType === 'mason' ? 'Mason' : 
+            attendee.isPartner ? 'Partner' : 'Guest',
+      title: attendee.title || '',
+      firstName: attendee.firstName || '',
+      lastName: attendee.lastName || '',
+      grandRank: attendee.suffix || '',
+      isGrandOfficer: attendee.grandOfficerStatus === 'Present',
+      grandOffice: attendee.presentGrandOfficerRole || '',
+      relationship: attendee.relationship,
+      partnerOf: attendee.partnerOf || attendee.isPartner || undefined,
+      isEditing: false
+    } as DelegationMember));
+  }, [attendees, activeTab]);
+
+  // Add delegation member functions - now work directly with store
+  const addDelegationMember = useCallback((type: 'Mason' | 'Guest' | 'Partner', partnerOfId?: string) => {
+    // Check if booking contact fields are filled before allowing new members
+    if (!delegationBookingContact?.firstName || !delegationBookingContact?.lastName || !delegationBookingContact?.email || !delegationBookingContact?.phone) {
+      if (onValidationError) {
+        onValidationError(['Please complete the booking contact details before adding delegation members']);
       }
-      
-      if (primaryAttendeeId) {
-        updateFieldImmediate('grand_lodge_id', grandLodgeId ? Number(grandLodgeId) : 0);
+      return;
+    }
+    
+    // Determine if this is the first member
+    const isFirstMember = attendees.length === 0;
+    const isFirstMason = type === 'Mason' && attendees.filter(a => a.attendeeType === 'mason').length === 0;
+    
+    // Add directly to store
+    let attendeeId: string;
+    if (type === 'Mason') {
+      attendeeId = addMasonAttendee();
+      updateAttendee(attendeeId, {
+        title: isFirstMember && delegationBookingContact?.title ? delegationBookingContact.title : 'Bro',
+        firstName: isFirstMember && delegationBookingContact?.firstName ? delegationBookingContact.firstName : '',
+        lastName: isFirstMember && delegationBookingContact?.lastName ? delegationBookingContact.lastName : '',
+        suffix: isFirstMember && delegationBookingContact?.grandRank ? delegationBookingContact.grandRank : '',
+        rank: delegationTypeTab === 'masonicOrder' ? 'MO' : 'GL',
+        grandOfficerStatus: isFirstMember && delegationBookingContact?.grandOfficerStatus ? delegationBookingContact.grandOfficerStatus : 'Present',
+        presentGrandOfficerRole: isFirstMember && delegationBookingContact?.grandOffice ? delegationBookingContact.grandOffice : '',
+        grand_lodge_id: delegationTypeTab === 'grandLodge' ? selectedGrandLodge : null,
+        lodge_id: null,
+        contactPreference: 'bookingcontact',
+        isPrimary: isFirstMason,
+        primaryEmail: isFirstMason ? delegationBookingContact?.email : '',
+        primaryPhone: isFirstMason ? delegationBookingContact?.phone : ''
+      });
+    } else if (type === 'Guest') {
+      attendeeId = addGuestAttendee();
+      updateAttendee(attendeeId, {
+        title: 'Mr',
+        contactPreference: 'bookingcontact',
+        lodge_id: null
+      });
+    } else if (type === 'Partner' && partnerOfId) {
+      const partnerId = addPartnerAttendee(partnerOfId);
+      if (partnerId) {
+        updateAttendee(partnerId, {
+          title: 'Mrs',
+          relationship: 'Wife',
+          contactPreference: 'bookingcontact',
+          lodge_id: null
+        });
       }
     }
-  }, [primaryAttendeeId, updateFieldImmediate, selectedGrandLodge]);
-
-  // Add delegation member functions
-  const addDelegationMember = useCallback((type: 'Mason' | 'Guest' | 'Partner', partnerOfId?: string) => {
-    const newMember: DelegationMember = {
-      id: generateUUID(),
-      type,
-      title: type === 'Mason' ? 'Bro' : type === 'Guest' ? 'Mr' : 'Mrs',
-      firstName: '',
-      lastName: '',
-      grandRank: type === 'Mason' ? '' : undefined,
-      isGrandOfficer: false,
-      grandOffice: '',
-      relationship: type === 'Partner' ? 'Wife' : undefined,
-      partnerOf: partnerOfId,
-      isEditing: true
-    };
-    setDelegationMembers([...delegationMembers, newMember]);
-    setEditingMember(newMember);
-  }, [delegationMembers]);
+  }, [attendees, delegationBookingContact, onValidationError, addMasonAttendee, addGuestAttendee, addPartnerAttendee, updateAttendee, delegationTypeTab, selectedGrandLodge]);
 
   const updateDelegationMember = useCallback((memberId: string, updates: Partial<DelegationMember>) => {
-    setDelegationMembers(delegationMembers.map(member => 
-      member.id === memberId ? { ...member, ...updates } : member
-    ));
-  }, [delegationMembers]);
+    // Update directly in store
+    const attendeeUpdates: any = {};
+    
+    if ('title' in updates) attendeeUpdates.title = updates.title;
+    if ('firstName' in updates) attendeeUpdates.firstName = updates.firstName;
+    if ('lastName' in updates) attendeeUpdates.lastName = updates.lastName;
+    if ('grandRank' in updates) attendeeUpdates.suffix = updates.grandRank;
+    if ('grandOffice' in updates) attendeeUpdates.presentGrandOfficerRole = updates.grandOffice;
+    if ('relationship' in updates) attendeeUpdates.relationship = updates.relationship;
+    
+    updateAttendee(memberId, attendeeUpdates);
+  }, [updateAttendee]);
 
   const removeDelegationMember = useCallback((memberId: string) => {
-    setDelegationMembers(delegationMembers.filter(member => member.id !== memberId));
-  }, [delegationMembers]);
+    // Remove directly from store
+    removeAttendee(memberId);
+  }, [removeAttendee]);
+
+  // Move delegation member up in the list
+  const moveDelegationMemberUp = useCallback((index: number) => {
+    if (index > 0 && attendees.length > 1) {
+      // We need to swap the order of attendees in the store
+      // Since we can't directly reorder, we need to remove and re-add
+      // For now, we'll keep this as a limitation - reordering needs store enhancement
+      console.warn('Reordering attendees requires store enhancement');
+    }
+  }, [attendees]);
+
+  // Move delegation member down in the list
+  const moveDelegationMemberDown = useCallback((index: number) => {
+    if (index < attendees.length - 1 && attendees.length > 1) {
+      // We need to swap the order of attendees in the store
+      // Since we can't directly reorder, we need to remove and re-add
+      // For now, we'll keep this as a limitation - reordering needs store enhancement
+      console.warn('Reordering attendees requires store enhancement');
+    }
+  }, [attendees]);
 
   // Get available grand offices for autocomplete
   const grandOfficeOptions = GRAND_OFFICER_ROLES.map(role => ({
@@ -446,18 +592,14 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
   }));
 
   // Field change handler for BookingContactSection
-  // Use primaryAttendeeId instead of primaryAttendee to reduce dependency changes
+  // Update delegation booking contact instead of primary attendee
   const handleFieldChange = useCallback((field: string, value: any) => {
-    if (primaryAttendeeId) {
-      updateField(field, value);
-    }
-  }, [updateField, primaryAttendeeId]);
+    updateDelegationBookingContact({ [field]: value });
+  }, [updateDelegationBookingContact]);
 
   const handleFieldChangeImmediate = useCallback((field: string, value: any) => {
-    if (primaryAttendeeId) {
-      updateFieldImmediate(field, value);
-    }
-  }, [updateFieldImmediate, primaryAttendeeId]);
+    updateDelegationBookingContact({ [field]: value });
+  }, [updateDelegationBookingContact]);
 
   // Get validation errors based on current tab
   const getValidationErrors = useCallback(() => {
@@ -466,16 +608,16 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
     // For Purchase Tickets Only tab, only validate booking contact fields
     if (activeTab === 'purchaseOnly') {
       // Validate only the booking contact required fields
-      if (!primaryAttendee?.firstName) {
+      if (!delegationBookingContact?.firstName) {
         errors.push('Booking Contact: First name is required');
       }
-      if (!primaryAttendee?.lastName) {
+      if (!delegationBookingContact?.lastName) {
         errors.push('Booking Contact: Last name is required');
       }
-      if (!primaryAttendee?.primaryEmail) {
+      if (!delegationBookingContact?.email) {
         errors.push('Booking Contact: Email is required');
       }
-      if (!primaryAttendee?.primaryPhone) {
+      if (!delegationBookingContact?.phone) {
         errors.push('Booking Contact: Phone number is required');
       }
     } else {
@@ -485,51 +627,140 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
           errors.push('Grand Lodge selection is required');
         }
       } else if (delegationTypeTab === 'masonicOrder') {
-        if (!primaryAttendee?.organisationName) {
+        if (!delegationBookingContact?.organisationName) {
           errors.push('Masonic Order formal name is required');
         }
-        if (!primaryAttendee?.organisationAbbreviation) {
+        if (!delegationBookingContact?.organisationAbbreviation) {
           errors.push('Masonic Order abbreviation is required');
         }
-        if (!primaryAttendee?.organisationKnownAs) {
+        if (!delegationBookingContact?.organisationKnownAs) {
           errors.push('Masonic Order known as name is required');
         }
       }
       
-      // Then validate all primary attendee fields
-      if (!primaryAttendee?.title) {
+      // Then validate all booking contact fields
+      if (!delegationBookingContact?.title) {
         errors.push('Booking Contact: Title is required');
       }
-      if (!primaryAttendee?.firstName) {
+      if (!delegationBookingContact?.firstName) {
         errors.push('Booking Contact: First name is required');
       }
-      if (!primaryAttendee?.lastName) {
+      if (!delegationBookingContact?.lastName) {
         errors.push('Booking Contact: Last name is required');
       }
-      if (!primaryAttendee?.rank) {
+      if (!delegationBookingContact?.rank) {
         errors.push('Booking Contact: Rank is required');
       }
-      if (!primaryAttendee?.primaryEmail) {
+      if (!delegationBookingContact?.email) {
         errors.push('Booking Contact: Email is required');
       }
-      if (!primaryAttendee?.primaryPhone) {
+      if (!delegationBookingContact?.phone) {
         errors.push('Booking Contact: Phone number is required');
       }
       
       // For Grand Officer fields (when rank is GL or MO)
-      if ((primaryAttendee?.rank === 'GL' || primaryAttendee?.rank === 'MO') && primaryAttendee?.grandOfficerStatus === 'Present' && !primaryAttendee?.presentGrandOfficerRole) {
+      if ((delegationBookingContact?.rank === 'GL' || delegationBookingContact?.rank === 'MO') && delegationBookingContact?.grandOfficerStatus === 'Present' && !delegationBookingContact?.grandOffice) {
         errors.push('Booking Contact: Grand Officer role is required');
       }
     }
     
     return errors;
-  }, [activeTab, delegationTypeTab, primaryAttendee, selectedGrandLodge]);
+  }, [activeTab, delegationTypeTab, delegationBookingContact, selectedGrandLodge]);
+
+  // Validate Grand Lodge Details - all 11 fields must be valid
+  const validateGrandLodgeDetails = useCallback((): boolean => {
+    if (!delegationBookingContact) return false;
+    
+    // 1. Grand Lodge
+    if (!selectedGrandLodge) return false;
+    
+    // 2. Masonic Title
+    if (!delegationBookingContact.title) return false;
+    
+    // 3. First Name
+    if (!delegationBookingContact.firstName) return false;
+    
+    // 4. Last Name
+    if (!delegationBookingContact.lastName) return false;
+    
+    // 5. Rank and if GL then Grand Rank
+    if (!delegationBookingContact.rank) return false;
+    if (delegationBookingContact.rank === 'GL' && !delegationBookingContact.grandRank) return false;
+    
+    // 6. Grand Officer
+    if (!delegationBookingContact.grandOfficerStatus) return false;
+    
+    // 7. If Grand Officer = Present, then Grand Office
+    if (delegationBookingContact.grandOfficerStatus === 'Present' && !delegationBookingContact.grandOffice) return false;
+    
+    // 8. Grand Office (covered above)
+    
+    // 9. If Grand Office = Other then Other Grand Office
+    if (delegationBookingContact.grandOffice === 'Other' && !delegationBookingContact.otherGrandOffice) return false;
+    
+    // 10. Email Address
+    if (!delegationBookingContact.email) return false;
+    
+    // 11. Phone Number
+    if (!delegationBookingContact.phone) return false;
+    
+    return true;
+  }, [delegationBookingContact, selectedGrandLodge]);
+
+  // Validate Masonic Order Details - all 10 fields must be valid
+  const validateMasonicOrderDetails = useCallback((): boolean => {
+    if (!delegationBookingContact) return false;
+    
+    // 1. Formal Name
+    if (!delegationBookingContact.organisationName) return false;
+    
+    // 2. Abbreviation
+    if (!delegationBookingContact.organisationAbbreviation) return false;
+    
+    // 3. Known As
+    if (!delegationBookingContact.organisationKnownAs) return false;
+    
+    // 4. Masonic Title
+    if (!delegationBookingContact.title) return false;
+    
+    // 5. First Name
+    if (!delegationBookingContact.firstName) return false;
+    
+    // 6. Last Name
+    if (!delegationBookingContact.lastName) return false;
+    
+    // 7. Grand Rank (rank is auto-set to 'MO', so check Grand Rank)
+    if (!delegationBookingContact.grandRank) return false;
+    
+    // 8. Grand Officer
+    if (!delegationBookingContact.grandOfficerStatus) return false;
+    
+    // 9. If Grand Officer = Present, then Grand Office
+    if (delegationBookingContact.grandOfficerStatus === 'Present' && !delegationBookingContact.grandOffice) return false;
+    
+    // 10. Email Address
+    if (!delegationBookingContact.email) return false;
+    
+    // 11. Phone Number
+    if (!delegationBookingContact.phone) return false;
+    
+    return true;
+  }, [delegationBookingContact]);
+
+  // Registration Details Card validation - delegates based on mode
+  const isRegistrationDetailsValid = useCallback((): boolean => {
+    if (delegationTypeTab === 'grandLodge') {
+      return validateGrandLodgeDetails();
+    } else {
+      return validateMasonicOrderDetails();
+    }
+  }, [delegationTypeTab, validateGrandLodgeDetails, validateMasonicOrderDetails]);
 
   // Validate and complete
   const handleComplete = useCallback(() => {
     console.log('[GrandLodgesForm] handleComplete called');
     console.log('[GrandLodgesForm] activeTab:', activeTab);
-    console.log('[GrandLodgesForm] primaryAttendee:', primaryAttendee);
+    console.log('[GrandLodgesForm] delegationBookingContact:', delegationBookingContact);
     
     formSaveManager.saveBeforeNavigation().then(() => {
       const errors = getValidationErrors();
@@ -555,12 +786,12 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
         }
         
         // Store customer data in lodge format (following LodgesForm pattern)
-        if (primaryAttendee) {
+        if (delegationBookingContact) {
           updateLodgeCustomer({
-            firstName: primaryAttendee.firstName || '',
-            lastName: primaryAttendee.lastName || '',
-            email: primaryAttendee.primaryEmail || '',
-            mobile: primaryAttendee.primaryPhone || '',
+            firstName: delegationBookingContact.firstName || '',
+            lastName: delegationBookingContact.lastName || '',
+            email: delegationBookingContact.email || '',
+            mobile: delegationBookingContact.phone || '',
           });
           
           // Get Grand Lodge name from the selected Grand Lodge
@@ -572,9 +803,9 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
             grand_lodge_id: delegationTypeTab === 'grandLodge' ? selectedGrandLodge : '0',
             grandLodgeName: delegationTypeTab === 'grandLodge' ? selectedGrandLodgeName : '',
             // For delegations, we use organization details, not lodge details
-            organisationName: delegationTypeTab === 'grandLodge' ? selectedGrandLodgeName : (primaryAttendee.organisationName || ''),
-            organisationAbbreviation: delegationTypeTab === 'grandLodge' ? (selectedGL?.abbreviation || '') : (primaryAttendee.organisationAbbreviation || ''),
-            organisationKnownAs: delegationTypeTab === 'grandLodge' ? selectedGrandLodgeName : (primaryAttendee.organisationKnownAs || ''),
+            organisationName: delegationTypeTab === 'grandLodge' ? selectedGrandLodgeName : (delegationBookingContact.organisationName || ''),
+            organisationAbbreviation: delegationTypeTab === 'grandLodge' ? (selectedGL?.abbreviation || '') : (delegationBookingContact.organisationAbbreviation || ''),
+            organisationKnownAs: delegationTypeTab === 'grandLodge' ? selectedGrandLodgeName : (delegationBookingContact.organisationKnownAs || ''),
             organisationId: delegationTypeTab === 'grandLodge' ? selectedGrandLodgeOrgId : null,
             delegationType: delegationTypeTab
           });
@@ -613,6 +844,15 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
           return;
         }
         
+        // Check if there's at least one Mason
+        const hasMason = delegationMembers.some(member => member.type === 'Mason');
+        if (!hasMason) {
+          if (onValidationError) {
+            onValidationError(['At least one Mason must be included in the delegation']);
+          }
+          return;
+        }
+        
         // Validate all members have required fields
         const invalidMembers = delegationMembers.filter(member => 
           !member.firstName || !member.lastName || !member.title
@@ -637,50 +877,24 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
           return;
         }
         
-        // Convert delegation members to attendees
-        delegationMembers.forEach((member, index) => {
-          if (member.type === 'Mason') {
-            const attendeeId = addMasonAttendee();
-            updateAttendee(attendeeId, {
-              title: member.title,
-              firstName: member.firstName,
-              lastName: member.lastName,
-              suffix: member.grandRank,
-              rank: delegationTypeTab === 'masonicOrder' ? 'MO' : 'GL',
-              grandOfficerStatus: 'Present',
-              presentGrandOfficerRole: member.grandOffice,
-              grand_lodge_id: delegationTypeTab === 'grandLodge' ? Number(selectedGrandLodge) : 0,
-              contactPreference: 'primaryattendee',
-              isPrimary: index === 0 && !primaryAttendeeId
+        // No need to convert - attendees are already in the store!
+        // Just ensure the first Mason is marked as primary
+        const masons = attendees.filter(a => a.attendeeType === 'mason');
+        if (masons.length > 0) {
+          // Update the first Mason to be primary
+          masons.forEach((mason, index) => {
+            updateAttendee(mason.attendeeId, {
+              isPrimary: index === 0
             });
-          } else if (member.type === 'Guest') {
-            const attendeeId = addGuestAttendee();
-            updateAttendee(attendeeId, {
-              title: member.title,
-              firstName: member.firstName,
-              lastName: member.lastName,
-              contactPreference: 'PrimaryAttendee'
-            });
-          } else if (member.type === 'Partner' && member.partnerOf) {
-            const attendeeId = addPartnerAttendee(member.partnerOf);
-            if (attendeeId) {
-              updateAttendee(attendeeId, {
-                title: member.title,
-                firstName: member.firstName,
-                lastName: member.lastName,
-                relationship: member.relationship || 'Wife',
-                contactPreference: 'primaryattendee'
-              });
-            }
-          }
-        });
+          });
+        }
         
         if (onComplete) {
           onComplete();
         }
       }
     });
-  }, [selectedGrandLodge, primaryAttendee, activeTab, ticketCount, delegationMembers, onComplete, onValidationError, setLodgeTicketOrder, addMasonAttendee, addGuestAttendee, addPartnerAttendee, updateAttendee, primaryAttendeeId, delegationTypeTab, getValidationErrors, updateLodgeCustomer, updateLodgeDetails, selectedPackage, packagePrice]);
+  }, [selectedGrandLodge, delegationBookingContact, activeTab, ticketCount, delegationMembers, attendees, onComplete, onValidationError, setLodgeTicketOrder, updateAttendee, delegationTypeTab, getValidationErrors, updateLodgeCustomer, updateLodgeDetails, selectedPackage, packagePrice]);
 
   // Payment handlers for ticket purchase mode - EXACT SAME AS LODGE FORM
   const handlePaymentSuccess = async (paymentToken: string, billingDetails: any) => {
@@ -735,7 +949,7 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
         functionId,
         packageId,
         packageQuantity: ticketCount,
-        lodgeName: delegationTypeTab === 'grandLodge' ? 'Grand Lodge Delegation' : (primaryAttendee?.organisationName || 'Masonic Order'),
+        lodgeName: delegationTypeTab === 'grandLodge' ? 'Grand Lodge Delegation' : (delegationBookingContact?.organisationName || 'Masonic Order'),
         totalAmount: calculatedPackageOrder.totalWithFees
       });
 
@@ -747,29 +961,29 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
       // Create comprehensive booking contact with ALL collected data
       const comprehensiveBookingContact = {
         // Basic details
-        title: primaryAttendee?.title || '',
-        firstName: primaryAttendee?.firstName || '',
-        lastName: primaryAttendee?.lastName || '',
-        email: primaryAttendee?.primaryEmail || '',
-        mobile: primaryAttendee?.primaryPhone || '',
+        title: delegationBookingContact?.title || '',
+        firstName: delegationBookingContact?.firstName || '',
+        lastName: delegationBookingContact?.lastName || '',
+        email: delegationBookingContact?.email || '',
+        mobile: delegationBookingContact?.phone || '',
         
         // Masonic details - CRITICAL DATA WE'RE CURRENTLY LOSING
-        rank: primaryAttendee?.rank || '',
-        grandRank: primaryAttendee?.suffix || '', // Grand Rank is stored in suffix field
-        grandOfficerStatus: primaryAttendee?.grandOfficerStatus || '',
-        grandOffice: primaryAttendee?.presentGrandOfficerRole || '',
-        otherGrandOffice: primaryAttendee?.otherPresentGrandOfficerRole || '',
+        rank: delegationBookingContact?.rank || '',
+        grandRank: delegationBookingContact?.grandRank || '', // Grand Rank is stored in suffix field
+        grandOfficerStatus: delegationBookingContact?.grandOfficerStatus || '',
+        grandOffice: delegationBookingContact?.grandOffice || '',
+        otherGrandOffice: delegationBookingContact?.otherGrandOffice || '',
         
         // Address details for billing
-        addressLine1: primaryAttendee?.addressLine1 || '',
-        suburb: primaryAttendee?.suburb || 'Sydney',
-        stateTerritory: primaryAttendee?.stateTerritory || 'NSW',
-        postcode: primaryAttendee?.postcode || '2000',
-        country: 'AU',
+        addressLine1: delegationBookingContact?.addressLine1 || '',
+        suburb: delegationBookingContact?.city || 'Sydney',
+        stateTerritory: delegationBookingContact?.stateProvince || 'NSW',
+        postcode: delegationBookingContact?.postalCode || '2000',
+        country: delegationBookingContact?.country || 'AU',
         
         // Additional metadata
         attendeeType: 'Mason',
-        contactPreference: primaryAttendee?.contactPreference || 'directly'
+        contactPreference: 'directly'
       };
 
       // Get Grand Lodge name from the selected Grand Lodge (we'll need to store this)
@@ -784,9 +998,9 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
         grandLodgeName: delegationTypeTab === 'grandLodge' ? grandLodgeName : '',
         
         // Organization details - for Grand Lodges, use the Grand Lodge info
-        organisationName: delegationTypeTab === 'grandLodge' ? grandLodgeName : (primaryAttendee?.organisationName || ''),
-        organisationAbbreviation: delegationTypeTab === 'grandLodge' ? (selectedGL?.abbreviation || '') : (primaryAttendee?.organisationAbbreviation || ''),
-        organisationKnownAs: delegationTypeTab === 'grandLodge' ? grandLodgeName : (primaryAttendee?.organisationKnownAs || ''),
+        organisationName: delegationTypeTab === 'grandLodge' ? grandLodgeName : (delegationBookingContact?.organisationName || ''),
+        organisationAbbreviation: delegationTypeTab === 'grandLodge' ? (selectedGL?.abbreviation || '') : (delegationBookingContact?.organisationAbbreviation || ''),
+        organisationKnownAs: delegationTypeTab === 'grandLodge' ? grandLodgeName : (delegationBookingContact?.organisationKnownAs || ''),
         
         // Include the organisation ID if available
         organisationId: delegationTypeTab === 'grandLodge' ? selectedGrandLodgeOrgId : null,
@@ -813,7 +1027,7 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
           registrationMode: activeTab, // Send the current tab mode
           // Only send attendee data for registerDelegation mode
           attendeeDetails: activeTab === 'registerDelegation' ? {
-            primaryAttendee: primaryAttendee, // Store ALL the collected data
+            bookingContact: delegationBookingContact, // Store ALL the collected data
             registrationType: delegationTypeTab === 'masonicOrder' ? 'masonicorder' : 'grandlodge',
             delegationType: delegationTypeTab
           } : undefined,
@@ -884,15 +1098,15 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
           const metadata = {
             registrationType: 'grandlodge' as const,
             primaryAttendee: {
-              title: primaryAttendee?.title || '',
-              firstName: primaryAttendee?.firstName || '',
-              lastName: primaryAttendee?.lastName || '',
+              title: delegationBookingContact?.title || '',
+              firstName: delegationBookingContact?.firstName || '',
+              lastName: delegationBookingContact?.lastName || '',
               attendeeType: 'lodge-contact'
             },
             attendees: [{
               attendeeId: 'lodge-bulk',
               title: 'Grand Lodge',
-              firstName: delegationTypeTab === 'grandLodge' ? 'Grand Lodge Delegation' : (primaryAttendee?.organisationName || 'Masonic Order'),
+              firstName: delegationTypeTab === 'grandLodge' ? 'Grand Lodge Delegation' : (delegationBookingContact?.organisationName || 'Masonic Order'),
               lastName: `${ticketCount} packages`,
               attendeeType: 'lodge-bulk',
               selectedTickets: [{
@@ -995,20 +1209,20 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
   // Get billing details for payment
   const getBillingDetails = useCallback((): any => {
     return {
-      title: primaryAttendee?.title || '',
-      firstName: primaryAttendee?.firstName || '',
-      lastName: primaryAttendee?.lastName || '',
-      emailAddress: primaryAttendee?.primaryEmail || '',
-      mobileNumber: primaryAttendee?.primaryPhone || '',
-      phone: primaryAttendee?.primaryPhone || '',
-      addressLine1: primaryAttendee?.addressLine1 || '',
-      suburb: primaryAttendee?.suburb || 'Sydney',
-      stateTerritory: { name: primaryAttendee?.stateTerritory || 'NSW' },
-      postcode: primaryAttendee?.postcode || '2000',
-      country: { isoCode: 'AU' },
-      businessName: delegationTypeTab === 'grandLodge' ? 'Grand Lodge Delegation' : primaryAttendee?.organisationName,
+      title: delegationBookingContact?.title || '',
+      firstName: delegationBookingContact?.firstName || '',
+      lastName: delegationBookingContact?.lastName || '',
+      emailAddress: delegationBookingContact?.email || '',
+      mobileNumber: delegationBookingContact?.phone || '',
+      phone: delegationBookingContact?.phone || '',
+      addressLine1: delegationBookingContact?.addressLine1 || '',
+      suburb: delegationBookingContact?.city || 'Sydney',
+      stateTerritory: { name: delegationBookingContact?.stateProvince || 'NSW' },
+      postcode: delegationBookingContact?.postalCode || '2000',
+      country: { isoCode: delegationBookingContact?.country || 'AU' },
+      businessName: delegationTypeTab === 'grandLodge' ? 'Grand Lodge Delegation' : delegationBookingContact?.organisationName,
     };
-  }, [primaryAttendee, delegationTypeTab]);
+  }, [delegationBookingContact, delegationTypeTab]);
 
   // Expose submit method to parent
   React.useImperativeHandle(ref, () => ({
@@ -1034,20 +1248,60 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
       {/* Grand Lodge/Masonic Order Selection with integrated Booking Contact */}
       <div className="relative">
         <Card className="border-2 border-primary/20">
-          <CardHeader className="bg-primary/5 border-b border-primary/10">
-            <CardTitle className="flex items-center gap-2 text-primary">
+          <CardHeader className={cn(
+            "border-b transition-colors duration-200 rounded-t-lg",
+            delegationTypeTab === 'grandLodge' 
+              ? "bg-masonic-navy border-masonic-navy/20" 
+              : "bg-red-900 border-red-900/20"
+          )}>
+            <CardTitle className={cn(
+              "flex items-center gap-2",
+              delegationTypeTab === 'grandLodge'
+                ? "text-masonic-gold"
+                : "text-white"
+            )}>
               <Building className="w-5 h-5" />
               {delegationTypeTab === 'grandLodge' ? 'Grand Lodge Details' : 'Masonic Order Details'}
             </CardTitle>
-            <p className="text-sm text-gray-600 mt-1">
+            <p className={cn(
+              "text-sm mt-1",
+              delegationTypeTab === 'grandLodge'
+                ? "text-masonic-gold/80"
+                : "text-white/80"
+            )}>
               These details will be applied to all members in this registration
             </p>
           </CardHeader>
           <CardContent className="p-0">
-            <Tabs value={delegationTypeTab} onValueChange={(value) => setDelegationTypeTab(value as 'grandLodge' | 'masonicOrder')}>
-              <TabsList className="grid w-full grid-cols-2 rounded-none border-b">
-                <TabsTrigger value="grandLodge">Grand Lodge</TabsTrigger>
-                <TabsTrigger value="masonicOrder">Masonic Order</TabsTrigger>
+            <Tabs value={delegationTypeTab} onValueChange={(value) => {
+              setDelegationTypeTab(value as 'grandLodge' | 'masonicOrder');
+              // Clear attendees when switching delegation type to prevent mix-ups
+              const { clearAllAttendees } = useRegistrationStore.getState();
+              clearAllAttendees();
+            }}>
+              <TabsList className="grid w-full grid-cols-2 rounded-none border-b bg-transparent p-0 h-auto gap-0">
+                <TabsTrigger 
+                  value="grandLodge"
+                  className={cn(
+                    "transition-all duration-200 rounded-none h-full py-3",
+                    delegationTypeTab === 'grandLodge' 
+                      ? "bg-masonic-navy/50 text-black font-bold data-[state=active]:bg-masonic-navy/50 data-[state=active]:text-black" 
+                      : "hover:bg-gray-200"
+                  )}
+                >
+                  Grand Lodge
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="masonicOrder"
+                  className={cn(
+                    "transition-all duration-200 rounded-none h-full py-3",
+                    delegationTypeTab === 'masonicOrder' 
+                      ? "bg-red-900/50 text-white data-[state=active]:bg-red-900/50 data-[state=active]:text-white" 
+                      : "hover:bg-gray-200"
+                  )}
+                >
+                  Masonic Order
+                </TabsTrigger>
               </TabsList>
               
               <TabsContent value="grandLodge" className="p-3 space-y-2 mt-0">
@@ -1069,15 +1323,21 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
                 </div>
                 
                 {/* Booking Contact Details */}
-                {primaryAttendee && (
-                  <BookingContactSection
-                    mode="attendee"
-                    attendee={primaryAttendee}
-                    onFieldChange={handleFieldChange}
-                    onFieldChangeImmediate={handleFieldChangeImmediate}
-                    delegationTypeTab={delegationTypeTab}
-                  />
-                )}
+                <BookingContactSection
+                  mode="booking"
+                  bookingContact={delegationBookingContact || {
+                    title: '',
+                    firstName: '',
+                    lastName: '',
+                    email: '',
+                    phone: '',
+                    rank: delegationTypeTab === 'masonicOrder' ? 'MO' : 'GL',
+                    grandOfficerStatus: 'Present'
+                  }}
+                  onFieldChange={handleFieldChange}
+                  onFieldChangeImmediate={handleFieldChangeImmediate}
+                  delegationTypeTab={delegationTypeTab}
+                />
               </TabsContent>
               
               <TabsContent value="masonicOrder" className="p-3 space-y-2 mt-0">
@@ -1088,7 +1348,7 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
                     <TextField
                       label="Formal Name"
                       name="formal-name"
-                      value={primaryAttendee?.organisationName || ''}
+                      value={delegationBookingContact?.organisationName || ''}
                       onChange={(value) => handleFieldChange('organisationName', value)}
                       placeholder="Enter formal name of Masonic Order"
                       required={true}
@@ -1101,7 +1361,7 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
                     <TextField
                       label="Abbreviation"
                       name="abbreviation"
-                      value={primaryAttendee?.organisationAbbreviation || ''}
+                      value={delegationBookingContact?.organisationAbbreviation || ''}
                       onChange={(value) => handleFieldChange('organisationAbbreviation', value)}
                       placeholder="e.g. USGC NSW & ACT"
                       required={true}
@@ -1114,7 +1374,7 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
                     <TextField
                       label="Known As"
                       name="known-as"
-                      value={primaryAttendee?.organisationKnownAs || ''}
+                      value={delegationBookingContact?.organisationKnownAs || ''}
                       onChange={(value) => handleFieldChange('organisationKnownAs', value)}
                       placeholder="Common or shortened name"
                       required={true}
@@ -1124,7 +1384,7 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
                 </div>
                 
                 {/* Validation message if any field is empty */}
-                {(!primaryAttendee?.organisationName || !primaryAttendee?.organisationAbbreviation || !primaryAttendee?.organisationKnownAs) && (
+                {(!delegationBookingContact?.organisationName || !delegationBookingContact?.organisationAbbreviation || !delegationBookingContact?.organisationKnownAs) && (
                   <p className="text-amber-600 text-xs mt-1 flex items-center gap-1">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="w-4 h-4">
                       <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a.75.75 0 000 1.5h.253a.25.25 0 01.244.304l-.459 2.066A1.75 1.75 0 0010.747 15H11a.75.75 0 000-1.5h-.253a.25.25 0 01-.244-.304l.459-2.066A1.75 1.75 0 009.253 9H9z" clipRule="evenodd" />
@@ -1134,20 +1394,45 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
                 )}
                 
                 {/* Booking Contact Details */}
-                {primaryAttendee && (
-                  <BookingContactSection
-                    mode="attendee"
-                    attendee={primaryAttendee}
-                    onFieldChange={handleFieldChange}
-                    onFieldChangeImmediate={handleFieldChangeImmediate}
-                    delegationTypeTab={delegationTypeTab}
-                  />
-                )}
+                <BookingContactSection
+                  mode="booking"
+                  bookingContact={delegationBookingContact || {
+                    title: '',
+                    firstName: '',
+                    lastName: '',
+                    email: '',
+                    phone: '',
+                    rank: delegationTypeTab === 'masonicOrder' ? 'MO' : 'GL',
+                    grandOfficerStatus: 'Present'
+                  }}
+                  onFieldChange={handleFieldChange}
+                  onFieldChangeImmediate={handleFieldChangeImmediate}
+                  delegationTypeTab={delegationTypeTab}
+                />
               </TabsContent>
             </Tabs>
           </CardContent>
         </Card>
       </div>
+
+      {/* Show validation message above tabs if Registration Details are invalid */}
+      {!isRegistrationDetailsValid() && (
+        <div className="rounded-md bg-red-50 p-4">
+          <div className="flex justify-center">
+            <div className="flex">
+              <div className="shrink-0">
+                <AlertCircle aria-hidden="true" className="h-5 w-5 text-red-400" />
+              </div>
+              <div className="ml-3">
+                <h3 className="text-sm font-medium text-red-800">Registration details incomplete</h3>
+                <div className="mt-2 text-sm text-red-700">
+                  <p>Please complete all required fields in the {delegationTypeTab === 'grandLodge' ? 'Grand Lodge' : 'Masonic Order'} Details section above before {activeTab === 'purchaseOnly' ? 'proceeding with your order' : 'adding delegation members'}.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Registration Type Tabs */}
       <Tabs value={activeTab} onValueChange={(value) => {
@@ -1164,9 +1449,10 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
 
         {/* Purchase Tickets Only Tab */}
         <TabsContent value="purchaseOnly" className="mt-3 space-y-3">
+          
           <PackageOrderCard
             title="Grand Lodge Package Order"
-            disabled={delegationTypeTab === 'grandLodge' ? !selectedGrandLodge : (!primaryAttendee?.organisationName || !primaryAttendee?.organisationAbbreviation || !primaryAttendee?.organisationKnownAs)}
+            disabled={!isRegistrationDetailsValid()}
             isLoadingData={isLoadingData}
             dataError={dataError}
             packages={functionPackages}
@@ -1187,8 +1473,12 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
           />
           
           {/* Payment Section - same as LodgeRegistrationStep */}
-          <Card className="border-2 border-primary/20">
-            <CardHeader className="bg-primary/5 border-b border-primary/10">
+          <div className={cn(
+            "relative",
+            !isRegistrationDetailsValid() && "opacity-50 pointer-events-none"
+          )}>
+            <Card className="border-2 border-primary/20">
+              <CardHeader className="bg-primary/5 border-b border-primary/10">
               <CardTitle className="flex items-center gap-2 text-primary">
                 <CreditCard className="w-5 h-5" />
                 Payment Details
@@ -1222,13 +1512,13 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
                   registrationType="lodge"
                   registrationData={{ 
                     lodgeCustomer: {
-                      firstName: primaryAttendee?.firstName || '',
-                      lastName: primaryAttendee?.lastName || '',
-                      email: primaryAttendee?.primaryEmail || '',
-                      mobile: primaryAttendee?.primaryPhone || '',
+                      firstName: delegationBookingContact?.firstName || '',
+                      lastName: delegationBookingContact?.lastName || '',
+                      email: delegationBookingContact?.email || '',
+                      mobile: delegationBookingContact?.phone || '',
                     },
                     lodgeDetails: {
-                      lodgeName: delegationTypeTab === 'grandLodge' ? 'Grand Lodge Delegation' : (primaryAttendee?.organisationName || 'Masonic Order'),
+                      lodgeName: delegationTypeTab === 'grandLodge' ? 'Grand Lodge Delegation' : (delegationBookingContact?.organisationName || 'Masonic Order'),
                       lodge_id: delegationTypeTab === 'grandLodge' ? selectedGrandLodge : '0',
                       grand_lodge_id: delegationTypeTab === 'grandLodge' ? selectedGrandLodge : '0',
                     },
@@ -1254,13 +1544,14 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
               )}
             </CardContent>
           </Card>
+          </div>
         </TabsContent>
 
         {/* Register Delegation Tab */}
         <TabsContent value="registerDelegation" className="mt-3">
           <Card className={cn(
             "border-2 border-primary/20",
-            (delegationTypeTab === 'grandLodge' ? !selectedGrandLodge : (!primaryAttendee?.organisationName || !primaryAttendee?.organisationAbbreviation || !primaryAttendee?.organisationKnownAs)) && "opacity-70"
+            !isRegistrationDetailsValid() && "opacity-50 pointer-events-none"
           )}>
             <CardHeader className="py-3 px-4 border-b border-gray-200">
               <div className="flex items-center justify-between">
@@ -1268,25 +1559,12 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
                   <Users className="w-5 h-5" />
                   Delegation Members
                 </CardTitle>
-                <div className="flex items-center gap-3">
-                  <div className="flex items-center gap-2">
-                    <Label htmlFor="delegation-order">Delegation Order:</Label>
-                    <Input
-                      id="delegation-order"
-                      type="number"
-                      value={delegationOrder}
-                      onChange={(e) => setDelegationOrder(Number(e.target.value))}
-                      className="w-24"
-                      min={1}
-                      max={999}
-                    />
-                  </div>
-                  <div className="flex gap-2">
+                <div className="flex gap-2">
                     <Button
                       size="sm"
                       variant="outline"
                       onClick={() => addDelegationMember('Mason')}
-                      disabled={delegationTypeTab === 'grandLodge' ? !selectedGrandLodge : (!primaryAttendee?.organisationName || !primaryAttendee?.organisationAbbreviation || !primaryAttendee?.organisationKnownAs)}
+                      disabled={delegationTypeTab === 'grandLodge' ? !selectedGrandLodge : (!delegationBookingContact?.organisationName || !delegationBookingContact?.organisationAbbreviation || !delegationBookingContact?.organisationKnownAs)}
                     >
                       <UserPlus className="w-4 h-4 mr-1" />
                       Add Mason
@@ -1295,7 +1573,7 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
                       size="sm"
                       variant="outline"
                       onClick={() => setShowAddMemberDialog(true)}
-                      disabled={(delegationTypeTab === 'grandLodge' ? !selectedGrandLodge : (!primaryAttendee?.organisationName || !primaryAttendee?.organisationAbbreviation || !primaryAttendee?.organisationKnownAs)) || delegationMembers.length === 0}
+                      disabled={(delegationTypeTab === 'grandLodge' ? !selectedGrandLodge : (!delegationBookingContact?.organisationName || !delegationBookingContact?.organisationAbbreviation || !delegationBookingContact?.organisationKnownAs)) || delegationMembers.length === 0}
                     >
                       <UserPlus className="w-4 h-4 mr-1" />
                       Add Partner
@@ -1304,12 +1582,11 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
                       size="sm"
                       variant="outline"
                       onClick={() => addDelegationMember('Guest')}
-                      disabled={delegationTypeTab === 'grandLodge' ? !selectedGrandLodge : (!primaryAttendee?.organisationName || !primaryAttendee?.organisationAbbreviation || !primaryAttendee?.organisationKnownAs)}
+                      disabled={delegationTypeTab === 'grandLodge' ? !selectedGrandLodge : (!delegationBookingContact?.organisationName || !delegationBookingContact?.organisationAbbreviation || !delegationBookingContact?.organisationKnownAs)}
                     >
                       <UserPlus className="w-4 h-4 mr-1" />
                       Add Guest
                     </Button>
-                  </div>
                 </div>
               </div>
             </CardHeader>
@@ -1324,7 +1601,7 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead className="!w-8 !px-1 !py-2 !h-auto">#</TableHead>
+                      <TableHead className="!w-16 !px-1 !py-2 !h-auto text-center">Order</TableHead>
                       <TableHead className="!px-1 !py-2 !h-auto">Type</TableHead>
                       <TableHead className="!px-1 !py-2 !h-auto">Title</TableHead>
                       <TableHead className="!px-1 !py-2 !h-auto">First Name</TableHead>
@@ -1343,6 +1620,10 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
                         index={index}
                         onUpdate={updateDelegationMember}
                         onRemove={removeDelegationMember}
+                        onMoveUp={() => moveDelegationMemberUp(index)}
+                        onMoveDown={() => moveDelegationMemberDown(index)}
+                        canMoveUp={index > 0}
+                        canMoveDown={index < delegationMembers.length - 1}
                         grandOfficeOptions={grandOfficeOptions}
                         delegationMembers={delegationMembers}
                         isMasonicOrder={delegationTypeTab === 'masonicOrder'}
@@ -1357,7 +1638,8 @@ export const GrandLodgesForm = React.forwardRef<GrandLodgesFormHandle, GrandLodg
                   <Info className="h-4 w-4 text-amber-600" />
                   <AlertDescription className="text-amber-700 text-sm">
                     All delegation members will be registered under {selectedGrandLodge ? 'the selected Grand Lodge' : 'your Grand Lodge'}.
-                    Contact details will default to the primary attendee.
+                    The first Mason in the list will be designated as the primary attendee.
+                    Use the up/down arrows to reorder members.
                   </AlertDescription>
                 </Alert>
               )}
@@ -1406,155 +1688,139 @@ const DelegationMemberRow: React.FC<{
   index: number;
   onUpdate: (id: string, updates: Partial<DelegationMember>) => void;
   onRemove: (id: string) => void;
+  onMoveUp: () => void;
+  onMoveDown: () => void;
+  canMoveUp: boolean;
+  canMoveDown: boolean;
   grandOfficeOptions: { value: string; label: string }[];
   delegationMembers: DelegationMember[];
   isMasonicOrder?: boolean;
-}> = ({ member, index, onUpdate, onRemove, grandOfficeOptions, delegationMembers, isMasonicOrder = false }) => {
-  const [isEditing, setIsEditing] = useState(member.isEditing || false);
-
-  const handleSave = () => {
-    if (member.firstName && member.lastName && member.title) {
-      onUpdate(member.id, { isEditing: false });
-      setIsEditing(false);
-    }
-  };
-
-  if (isEditing) {
-    return (
-      <TableRow>
-        <TableCell className="!py-2 !px-1">{index + 1}</TableCell>
-        <TableCell className="!py-2 !px-1">{member.type}</TableCell>
-        <TableCell className="!py-2 !px-1">
-          {isMasonicOrder && member.type === 'Mason' ? (
-            <Input
-              value={member.title}
-              onChange={(e) => onUpdate(member.id, { title: e.target.value })}
-              placeholder="Title"
-              className="min-w-[6rem] w-full"
-            />
-          ) : (
-            <Select
-              value={member.title}
-              onValueChange={(value) => onUpdate(member.id, { title: value })}
-            >
-              <SelectTrigger className="min-w-[6rem] w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {member.type === 'Mason' ? 
-                  MASON_TITLES.map(title => (
-                    <SelectItem key={title} value={title}>{title}</SelectItem>
-                  )) :
-                  GUEST_TITLES.map(title => (
-                    <SelectItem key={title} value={title}>{title}</SelectItem>
-                  ))
-                }
-              </SelectContent>
-            </Select>
-          )}
-        </TableCell>
-        <TableCell className="!py-2 !px-1">
-          <Input
-            value={member.firstName}
-            onChange={(e) => onUpdate(member.id, { firstName: e.target.value })}
-            placeholder="First name"
-            className="min-w-[8rem] w-full"
-          />
-        </TableCell>
-        <TableCell className="!py-2 !px-1">
-          <Input
-            value={member.lastName}
-            onChange={(e) => onUpdate(member.id, { lastName: e.target.value })}
-            placeholder="Last name"
-            className="min-w-[8rem] w-full"
-          />
-        </TableCell>
-        <TableCell className="!py-2 !px-1">
-          {member.type === 'Mason' ? (
-            <Input
-              value={member.grandRank || ''}
-              onChange={(e) => onUpdate(member.id, { grandRank: e.target.value })}
-              placeholder="Rank"
-              className="min-w-[6rem] w-full"
-            />
-          ) : '-'}
-        </TableCell>
-        <TableCell className="!py-2 !px-1">
-          {member.type === 'Mason' ? (
-            <Input
-              value={member.grandOffice || ''}
-              onChange={(e) => onUpdate(member.id, { grandOffice: e.target.value })}
-              placeholder="Office"
-              className="min-w-[9rem] w-full"
-            />
-          ) : '-'}
-        </TableCell>
-        <TableCell className="!py-2 !px-1">
-          {member.type === 'Partner' ? (
-            <Select
-              value={member.relationship || ''}
-              onValueChange={(value) => onUpdate(member.id, { relationship: value })}
-            >
-              <SelectTrigger className="min-w-[6rem] w-full">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {PARTNER_RELATIONSHIPS.map(rel => (
-                  <SelectItem key={rel} value={rel}>{rel}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          ) : member.type === 'Guest' ? (
-            <Input
-              value={member.relationship || ''}
-              onChange={(e) => onUpdate(member.id, { relationship: e.target.value })}
-              placeholder="e.g., Friend"
-              className="min-w-[9rem] w-full"
-            />
-          ) : '-'}
-        </TableCell>
-        <TableCell className="!py-2 !px-1">
-          <div className="flex gap-1">
-            <Button size="sm" variant="ghost" onClick={handleSave} className="h-7 px-2">
-              <Check className="w-4 h-4" />
-            </Button>
-            <Button size="sm" variant="ghost" onClick={() => onRemove(member.id)} className="h-7 px-2">
-              <X className="w-4 h-4" />
-            </Button>
-          </div>
-        </TableCell>
-      </TableRow>
-    );
-  }
-
-  // View mode
-  const partnerOfMember = member.partnerOf ? 
-    delegationMembers.find(m => m.id === member.partnerOf) : null;
-
+}> = ({ member, index, onUpdate, onRemove, onMoveUp, onMoveDown, canMoveUp, canMoveDown, grandOfficeOptions, delegationMembers, isMasonicOrder = false }) => {
+  // Find if this is the first Mason in the list
+  const firstMasonIndex = delegationMembers.findIndex(m => m.type === 'Mason');
+  const isFirstMason = member.type === 'Mason' && index === firstMasonIndex;
+  
+  // All fields are directly editable
   return (
     <TableRow>
-      <TableCell className="!py-2 !px-1">{index + 1}</TableCell>
-      <TableCell className="!py-2 !px-1">{member.type}</TableCell>
-      <TableCell className="!py-2 !px-1">{member.title}</TableCell>
-      <TableCell className="!py-2 !px-1">{member.firstName}</TableCell>
-      <TableCell className="!py-2 !px-1">{member.lastName}</TableCell>
-      <TableCell className="!py-2 !px-1">{member.type === 'Mason' ? member.grandRank : '-'}</TableCell>
-      <TableCell className="!py-2 !px-1">{member.type === 'Mason' ? member.grandOffice : '-'}</TableCell>
-      <TableCell className="!py-2 !px-1">
-        {member.type === 'Partner' && partnerOfMember ? 
-          `${member.relationship} of ${partnerOfMember.firstName} ${partnerOfMember.lastName}` :
-          member.relationship || '-'
-        }
-      </TableCell>
-      <TableCell className="!py-2 !px-1">
-        <div className="flex gap-1">
-          <Button size="sm" variant="ghost" onClick={() => setIsEditing(true)} className="h-7 px-2">
-            Edit
+      <TableCell className="!py-2 !px-1 !pl-2">
+        <div className="flex flex-col items-center">
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-5 w-6 p-0"
+            onClick={onMoveUp}
+            disabled={!canMoveUp}
+          >
+            <ChevronUp className="h-3 w-3" />
           </Button>
-          <Button size="sm" variant="ghost" onClick={() => onRemove(member.id)} className="h-7 px-2">
-            <X className="w-4 h-4" />
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-5 w-6 p-0 -mt-1"
+            onClick={onMoveDown}
+            disabled={!canMoveDown}
+          >
+            <ChevronDown className="h-3 w-3" />
           </Button>
         </div>
+      </TableCell>
+      <TableCell className="!py-2 !px-1">{member.type}</TableCell>
+      <TableCell className="!py-2 !px-1">
+        {isMasonicOrder && member.type === 'Mason' ? (
+          <Input
+            value={member.title}
+            onChange={(e) => onUpdate(member.id, { title: e.target.value })}
+            placeholder="Title"
+            className="min-w-[6rem] w-full"
+          />
+        ) : (
+          <Select
+            value={member.title}
+            onValueChange={(value) => onUpdate(member.id, { title: value })}
+          >
+            <SelectTrigger className="min-w-[6rem] w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {member.type === 'Mason' ? 
+                MASON_TITLES.map(title => (
+                  <SelectItem key={title} value={title}>{title}</SelectItem>
+                )) :
+                GUEST_TITLES.map(title => (
+                  <SelectItem key={title} value={title}>{title}</SelectItem>
+                ))
+              }
+            </SelectContent>
+          </Select>
+        )}
+      </TableCell>
+      <TableCell className="!py-2 !px-1">
+        <Input
+          value={member.firstName}
+          onChange={(e) => onUpdate(member.id, { firstName: e.target.value })}
+          placeholder="First name"
+          className="min-w-[8rem] w-full"
+        />
+      </TableCell>
+      <TableCell className="!py-2 !px-1">
+        <Input
+          value={member.lastName}
+          onChange={(e) => onUpdate(member.id, { lastName: e.target.value })}
+          placeholder="Last name"
+          className="min-w-[8rem] w-full"
+        />
+      </TableCell>
+      <TableCell className="!py-2 !px-1">
+        {member.type === 'Mason' ? (
+          <Input
+            value={member.grandRank || ''}
+            onChange={(e) => onUpdate(member.id, { grandRank: e.target.value })}
+            placeholder="Rank"
+            className="min-w-[6rem] w-full"
+          />
+        ) : '-'}
+      </TableCell>
+      <TableCell className="!py-2 !px-1">
+        {member.type === 'Mason' ? (
+          <Input
+            value={member.grandOffice || ''}
+            onChange={(e) => onUpdate(member.id, { grandOffice: e.target.value })}
+            placeholder="Office"
+            className="min-w-[9rem] w-full"
+          />
+        ) : '-'}
+      </TableCell>
+      <TableCell className="!py-2 !px-1">
+        {isFirstMason ? (
+          <div className="text-sm font-medium">Primary</div>
+        ) : member.type === 'Partner' ? (
+          <Select
+            value={member.relationship || ''}
+            onValueChange={(value) => onUpdate(member.id, { relationship: value })}
+          >
+            <SelectTrigger className="min-w-[6rem] w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {PARTNER_RELATIONSHIPS.map(rel => (
+                <SelectItem key={rel} value={rel}>{rel}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        ) : member.type === 'Guest' ? (
+          <Input
+            value={member.relationship || ''}
+            onChange={(e) => onUpdate(member.id, { relationship: e.target.value })}
+            placeholder="e.g., Friend"
+            className="min-w-[9rem] w-full"
+          />
+        ) : '-'}
+      </TableCell>
+      <TableCell className="!py-2 !px-1">
+        <Button size="sm" variant="ghost" onClick={() => onRemove(member.id)} className="h-7 px-2">
+          <X className="w-4 h-4" />
+        </Button>
       </TableCell>
     </TableRow>
   );
@@ -1680,95 +1946,3 @@ export const GrandLodgeFormSummary: React.FC = () => {
 
 // Export an alias for backward compatibility
 // Removed duplicate export - LodgeFormSummary is exported from LodgesForm.tsx
-
-// Memoized booking contact details to prevent re-renders
-const BookingContactDetails = React.memo(({ 
-  primaryAttendee, 
-  handleFieldChange, 
-  handleFieldChangeImmediate 
-}: {
-  primaryAttendee: any;
-  handleFieldChange: (field: string, value: any) => void;
-  handleFieldChangeImmediate: (field: string, value: any) => void;
-}) => {
-  return (
-    <div className="space-y-2 border-t pt-3">
-      <h3 className="text-sm font-medium">Booking Contact</h3>
-      
-      {/* Name and Title Row - following MasonForm layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-2">
-        {/* Masonic Title - 2 columns on large screens */}
-        <div className="lg:col-span-2">
-          <Label className="text-sm mb-1">Title *</Label>
-          <select
-            className="w-full h-9 border rounded-md px-3 py-1.5 text-sm"
-            value={primaryAttendee.title || ''}
-            onChange={(e) => handleFieldChangeImmediate('title', e.target.value)}
-          >
-            <option value="">Select</option>
-            {MASON_TITLES.map(title => (
-              <option key={title} value={title}>{title}</option>
-            ))}
-          </select>
-        </div>
-        
-        {/* First Name - 4 columns on large screens */}
-        <div className="lg:col-span-4">
-          <Label className="text-sm mb-1">First Name *</Label>
-          <input
-            type="text"
-            className="w-full h-9 border rounded-md px-3 py-1.5 text-sm"
-            value={primaryAttendee.firstName || ''}
-            onChange={(e) => handleFieldChange('firstName', e.target.value)}
-            required
-          />
-        </div>
-        
-        {/* Last Name - 4 columns on large screens */}
-        <div className="lg:col-span-4">
-          <Label className="text-sm mb-1">Last Name *</Label>
-          <input
-            type="text"
-            className="w-full h-9 border rounded-md px-3 py-1.5 text-sm"
-            value={primaryAttendee.lastName || ''}
-            onChange={(e) => handleFieldChange('lastName', e.target.value)}
-            required
-          />
-        </div>
-        
-        {/* Rank - 2 columns on large screens */}
-        <div className="lg:col-span-2">
-          <Label className="text-sm mb-1">Rank *</Label>
-          <select
-            className="w-full h-9 border rounded-md px-3 py-1.5 text-sm"
-            value={primaryAttendee.rank || ''}
-            onChange={(e) => handleFieldChangeImmediate('rank', e.target.value)}
-          >
-            <option value="">Select</option>
-            {MASON_RANKS.map(rank => (
-              <option key={rank.value} value={rank.value}>{rank.label}</option>
-            ))}
-          </select>
-        </div>
-      </div>
-      
-      {/* Grand Officer Fields - show if rank is GL */}
-      {primaryAttendee.rank === 'GL' && (
-        <GrandOfficerFields
-          data={primaryAttendee}
-          onChange={handleFieldChangeImmediate}
-          required={true}
-        />
-      )}
-      
-      {/* Contact Information */}
-      <ContactInfo
-        data={primaryAttendee}
-        isPrimary={true}
-        onChange={handleFieldChange}
-      />
-    </div>
-  );
-});
-
-BookingContactDetails.displayName = 'BookingContactDetails';

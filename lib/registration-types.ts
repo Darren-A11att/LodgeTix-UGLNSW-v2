@@ -12,7 +12,7 @@ export type PresentGrandOfficerRole =
   | "Grand Director of Ceremonies"
   | "Other"
 
-export type ContactPreference = "" | "directly" | "primaryattendee" | "providelater" | "mason" | "guest"
+export type ContactPreference = "" | "directly" | "primaryattendee" | "providelater" | "mason" | "guest" | "bookingcontact"
 
 export interface BaseAttendee {
   id: string

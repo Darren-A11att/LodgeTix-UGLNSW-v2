@@ -192,8 +192,19 @@ const validateAttendeeData = (attendees: ReturnType<typeof selectAttendees>): st
         type: typeof attendee.grand_lodge_id
       });
       
-      if (!hasGrandLodgeId) errors.push(`${descriptiveLabel}: Grand Lodge is required.`);
-      if (!isNonEmpty(attendee.lodge_id) && !isNonEmpty(attendee.lodgeNameNumber)) errors.push(`${descriptiveLabel}: Lodge is required.`);
+      // For delegation registrations, don't require grand_lodge_id for Masonic Order delegations
+      // and don't require lodge_id at all
+      if (registrationType === 'delegation') {
+        const delegationType = useRegistrationStore.getState().delegationType;
+        if (delegationType === 'grandLodge' && !hasGrandLodgeId) {
+          errors.push(`${descriptiveLabel}: Grand Lodge is required.`);
+        }
+        // Delegation registrations don't require a lodge
+      } else {
+        // For individual and lodge registrations, require both
+        if (!hasGrandLodgeId) errors.push(`${descriptiveLabel}: Grand Lodge is required.`);
+        if (!isNonEmpty(attendee.lodge_id) && !isNonEmpty(attendee.lodgeNameNumber)) errors.push(`${descriptiveLabel}: Lodge is required.`);
+      }
       // There is no membershipNumber field in this application
     } else if (normalizedType === 'LadyPartner' || normalizedType === 'GuestPartner') { // Check if partner
       // Partner specific validation (treat as Guest generally, plus relationship)

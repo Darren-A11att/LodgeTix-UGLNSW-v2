@@ -8,15 +8,23 @@ let cachedEncryptionKey: string | null = null;
 export const getUserEncryptionKey = async (): Promise<string> => {
   if (cachedEncryptionKey) return cachedEncryptionKey;
   
+  // Check if we're in a browser environment
+  if (typeof window === 'undefined') {
+    return 'lodgetix-fallback-key';
+  }
+  
   try {
     const supabase = getBrowserClient();
     const { data: { user } } = await supabase.auth.getUser();
     
     if (!user?.id) {
-      // Fallback to device-specific key
-      return CryptoJS.SHA256(
-        navigator.userAgent + screen.width + screen.height
-      ).toString();
+      // Fallback to device-specific key (only in browser)
+      if (typeof navigator !== 'undefined' && typeof screen !== 'undefined') {
+        return CryptoJS.SHA256(
+          navigator.userAgent + screen.width + screen.height
+        ).toString();
+      }
+      return 'lodgetix-fallback-key';
     }
     
     // Use user ID with app-specific salt
@@ -37,6 +45,11 @@ export const createUserEncryptedStorage = (): StateStorage => {
   return {
     getItem: async (name: string): Promise<string | null> => {
       try {
+        // Check if we're in a browser environment
+        if (typeof window === 'undefined' || typeof localStorage === 'undefined') {
+          return null;
+        }
+        
         const encryptedData = localStorage.getItem(name);
         if (!encryptedData) return null;
         
@@ -59,16 +72,28 @@ export const createUserEncryptedStorage = (): StateStorage => {
     
     setItem: async (name: string, value: string): Promise<void> => {
       try {
+        // Check if we're in a browser environment
+        if (typeof window === 'undefined' || typeof localStorage === 'undefined') {
+          return;
+        }
+        
         const encryptionKey = await getUserEncryptionKey();
         const encrypted = CryptoJS.AES.encrypt(value, encryptionKey).toString();
         localStorage.setItem(name, encrypted);
       } catch (error) {
         console.error('Failed to encrypt storage:', error);
-        localStorage.setItem(name, value); // Fallback
+        // Check again before fallback
+        if (typeof localStorage !== 'undefined') {
+          localStorage.setItem(name, value); // Fallback
+        }
       }
     },
     
     removeItem: (name: string): void => {
+      // Check if we're in a browser environment
+      if (typeof window === 'undefined' || typeof localStorage === 'undefined') {
+        return;
+      }
       localStorage.removeItem(name);
     }
   };
