@@ -26,6 +26,12 @@ const nextConfig = {
   experimental: {
     allowedDevOrigins: ['192.168.20.41', '192.168.20.51'],
   },
+  // Remove console logs in production for security
+  compiler: {
+    removeConsole: process.env.NODE_ENV === 'production' ? {
+      exclude: ['error', 'warn']
+    } : false,
+  },
   // Webpack configuration to handle large strings better
   webpack: (config, { dev, isServer, webpack }) => {
     // Apply optimizations for all client builds
